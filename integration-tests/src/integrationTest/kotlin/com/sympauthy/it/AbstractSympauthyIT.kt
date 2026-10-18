@@ -1,7 +1,8 @@
 package com.sympauthy.it
 
+import com.nimbusds.jose.jwk.JWKSet
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet
 import com.nimbusds.jose.jwk.source.JWKSource
-import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
 import com.nimbusds.jose.util.Base64URL
@@ -9,20 +10,25 @@ import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTProcessor
+import com.sympauthy.api.client.api.Oauth2Api
 import com.sympauthy.api.client.api.OpeniddiscoveryApi
+import com.sympauthy.api.client.model.GetTokensRequestGrantType
+import com.sympauthy.api.client.model.IntrospectionResource
 import com.sympauthy.api.client.model.OpenIdConfigurationResource
+import com.sympauthy.api.client.model.TokenResource
 import com.sympauthy.it.client.BearerTokenHolder
 import com.sympauthy.it.client.FlowStateHolder
 import com.sympauthy.it.client.FlowCall
 import com.sympauthy.it.client.FlowHttpClient
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.client.TokenClient
 import com.sympauthy.testcontainers.client.TokenResponse
 import com.sympauthy.testcontainers.flow.AuthorizationResult
 import com.sympauthy.testcontainers.flow.Credentials
+import com.sympauthy.testcontainers.flow.FlowResult
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import io.micronaut.context.ApplicationContext
+import io.micronaut.http.client.exceptions.HttpClientResponseException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -33,6 +39,7 @@ import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.assertThrows
 
 /**
  * Shared support for the container-starting integration tests: a minimal SympAuthy configuration
@@ -290,6 +297,9 @@ abstract class AbstractSympauthyIT {
      *
      * Obtain the typed API beans inside the block, e.g. `ctx.getBean(AdminApi::class.java)`; their methods
      * return `reactor.core.publisher.Mono`, so call `.block()` to get the deserialized resource.
+     *
+     * The client's JSON codec also reads [JWK_SET_MEDIA_TYPE], the type the key set is answered with
+     * first: the codec reads only `application/json` unless told otherwise.
      */
     protected fun <T> withApiClient(
         sympauthy: SympauthyContainer,
@@ -297,7 +307,10 @@ abstract class AbstractSympauthyIT {
         state: String? = null,
         block: (ApplicationContext) -> T,
     ): T = ApplicationContext.run(
-        mapOf("micronaut.http.services.sympauthy.url" to sympauthy.baseUrl),
+        mapOf(
+            "micronaut.http.services.sympauthy.url" to sympauthy.baseUrl,
+            "micronaut.codec.json.additional-types" to listOf(JWK_SET_MEDIA_TYPE),
+        ),
     ).use { ctx ->
         ctx.getBean(BearerTokenHolder::class.java).token = token
         ctx.getBean(FlowStateHolder::class.java).state = state
@@ -306,8 +319,8 @@ abstract class AbstractSympauthyIT {
 
     /**
      * Runs [block] with a [FlowHttpClient] bound to [sympauthy] that does **not** follow redirects, so a
-     * scenario can read the `/authorize` `303` `Location` (which carries the signed internal state) and
-     * drive the state-secured flow endpoints (`/api/v1/flow/cancel`). The hosting context is closed on exit.
+     * scenario can read the `/authorize` `303` `Location`, which carries the signed internal state the
+     * generated client then drives the flow with. The hosting context is closed on exit.
      */
     protected fun <T> withFlowClient(
         sympauthy: SympauthyContainer,
@@ -358,6 +371,25 @@ abstract class AbstractSympauthyIT {
     /** The code [result] captured at the client callback, or a failure saying it carried none. */
     protected fun requireCode(result: AuthorizationResult): String =
         checkNotNull(result.code()) { "expected an authorization code from sign-up" }
+
+    /**
+     * Signs a person up through [registry]'s flow from the authorization request [authorizeUrl] builds
+     * for [pkce], for a scenario that will present the verifier of that pair at the token endpoint
+     * itself. The code the sign-up yields is the result's `code` parameter.
+     */
+    protected fun signUpWithPkce(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        pkce: Pkce,
+    ): FlowResult {
+        val authorize = httpGet(authorizeUrl(sympauthy, registry, pkce))
+        assertEquals(303, authorize.statusCode(), "authorize should redirect to the first step")
+        val firstStep = authorize.headers().firstValue("Location").orElseGet { error("authorize 303 had no Location") }
+        return registry.newFlow()
+            .withSignUpHandler { credentials() }
+            .driveFrom(firstStep, registry.redirectUri(), registry.redirectUri())
+            .drive()
+    }
 
     /** The id token of a complete sign-in with [login], as the server signed it. */
     protected fun signIn(
@@ -412,32 +444,56 @@ abstract class AbstractSympauthyIT {
         }
 
     /**
-     * Mints a `client_credentials` access token for [registry]'s (confidential) client carrying [scopes],
-     * via the library's [TokenClient]. Used to authenticate a client against the client-API endpoints.
+     * Mints a `client_credentials` access token carrying [scopes] through the generated client, for the
+     * confidential client [clientId] sending [clientSecret] in the body. A refusal throws.
+     */
+    protected fun clientCredentialsToken(
+        sympauthy: SympauthyContainer,
+        clientId: String,
+        clientSecret: String,
+        vararg scopes: String,
+    ): String = withApiClient(sympauthy) { ctx ->
+        ctx.getBean(Oauth2Api::class.java).getTokens(
+            grantType = GetTokensRequestGrantType.CLIENT_CREDENTIALS,
+            scope = scopes.joinToString(" ").ifEmpty { null },
+            clientId = clientId,
+            clientSecret = clientSecret,
+        ).block()
+    }?.accessToken ?: error("the client_credentials grant answered an empty body")
+
+    /**
+     * [clientCredentialsToken] for [registry]'s own client, which has to be a confidential one. Used to
+     * authenticate a client against the client-API endpoints.
      */
     protected fun clientCredentialsToken(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         vararg scopes: String,
-    ): String = TokenClient(discovery(sympauthy).tokenEndpoint, HttpClient.newHttpClient(), registry.client())
-        .clientCredentials(*scopes)
-        .accessToken()
+    ): String = clientCredentialsToken(sympauthy, registry.clientId(), requireSecret(registry), *scopes)
 
     /**
-     * Verifies [idToken] is genuinely signed by the key set [sympauthy] advertises at its `jwks_uri`,
-     * returning the validated claims. Throws if the signature does not verify against the JWKS.
+     * Verifies [idToken] is genuinely signed by the key set [sympauthy] publishes, returning the validated
+     * claims. Throws if the signature does not verify against that key set.
      */
     protected fun verifyIdTokenSignature(sympauthy: SympauthyContainer, idToken: String): JWTClaimsSet {
-        val jwksUri = discovery(sympauthy).jwksUri
         val signedJwt = SignedJWT.parse(idToken)
-        val jwkSource = jwkSources.computeIfAbsent(jwksUri) {
-            JWKSourceBuilder.create<SecurityContext>(URI.create(it).toURL()).build()
-        }
         val processor = DefaultJWTProcessor<SecurityContext>().apply {
-            jwsKeySelector = JWSVerificationKeySelector(signedJwt.header.algorithm, jwkSource)
+            jwsKeySelector = JWSVerificationKeySelector(signedJwt.header.algorithm, publicKeySet(sympauthy))
         }
         return processor.process(signedJwt, null)
     }
+
+    /**
+     * The key set [sympauthy] publishes, read through the generated client and then held, for the reason
+     * [discovery] holds the discovery document.
+     */
+    private fun publicKeySet(sympauthy: SympauthyContainer): JWKSource<SecurityContext> =
+        publicKeySets.computeIfAbsent(sympauthy.baseUrl) {
+            val keySet = withApiClient(sympauthy) { ctx ->
+                ctx.getBean(OpeniddiscoveryApi::class.java).getPublicKey().block()
+            } ?: error("the key set endpoint returned an empty body")
+            ImmutableJWKSet(JWKSet.parse(keySet))
+        }
 
     /**
      * The `at_hash` an id token must carry for [accessToken] — the left half of its SHA-256 digest,
@@ -536,44 +592,90 @@ abstract class AbstractSympauthyIT {
     }
 
     /**
-     * Presents [refreshToken] at the token endpoint as [registry]'s confidential client, and answers the
-     * parsed success body. That the grant succeeded is asserted here, there being nothing to read off a
-     * refusal.
+     * Presents [refreshToken] at the token endpoint through the generated client, as [registry]'s client
+     * with its credentials in the body — `client_id` alone for a public one — and answers the tokens
+     * issued. A refusal throws, there being nothing to read off one.
      */
     protected fun refresh(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         refreshToken: String,
-    ): Map<String, Any> {
-        val response = httpPostForm(
-            discovery(sympauthy).tokenEndpoint,
-            mapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken),
-            basicAuth(registry),
-        )
-        assertEquals(200, response.statusCode(), "the refresh grant should succeed, body=${response.body()}")
-        return JSONObjectUtils.parse(response.body())
-    }
+    ): TokenResource = withApiClient(sympauthy) { ctx ->
+        ctx.getBean(Oauth2Api::class.java).refresh(registry, refreshToken).block()
+    } ?: error("the refresh grant answered an empty body")
 
     /**
-     * Introspects [token] as the client [auth] authenticates, and answers the parsed response. That the
-     * endpoint answered at all is asserted here; whether the token is active is read off `active`, which
-     * RFC 7662 makes the only member an inactive response carries.
+     * Presents [refreshToken] as [refresh] does, and asserts the token endpoint refuses it with HTTP
+     * [status] and [error], reporting [message] when it does not.
+     */
+    protected fun assertRefreshRefused(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        refreshToken: String,
+        status: Int,
+        error: String,
+        message: String,
+    ) {
+        withApiClient(sympauthy) { ctx ->
+            val refusal = assertThrows<HttpClientResponseException>(message) {
+                ctx.getBean(Oauth2Api::class.java).refresh(registry, refreshToken).block()
+            }
+            assertOAuthError(refusal, status, error, message)
+        }
+    }
+
+    /** The refresh grant for [refreshToken], as [registry]'s client with its credentials in the body. */
+    private fun Oauth2Api.refresh(registry: InteractiveFlowRegistry, refreshToken: String) = getTokens(
+        grantType = GetTokensRequestGrantType.REFRESH_TOKEN,
+        refreshToken = refreshToken,
+        clientId = registry.clientId(),
+        clientSecret = registry.clientSecret(),
+    )
+
+    /**
+     * Introspects [token] through the generated client, as the client [clientId] sending [clientSecret] in
+     * the body. Whether the token is active is read off `active`, which RFC 7662 makes the only member an
+     * inactive response carries.
      */
     protected fun introspect(
         sympauthy: SympauthyContainer,
         token: String,
-        auth: Map<String, String>,
-    ): Map<String, Any> {
-        val response = httpPostForm(
-            checkNotNull(discovery(sympauthy).introspectionEndpoint) {
-                "the deployment publishes no introspection endpoint"
-            },
-            mapOf("token" to token),
-            auth,
-        )
-        assertEquals(200, response.statusCode(), "introspection should answer, body=${response.body()}")
-        return JSONObjectUtils.parse(response.body())
+        clientId: String,
+        clientSecret: String,
+    ): IntrospectionResource = withApiClient(sympauthy) { ctx ->
+        ctx.getBean(Oauth2Api::class.java)
+            .introspectToken(token = token, clientId = clientId, clientSecret = clientSecret)
+            .block()
+    } ?: error("introspection answered an empty body")
+
+    /** [introspect] as [registry]'s own client, which has to be a confidential one. */
+    protected fun introspect(
+        sympauthy: SympauthyContainer,
+        token: String,
+        registry: InteractiveFlowRegistry,
+    ): IntrospectionResource = introspect(sympauthy, token, registry.clientId(), requireSecret(registry))
+
+    /**
+     * Revokes [token] through the generated client, as the client [clientId] sending [clientSecret] in the
+     * body, or `client_id` alone when it is null. A refusal throws; RFC 7009 answers every other outcome
+     * alike, so there is nothing to read off the response.
+     */
+    protected fun revoke(
+        sympauthy: SympauthyContainer,
+        token: String,
+        clientId: String,
+        clientSecret: String?,
+    ) {
+        withApiClient(sympauthy) { ctx ->
+            ctx.getBean(Oauth2Api::class.java)
+                .revokeToken(token = token, clientId = clientId, clientSecret = clientSecret)
+                .block()
+        }
     }
+
+    /** [revoke] as [registry]'s own client. */
+    protected fun revoke(sympauthy: SympauthyContainer, token: String, registry: InteractiveFlowRegistry) =
+        revoke(sympauthy, token, registry.clientId(), registry.clientSecret())
 
     /**
      * Asserts [response] refused with HTTP [status] and that its `error` is exactly [error], the
@@ -587,14 +689,18 @@ abstract class AbstractSympauthyIT {
         status: Int,
         error: String,
         message: String,
-    ) {
-        assertEquals(status, response.statusCode(), "$message, body=${response.body()}")
-        assertEquals(
-            error,
-            JSONObjectUtils.parse(response.body())["error"],
-            "$message — the refusal should name $error, body=${response.body()}",
-        )
-    }
+    ) = assertRefusal(response.statusCode(), response.body(), "error", status, error, message)
+
+    /**
+     * [assertOAuthError] for a refusal the generated client threw. Call it inside the client block that
+     * made the request: the response buffer is released when the context closes.
+     */
+    protected fun assertOAuthError(
+        refusal: HttpClientResponseException,
+        status: Int,
+        error: String,
+        message: String,
+    ) = assertRefusal(refusal.status.code, bodyOf(refusal), "error", status, error, message)
 
     /**
      * Asserts [response] refused with HTTP [status] in the ordinary error body, and that its
@@ -607,14 +713,41 @@ abstract class AbstractSympauthyIT {
         status: Int,
         errorCode: String,
         message: String,
+    ) = assertRefusal(response.statusCode(), response.body(), "error_code", status, errorCode, message)
+
+    /**
+     * [assertError] for a refusal the generated client threw. Call it inside the client block that made
+     * the request: the response buffer is released when the context closes.
+     */
+    protected fun assertError(
+        refusal: HttpClientResponseException,
+        status: Int,
+        errorCode: String,
+        message: String,
+    ) = assertRefusal(refusal.status.code, bodyOf(refusal), "error_code", status, errorCode, message)
+
+    /**
+     * Asserts a refusal answered [actualStatus] equal to [status] and carries [code] in the member [codeMember]
+     * of [body], reporting [message] when it does not.
+     */
+    private fun assertRefusal(
+        actualStatus: Int,
+        body: String,
+        codeMember: String,
+        status: Int,
+        code: String,
+        message: String,
     ) {
-        assertEquals(status, response.statusCode(), "$message, body=${response.body()}")
+        assertEquals(status, actualStatus, "$message, body=$body")
         assertEquals(
-            errorCode,
-            JSONObjectUtils.parse(response.body())["error_code"],
-            "$message — the refusal should name $errorCode, body=${response.body()}",
+            code,
+            JSONObjectUtils.parse(body)[codeMember],
+            "$message — the refusal should name $code, body=$body",
         )
     }
+
+    private fun bodyOf(refusal: HttpClientResponseException): String =
+        refusal.response.getBody(String::class.java).orElse("")
 
     /** The `Authorization: Basic` header authenticating the confidential client [clientId] with [secret]. */
     protected fun basicAuth(clientId: String, secret: String): Map<String, String> = mapOf(
@@ -626,10 +759,12 @@ abstract class AbstractSympauthyIT {
      * [basicAuth] for [registry]'s own client, which has to be a confidential one — a public client holds
      * no secret to authenticate with.
      */
-    protected fun basicAuth(registry: InteractiveFlowRegistry): Map<String, String> = basicAuth(
-        registry.clientId(),
-        checkNotNull(registry.clientSecret()) { "a public client has no secret to authenticate with" },
-    )
+    protected fun basicAuth(registry: InteractiveFlowRegistry): Map<String, String> =
+        basicAuth(registry.clientId(), requireSecret(registry))
+
+    /** The secret of [registry]'s client, or a failure saying a public client holds none. */
+    private fun requireSecret(registry: InteractiveFlowRegistry): String =
+        checkNotNull(registry.clientSecret()) { "a public client has no secret to authenticate with" }
 
     /**
      * An HTTP client that does not follow redirects, so a `303` is an outcome a scenario can assert on
@@ -677,7 +812,7 @@ abstract class AbstractSympauthyIT {
 
     private val discoveryDocuments = ConcurrentHashMap<String, OpenIdConfigurationResource>()
 
-    private val jwkSources = ConcurrentHashMap<String, JWKSource<SecurityContext>>()
+    private val publicKeySets = ConcurrentHashMap<String, JWKSource<SecurityContext>>()
 
     companion object {
 
@@ -693,5 +828,8 @@ abstract class AbstractSympauthyIT {
 
         /** The `state` [authorizeUrl] sends, which the server echoes back on the redirect it ends at. */
         const val CLIENT_STATE = "integration-test-state"
+
+        /** The media type of a JSON Web Key Set, RFC 7517 §8.5. */
+        private const val JWK_SET_MEDIA_TYPE = "application/jwk-set+json"
     }
 }

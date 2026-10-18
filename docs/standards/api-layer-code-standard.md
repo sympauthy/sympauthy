@@ -96,6 +96,15 @@ type, whether it is required and its format are inferred from the Kotlin.
 serialization the Kotlin no longer says. A collection's criteria and the fields a client filters on
 are read off the request, so the operation is the only place they are declared.
 
+**A form field is documented with `@Schema` on its argument, and named there a second time.** It is
+a property of the request body rather than a parameter, so `@Part` is what the server binds and the
+schema's name is what the generated document says — the pair [a resource](#the-resource) writes for
+a wire name.
+
+**A form field is bound even where nothing reads it.** An operation's parameters cannot hold one, so
+a field the specification defines and this server ignores is an argument carrying its documentation
+and nothing else.
+
 **A description every surface would write the same way is a constant, named for what it
 describes.** The paging pair, `sort` and `q` mean one thing wherever they are bound, and a
 controller appends what is particular to its own collection rather than restating them.

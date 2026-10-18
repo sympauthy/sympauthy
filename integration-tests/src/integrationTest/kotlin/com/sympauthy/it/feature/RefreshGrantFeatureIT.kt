@@ -1,6 +1,5 @@
 package com.sympauthy.it.feature
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
@@ -36,10 +35,10 @@ class RefreshGrantFeatureIT : AbstractSympauthyIT() {
             val idToken = requireIdToken(tokens.idToken())
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
 
-            val body = refresh(sympauthy, registry, refreshToken)
-            val refreshedAccessToken = JSONObjectUtils.getString(body, "access_token")
-            val refreshedIdToken = checkNotNull(JSONObjectUtils.getString(body, "id_token")) {
-                "the refresh response should carry an id_token, was: $body"
+            val refreshed = refresh(sympauthy, registry, refreshToken)
+            val refreshedAccessToken = refreshed.accessToken
+            val refreshedIdToken = checkNotNull(refreshed.idToken) {
+                "the refresh response should carry an id_token, was: $refreshed"
             }
             assertNotEquals(idToken, refreshedIdToken, "the refresh grant should issue a new id_token")
 

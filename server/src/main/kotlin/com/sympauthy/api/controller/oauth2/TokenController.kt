@@ -39,7 +39,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
@@ -65,99 +64,6 @@ class TokenController(
             "HTTP Basic authentication or with `client_id` and `client_secret` in the body. A request carrying " +
             "a DPoP proof in the `DPoP` header, RFC 9449 §4, is issued tokens bound to the key of that proof.",
         tags = ["oauth2"],
-        parameters = [
-            Parameter(
-                name = "grant_type",
-                description = "Grant the client presents, OAuth 2.1 §3.2.2.",
-                schema = Schema(
-                    type = "string",
-                    allowableValues = [
-                        "authorization_code",
-                        "refresh_token",
-                        "client_credentials",
-                        "urn:ietf:params:oauth:grant-type:token-exchange"
-                    ]
-                )
-            ),
-            Parameter(
-                name = "subject_token",
-                description = "Access token the client itself obtained with the `client_credentials` grant, " +
-                    "RFC 8693 §2.1. The issued token names the client as its actor. Required for the token " +
-                    "exchange grant.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "subject_token_type",
-                description = "Type of `subject_token`, RFC 8693 §2.1. Required for the token exchange grant.",
-                schema = Schema(
-                    type = "string",
-                    allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
-                )
-            ),
-            Parameter(
-                name = "requested_subject",
-                description = "Identifier of the user the client acts for. Required for the token exchange grant.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "requested_token_type",
-                description = "Type of the token the client asks for, RFC 8693 §2.1. Read on the token exchange " +
-                    "grant. When absent, an access token.",
-                schema = Schema(
-                    type = "string",
-                    allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
-                )
-            ),
-            Parameter(
-                name = "resource",
-                description = "URL where the client intends to use the token, RFC 8693 §2.1. Not supported: a " +
-                    "token exchange request carrying it is refused.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "audience",
-                description = "Audience the token is for, RFC 8693 §2.1, matched against the token audience or " +
-                    "the identifier of a configured audience. Read on the token exchange grant. When absent, " +
-                    "the audience the client belongs to.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "code",
-                description = "Authorization code the browser brought back to the `redirect_uri` of the " +
-                    "authorization request. It is exchanged once: a later exchange is refused, and one passing " +
-                    "every other check also revokes every token issued for the code, refreshed ones included. " +
-                    "Required for the `authorization_code` grant.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "refresh_token",
-                description = "Refresh token to exchange. Required for the `refresh_token` grant.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "scope",
-                description = "Scopes the client asks for, separated by spaces. Read on the `client_credentials` " +
-                    "grant. When absent, the access token carries no scope.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "client_id",
-                description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone, on the " +
-                    "`authorization_code` and `refresh_token` grants.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "client_secret",
-                description = CLIENT_SECRET_PARAMETER_DESCRIPTION,
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "code_verifier",
-                description = "PKCE code verifier the `code_challenge` of the authorization request was derived " +
-                    "from, RFC 7636 §4.5. Required for the `authorization_code` grant.",
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -212,19 +118,101 @@ class TokenController(
     @Post(consumes = [APPLICATION_FORM_URLENCODED])
     suspend fun getTokens(
         request: HttpRequest<*>,
-        @Part(GRANT_TYPE_PARAM) grantType: String?,
-        @Part(CODE_PARAM) code: String?,
-        @Part(REFRESH_TOKEN_PARAM) refreshToken: String?,
-        @Part("scope") scope: String?,
-        @Part("client_id") clientId: String?,
-        @Part("client_secret") clientSecret: String?,
-        @Part("code_verifier") codeVerifier: String?,
-        @Part(SUBJECT_TOKEN_PARAM) subjectToken: String? = null,
-        @Part(SUBJECT_TOKEN_TYPE_PARAM) subjectTokenType: String? = null,
-        @Part(REQUESTED_SUBJECT_PARAM) requestedSubject: String? = null,
-        @Part("requested_token_type") requestedTokenType: String? = null,
-        @Part("resource") resource: String? = null,
-        @Part("audience") audience: String? = null,
+        @Part(GRANT_TYPE_PARAM)
+        @Schema(
+            name = GRANT_TYPE_PARAM,
+            description = "Grant the client presents, OAuth 2.1 §3.2.2.",
+            allowableValues = [
+                "authorization_code",
+                "refresh_token",
+                "client_credentials",
+                "urn:ietf:params:oauth:grant-type:token-exchange"
+            ]
+        )
+        grantType: String?,
+        @Part(CODE_PARAM)
+        @Schema(
+            name = CODE_PARAM,
+            description = "Authorization code the browser brought back to the `redirect_uri` of the " +
+                "authorization request. It is exchanged once: a later exchange is refused, and one passing " +
+                "every other check also revokes every token issued for the code, refreshed ones included. " +
+                "Required for the `authorization_code` grant."
+        )
+        code: String?,
+        @Part(REFRESH_TOKEN_PARAM)
+        @Schema(
+            name = REFRESH_TOKEN_PARAM,
+            description = "Refresh token to exchange. Required for the `refresh_token` grant."
+        )
+        refreshToken: String?,
+        @Part("scope")
+        @Schema(
+            name = "scope",
+            description = "Scopes the client asks for, separated by spaces. Read on the `client_credentials` " +
+                "grant. When absent, the access token carries no scope."
+        )
+        scope: String?,
+        @Part("client_id")
+        @Schema(
+            name = "client_id",
+            description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone, on the " +
+                "`authorization_code` and `refresh_token` grants."
+        )
+        clientId: String?,
+        @Part("client_secret")
+        @Schema(name = "client_secret", description = CLIENT_SECRET_PARAMETER_DESCRIPTION)
+        clientSecret: String?,
+        @Part("code_verifier")
+        @Schema(
+            name = "code_verifier",
+            description = "PKCE code verifier the `code_challenge` of the authorization request was derived " +
+                "from, RFC 7636 §4.5. Required for the `authorization_code` grant."
+        )
+        codeVerifier: String?,
+        @Part(SUBJECT_TOKEN_PARAM)
+        @Schema(
+            name = SUBJECT_TOKEN_PARAM,
+            description = "Access token the client itself obtained with the `client_credentials` grant, " +
+                "RFC 8693 §2.1. The issued token names the client as its actor. Required for the token " +
+                "exchange grant."
+        )
+        subjectToken: String? = null,
+        @Part(SUBJECT_TOKEN_TYPE_PARAM)
+        @Schema(
+            name = SUBJECT_TOKEN_TYPE_PARAM,
+            description = "Type of `subject_token`, RFC 8693 §2.1. Required for the token exchange grant.",
+            allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
+        )
+        subjectTokenType: String? = null,
+        @Part(REQUESTED_SUBJECT_PARAM)
+        @Schema(
+            name = REQUESTED_SUBJECT_PARAM,
+            description = "Identifier of the user the client acts for. Required for the token exchange grant."
+        )
+        requestedSubject: String? = null,
+        @Part("requested_token_type")
+        @Schema(
+            name = "requested_token_type",
+            description = "Type of the token the client asks for, RFC 8693 §2.1. Read on the token exchange " +
+                "grant. When absent, an access token.",
+            allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
+        )
+        requestedTokenType: String? = null,
+        @Part("resource")
+        @Schema(
+            name = "resource",
+            description = "URL where the client intends to use the token, RFC 8693 §2.1. Not supported: a " +
+                "token exchange request carrying it is refused."
+        )
+        resource: String? = null,
+        @Part("audience")
+        @Schema(
+            name = "audience",
+            description = "Audience the token is for, RFC 8693 §2.1, matched against the token audience or " +
+                "the identifier of a configured audience. Read on the token exchange grant. When absent, " +
+                "the audience the client belongs to."
+        )
+        audience: String? = null,
     ): TokenResource {
         // Validate DPoP proof if present, enforce if required by config
         val dpopProof = dpopManager.validateDpopProof(

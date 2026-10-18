@@ -133,8 +133,10 @@ endpoint already covered.
 **A class says what it is protecting, and cites it.** Name the RFC section or the issue in its own
 documentation.
 
-**Drive the server through the generated client.** Keep raw HTTP for what the typed client cannot
-express — a malformed or forged request, an assertion about a redirect or a header.
+**Drive the server through the generated client.** A call through it proves the published document
+describes the request as the endpoint reads it, which a request built by hand never does. Keep raw
+HTTP for what the typed client cannot express — a malformed or forged request, an assertion about a
+redirect or a header.
 
 **A rejected call is inspected inside the client block.** The response buffer is released when the
 context closes.

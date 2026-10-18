@@ -1,5 +1,6 @@
 package com.sympauthy.it.security
 
+import com.sympauthy.api.client.api.FlowApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -34,33 +35,32 @@ class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun cancellingAuthorizationReturnsAccessDenied(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            withFlowClient(sympauthy) { flow ->
+            val internalState = withFlowClient(sympauthy) { flow ->
                 val authorize = flow.get(authorizeUrl(sympauthy, registry))
                 assertEquals(303, authorize.status, "authorize should redirect to the first flow step")
-                val internalState = internalState(authorize)
-
-                val cancel = flow.cancel(internalState)
-                assertEquals(200, cancel.status, "cancel should succeed, body=${cancel.body}")
-                val redirect = cancel.fields["redirect_url"]
-                    ?: error("cancel response had no redirect_url: ${cancel.body}")
-
-                assertTrue(
-                    redirect.startsWith(registry.redirectUri()),
-                    "cancel should redirect to the client redirect_uri, was: $redirect",
-                )
-                assertEquals(
-                    "access_denied", queryParam(redirect, "error"),
-                    "a cancelled authorization must return error=access_denied, was: $redirect",
-                )
-                assertEquals(
-                    CLIENT_STATE, queryParam(redirect, "state"),
-                    "the client state must be echoed back, was: $redirect",
-                )
-                assertNull(
-                    queryParam(redirect, "code"),
-                    "a cancelled authorization must not mint an authorization code, was: $redirect",
-                )
+                internalState(authorize)
             }
+
+            val redirect = withApiClient(sympauthy, state = internalState) { ctx ->
+                ctx.getBean(FlowApi::class.java).cancel().block()
+            }?.redirectUrl ?: error("the cancel answered an empty body")
+
+            assertTrue(
+                redirect.startsWith(registry.redirectUri()),
+                "cancel should redirect to the client redirect_uri, was: $redirect",
+            )
+            assertEquals(
+                "access_denied", queryParam(redirect, "error"),
+                "a cancelled authorization must return error=access_denied, was: $redirect",
+            )
+            assertEquals(
+                CLIENT_STATE, queryParam(redirect, "state"),
+                "the client state must be echoed back, was: $redirect",
+            )
+            assertNull(
+                queryParam(redirect, "code"),
+                "a cancelled authorization must not mint an authorization code, was: $redirect",
+            )
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.sympauthy.it.feature
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -110,7 +109,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
                 "refresh-enabled should yield a refresh token"
             }
             val refreshed = refresh(sympauthy, registry, refreshToken)
-            val refreshedIdToken = requireNotNull(JSONObjectUtils.getString(refreshed, "id_token")) {
+            val refreshedIdToken = requireNotNull(refreshed.idToken) {
                 "the refresh response should carry an id_token, body=$refreshed"
             }
             val refreshedClaims = verifyIdTokenSignature(sympauthy, refreshedIdToken)

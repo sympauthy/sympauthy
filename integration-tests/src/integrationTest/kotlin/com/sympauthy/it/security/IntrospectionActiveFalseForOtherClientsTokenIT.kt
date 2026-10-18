@@ -44,18 +44,14 @@ class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
             val tokens = signUpAndExchange(registry)
             val foreignAccessToken = checkNotNull(tokens.accessToken()) { "expected an access token from exchange" }
 
-            val introspection = introspect(
-                sympauthy,
-                foreignAccessToken,
-                basicAuth(OTHER_CLIENT_ID, OTHER_CLIENT_SECRET),
-            )
+            val introspection = introspect(sympauthy, foreignAccessToken, OTHER_CLIENT_ID, OTHER_CLIENT_SECRET)
 
             assertEquals(
-                false, introspection["active"],
+                false, introspection.active,
                 "a foreign client's token must introspect as inactive, was: $introspection",
             )
             assertTrue(
-                !introspection.containsKey("sub") && !introspection.containsKey("scope"),
+                introspection.sub == null && introspection.scope == null,
                 "an inactive introspection response must not leak token metadata, was: $introspection",
             )
         }

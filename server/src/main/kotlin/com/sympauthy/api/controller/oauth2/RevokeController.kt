@@ -20,7 +20,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
@@ -38,29 +37,6 @@ class RevokeController(
             "access token or a refresh token: every token issued for the same authorization, and every token " +
             "a token exchange obtained from one of them.",
         tags = ["oauth2"],
-        parameters = [
-            Parameter(
-                name = TOKEN_PARAM,
-                description = "Access token or refresh token to revoke, RFC 7009 §2.1.",
-                schema = Schema(type = "string"),
-                required = true
-            ),
-            Parameter(
-                name = TOKEN_TYPE_HINT_PARAM,
-                description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
-                schema = Schema(type = "string", allowableValues = ["access_token", "refresh_token"])
-            ),
-            Parameter(
-                name = "client_id",
-                description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone.",
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "client_secret",
-                description = CLIENT_SECRET_PARAMETER_DESCRIPTION,
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -89,9 +65,29 @@ class RevokeController(
     @Post(consumes = [APPLICATION_FORM_URLENCODED])
     suspend fun revokeToken(
         request: HttpRequest<*>,
-        @Part(TOKEN_PARAM) token: String?,
-        @Part("client_id") clientId: String?,
-        @Part("client_secret") clientSecret: String?,
+        @Part(TOKEN_PARAM)
+        @Schema(
+            name = TOKEN_PARAM,
+            description = "Access token or refresh token to revoke, RFC 7009 §2.1.",
+            requiredMode = Schema.RequiredMode.REQUIRED
+        )
+        token: String?,
+        @Part(TOKEN_TYPE_HINT_PARAM)
+        @Schema(
+            name = TOKEN_TYPE_HINT_PARAM,
+            description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
+            allowableValues = ["access_token", "refresh_token"]
+        )
+        tokenTypeHint: String? = null,
+        @Part("client_id")
+        @Schema(
+            name = "client_id",
+            description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone."
+        )
+        clientId: String?,
+        @Part("client_secret")
+        @Schema(name = "client_secret", description = CLIENT_SECRET_PARAMETER_DESCRIPTION)
+        clientSecret: String?,
     ): HttpResponse<Unit> {
         val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
         if (token.isNullOrBlank()) {
