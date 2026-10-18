@@ -34,8 +34,9 @@ class RevokeController(
     @Operation(
         description = "Revoke a token issued to the client, RFC 7009 §2. A confidential client authenticates with " +
             "HTTP Basic authentication or with `client_id` and `client_secret` in the body, and a public client " +
-            "sends `client_id` alone. Revoking a refresh token also revokes every token issued for the same " +
-            "authorization, and revoking a token revokes every token a token exchange obtained from it.",
+            "sends `client_id` alone. Revoking a token revokes the grant it was issued under, whether it is an " +
+            "access token or a refresh token: every token issued for the same authorization, and every token " +
+            "a token exchange obtained from one of them.",
         tags = ["oauth2"],
         parameters = [
             Parameter(

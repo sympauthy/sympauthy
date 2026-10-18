@@ -52,6 +52,7 @@ class IntrospectionControllerTest {
             idExpiration = java.time.Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
+            grantExpiration = null,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(
@@ -167,13 +168,15 @@ class IntrospectionControllerTest {
         expirationDate: LocalDateTime?
     ): AuthenticationToken = mockk {
         every { id } returns tokenId
-        every { clientId } returns "test-client"
-        every { this@mockk.userId } returns userId
-        every { allScopes } returns listOf("openid", CONSENTED_SCOPE)
-        every { consentedScopes } returns listOf(CONSENTED_SCOPE)
-        every { clientScopes } returns emptyList()
+        every { grant } returns mockk {
+            every { clientId } returns "test-client"
+            every { this@mockk.userId } returns userId
+            every { allScopes } returns listOf("openid", CONSENTED_SCOPE)
+            every { consentedScopes } returns listOf(CONSENTED_SCOPE)
+            every { clientScopes } returns emptyList()
+            every { this@mockk.authenticationDate } returns authenticationDate
+        }
         every { dpopJkt } returns null
-        every { this@mockk.authenticationDate } returns authenticationDate
         every { this@mockk.issueDate } returns issueDate
         every { this@mockk.expirationDate } returns expirationDate
     }
@@ -291,11 +294,13 @@ class IntrospectionControllerTest {
         val client = mockClientWithTokenAudience()
         val token = mockk<AuthenticationToken> {
             every { id } returns UUID.randomUUID()
-            every { clientId } returns "test-client"
-            every { userId } returns null
-            every { allScopes } returns emptyList()
+            every { grant } returns mockk {
+                every { clientId } returns "test-client"
+                every { userId } returns null
+                every { allScopes } returns emptyList()
+                every { authenticationDate } returns null
+            }
             every { dpopJkt } returns "some-thumbprint"
-            every { authenticationDate } returns null
             every { issueDate } returns LocalDateTime.of(2025, 1, 1, 0, 0, 0)
             every { expirationDate } returns null
         }
@@ -320,11 +325,13 @@ class IntrospectionControllerTest {
         val client = mockClientWithTokenAudience()
         val token = mockk<AuthenticationToken> {
             every { id } returns UUID.randomUUID()
-            every { clientId } returns "test-client"
-            every { userId } returns null
-            every { allScopes } returns listOf("read")
+            every { grant } returns mockk {
+                every { clientId } returns "test-client"
+                every { userId } returns null
+                every { allScopes } returns listOf("read")
+                every { authenticationDate } returns null
+            }
             every { dpopJkt } returns null
-            every { authenticationDate } returns null
             every { issueDate } returns LocalDateTime.of(2025, 1, 1, 0, 0, 0)
             every { expirationDate } returns null
         }

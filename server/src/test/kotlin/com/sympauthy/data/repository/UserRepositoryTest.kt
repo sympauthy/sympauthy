@@ -181,6 +181,19 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `findAbandoned - Skips an account a grant names`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val session = newSession()
+            val userId = newUser(status = status, sessionId = session.id)
+            newGrant(userId)
+            repository<InteractiveFlowSessionRepository>().deleteByIds(listOf(session.id!!))
+
+            assertTrue(!users.findAbandoned().map { it.id!! }.contains(userId))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `clearSessionId - Promotes that account of that session and no other`(database: Database) =
         withFixture(database) {
             val users = repository<UserRepository>()

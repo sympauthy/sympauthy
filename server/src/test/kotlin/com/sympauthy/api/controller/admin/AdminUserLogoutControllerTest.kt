@@ -2,11 +2,12 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.user.User
 import com.sympauthy.security.UserAuthentication
 import io.micronaut.http.HttpStatus
@@ -34,7 +35,7 @@ class AdminUserLogoutControllerTest {
     lateinit var clientManager: ClientManager
 
     @MockK
-    lateinit var tokenManager: TokenManager
+    lateinit var grantManager: GrantManager
 
     @InjectMockKs
     lateinit var controller: AdminUserLogoutController
@@ -45,21 +46,23 @@ class AdminUserLogoutControllerTest {
 
     private fun mockAdminAuthentication(): UserAuthentication = mockk {
         every { authenticationToken } returns mockk<AuthenticationToken> token@{
-            every { this@token.userId } returns adminId
+            every { grant } returns mockk<Grant> grant@{
+                every { this@grant.userId } returns adminId
+            }
         }
     }
 
     @Test
-    fun `forceLogout - Revokes all user tokens and returns count`() = runTest {
+    fun `forceLogout - Revokes all user grants and returns count`() = runTest {
         val authentication = mockAdminAuthentication()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { tokenManager.revokeTokensByUser(userId, TokenRevokedBy.ADMIN, adminId) } returns 5
+        coEvery { grantManager.revokeGrantsByUser(userId, GrantRevokedBy.ADMIN, adminId) } returns 5
 
         val result = controller.forceLogout(userId, authentication)
 
         assertEquals(userId, result.userId)
         assertNull(result.clientId)
-        assertEquals(5, result.tokensRevoked)
+        assertEquals(5, result.grantsRevoked)
     }
 
     @Test
@@ -75,17 +78,17 @@ class AdminUserLogoutControllerTest {
     }
 
     @Test
-    fun `forceClientLogout - Revokes all tokens for user+client and returns count`() = runTest {
+    fun `forceClientLogout - Revokes all grants for user+client and returns count`() = runTest {
         val authentication = mockAdminAuthentication()
         coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
         coEvery { clientManager.findClientByIdOrNull(clientId) } returns mockk<Client>()
-        coEvery { tokenManager.revokeTokensByUserAndClient(userId, clientId, TokenRevokedBy.ADMIN, adminId) } returns 3
+        coEvery { grantManager.revokeGrantsByUserAndClient(userId, clientId, GrantRevokedBy.ADMIN, adminId) } returns 3
 
         val result = controller.forceClientLogout(userId, clientId, authentication)
 
         assertEquals(userId, result.userId)
         assertEquals(clientId, result.clientId)
-        assertEquals(3, result.tokensRevoked)
+        assertEquals(3, result.grantsRevoked)
     }
 
     @Test

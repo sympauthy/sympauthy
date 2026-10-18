@@ -20,6 +20,11 @@ enum class LeasedJob {
     CLEAN_EXPIRED_USER_SECURITY_CONTEXTS,
 
     /**
+     * Deleting the expired tokens, and the grants that are revoked or have no token left.
+     */
+    CLEAN_FINISHED_GRANTS,
+
+    /**
      * Delivering the mails a previous run of this server persisted and did not send, which happens once
      * when an instance becomes ready rather than on a schedule.
      */

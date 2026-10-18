@@ -16,6 +16,8 @@ interface TokenConfigurationProperties {
     @get:Nullable
     val refreshExpiration: String?
     @get:Nullable
+    val grantExpiration: String?
+    @get:Nullable
     val dpopRequired: String?
 
     companion object {

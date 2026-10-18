@@ -139,7 +139,7 @@ decide from those two.
 
 **Acting as a person rests on the act-as rules, not on a consent.** A client may act as a person who
 has never signed in to the audience the exchange names, so the exchange reads no consent, and
-revoking the person's consent revokes no act-as token and leaves a client free to exchange again.
+revoking the person's consent revokes no act-as grant and leaves a client free to exchange again.
 [The design FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
 
 **The rules read the claims of the audience the token is issued for**, which is the one the exchange
@@ -149,8 +149,9 @@ claims](claims.md#reading-a-persons-claims) hold the rule for every reader.
 
 **The client proves it is the actor with a token of its own.** The token it exchanges is one it was
 issued under `client_credentials`; a person's token, another client's, and an act-as token are
-refused, so one act-as token is never exchanged for the next. A client revoking that token revokes
-every act-as token issued from it.
+refused, so one act-as token is never exchanged for the next. The exchange opens a grant of its
+own recording the grant of the token exchanged, and [the grants](grants.md#what-a-grant-is) hold
+how an act-as token follows it.
 
 **No authentication of the person stands behind an act-as token.** It states no `auth_time`, for
 [the reason every such token states none](#when-the-person-authenticated), and comes with neither a
@@ -192,7 +193,7 @@ role that says only which flow is asking. The package is the source of truth for
 **An authentication made from an access token carries the client the token was issued to**, looked
 up once where the token is validated. A handler reads the client there rather than asking the
 configuration again, so a client the configuration no longer declares is refused in one place and
-with one status, because [a token does not outlive its client](#tokens).
+with one status, because [a grant does not outlive its client](grants.md#what-a-grant-is).
 
 **The user authentication carries the consented and granted scopes separately**, because they answer
 different questions: what the person agreed to share, and what the deployment's rules decided they
@@ -230,44 +231,15 @@ scheme beside a proof signed by that key, and the proof is verified against the 
 was made for and against the token it accompanies. That binding is what stops a stolen token being
 usable on its own.
 
-**A revoked token stops working immediately**, because revocation is a row rather than a shorter
-expiry. This is the deliberate cost of not being purely stateless: every request presenting a token
-asks the database about it.
+**Every token is issued under a grant, and is live only while its grant is.** A grant is what a
+client was allowed, and every token of an authorization stands under it however often its client
+refreshed: a revocation reaches the grant rather than one token, and a lifetime set on the grant
+ends every token under it. What a grant records, how a revocation and a lifetime reach it and what
+collects it are [the grants](grants.md).
 
-**A token is revoked once, and keeps the revocation that came first.** Every revocation reaches only
-the tokens still live — neither revoked yet nor expired — so a row goes on saying who revoked it and
-when, and a token that lapsed on its own is not recorded as revoked afterwards. A revocation reaching
-many tokens, a force logout among them, therefore counts the ones it took out of service, and
-repeating it finds none.
-
-**A refresh and a revocation of the same person's tokens take turns.** A refresh checks that its
-token, the consent behind it and the account still stand, then issues new tokens; a revocation
-already running when those are written would not see them, and tokens issued from a token being
-revoked would outlive it. Both therefore take the lock over the account first, as [the locking
-standard](../standards/locking-standard.md#the-named-lock) describes. Whichever goes second sees what
-the first committed: a refresh reads its token revoked and is refused, or a revocation finds the
-refresh's tokens and revokes them with the rest.
-
-**Revoking a consent revokes every token issued to the account for its audience, act-as tokens
-aside.** A consent is the audience's rather than one client's, so each client of the audience acts
-under it, and a revocation reaching only the client that last asked would leave the others acting
-for a person who withdrew: their access tokens served until they expire, and their refresh tokens
-waiting only for the person to consent again through any client of the audience. A token records the
-audience it was issued for, because which clients belong to an audience is configuration: a client
-moved to another audience or removed and declared again would otherwise take its tokens out of reach
-of the consent they were issued under.
-
-**A token does not outlive its client.** A token naming a client the configuration no longer
-declares is a credential that does not validate, and it is refused with a `401` on every surface it
-is presented to. Removing a client is how a deployment withdraws it, and a client withdrawn can no
-longer authenticate to refresh, introspect or revoke what it holds — so a token surviving it would
-be one nothing could withdraw before it expired. The token's scopes are already read this way, each
-looked up among the scopes the deployment serves now; a client cannot be dropped from a token and
-leave a token behind.
-
-**It is refused, not revoked.** Nothing is written to the token's row, so a client declared again
-under the same identifier finds its unexpired tokens served again. [The design
-FAQ](design-faq.md#does-a-token-outlive-its-client) argues the alternatives.
+**A revoked grant stops every token under it at once**, because revocation is a row rather than a
+shorter expiry. This is the deliberate cost of not being purely stateless: every request presenting
+a token asks the database about it and about its grant.
 
 ### A token bound to a key
 
@@ -300,12 +272,14 @@ issued tokens is the one that spends it: the code is marked in the transaction t
 tokens, so two exchanges racing over one code are issued one set between them, and an exchange that
 fails while issuing leaves the code unspent.
 
-**A second exchange is refused, and revokes what the first was issued.** RFC 6749 §4.1.2 recommends
-it. A code presented twice is either a client that lost track of its own exchange or a code somebody
-else is using, and the two cannot be told apart; revoking every token filed under the
-authorization's session — the first exchange's and every refresh descended from them — is what takes
-back the tokens of whichever of them came first. A client that retries an exchange whose answer it
-lost pays for that: the person signs in again.
+**A second exchange is refused, and revokes the grant the code was issued under.** RFC 6749 §4.1.2
+recommends it. A code presented twice is either a client that lost track of its own exchange or a
+code somebody else is using, and the two cannot be told apart; revoking the grant — under which the
+first exchange's tokens and every refresh descended from them stand — is what takes back the tokens
+of whichever of them came first. A client that retries an exchange whose answer it lost pays for
+that: the person signs in again. The code names the grant its authorization opened, which is how [a
+replay reaches it](grants.md#how-a-revocation-reaches-a-grant) rather than through the session the
+grant came from, which is collected long before most grants end.
 
 **Only an exchange that passes every other check is a second one.** Client authentication and the
 PKCE verifier are checked before the code is spent, and a request failing either is refused for that
@@ -333,9 +307,9 @@ minimum the specification would have allowed.
 
 **It is the moment the credential verified, and nothing else.** A password checked, a third-party
 provider's callback resolved to the account, or the account created at sign-up: the authorization
-records that moment and every token it produces states it. It is not the moment the code was
-exchanged and it is not `iat`, which is why it is recorded where the authorization is recorded
-rather than computed when a token is minted; [the design
+records that moment, the grant its code opens copies it, and every token under that grant states
+it. It is not the moment the code was exchanged and it is not `iat`, which is why it is recorded
+where the authorization is recorded rather than computed when a token is minted; [the design
 FAQ](design-faq.md#is-iat-the-recency-a-resource-server-should-read) holds what reading `iat`
 instead would cost.
 
@@ -351,9 +325,9 @@ person authenticated at the moment their client asked for a new token, which is 
 
 **A token no person's authentication is behind carries none.** A `client_credentials` grant has no
 person at all, and a token exchange asserts an identity nobody proved; a date on either would be a
-resource server told an unattended caller had just signed in. No generator writes one, and the
-mapper refuses such a row when it is read back — so a date that reached the column would take that
-token out of service rather than travel on it unnoticed.
+resource server told an unattended caller had just signed in. Neither grant records one, and the
+mapper refuses such a grant when it is read back — so a date that reached the column would take
+every token under it out of service rather than travel on them unnoticed.
 
 **A client may ask for a recent authentication with `max_age`**, which the authorize endpoint reads
 with the meaning §3.1.2.1 gives it, refusing anything but a non-negative number of seconds. It is
@@ -405,7 +379,7 @@ holds the options that lost.
 
 **A refresh reissues the identity, not only the access**: the subject and the audience are the
 original authentication's, the claims, the expiry and the `at_hash` are this response's, and the
-token is filed under the session it descends from, so revoking that session reaches it. What is read
+token is issued under the grant it descends from, so revoking that grant reaches it. What is read
 again is the claim values — the consented scopes filtering them are the set recorded with the grant,
 the audience filtering them is the refreshing client's, and a consent revoked since refuses the
 refresh outright rather than narrowing the token it would have issued.

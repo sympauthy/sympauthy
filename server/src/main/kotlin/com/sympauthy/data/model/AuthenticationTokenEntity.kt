@@ -11,89 +11,22 @@ import java.util.*
 @MappedEntity("authentication_tokens")
 class AuthenticationTokenEntity(
     val type: String,
+    val grantId: UUID,
     /**
-     * User ID associated with this token.
-     * This can be null for tokens issued via client credentials flow (machine-to-machine).
-     */
-    val userId: UUID?,
-    val clientId: String,
-    /**
-     * Identifier of the audience this token was issued for, whose token audience is the `aud` it states.
-     * For an act-as token it is the audience the exchange named, which need not be the acting client's.
-     *
-     * Recorded rather than read off the client because a client's audience is configuration, and moves or
-     * disappears with it: revoking a consent reaches the tokens issued for that audience, whatever has
-     * become of the clients they were issued to since.
-     */
-    val audienceId: String,
-    /**
-     * Scopes granted through granting rules (grantable scopes only).
-     */
-    val grantedScopes: Array<String>,
-    val grantedAt: LocalDateTime? = null,
-    val grantedBy: String? = null,
-    /**
-     * Scopes obtained through user consent (consentable scopes only).
-     */
-    val consentedScopes: Array<String>,
-    val consentedAt: LocalDateTime? = null,
-    val consentedBy: String? = null,
-    /**
-     * Scopes for client_credentials flows (client scopes only).
-     */
-    val clientScopes: Array<String>,
-    /**
-     * There is no foreign key.
-     * This can be null for tokens issued via client credentials flow.
-     */
-    val sessionId: UUID?,
-    /**
-     * The OAuth2 grant type used to generate this token.
-     * Examples: "authorization_code", "refresh_token", "client_credentials"
+     * The OAuth2 grant type that issued this token, as it is published: `authorization_code`,
+     * `refresh_token`, `client_credentials` or the token exchange URN.
      */
     val grantType: String,
-
-    /**
-     * When the person this token was issued for proved a credential of their account, in the flow the
-     * authorization behind it came from.
-     *
-     * Null where no person's authentication is behind the token: a `client_credentials` grant has no
-     * person at all, and a token exchange asserts an identity nobody proved. A refresh carries the
-     * original authentication's date unchanged, which is what keeps it from looking a minute old a month
-     * on.
-     */
-    val authenticationDate: LocalDateTime? = null,
-
-    /**
-     * The claim ids the `claims` request parameter of the authorization behind this token named for the id
-     * token, and the ones it named for `/userinfo`. Empty on a token no such request is behind — a
-     * `client_credentials` grant, a token exchange — and empty where the request named nothing.
-     *
-     * They are copied from the authorization and carried unchanged by every refresh, which is what makes
-     * them outlive the flow session that received them: the id token a refresh mints and the `/userinfo`
-     * answered with an access token descended from the grant each read them off the token row rather than
-     * off a session that is gone.
-     */
-    val requestedIdTokenClaims: Array<String> = emptyArray(),
-    val requestedUserinfoClaims: Array<String> = emptyArray(),
-
     /**
      * JWK SHA-256 Thumbprint (RFC 7638) of the DPoP public key this token is bound to.
      * Null for bearer tokens (no DPoP binding).
      */
     val dpopJkt: String? = null,
-
-    /**
-     * Id of the token that was exchanged to issue this token via OAuth 2.0 Token Exchange (RFC 8693).
-     * For an act-as token, this is the acting client's own client-credentials token presented as the `subject_token`.
-     * Null for tokens not issued through token exchange.
-     */
-    val actorTokenId: UUID? = null,
-
-    val revokedAt: LocalDateTime? = null,
-    val revokedBy: String? = null,
-    val revokedById: UUID? = null,
     val issueDate: LocalDateTime,
+    /**
+     * When this token expires, never later than the grant it was issued under. For a refresh token that is
+     * earlier than the expiry its JWT states wherever the grant ends first.
+     */
     val expirationDate: LocalDateTime?
 ) {
     @Id

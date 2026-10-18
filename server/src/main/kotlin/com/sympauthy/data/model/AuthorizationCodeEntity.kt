@@ -11,6 +11,11 @@ import java.util.*
 data class AuthorizationCodeEntity(
     @get:Id val sessionId: UUID,
     val code: String,
+    /**
+     * Identifier of the grant the authorization opened before handing out this code, which every token its
+     * exchange issues stands under. A second exchange of the code revokes it.
+     */
+    val grantId: UUID,
     val creationDate: LocalDateTime,
     val expirationDate: LocalDateTime,
     /**

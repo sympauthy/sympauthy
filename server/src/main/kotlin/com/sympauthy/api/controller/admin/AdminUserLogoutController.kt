@@ -5,10 +5,10 @@ import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.TokenRevokedBy
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller
@@ -28,14 +28,15 @@ import java.util.*
 class AdminUserLogoutController(
     @Inject private val userManager: UserManager,
     @Inject private val clientManager: ClientManager,
-    @Inject private val tokenManager: TokenManager
+    @Inject private val grantManager: GrantManager
 ) {
 
     @Operation(
-        description = "Revoke every token issued to a user, signing the end-user out of every client.",
+        description = "Revoke every grant of a user, and every token issued under them, signing the end-user " +
+                "out of every client.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "The user and the number of tokens revoked."),
+            ApiResponse(responseCode = "200", description = "The user and the number of grants revoked."),
             ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
@@ -55,23 +56,24 @@ class AdminUserLogoutController(
         authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
-        val tokensRevoked = tokenManager.revokeTokensByUser(
+        val grantsRevoked = grantManager.revokeGrantsByUser(
             userId = userId,
-            revokedBy = TokenRevokedBy.ADMIN,
+            revokedBy = GrantRevokedBy.ADMIN,
             revokedById = authentication.userId
         )
         return AdminForceLogoutResource(
             userId = userId,
             clientId = null,
-            tokensRevoked = tokensRevoked
+            grantsRevoked = grantsRevoked
         )
     }
 
     @Operation(
-        description = "Revoke every token issued to a user for one client, signing the end-user out of it.",
+        description = "Revoke every grant of a user for one client, and every token issued under them, signing " +
+                "the end-user out of it.",
         tags = ["admin"],
         responses = [
-            ApiResponse(responseCode = "200", description = "The user, the client and the number of tokens revoked."),
+            ApiResponse(responseCode = "200", description = "The user, the client and the number of grants revoked."),
             ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
             ApiResponse(
@@ -89,21 +91,21 @@ class AdminUserLogoutController(
     @Secured(ADMIN_CONSENT_WRITE)
     suspend fun forceClientLogout(
         @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
-        @PathVariable @Parameter(description = "Identifier of the client whose tokens to revoke.") clientId: String,
+        @PathVariable @Parameter(description = "Identifier of the client whose grants to revoke.") clientId: String,
         authentication: Authentication
     ): AdminForceLogoutResource {
         userManager.findByIdOrNull(userId).orNotFound()
         clientManager.findClientByIdOrNull(clientId).orNotFound()
-        val tokensRevoked = tokenManager.revokeTokensByUserAndClient(
+        val grantsRevoked = grantManager.revokeGrantsByUserAndClient(
             userId = userId,
             clientId = clientId,
-            revokedBy = TokenRevokedBy.ADMIN,
+            revokedBy = GrantRevokedBy.ADMIN,
             revokedById = authentication.userId
         )
         return AdminForceLogoutResource(
             userId = userId,
             clientId = clientId,
-            tokensRevoked = tokensRevoked
+            grantsRevoked = grantsRevoked
         )
     }
 }

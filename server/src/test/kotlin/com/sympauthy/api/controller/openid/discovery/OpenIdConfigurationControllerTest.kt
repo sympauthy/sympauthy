@@ -66,6 +66,7 @@ class OpenIdConfigurationControllerTest {
             idExpiration = java.time.Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
+            grantExpiration = null,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(

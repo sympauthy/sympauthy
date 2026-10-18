@@ -21,7 +21,9 @@ class ClientAuthenticationTest {
 
     @Test
     fun `getName - Returns clientId`() {
-        val token = mockk<AuthenticationToken> { every { clientId } returns "test-client" }
+        val token = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { clientId } returns "test-client" }
+        }
 
         val auth = ClientAuthentication(authenticationToken = token, client = mockk(), scopes = emptyList())
 

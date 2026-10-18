@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthorizationCode
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import io.mockk.coEvery
@@ -19,6 +20,7 @@ import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -52,6 +54,8 @@ class AuthorizationCodeManagerTest {
 
     private fun sessionById(): InteractiveFlowSession = mockk { every { id } returns SESSION_ID }
 
+    private fun grant(): Grant = mockk { every { id } returns GRANT_ID }
+
     @Test
     fun `generateCode - Writes the code against the session and answers what the row became`() = runTest {
         val code = mockk<AuthorizationCode>()
@@ -60,11 +64,12 @@ class AuthorizationCodeManagerTest {
         coEvery { codeRepository.save(capture(written)) } answers { written.captured }
         every { codeMapper.toAuthorizationCode(any()) } returns code
 
-        assertSame(code, manager.generateCode(session()))
+        assertSame(code, manager.generateCode(session(), grant()))
 
         assertEquals(SESSION_ID, written.captured.sessionId)
         assertEquals("0123456789abcdef", written.captured.code)
         assertEquals(expirationDate, written.captured.expirationDate)
+        assertEquals(GRANT_ID, written.captured.grantId)
     }
 
     @Test
@@ -74,7 +79,7 @@ class AuthorizationCodeManagerTest {
             "duplicate key", R2dbcDataIntegrityViolationException("23505")
         )
 
-        val exception = assertThrows<BusinessException> { manager.generateCode(session()) }
+        val exception = assertThrows<BusinessException> { manager.generateCode(session(), grant()) }
 
         assertEquals("auth.interactive_flow_session.concurrent_modification", exception.detailsId)
         assertEquals(mapOf("sessionId" to SESSION_ID.toString()), exception.values)
@@ -88,7 +93,7 @@ class AuthorizationCodeManagerTest {
             "transaction failed", EntityExistsException("duplicate key")
         )
 
-        val exception = assertThrows<BusinessException> { manager.generateCode(session()) }
+        val exception = assertThrows<BusinessException> { manager.generateCode(session(), grant()) }
 
         assertEquals("auth.interactive_flow_session.concurrent_modification", exception.detailsId)
     }
@@ -105,7 +110,7 @@ class AuthorizationCodeManagerTest {
             "foreign key", R2dbcDataIntegrityViolationException("23503")
         )
 
-        assertThrows<DataIntegrityViolationException> { manager.generateCode(session()) }
+        assertThrows<DataIntegrityViolationException> { manager.generateCode(session(), grant()) }
     }
 
     @Test
@@ -113,7 +118,7 @@ class AuthorizationCodeManagerTest {
         every { randomGenerator.generateAndEncodeToHex(any()) } returns "0123456789abcdef"
         coEvery { codeRepository.save(any()) } throws IllegalStateException("connection closed")
 
-        assertThrows<IllegalStateException> { manager.generateCode(session()) }
+        assertThrows<IllegalStateException> { manager.generateCode(session(), grant()) }
     }
 
     @Test
@@ -137,6 +142,13 @@ class AuthorizationCodeManagerTest {
     }
 
     @Test
+    fun `fetchCodeOrNull - Answers null for a session holding no code`() = runTest {
+        coEvery { codeRepository.findById(SESSION_ID) } returns null
+
+        assertNull(manager.fetchCodeOrNull(sessionById()))
+    }
+
+    @Test
     fun `markExchanged - Answers true for the call that marked the code`() = runTest {
         coEvery { codeRepository.updateExchangeDate(SESSION_ID, any()) } returns 1
 
@@ -152,5 +164,6 @@ class AuthorizationCodeManagerTest {
 
     private companion object {
         val SESSION_ID: UUID = UUID.randomUUID()
+        val GRANT_ID: UUID = UUID.randomUUID()
     }
 }

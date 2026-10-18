@@ -7,11 +7,11 @@ import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
-import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
@@ -105,60 +105,19 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - Carry the grant of the refresh token it is issued from`() = runTest {
-        val sessionId = UUID.randomUUID()
-        val refreshToken = mockRefreshToken(sessionId = sessionId)
+    fun `generateIdToken - Record the token under its grant and the grant type that issued it`() = runTest {
+        val grant = grant()
 
-        issue(refreshToken)
+        issue(grant, grantType = GrantType.REFRESH_TOKEN)
 
         val entity = savedEntity.captured
-        assertEquals(refreshToken.userId, entity.userId)
-        assertEquals("client", entity.clientId)
-        assertEquals(listOf(BuiltInGrantableScopeId.OPENID), entity.grantedScopes.toList())
-        assertEquals(listOf(CONSENTED_SCOPE), entity.consentedScopes.toList())
-        assertEquals(sessionId, entity.sessionId)
+        assertEquals(grant.id, entity.grantId)
         assertEquals("refresh_token", entity.grantType)
     }
 
     @Test
-    fun `generateIdToken - EnabledClaim the moment the authorization proved a credential`() = runTest {
-        val userId = UUID.randomUUID()
-        val builder = stubGeneration(userId)
-
-        generator.generateIdToken(
-            oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
-            userId = userId,
-            audienceId = AUDIENCE,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN }
-        )
-
-        assertEquals(
-            AUTHENTICATION_DATE.toEpochSecond(ZoneOffset.UTC),
-            builder.build().getLongClaim("auth_time")
-        )
-    }
-
-    @Test
-    fun `generateIdToken - EnabledClaim no auth_time where the authorization recorded none`() = runTest {
-        val userId = UUID.randomUUID()
-        val builder = stubGeneration(userId)
-
-        generator.generateIdToken(
-            oauth2 = oauth2(
-                grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
-                authenticationDate = null
-            ),
-            userId = userId,
-            audienceId = AUDIENCE,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN }
-        )
-
-        assertNull(builder.build().getClaim("auth_time"))
-    }
-
-    @Test
-    fun `generateIdToken - EnabledClaim the original auth_time on a refresh`() = runTest {
-        val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+    fun `generateIdToken - Claim the moment the grant records the person proved a credential`() = runTest {
+        val claimsSet = issue(grant())
 
         assertEquals(
             AUTHENTICATION_DATE.toEpochSecond(ZoneOffset.UTC),
@@ -167,119 +126,89 @@ class IdTokenGeneratorTest {
     }
 
     @Test
-    fun `generateIdToken - EnabledClaim no nonce on a refresh`() = runTest {
-        val claimsSet = issue(mockRefreshToken(sessionId = UUID.randomUUID()))
+    fun `generateIdToken - Claim no auth_time where the grant records none`() = runTest {
+        val claimsSet = issue(grant(authenticationDate = null))
+
+        assertNull(claimsSet.getClaim("auth_time"))
+    }
+
+    @Test
+    fun `generateIdToken - Claim the nonce of the authorization request`() = runTest {
+        val claimsSet = issue(grant(), nonce = "nonce")
+
+        assertEquals("nonce", claimsSet.getStringClaim("nonce"))
+    }
+
+    @Test
+    fun `generateIdToken - Claim no nonce where none is given`() = runTest {
+        val claimsSet = issue(grant(), grantType = GrantType.REFRESH_TOKEN)
 
         assertNull(claimsSet.getClaim("nonce"))
     }
 
     @Test
-    fun `generateIdToken - Issue one where the authorization granted openid`() = runTest {
-        val userId = UUID.randomUUID()
-        stubGeneration(userId)
+    fun `generateIdToken - Expires no later than the grant it is issued under`() = runTest {
+        val grantExpirationDate = LocalDateTime.now().plusMinutes(1).withNano(0)
+
+        val claimsSet = issue(grant(expirationDate = grantExpirationDate))
+
+        assertEquals(grantExpirationDate, savedEntity.captured.expirationDate)
+        assertEquals(Date.from(grantExpirationDate.toInstant(ZoneOffset.UTC)), claimsSet.expirationTime)
+    }
+
+    @Test
+    fun `generateIdToken - Issue one where the grant carries openid`() = runTest {
+        val grant = grant()
+        stubGeneration(checkNotNull(grant.userId), grant.consentedScopes)
 
         val idToken = generator.generateIdToken(
-            oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
-            userId = userId,
+            grant = grant,
             audienceId = AUDIENCE,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+            accessToken = mockk { every { token } returns ACCESS_TOKEN },
+            grantType = GrantType.AUTHORIZATION_CODE
         )
 
         assertNotNull(idToken)
     }
 
     @Test
-    fun `generateIdToken - Issue none where the authorization did not grant openid`() = runTest {
+    fun `generateIdToken - Issue none where the grant does not carry openid`() = runTest {
         val idToken = generator.generateIdToken(
-            oauth2 = oauth2(grantedScopes = listOf(CONSENTED_SCOPE)),
-            userId = UUID.randomUUID(),
+            grant = grant(grantedScopes = listOf(CONSENTED_SCOPE)),
             audienceId = AUDIENCE,
-            accessToken = mockk()
+            accessToken = mockk(),
+            grantType = GrantType.REFRESH_TOKEN
         )
 
         assertNull(idToken)
     }
 
     @Test
-    fun `generateIdToken - Issue none where the grant a refresh descends from did not carry openid`() = runTest {
-        val refreshToken = mockRefreshToken(
-            sessionId = UUID.randomUUID(),
-            grantedScopes = listOf(CONSENTED_SCOPE)
-        )
-
-        assertNull(generator.generateIdToken(refreshToken, AUDIENCE, mockk()))
-    }
-
-    @Test
-    fun `generateIdToken - Read the claims for the audience a code exchange names`() = runTest {
-        val userId = UUID.randomUUID()
-        stubGeneration(userId)
-
-        generator.generateIdToken(
-            oauth2 = oauth2(grantedScopes = listOf(BuiltInGrantableScopeId.OPENID)),
-            userId = userId,
+    fun `generateIdToken - Issue none where the grant names no person`() = runTest {
+        val idToken = generator.generateIdToken(
+            grant = grant(userId = null),
             audienceId = AUDIENCE,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN }
+            accessToken = mockk(),
+            grantType = GrantType.CLIENT_CREDENTIALS
         )
 
+        assertNull(idToken)
+    }
+
+    @Test
+    fun `generateIdToken - Read the claims for the audience it is given`() = runTest {
+        issue(grant())
+
         assertEquals(AUDIENCE, readAudienceId.captured)
     }
 
     @Test
-    fun `generateIdToken - Read the claims for the audience a refresh names`() = runTest {
-        issue(mockRefreshToken(sessionId = UUID.randomUUID()))
-
-        assertEquals(AUDIENCE, readAudienceId.captured)
-    }
-
-    @Test
-    fun `generateIdToken - Read the claims a code exchange asked for by name`() = runTest {
+    fun `generateIdToken - Read the claims the authorization behind the grant asked for by name`() = runTest {
         val requested = RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = emptySet())
-        val userId = UUID.randomUUID()
-        stubGeneration(userId)
 
-        generator.generateIdToken(
-            oauth2 = oauth2(
-                grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
-                requestedClaims = requested
-            ),
-            userId = userId,
-            audienceId = AUDIENCE,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN }
-        )
+        issue(grant(requestedClaims = requested))
 
         assertEquals(requested, readRequestedClaims.captured)
-    }
-
-    @Test
-    fun `generateIdToken - Read the claims the authorization a refresh descends from asked for by name`() =
-        runTest {
-            val requested =
-                RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = emptySet())
-
-            issue(mockRefreshToken(sessionId = UUID.randomUUID(), requestedClaims = requested))
-
-            assertEquals(requested, readRequestedClaims.captured)
-        }
-
-    @Test
-    fun `generateIdToken - Record on the token the claims the request asked for`() = runTest {
-        val requested = RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = setOf("shoe_size"))
-        val userId = UUID.randomUUID()
-        stubGeneration(userId)
-
-        generator.generateIdToken(
-            oauth2 = oauth2(
-                grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
-                requestedClaims = requested
-            ),
-            userId = userId,
-            audienceId = AUDIENCE,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN }
-        )
-
-        assertEquals(listOf("loyalty_tier"), savedEntity.captured.requestedIdTokenClaims.toList())
-        assertEquals(listOf("shoe_size"), savedEntity.captured.requestedUserinfoClaims.toList())
     }
 
     @Test
@@ -414,51 +343,52 @@ class IdTokenGeneratorTest {
         claims = claims.toList()
     )
 
-    private fun oauth2(
-        grantedScopes: List<String>,
+    @Suppress("LongParameterList")
+    private fun grant(
+        userId: UUID? = UUID.randomUUID(),
+        grantedScopes: List<String> = listOf(BuiltInGrantableScopeId.OPENID),
+        consentedScopes: List<String> = listOf(CONSENTED_SCOPE),
         authenticationDate: LocalDateTime? = AUTHENTICATION_DATE,
-        requestedClaims: RequestedClaims = RequestedClaims.NONE
-    ) = InteractiveFlowSessionOAuth2(
-        sessionId = UUID.randomUUID(),
+        requestedClaims: RequestedClaims = RequestedClaims.NONE,
+        expirationDate: LocalDateTime? = null
+    ) = Grant(
+        id = UUID.randomUUID(),
+        userId = userId,
         clientId = "client",
-        redirectUri = "https://client.example.com/callback",
-        requestedScopes = grantedScopes,
-        requestedClaims = requestedClaims,
+        audienceId = AUDIENCE,
+        grantType = GrantType.AUTHORIZATION_CODE,
         grantedScopes = grantedScopes,
-        authenticationDate = authenticationDate
+        grantedAt = null,
+        grantedBy = null,
+        consentedScopes = consentedScopes,
+        consentedAt = null,
+        consentedBy = null,
+        clientScopes = emptyList(),
+        authenticationDate = authenticationDate,
+        requestedClaims = requestedClaims,
+        sessionId = UUID.randomUUID(),
+        actorGrantId = null,
+        creationDate = LocalDateTime.now(),
+        expirationDate = expirationDate,
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
     )
 
-    private fun mockRefreshToken(
-        sessionId: UUID,
-        grantedScopes: List<String> = listOf(BuiltInGrantableScopeId.OPENID),
-        authenticationDate: LocalDateTime? = AUTHENTICATION_DATE,
-        requestedClaims: RequestedClaims = RequestedClaims.NONE
-    ): AuthenticationToken {
-        val id = UUID.randomUUID()
-        val scopes = grantedScopes
-        val authenticatedAt = authenticationDate
-        val requested = requestedClaims
-        return mockk {
-            every { userId } returns id
-            every { clientId } returns "client"
-            every { this@mockk.grantedScopes } returns scopes
-            every { consentedScopes } returns listOf(CONSENTED_SCOPE)
-            every { this@mockk.sessionId } returns sessionId
-            every { this@mockk.authenticationDate } returns authenticatedAt
-            every { this@mockk.requestedClaims } returns requested
-        }
-    }
-
-    private suspend fun issue(refreshToken: AuthenticationToken): JWTClaimsSet {
+    private suspend fun issue(
+        grant: Grant,
+        grantType: GrantType = GrantType.AUTHORIZATION_CODE,
+        nonce: String? = null
+    ): JWTClaimsSet {
         val accessToken = mockk<EncodedAuthenticationToken> {
             every { token } returns ACCESS_TOKEN
         }
         val builder = stubGeneration(
-            userId = checkNotNull(refreshToken.userId),
-            consentedScopes = refreshToken.consentedScopes
+            userId = checkNotNull(grant.userId),
+            consentedScopes = grant.consentedScopes
         )
 
-        generator.generateIdToken(refreshToken, AUDIENCE, accessToken)
+        generator.generateIdToken(grant, AUDIENCE, accessToken, grantType, nonce)
 
         return builder.build()
     }
@@ -480,7 +410,7 @@ class IdTokenGeneratorTest {
         } returns claims
         coEvery { tokenRepository.save(capture(savedEntity)) } answers { firstArg<AuthenticationTokenEntity>() }
         every { generatedClaimsManager.computeSubject(userId) } returns userId.toString()
-        every { tokenMapper.toEncodedAuthenticationToken(any(), any()) } returns mockk()
+        every { tokenMapper.toEncodedAuthenticationToken(any(), any(), any()) } returns mockk()
 
         val builder = JWTClaimsSet.Builder()
         coEvery { jwtManager.create(JwtManager.PUBLIC_KEY, any(), any()) } answers {
@@ -498,14 +428,10 @@ class IdTokenGeneratorTest {
         val builder = stubGeneration(userId, claims = claims)
 
         generator.generateIdToken(
-            userId = userId,
-            clientId = "client",
+            grant = grant(userId = userId, consentedScopes = emptyList()),
             audienceId = AUDIENCE,
-            grantedScopes = listOf(BuiltInGrantableScopeId.OPENID),
-            consentedScopes = emptyList(),
-            sessionId = null,
             accessToken = accessToken,
-            grantType = "authorization_code"
+            grantType = GrantType.AUTHORIZATION_CODE
         )
 
         return builder.build()

@@ -29,9 +29,9 @@ import org.reactivestreams.Publisher
  * - to validate the token signature against our [ACCESS_KEY] signature key.
  * - to check the token is not expired.
  * - to validate the token is an access token.
- * - to retrieve the token and scopes it is associated to.
+ * - to retrieve the token, the grant it was issued under and the scopes that grant holds.
  * - to check the request presents the token the way its binding to a DPoP key requires.
- * - to retrieve the client the token was issued to, which the configuration must still declare.
+ * - to retrieve the client the grant of the token was opened for, which the configuration must still declare.
  *
  * Depending on whether the token is associated with a user (authorization_code/refresh_token flows)
  * or a client only (client_credentials flow), we return a [UserAuthentication] or [ClientAuthentication].
@@ -76,20 +76,21 @@ class AccessTokenValidator(
             throw e.toHttpException(UNAUTHORIZED)
         }
 
-        // A token does not outlive its client, and is refused rather than revoked. See `docs/design/security.md`.
-        val client = clientManager.findClientByIdOrNull(authenticationToken.clientId)
+        // A grant does not outlive its client, and is refused rather than revoked. See `docs/design/grants.md`.
+        val grant = authenticationToken.grant
+        val client = clientManager.findClientByIdOrNull(grant.clientId)
             ?: throw httpExceptionOf(
                 UNAUTHORIZED,
-                "token.client_disabled",
-                "description.token.client_disabled",
-                "clientId" to authenticationToken.clientId
+                "grant.client_disabled",
+                "description.grant.client_disabled",
+                "clientId" to grant.clientId
             )
 
-        val authentication = if (authenticationToken.userId != null) {
-            val consentedScopes = authenticationToken.consentedScopes.mapNotNull {
+        val authentication = if (grant.userId != null) {
+            val consentedScopes = grant.consentedScopes.mapNotNull {
                 scopeManager.find(it)
             }
-            val grantedScopes = authenticationToken.grantedScopes.mapNotNull {
+            val grantedScopes = grant.grantedScopes.mapNotNull {
                 scopeManager.find(it)
             }
             UserAuthentication(
@@ -99,7 +100,7 @@ class AccessTokenValidator(
                 grantedScopes = grantedScopes
             )
         } else {
-            val scopes = authenticationToken.clientScopes.mapNotNull {
+            val scopes = grant.clientScopes.mapNotNull {
                 scopeManager.find(it)
             }
             ClientAuthentication(

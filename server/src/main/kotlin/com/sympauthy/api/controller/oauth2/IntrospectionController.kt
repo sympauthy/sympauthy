@@ -13,7 +13,7 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.publishedMembers
@@ -102,45 +102,45 @@ class IntrospectionController(
         val authenticationToken = tokenManager.introspectToken(client, token, type = null)
             ?: return IntrospectionResource(active = false)
 
-        val scopes = authenticationToken.allScopes
+        val grant = authenticationToken.grant
         return IntrospectionResource(
             active = true,
-            scope = scopes.joinToString(" ").ifEmpty { null },
-            clientId = authenticationToken.clientId,
+            scope = grant.allScopes.joinToString(" ").ifEmpty { null },
+            clientId = grant.clientId,
             tokenType = if (authenticationToken.dpopJkt != null) "DPoP" else "Bearer",
             exp = authenticationToken.expirationDate?.toEpochSecond(ZoneOffset.UTC),
             iat = authenticationToken.issueDate.toEpochSecond(ZoneOffset.UTC),
-            authTime = authenticationToken.authenticationDate?.toEpochSecond(ZoneOffset.UTC),
-            sub = authenticationToken.userId?.toString() ?: authenticationToken.clientId,
+            authTime = grant.authenticationDate?.toEpochSecond(ZoneOffset.UTC),
+            sub = grant.userId?.toString() ?: grant.clientId,
             aud = client.audience.tokenAudience,
             iss = authConfig.issuer,
             jti = authenticationToken.id.toString(),
-            additionalClaims = publishedClaimMembers(authenticationToken, client)
+            additionalClaims = publishedClaimMembers(grant, client)
         )
     }
 
     /**
-     * The claims of the person the [token] was issued for that this response carries: the ones the
-     * [client] may read and the deployment publishes in the introspection response, as the members they
+     * The claims of the person the [grant] of the token was opened for that this response carries: the ones
+     * the [client] may read and the deployment publishes in the introspection response, as the members they
      * travel as.
      *
      * A member [IntrospectionResource] declares itself is left out rather than written twice, so a claim a
      * deployment named after one of RFC 7662's own members never displaces it.
      *
-     * Empty for a token no person is behind, which is a `client_credentials` token: there are no claims of
+     * Empty for a grant no person is behind, which is a `client_credentials` grant: there are no claims of
      * anybody to answer.
      */
     private suspend fun publishedClaimMembers(
-        token: AuthenticationToken,
+        grant: Grant,
         client: Client
     ): Map<String, Any> {
-        val userId = token.userId ?: return emptyMap()
+        val userId = grant.userId ?: return emptyMap()
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
             userId = userId,
             audienceId = client.audience.id,
             place = ClaimPublicationPlace.INTROSPECTION,
-            consentedScopes = token.consentedScopes,
-            clientScopes = token.clientScopes
+            consentedScopes = grant.consentedScopes,
+            clientScopes = grant.clientScopes
         )
         return claims.publishedMembers(reserved = IntrospectionResource.DECLARED_MEMBERS)
     }

@@ -56,9 +56,6 @@ class TokenControllerTest {
     lateinit var tokenManager: TokenManager
 
     @MockK
-    lateinit var accessTokenGenerator: AccessTokenGenerator
-
-    @MockK
     lateinit var scopeManager: ScopeManager
 
     @MockK
@@ -83,6 +80,7 @@ class TokenControllerTest {
             idExpiration = java.time.Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
+            grantExpiration = null,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(
@@ -112,12 +110,6 @@ class TokenControllerTest {
 
     private fun mockClient(): Client = mockk {
         every { supportsGrantType(any()) } returns true
-    }
-
-    /** A client the issued token is named after, which only the client credentials grant does. */
-    private fun mockClientIdentifiedAs(id: String): Client = mockClient().also {
-        every { it.id } returns id
-        every { it.audience } returns mockk()
     }
 
     /** A token the response only carries the encoded form of. */
@@ -562,7 +554,7 @@ class TokenControllerTest {
     @Test
     fun `getTokensUsingClientCredentials - Returns access token without refresh or id token`() = runTest {
         val request = mockRequest()
-        val client = mockClientIdentifiedAs("my-client")
+        val client = mockClient()
         val scope = mockk<com.sympauthy.business.model.oauth2.ClientScope> { every { this@mockk.scope } returns "read" }
         val accessToken = mockAccessToken("cc-access", listOf("read"))
 
@@ -573,9 +565,8 @@ class TokenControllerTest {
             results = listOf(ScopeGrantingMethodResult(grantedScopes = listOf(scope), declinedScopes = emptyList()))
         )
         coEvery {
-            accessTokenGenerator.generateAccessTokenForClient(
-                clientId = "my-client",
-                audience = any(),
+            tokenManager.generateAccessTokenForClient(
+                client = client,
                 clientScopes = listOf("read"),
                 dpopJkt = null
             )
@@ -624,13 +615,13 @@ class TokenControllerTest {
         assertEquals(INVALID_SCOPE, exception.errorCode)
         assertEquals("scope.unsupported", exception.detailsId)
         assertEquals(mapOf("scope" to "doesnotexist"), exception.values)
-        coVerify(exactly = 0) { accessTokenGenerator.generateAccessTokenForClient(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { tokenManager.generateAccessTokenForClient(any(), any(), any()) }
     }
 
     @Test
     fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {
         val request = mockRequest()
-        val client = mockClientIdentifiedAs("my-client")
+        val client = mockClient()
         val accessToken = mockExpiringAccessToken(
             token = "cc-access",
             issueDate = LocalDateTime.of(2024, 1, 1, 12, 0, 0),
@@ -644,9 +635,8 @@ class TokenControllerTest {
             results = emptyList()
         )
         coEvery {
-            accessTokenGenerator.generateAccessTokenForClient(
-                clientId = "my-client",
-                audience = any(),
+            tokenManager.generateAccessTokenForClient(
+                client = client,
                 clientScopes = emptyList(),
                 dpopJkt = null
             )

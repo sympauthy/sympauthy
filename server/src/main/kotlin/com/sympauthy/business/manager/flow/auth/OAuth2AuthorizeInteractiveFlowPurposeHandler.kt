@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
@@ -48,6 +49,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val consentManager: ConsentManager,
     @Inject private val invitationManager: InvitationManager,
     @Inject private val authorizationCodeManager: AuthorizationCodeManager,
+    @Inject private val grantManager: GrantManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
@@ -234,8 +236,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * authorized for the client. If an active consent already exists for this user+client pair, it is revoked
      * and replaced.
      *
-     * The authorization code is generated here, last, so the session completes holding the one code its
-     * hand-off carries, and a flow refused by a later purpose rolls it back with everything else.
+     * The grant every token of this authorization will be issued under is opened here, once the scopes and the
+     * consent it records are decided, and the authorization code is generated last, naming it. The session
+     * completes holding the one code its hand-off carries, and a flow refused by a later purpose rolls both
+     * back with everything else.
      *
      * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up. An
      * invitation is spent on an account that comes to exist, so a flow that is abandoned leaves it pending
@@ -291,7 +295,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             scopes = oauth2.consentedScopes ?: emptyList()
         )
         oauth2.invitationId?.let { invitationManager.consumeInvitation(it, userId) }
-        authorizationCodeManager.generateCode(session)
+        val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audienceId)
+        authorizationCodeManager.generateCode(session, grant)
         return TerminalEffectResult.Proceed
     }
 }

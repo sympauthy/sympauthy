@@ -106,11 +106,11 @@ class ClientProviderLinkController(
     ): ClientProviderLinkResource {
         val client = authentication.clientAuthentication.client
 
-        // Validate the end-user access token: signature, expiry, not revoked, issued to the calling client
+        // Validate the end-user access token: signature, expiry, grant not revoked, issued to the calling client
         // (enforced by introspectToken), and associated with an end-user (not a client-credentials token).
         val userToken = resource.accessToken
             ?.let { tokenManager.introspectToken(client, it, ACCESS) }
-        val userId = userToken?.userId
+        val userId = userToken?.grant?.userId
             ?: throw recoverableBusinessExceptionOf(
                 "client.providers.link.invalid_access_token",
                 "description.client.providers.link.invalid_access_token"

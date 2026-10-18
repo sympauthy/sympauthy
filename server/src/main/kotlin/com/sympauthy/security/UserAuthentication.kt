@@ -33,7 +33,7 @@ class UserAuthentication(
     val grantedScopes: List<EnabledScope>
 ) : Authentication {
 
-    override fun getName(): String = authenticationToken.userId?.toString()
+    override fun getName(): String = authenticationToken.grant.userId?.toString()
         ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")
 
     override fun getAttributes(): Map<String, Any> = emptyMap()
@@ -66,6 +66,6 @@ val Authentication.grantedScopes: List<EnabledScope>
     get() = this.userAuthentication.grantedScopes
 
 val Authentication.userId: UUID
-    get() = this.userAuthentication.authenticationToken.userId
+    get() = this.userAuthentication.authenticationToken.grant.userId
         ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")
 

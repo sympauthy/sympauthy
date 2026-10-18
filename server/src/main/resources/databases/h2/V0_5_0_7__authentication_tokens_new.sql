@@ -1,38 +1,16 @@
 CREATE TABLE authentication_tokens
 (
-    id                        uuid      NOT NULL DEFAULT random_uuid(),
-    type                      text      NOT NULL,
-    user_id                   uuid,
-    client_id                 text      NOT NULL,
-    audience_id               text      NOT NULL,
-    granted_scopes            text array NOT NULL,
-    granted_at                timestamp,
-    granted_by                text,
-    consented_scopes          text array NOT NULL DEFAULT ARRAY[],
-    consented_at              timestamp,
-    consented_by              text,
-    client_scopes             text array NOT NULL DEFAULT ARRAY[],
-    session_id                uuid,
-    grant_type                text      NOT NULL,
-    authentication_date       timestamp,
-
-    requested_id_token_claims text array NOT NULL DEFAULT ARRAY[],
-    requested_userinfo_claims text array NOT NULL DEFAULT ARRAY[],
-
-    dpop_jkt                  text,
-
-    actor_token_id            uuid,
-
-    revoked_at                timestamp,
-    revoked_by                text,
-    revoked_by_id             uuid,
-    issue_date                timestamp NOT NULL,
-    expiration_date           timestamp,
+    id              uuid      NOT NULL DEFAULT random_uuid(),
+    type            text      NOT NULL,
+    grant_id        uuid      NOT NULL,
+    grant_type      text      NOT NULL,
+    dpop_jkt        text,
+    issue_date      timestamp NOT NULL,
+    expiration_date timestamp,
 
     PRIMARY KEY (id),
-    FOREIGN KEY (user_id) REFERENCES users (id)
+    FOREIGN KEY (grant_id) REFERENCES grants (id)
 );
 
-CREATE INDEX authentication_tokens__user_id ON authentication_tokens (user_id);
-CREATE INDEX authentication_tokens__session_id ON authentication_tokens (session_id);
-CREATE INDEX authentication_tokens__actor_token_id ON authentication_tokens (actor_token_id);
+CREATE INDEX authentication_tokens__grant_id_expiration_date ON authentication_tokens (grant_id, expiration_date);
+CREATE INDEX authentication_tokens__expiration_date ON authentication_tokens (expiration_date);

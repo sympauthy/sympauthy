@@ -128,8 +128,9 @@ the other is refused at startup.
 ### Does a refresh issue a new id token?
 
 **Decision:** Yes, where the grant is one an id token is owed at all. The refresh response carries
-an `id_token` beside the access token, holding the subject, the audience and the session of the
-original authentication, with a fresh issue date, expiry, claim set and `at_hash`.
+an `id_token` beside the access token, holding the subject and the audience of the original
+authentication and issued under its grant, with a fresh issue date, expiry, claim set and
+`at_hash`.
 
 **Options considered:**
 
@@ -305,42 +306,43 @@ a deployment writing `published-in` on claim after claim deliberately.
 
 ---
 
-### Does a token outlive its client?
+### Does a grant outlive its client?
 
-**Decision:** No. A token naming a client the configuration no longer declares is refused with a
-`401` whenever it is presented, and its row is left as it is.
+**Decision:** No. Every token of a grant opened for a client the configuration no longer declares is
+refused with a `401` whenever it is presented, and the grant is left as it is.
 
 **Options considered:**
 
-- **Honour it until it expires** — the token was valid when it was issued, and removing the client
-  already stops it obtaining another.
-- **Refuse it when it is presented** — the client is looked up on every request, beside the row.
-- **Revoke it** — write the revocation to every row naming the client, once the client is found
+- **Honour its tokens until they expire** — they were valid when they were issued, and removing the
+  client already stops it opening another grant.
+- **Refuse its tokens when they are presented** — the client is looked up on every request, beside
+  the grant.
+- **Revoke it** — write the revocation to every grant naming the client, once the client is found
   missing.
 
 **Rationale:**
 
-Honouring it leaves a token nothing can withdraw. Revocation under RFC 7009 is the client's own and
+Honouring it leaves a grant nothing can withdraw. Revocation under RFC 7009 is the client's own and
 needs it to authenticate, which a client the configuration no longer declares cannot do; an
-administrator revokes by person, and a `client_credentials` token has none. The token would serve
-until it expired, and the operator who removed the client would have no way to say otherwise.
+administrator revokes by person, and a `client_credentials` grant has none. Its tokens would serve
+until they expired, and the operator who removed the client would have no way to say otherwise.
 
 Revoking writes rows because a file changed, which nothing in this server does at startup, and it
 cannot be taken back: an identifier mistyped in an edit would sign every person of that client out
 for good, where refusing costs them only until the edit is corrected. Revocation also records who
 revoked, and no person and no client did.
 
-What refusing costs is that a client declared again under the same identifier finds its unexpired
-tokens served again. A refresh is the client's own and needs it to authenticate, so what returns is
-what the client still holds, for as long as it has left to run.
+What refusing costs is that a client declared again under the same identifier finds the unexpired
+tokens of its grants served again. A refresh is the client's own and needs it to authenticate, so
+what returns is what the client still holds, for as long as it has left to run.
 
 ---
 
 ### Does any presentation of a spent authorization code revoke what it was exchanged for?
 
-**Decision:** No. A spent code revokes the tokens issued under its authorization only when it is
-presented by an exchange that passes client authentication and the PKCE verifier — one that would
-have been issued tokens had the code not been spent. Any other request presenting it
+**Decision:** No. A spent code revokes the grant it was issued under only when it is presented by
+an exchange that passes client authentication and the PKCE verifier — one that would have been
+issued tokens had the code not been spent. Any other request presenting it
 is refused for what it got wrong, and revokes nothing.
 
 **Options considered:**
@@ -370,6 +372,94 @@ not one that asks for that.
 Nothing is left uncontained by it. A request refused before the code is spent was never issued
 anything, so the tokens it leaves in service are those of an exchange that passed every check — and
 where nobody but the client holds the verifier, that exchange was the client's own.
+
+---
+
+### Does revoking an access token revoke the refresh token beside it?
+
+**Decision:** Yes. The revocation endpoint revokes the grant of whichever token it is given, so an
+access token presented to it takes the refresh token of its grant, and every other token under it,
+out of service with it.
+
+**Options considered:**
+
+- **Revoke the grant, whichever token is presented** — RFC 7009 §2.1 allows a server to revoke the
+  refresh token when handed an access token.
+- **Revoke a single access token, and the grant only when handed a refresh token** — what this
+  server did while revocation was written to tokens one by one.
+- **Revoke an access token by deleting it** — the refresh token survives, and nothing is recorded.
+
+**Rationale:**
+
+A client revoking a token is almost always signing the person out, and the refresh token is the
+part of that it cannot do on its own: an access token it discards expires within minutes anyway.
+Revoking one access token would also need a revocation on the token as well as on the grant — two
+places a token's liveness is read from, and the rule that a revocation is recorded once held on
+both of them.
+
+Deleting the access token instead keeps the refresh token without that second record, but it is the
+one revocation nothing records, and introspection could no longer tell it from a token this server
+never issued.
+
+What it costs is twofold. The rare client that revoked an access token to discard it while keeping
+its refresh token loses both, and signs the person in again. And an access token is shown to every
+resource server it is used against, where a refresh token is shown to nobody: for a public client,
+which the endpoint authenticates by its identifier alone and asks no DPoP proof of, whoever sees one
+of its access tokens can revoke the grant it stands under — a resource server, a log, or a thief
+holding a token bound to a key nothing else honours — and sign the person out of that client.
+Nothing throttles the endpoint either, as [security](security.md#what-this-design-does-not-do) has
+of every surface.
+
+That second cost is accepted. The holder reads nothing and acts as nobody, so what is lost is a
+sign-in, which a refresh token of the same client in the same hands could already cost the person;
+RFC 7009 §2.1 asks no more of a public client than that the token was issued to it, which is the
+check the endpoint makes; and revoking one access token for a public client while revoking the
+grant for a confidential one would be two revocations to read a token's liveness from, where the
+rationale above wants one.
+
+---
+
+### Is a revoked grant kept?
+
+**Decision:** No. The job collecting expired tokens deletes a revoked grant, with its tokens, on
+the next run after the revocation — once no stored authorization code names it.
+
+**Options considered:**
+
+- **Delete it on the next run** — a grant gone is refused as surely as a revoked one.
+- **Keep it for a retention period** — a configuration key saying how long who revoked a grant, and
+  when, is kept after it is written.
+
+**Rationale:**
+
+Nothing reads who revoked a grant or when once it is written. A token whose grant is gone is a token
+this server does not know, which every surface refuses already, so keeping the row changes nothing
+any caller observes. A retention period would be a configuration key and a second rule for a record
+nothing shows: an audit trail with no surface, which
+[security](security.md#what-this-design-does-not-do) leaves to a feature of its own.
+
+The code is the exception, and not for the record's sake: a grant a stored code names is kept so
+that a later replay of the code reaches it, and is collected once the code is.
+
+---
+
+### Why is the record a token is issued under called a grant?
+
+**Decision:** It is a grant: `Grant` in the code and `grants` in the schema.
+
+**Options considered:**
+
+- **A grant** — what node-oidc-provider calls the same record, and what the OpenID Grant Management
+  draft puts on the wire as `grant_id`.
+- **An authorization** — what OpenIddict and Spring Authorization Server call it.
+
+**Rationale:**
+
+"Authorization" is already the flow's word, the code's and the server's: the authorize endpoint,
+the authorization code, the OAuth2 authorization an interactive flow session serves. A
+`client_credentials` grant is also nobody's authorization — no person was asked anything. A grant is
+what a client was allowed, whichever grant type opened it, and the name leaves room for exposing it
+to clients through Grant Management without renaming anything.
 
 ---
 

@@ -11,7 +11,6 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.oauth2.AccessTokenGenerator
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenExchangeManager
@@ -52,7 +51,6 @@ class TokenController(
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val authorizeFlowManager: AuthorizationFlowManager,
     @Inject private val tokenManager: TokenManager,
-    @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
     @Inject private val pkceManager: PkceManager,
@@ -175,9 +173,12 @@ class TokenController(
                     "token.\n" +
                     "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
-                    "- `invalid_grant`: `code` or `refresh_token` is unknown, expired, revoked or issued to " +
-                    "another client; `code` was already exchanged; `code_verifier` does not match the " +
-                    "authorization request; the consent of the end-user was revoked, or the user never " +
+                    "- `invalid_grant`: `code` or `refresh_token` is unknown, expired or issued to another " +
+                    "client; `refresh_token` was issued under a grant that was revoked, that " +
+                    "`auth.token.grant-expiration` has ended, or that was opened for an audience its client no " +
+                    "longer belongs to; `code` was already exchanged; `code_verifier` " +
+                    "does not match the authorization request; the consent of the end-user was revoked, or " +
+                    "the user never " +
                     "finished signing up; or `subject_token` is not a valid `client_credentials` access token " +
                     "of this client.\n" +
                     "- `unauthorized_client`: the client is not allowed this `grant_type`.\n" +
@@ -375,9 +376,8 @@ class TokenController(
         val grantResult = clientScopeGrantingManager.grantClientScopes(client, requestedScopes)
         val scopeStrings = grantResult.grantedScopes.map { it.scope }
 
-        val accessToken = accessTokenGenerator.generateAccessTokenForClient(
-            clientId = client.id,
-            audience = client.audience,
+        val accessToken = tokenManager.generateAccessTokenForClient(
+            client = client,
             clientScopes = scopeStrings,
             dpopJkt = dpopProof?.jkt
         )

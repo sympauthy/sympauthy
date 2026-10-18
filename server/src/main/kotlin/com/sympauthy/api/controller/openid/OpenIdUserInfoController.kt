@@ -57,7 +57,7 @@ class OpenIdUserInfoController(
     suspend fun getUserInfo(
         authentication: Authentication
     ): UserInfoResource {
-        val token = authentication.userAuthentication.authenticationToken
+        val grant = authentication.userAuthentication.authenticationToken.grant
         val client = authentication.userAuthentication.client
         // The person's own read rather than the client's: this endpoint is protected by a bearer token
         // alone, with no client authentication, so consent is the whole of what it may go on.
@@ -66,9 +66,9 @@ class OpenIdUserInfoController(
             audienceId = client.audience.id,
             consentedScopes = authentication.consentedScopes.map(Scope::scope)
         )
-        // Off the token rather than off a session: the authorization that carried the `claims` parameter
-        // is long over, and every access token descended from it answers the request it made.
-        return userInfoMapper.toResource(authentication.userId, claims, token.requestedClaims)
+        // Off the grant rather than off a session: the authorization that carried the `claims` parameter
+        // is long over, and every access token issued under its grant answers the request it made.
+        return userInfoMapper.toResource(authentication.userId, claims, grant.requestedClaims)
     }
 
     companion object {

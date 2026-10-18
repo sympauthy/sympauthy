@@ -19,6 +19,7 @@ data class ParsedAuthConfig(
     val idExpiration: Duration?,
     val refreshEnabled: Boolean?,
     val refreshExpiration: Duration?,
+    val grantExpiration: Duration?,
     val dpopRequired: Boolean?,
     val authorizationCodeExpiration: Duration?,
     val identifierClaims: List<String>,
@@ -69,6 +70,12 @@ class AuthConfigParser(
             }
         }
 
+        val grantExpiration = ctx.parse {
+            tokenProperties?.let {
+                parser.getDuration(it, "$TOKEN_KEY.grant-expiration", TokenConfigurationProperties::grantExpiration)
+            }
+        }
+
         val dpopRequired = ctx.parse {
             tokenProperties?.let {
                 parser.getBoolean(it, "$TOKEN_KEY.dpop-required", TokenConfigurationProperties::dpopRequired)
@@ -110,6 +117,7 @@ class AuthConfigParser(
             idExpiration = idExpiration,
             refreshEnabled = refreshEnabled,
             refreshExpiration = refreshExpiration,
+            grantExpiration = grantExpiration,
             dpopRequired = dpopRequired,
             authorizationCodeExpiration = authorizationCodeExpiration,
             identifierClaims = identifierClaims,
