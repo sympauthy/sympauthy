@@ -13,6 +13,7 @@ import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri
@@ -65,9 +66,13 @@ class DpopManager(
      * [boundRequest] the request they have to be bound to, naming [token] as the access token it presents.
      *
      * A token bound to no key and presented as a bearer token is accepted whatever [proofs] holds. Otherwise
-     * an [com.sympauthy.api.exception.OAuth2Exception] carrying [INVALID_DPOP_PROOF] is raised:
-     * - `dpop.bound_token_as_bearer`, where a token bound to a key is presented as a bearer token.
-     * - `dpop.unbound_token`, where a token bound to no key is presented under the `DPoP` scheme.
+     * an [com.sympauthy.api.exception.OAuth2Exception] is raised, carrying [INVALID_TOKEN] where the token is
+     * presented under a scheme its binding refuses, and [INVALID_DPOP_PROOF] where its proof is what refuses
+     * it, which are the errors a resource challenges each with, RFC 9449 §7.1:
+     * - `dpop.bound_token_as_bearer`, [INVALID_TOKEN], where a token bound to a key is presented as a bearer
+     *   token.
+     * - `dpop.unbound_token`, [INVALID_TOKEN], where a token bound to no key is presented under the `DPoP`
+     *   scheme.
      * - any refusal of [validateDpopProof], and `dpop.missing_header` or `dpop.mismatching_key` as
      *   [checkProofMatchesBinding] raises them, where a token bound to a key is presented under it.
      */
@@ -81,12 +86,12 @@ class DpopManager(
         // the binding would be optional to whoever holds the token.
         if (!presentedWithDpopScheme) {
             if (token.dpopJkt != null) {
-                throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.bound_token_as_bearer")
+                throw oauth2ExceptionOf(INVALID_TOKEN, "dpop.bound_token_as_bearer")
             }
             return
         }
         if (token.dpopJkt == null) {
-            throw oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.unbound_token")
+            throw oauth2ExceptionOf(INVALID_TOKEN, "dpop.unbound_token")
         }
         val proof = validateDpopProof(proofs, boundRequest)
         checkProofMatchesBinding(token, proof?.jkt)

@@ -15,7 +15,7 @@ class DpopTokenReader : HttpHeaderTokenReader() {
 
     override fun getHeaderName(): String = AUTHORIZATION
 
-    override fun getPrefix(): String = "DPoP"
+    override fun getPrefix(): String = AccessTokenScheme.DPOP.scheme
 
     /**
      * Whether [request] presents [token] under the `DPoP` scheme, rather than as a bearer token or in a

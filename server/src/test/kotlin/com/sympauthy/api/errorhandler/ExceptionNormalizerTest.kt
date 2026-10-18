@@ -1,6 +1,11 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.UnsupportedMethodException
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
+import com.sympauthy.security.AccessTokenScheme
+import com.sympauthy.security.ClientAuthentication
+import com.sympauthy.security.StateAuthentication
 import io.micronaut.core.annotation.AnnotationMetadata
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
@@ -19,12 +24,17 @@ import io.micronaut.http.server.exceptions.UnsupportedMediaException
 import io.micronaut.inject.annotation.MutableAnnotationMetadata
 import io.micronaut.json.JsonSyntaxException
 import io.micronaut.security.authentication.AuthenticationException
+import io.micronaut.security.authentication.AuthorizationException
 import io.micronaut.web.router.exceptions.DuplicateRouteException
 import io.micronaut.web.router.exceptions.UnsatisfiedBodyRouteException
 import io.micronaut.web.router.exceptions.UnsatisfiedQueryValueRouteException
 import io.micronaut.web.router.exceptions.UnsatisfiedRequestAttributeRouteException
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
@@ -202,6 +212,41 @@ class ExceptionNormalizerTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.status)
         assertEquals("unauthorized", exception.detailsId)
+    }
+
+    @Test
+    fun `normalize - Challenge with no error a request presenting no token`() {
+        val exception = normalizer.normalize(AuthorizationException(null))
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.status)
+        assertEquals("unauthorized", exception.detailsId)
+        val challenge = assertInstanceOf(AccessTokenChallengeException::class.java, exception)
+        assertNull(challenge.scheme)
+        assertNull(challenge.error)
+    }
+
+    @Test
+    fun `normalize - Challenge a token the gate turns away with insufficient_scope under its scheme`() {
+        val authentication = mockk<ClientAuthentication> {
+            every { authenticationToken } returns mockk { every { dpopJkt } returns "thumbprint" }
+        }
+
+        val exception = normalizer.normalize(AuthorizationException(authentication))
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.status)
+        assertEquals("forbidden", exception.detailsId)
+        val challenge = assertInstanceOf(AccessTokenChallengeException::class.java, exception)
+        assertEquals(AccessTokenScheme.DPOP, challenge.scheme)
+        assertEquals(INSUFFICIENT_SCOPE, challenge.error)
+    }
+
+    @Test
+    fun `normalize - Answer the gate turning away the state with forbidden and no challenge`() {
+        val exception = normalizer.normalize(AuthorizationException(StateAuthentication("state")))
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.status)
+        assertEquals("forbidden", exception.detailsId)
+        assertFalse(exception is AccessTokenChallengeException)
     }
 
     @Test

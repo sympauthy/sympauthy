@@ -129,6 +129,9 @@ class AdminCorsFilter(
     /**
      * [origin] is `null` in wildcard mode, where every origin is allowed and the response therefore does
      * not vary on the request.
+     *
+     * A response that is not a preflight exposes `WWW-Authenticate`, so a page reads the challenge a refusal
+     * carries.
      */
     private fun addCorsHeaders(
         response: MutableHttpResponse<*>,
@@ -143,6 +146,8 @@ class AdminCorsFilter(
         }
         if (preflight) {
             corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
+        } else {
+            response.headers.add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.WWW_AUTHENTICATE)
         }
     }
 

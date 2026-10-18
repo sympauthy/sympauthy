@@ -2,6 +2,7 @@ package com.sympauthy.api.exception
 
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.exception.LocalizedException
+import com.sympauthy.security.AccessTokenScheme
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
 
@@ -44,6 +45,27 @@ fun OAuth2Exception.toHttpException(
     detailsId = detailsId,
     descriptionId = descriptionId,
     values = values
+)
+
+/**
+ * This protocol error as an [AccessTokenChallengeException] answering with [httpStatus] and challenging the
+ * token presented under [scheme] with [error], which may differ from [OAuth2Exception.errorCode]: the code a
+ * manager names is the one the token endpoint answers with.
+ *
+ * It is not recoverable, for the reason [toHttpException] is not.
+ */
+fun OAuth2Exception.toAccessTokenChallengeException(
+    httpStatus: HttpStatus,
+    scheme: AccessTokenScheme,
+    error: OAuth2ErrorCode
+) = AccessTokenChallengeException(
+    status = httpStatus,
+    recoverable = false,
+    detailsId = detailsId,
+    descriptionId = descriptionId,
+    values = values,
+    scheme = scheme,
+    error = error
 )
 
 fun LocalizedException.toOAuth2Exception(

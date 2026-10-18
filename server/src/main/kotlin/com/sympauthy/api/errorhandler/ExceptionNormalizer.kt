@@ -4,9 +4,12 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
+import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
 import com.sympauthy.exception.LocalizedException
+import com.sympauthy.security.accessTokenSchemeOrNull
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
 import io.micronaut.core.convert.exceptions.ConversionErrorException
@@ -75,16 +78,26 @@ class ExceptionNormalizer {
         throwable = throwable
     )
 
+    /**
+     * The refusal of a request the security rules turned away: `forbidden` where it carried an authentication
+     * those rules do not accept, and `unauthorized` where it carried none.
+     *
+     * Either challenges the access token: `insufficient_scope` on the challenge of the scheme a token turned away
+     * came under, and no error where the request presented nothing. A `forbidden` turning away anything but an
+     * access token challenges nothing.
+     */
     private fun toException(exception: AuthorizationException): LocalizedHttpException {
-        return if (exception.authentication != null && exception.isForbidden) {
-            httpExceptionOf(
-                status = FORBIDDEN,
-                detailsId = "forbidden",
-                descriptionId = "description.forbidden"
-            )
-        } else {
-            unauthorized()
+        val authentication = exception.authentication
+        if (authentication == null || !exception.isForbidden) {
+            return unauthorized().toAccessTokenChallengeException(scheme = null, error = null)
         }
+        val forbidden = httpExceptionOf(
+            status = FORBIDDEN,
+            detailsId = "forbidden",
+            descriptionId = "description.forbidden"
+        )
+        val scheme = authentication.accessTokenSchemeOrNull ?: return forbidden
+        return forbidden.toAccessTokenChallengeException(scheme, INSUFFICIENT_SCOPE)
     }
 
     private fun unauthorized() = recoverableHttpExceptionOf(

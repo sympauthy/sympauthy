@@ -66,10 +66,16 @@ class WildcardCorsFilter(
         }
     }
 
+    /**
+     * A response that is not a preflight exposes `WWW-Authenticate`, so a page reads the challenge a refusal
+     * carries.
+     */
     private fun addCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         if (preflight) {
             corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
+        } else {
+            response.headers.add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.WWW_AUTHENTICATE)
         }
     }
 

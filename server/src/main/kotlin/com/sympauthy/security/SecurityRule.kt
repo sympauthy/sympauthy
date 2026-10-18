@@ -31,4 +31,13 @@ object SecurityRule {
     const val CLIENT_USERS_PROVIDERS_WRITE = "SCOPE_${BuiltInClientScopeId.USERS_PROVIDERS_WRITE}"
     const val CLIENT_INVITATIONS_READ = "SCOPE_${BuiltInClientScopeId.INVITATIONS_READ}"
     const val CLIENT_INVITATIONS_WRITE = "SCOPE_${BuiltInClientScopeId.INVITATIONS_WRITE}"
+
+    private const val SCOPE_PREFIX = "SCOPE_"
+
+    /**
+     * Whether [role] is one an access token grants: the role of a [UserAuthentication], of a [ClientAuthentication]
+     * or of an administrator, or a scope one of them carries as a role. The state and anonymity are not.
+     */
+    fun isGrantedByAccessToken(role: String): Boolean =
+        role == IS_USER || role == IS_CLIENT || role == IS_ADMIN || role.startsWith(SCOPE_PREFIX)
 }
