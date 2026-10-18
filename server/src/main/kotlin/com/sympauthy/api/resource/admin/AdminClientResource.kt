@@ -43,11 +43,11 @@ data class AdminClientResource(
     @get:JsonProperty("authorization_flow_id")
     val authorizationFlowId: String?,
     @get:Schema(
-        description = "Scopes the client may request. Empty both when the configuration does not restrict " +
-                "them and when it allows none."
+        description = "Scopes the client may request. Absent when the configuration does not restrict them, " +
+                "and the client may request every scope."
     )
     @get:JsonProperty("allowed_scopes")
-    val allowedScopes: List<String>,
+    val allowedScopes: List<String>?,
     @get:Schema(
         description = "Scopes the client is given when its authorization request names none."
     )
