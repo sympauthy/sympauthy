@@ -70,6 +70,14 @@ again. [The design
 FAQ](design-faq.md#does-revoking-an-access-token-revoke-the-refresh-token-beside-it) argues the
 alternatives.
 
+**Whoever holds an access token of a public client can therefore sign the person out of it.** The
+endpoint authenticates a public client by its identifier alone and reads no DPoP proof, so a
+resource server the token was presented to, a log it was written to, or a thief holding a token
+bound to a key nothing else honours can revoke the grant it stands under. That is accepted: the
+holder reads nothing and acts as nobody, the person signs in again, and a refresh token of a public
+client in the same hands revokes as much. [The design
+FAQ](design-faq.md#does-revoking-an-access-token-revoke-the-refresh-token-beside-it) weighs it.
+
 **Revoking a grant revokes the grants opened by exchanging its tokens**, so a client revoking the
 token it presented to a token exchange takes every act-as token issued from it out of service too.
 

@@ -401,8 +401,21 @@ Deleting the access token instead keeps the refresh token without that second re
 one revocation nothing records, and introspection could no longer tell it from a token this server
 never issued.
 
-What it costs is the rare client that revoked an access token to discard it while keeping its
-refresh token: it loses both, and signs the person in again.
+What it costs is twofold. The rare client that revoked an access token to discard it while keeping
+its refresh token loses both, and signs the person in again. And an access token is shown to every
+resource server it is used against, where a refresh token is shown to nobody: for a public client,
+which the endpoint authenticates by its identifier alone and asks no DPoP proof of, whoever sees one
+of its access tokens can revoke the grant it stands under — a resource server, a log, or a thief
+holding a token bound to a key nothing else honours — and sign the person out of that client.
+Nothing throttles the endpoint either, as [security](security.md#what-this-design-does-not-do) has
+of every surface.
+
+That second cost is accepted. The holder reads nothing and acts as nobody, so what is lost is a
+sign-in, which a refresh token of the same client in the same hands could already cost the person;
+RFC 7009 §2.1 asks no more of a public client than that the token was issued to it, which is the
+check the endpoint makes; and revoking one access token for a public client while revoking the
+grant for a confidential one would be two revocations to read a token's liveness from, where the
+rationale above wants one.
 
 ---
 
