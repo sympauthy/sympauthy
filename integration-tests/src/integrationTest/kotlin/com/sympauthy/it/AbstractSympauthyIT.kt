@@ -30,6 +30,7 @@ import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import io.micronaut.context.ApplicationContext
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import java.net.URI
+import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -749,11 +750,18 @@ abstract class AbstractSympauthyIT {
     private fun bodyOf(refusal: HttpClientResponseException): String =
         refusal.response.getBody(String::class.java).orElse("")
 
-    /** The `Authorization: Basic` header authenticating the confidential client [clientId] with [secret]. */
-    protected fun basicAuth(clientId: String, secret: String): Map<String, String> = mapOf(
-        "Authorization" to "Basic " + Base64.getEncoder()
-            .encodeToString("$clientId:$secret".toByteArray(StandardCharsets.UTF_8)),
-    )
+    /**
+     * The `Authorization: Basic` header authenticating the confidential client [clientId] with [secret],
+     * each form-encoded as RFC 6749 §2.3.1 requires.
+     */
+    protected fun basicAuth(clientId: String, secret: String): Map<String, String> {
+        val credentials = URLEncoder.encode(clientId, StandardCharsets.UTF_8) + ":" +
+            URLEncoder.encode(secret, StandardCharsets.UTF_8)
+        return mapOf(
+            "Authorization" to "Basic " + Base64.getEncoder()
+                .encodeToString(credentials.toByteArray(StandardCharsets.UTF_8)),
+        )
+    }
 
     /**
      * [basicAuth] for [registry]'s own client, which has to be a confidential one — a public client holds

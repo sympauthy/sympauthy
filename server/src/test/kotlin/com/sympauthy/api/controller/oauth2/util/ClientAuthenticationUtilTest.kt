@@ -122,6 +122,26 @@ class ClientAuthenticationUtilTest {
     }
 
     @Test
+    fun `resolveClient - Authenticates with Basic Auth credentials form-encoded`() = runTest {
+        val client = mockk<Client>()
+        coEvery { clientManager.authenticateClientOrNull("client:1", "a+b/c= é") } returns client
+
+        val result = util.resolveClient(mockRequestWithBasicAuth("client%3A1", "a%2Bb%2Fc%3D+%C3%A9"), null, null)
+
+        assertEquals(client, result)
+    }
+
+    @Test
+    fun `resolveClient - Throws with a challenge when Basic Auth credentials hold an escape that does not decode`() =
+        runTest {
+            val exception = assertThrows<OAuth2Exception> {
+                util.resolveClient(mockRequestWithBasicAuth("client1", "100%"), null, null)
+            }
+            assertChallenged(exception)
+            assertEquals("authentication.wrong", exception.detailsId)
+        }
+
+    @Test
     fun `resolveClientAllowingPublic - Authenticates confidential client`() = runTest {
         val client = mockk<Client>()
         coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
