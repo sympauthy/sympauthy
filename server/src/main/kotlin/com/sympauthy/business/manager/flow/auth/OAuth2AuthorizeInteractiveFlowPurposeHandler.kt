@@ -295,7 +295,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             scopes = oauth2.consentedScopes ?: emptyList()
         )
         oauth2.invitationId?.let { invitationManager.consumeInvitation(it, userId) }
-        val grant = grantManager.createAuthorizationCodeGrant(oauth2, userId, audienceId)
+        val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audienceId)
         authorizationCodeManager.generateCode(session, grant)
         return TerminalEffectResult.Proceed
     }

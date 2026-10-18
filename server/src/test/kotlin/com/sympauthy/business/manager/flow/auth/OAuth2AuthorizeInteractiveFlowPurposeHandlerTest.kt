@@ -103,7 +103,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     /** Stubs opening the grant of [userId] for the audience and generating the code of [session] under it. */
     private fun stubCodeIssuance(session: OnGoingInteractiveFlowSession, userId: UUID) {
         val grant = mockk<Grant>()
-        coEvery { grantManager.createAuthorizationCodeGrant(any(), userId, testAudience.id) } returns grant
+        coEvery { grantManager.createAuthorizationCodeGrant(session, any(), userId, testAudience.id) } returns grant
         coEvery { authorizationCodeManager.generateCode(session, grant) } returns mockk()
     }
 
@@ -272,7 +272,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
         val grant = mockk<Grant>()
         coEvery {
-            grantManager.createAuthorizationCodeGrant(oauth2AfterGranted, userId, testAudience.id)
+            grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
         } returns grant
         coEvery { authorizationCodeManager.generateCode(session, grant) } returns mockk()
 
@@ -281,7 +281,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         assertEquals(TerminalEffectResult.Proceed, result)
         coVerifyOrder {
             consentManager.saveConsent(userId, testAudience.id, clientId, any())
-            grantManager.createAuthorizationCodeGrant(oauth2AfterGranted, userId, testAudience.id)
+            grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
             authorizationCodeManager.generateCode(session, grant)
         }
     }
@@ -335,7 +335,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         val fail = assertInstanceOf(TerminalEffectResult.Fail::class.java, result)
         assertEquals("flow.authorization_flow.complete.no_scope", fail.error.detailsId)
-        coVerify(exactly = 0) { grantManager.createAuthorizationCodeGrant(any(), any(), any()) }
+        coVerify(exactly = 0) { grantManager.createAuthorizationCodeGrant(any(), any(), any(), any()) }
         coVerify(exactly = 0) { authorizationCodeManager.generateCode(any(), any()) }
     }
 

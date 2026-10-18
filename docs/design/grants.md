@@ -21,9 +21,10 @@ issued by, its expiry and the key it is bound to.
 **An authorization opens its grant before it hands out its code, and the code names it.** The grant
 is written as the interactive flow session completes, just before the code and in the same
 transaction, once everything it records is decided — the scopes granted and consented, when the
-person authenticated, the claims asked for. A completion that loses the race to write its session's
-one code rolls its grant back with it, so a session never opens two. Exchanging the code then issues
-tokens under that grant rather than opening one.
+person authenticated, the claims asked for. A session opens one grant and no more: a completion
+that loses the race to another is refused at the grant, as the concurrent modification it is, and
+rolls back with everything it wrote. Exchanging the code then issues tokens under that grant rather
+than opening one.
 
 **A refresh issues its tokens under the grant of the refresh token it was given.** Every token an
 authorization produced, however often its client refreshed, is therefore under the one grant the
@@ -154,8 +155,9 @@ grant](design-faq.md#why-is-the-record-a-token-is-issued-under-called-a-grant) i
 **`OAuth2AuthorizeInteractiveFlowPurposeHandler` opens an authorization's grant in its terminal
 effect**, after the scopes are granted and the consent recorded and before
 `AuthorizationCodeManager` generates the code naming it. It takes no lock of its own: the completion
-transaction already holds the locks its promotion named, and the session's one code is what settles
-two completions racing.
+transaction already holds the locks its promotion named, and a unique index over the session a
+grant came from is what settles two completions racing, as the primary key over the session settles
+them at the code.
 
 **`GrantManager` opens a grant and revokes one**, and is where every revocation above is written.
 `TokenManager` issues the tokens under a grant and checks one presented to it against its grant;
@@ -180,9 +182,10 @@ deletes a grant only in the transaction deleting its tokens, and a token only so
 expired, so a refresh that found its token unexpired a moment before still finds its grant to write
 under.
 
-**A grant keeps the interactive flow session it came from for diagnosis, and nothing reads it.** The
-session is collected long before most grants end, so the reference is left dangling by design; it
-lets somebody reading the store trace a grant back to its flow while that flow is still there.
+**A grant keeps the interactive flow session it came from, and nothing reads it.** The session is
+collected long before most grants end, so the reference is left dangling by design: it is what the
+unique index keys a session's one grant on, and it lets somebody reading the store trace a grant
+back to its flow while that flow is still there.
 
 ## What this design does not do
 

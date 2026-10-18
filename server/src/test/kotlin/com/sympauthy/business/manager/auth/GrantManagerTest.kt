@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.GrantMapper
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.Grant
@@ -22,6 +23,8 @@ import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.ObjectLockRepository
+import io.micronaut.data.exceptions.DataIntegrityViolationException
+import io.micronaut.data.exceptions.EntityExistsException
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -30,6 +33,7 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -84,6 +88,15 @@ class GrantManagerTest {
         return saved
     }
 
+    private fun session(sessionId: UUID): InteractiveFlowSession = mockk { every { id } returns sessionId }
+
+    private fun oauth2(sessionId: UUID) = InteractiveFlowSessionOAuth2(
+        sessionId = sessionId,
+        clientId = "client",
+        redirectUri = "https://client.example.com/callback",
+        requestedScopes = listOf("openid")
+    )
+
     private fun mockGrant(userId: UUID?): Grant = mockk {
         every { id } returns UUID.randomUUID()
         every { this@mockk.userId } returns userId
@@ -113,7 +126,7 @@ class GrantManagerTest {
         )
         val saved = captureSave()
 
-        val grant = grantManager().createAuthorizationCodeGrant(oauth2, userId, "audience")
+        val grant = grantManager().createAuthorizationCodeGrant(session(sessionId), oauth2, userId, "audience")
 
         assertEquals(userId, grant.userId)
         assertEquals("client", grant.clientId)
@@ -129,6 +142,38 @@ class GrantManagerTest {
         assertNull(grant.actorGrantId)
         assertEquals("authorization_code", saved.captured.grantType)
         assertArrayEquals(arrayOf("email"), saved.captured.requestedIdTokenClaims)
+    }
+
+    @Test
+    fun `createAuthorizationCodeGrant - Answers a session that already opened its grant as a lost completion`() =
+        runTest {
+            val sessionId = UUID.randomUUID()
+            coEvery { grantRepository.save(any()) } throws EntityExistsException(
+                "duplicate key", R2dbcDataIntegrityViolationException("23505")
+            )
+
+            val exception = assertThrows<BusinessException> {
+                grantManager().createAuthorizationCodeGrant(
+                    session(sessionId), oauth2(sessionId), UUID.randomUUID(), "audience"
+                )
+            }
+
+            assertEquals("auth.interactive_flow_session.concurrent_modification", exception.detailsId)
+            assertEquals(mapOf("sessionId" to sessionId.toString()), exception.values)
+        }
+
+    @Test
+    fun `createAuthorizationCodeGrant - Lets a refusal of another kind travel as it is`() = runTest {
+        val sessionId = UUID.randomUUID()
+        coEvery { grantRepository.save(any()) } throws DataIntegrityViolationException(
+            "foreign key", R2dbcDataIntegrityViolationException("23503")
+        )
+
+        assertThrows<DataIntegrityViolationException> {
+            grantManager().createAuthorizationCodeGrant(
+                session(sessionId), oauth2(sessionId), UUID.randomUUID(), "audience"
+            )
+        }
     }
 
     @Test

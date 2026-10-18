@@ -4,10 +4,13 @@ import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.withFixture
+import com.sympauthy.util.isRowAlreadyThere
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.util.*
@@ -90,6 +93,29 @@ class GrantRepositoryTest {
             assertArrayEquals(emptyArray<String>(), storedWithoutAny.requestedIdTokenClaims)
             assertArrayEquals(emptyArray<String>(), storedWithoutAny.requestedUserinfoClaims)
         }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Refuses a second grant for one session, as the key being taken`(database: Database) =
+        withFixture(database) {
+            val sessionId = UUID.randomUUID()
+            newGrant(newUser(), sessionId = sessionId)
+
+            val refusal = assertThrows<Exception> { newGrant(newUser(), sessionId = sessionId) }
+
+            assertTrue(refusal.isRowAlreadyThere(), "The refusal does not read as the key being taken.")
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `save - Admits any number of grants no session opened`(database: Database) = withFixture(database) {
+        val grants = repository<GrantRepository>()
+        val first = newGrant(userId = null, sessionId = null, grantType = "client_credentials")
+        val second = newGrant(userId = null, sessionId = null, grantType = "client_credentials")
+
+        assertNotNull(grants.findById(first))
+        assertNotNull(grants.findById(second))
+    }
 
     @ParameterizedTest
     @EnumSource(Database::class)

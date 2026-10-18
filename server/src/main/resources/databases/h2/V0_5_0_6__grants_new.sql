@@ -31,4 +31,5 @@ CREATE TABLE grants
 );
 
 CREATE INDEX grants__user_id ON grants (user_id);
+CREATE UNIQUE INDEX grants__session_id ON grants (session_id);
 CREATE INDEX grants__actor_grant_id ON grants (actor_grant_id);

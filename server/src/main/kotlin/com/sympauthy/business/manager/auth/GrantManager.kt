@@ -5,7 +5,9 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.GrantMapper
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.oauth2.GrantRevokedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
@@ -13,6 +15,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
+import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.wireName
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -50,35 +53,49 @@ open class GrantManager(
     }
 
     /**
-     * Open the grant an authorization issues its code under, from what the session's [oauth2] request record
-     * holds once the flow is complete: the scopes granted and consented, when [userId] authenticated, and the
-     * claims the request named. Every token the exchange of that code issues, and every refresh descended from
-     * them, stands under it.
+     * Open the grant the authorization [session] completes issues its code under, from what the session's
+     * [oauth2] request record holds once the flow is complete: the scopes granted and consented, when [userId]
+     * authenticated, and the claims the request named. Every token the exchange of that code issues, and every
+     * refresh descended from them, stands under it.
      *
      * [audienceId] identifies the audience the grant is opened for, which is the audience of the client the
      * authorization was requested by.
+     *
+     * A session opens one grant: the unique index over the session a grant came from refuses a second, and
+     * with the grant written as the session completes, the request refused is one whose completion lost to a
+     * concurrent one. It throws `auth.interactive_flow_session.concurrent_modification`, as the code written
+     * after it and the version check after that would, so it is routed by where the winner left the session.
+     * Every other way the write can be refused travels on as this server's own failure.
      */
     suspend fun createAuthorizationCodeGrant(
+        session: InteractiveFlowSession,
         oauth2: InteractiveFlowSessionOAuth2,
         userId: UUID,
         audienceId: String
-    ): Grant = createGrant(
-        userId = userId,
-        clientId = oauth2.clientId,
-        audienceId = audienceId,
-        grantType = GrantType.AUTHORIZATION_CODE,
-        grantedScopes = oauth2.grantedScopes ?: emptyList(),
-        grantedAt = oauth2.grantedAt,
-        grantedBy = oauth2.grantedBy?.name,
-        consentedScopes = oauth2.consentedScopes ?: emptyList(),
-        consentedAt = oauth2.consentedAt,
-        consentedBy = oauth2.consentedBy?.name,
-        clientScopes = emptyList(),
-        authenticationDate = oauth2.authenticationDate,
-        requestedClaims = oauth2.requestedClaims,
-        sessionId = oauth2.sessionId,
-        actorGrantId = null
-    )
+    ): Grant = try {
+        createGrant(
+            userId = userId,
+            clientId = oauth2.clientId,
+            audienceId = audienceId,
+            grantType = GrantType.AUTHORIZATION_CODE,
+            grantedScopes = oauth2.grantedScopes ?: emptyList(),
+            grantedAt = oauth2.grantedAt,
+            grantedBy = oauth2.grantedBy?.name,
+            consentedScopes = oauth2.consentedScopes ?: emptyList(),
+            consentedAt = oauth2.consentedAt,
+            consentedBy = oauth2.consentedBy?.name,
+            clientScopes = emptyList(),
+            authenticationDate = oauth2.authenticationDate,
+            requestedClaims = oauth2.requestedClaims,
+            sessionId = session.id,
+            actorGrantId = null
+        )
+    } catch (failure: Exception) {
+        if (!failure.isRowAlreadyThere()) {
+            throw failure
+        }
+        throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+    }
 
     /**
      * Open the grant a `client_credentials` request issues its token under, holding the [clientScopes]

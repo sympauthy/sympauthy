@@ -64,6 +64,9 @@ class GrantEntity(
      * Identifier of the interactive flow session this grant came from, kept for diagnosis and read by
      * nothing. There is no foreign key: the session is collected long before most grants end, so the
      * reference is left dangling by design.
+     *
+     * A session opens at most one grant, which a unique index over the column holds; a grant no session
+     * opened holds null, which the index admits any number of.
      */
     val sessionId: UUID? = null,
     /**
