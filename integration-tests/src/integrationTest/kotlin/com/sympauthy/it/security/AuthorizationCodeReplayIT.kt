@@ -3,10 +3,8 @@ package com.sympauthy.it.security
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.client.SympauthyApiException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
@@ -25,10 +23,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * it, introspect as inactive after — every one of them is under the grant the code names — on each
  * supported database.
  *
- * The replay goes through the driver's own exchange, the one request carrying the verifier the flow
- * generated: a replay with any other is refused by PKCE before the code is read. The driver answers a
- * refused exchange with an exception rather than the response, so the refusal is read off the
- * revocation, which only the refusal of a code already exchanged performs.
+ * The replay presents the verifier the flow generated, as the first exchange did: a replay with any other
+ * is refused by PKCE before the server reads whether the code was exchanged, and revokes nothing.
  *
  * Source: [RFC 6749 §10.5 (Authorization Codes)](https://datatracker.ietf.org/doc/html/rfc6749#section-10.5),
  * [RFC 6749 §4.1.2](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2)
@@ -45,9 +41,9 @@ class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
 
         withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
             val result = signUp(registry)
-            val tokens = result.exchange()
-            val accessToken = checkNotNull(tokens.accessToken()) { "the first exchange should return an access token" }
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
+            val tokens = exchange(sympauthy, registry, result)
+            val accessToken = tokens.accessToken
+            val refreshToken = checkNotNull(tokens.refreshToken) { "refresh-enabled should yield a refresh token" }
             val refreshedAccessToken = refresh(sympauthy, registry, refreshToken).accessToken
 
             assertEquals(
@@ -63,7 +59,10 @@ class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
                 "the refresh token of the first exchange should introspect as active",
             )
 
-            assertThrows<SympauthyApiException>("a replayed code must be refused") { result.exchange() }
+            assertExchangeRefused(
+                sympauthy, registry, result, 400, "invalid_grant",
+                "a replayed code must be refused",
+            )
 
             assertEquals(
                 false, introspect(sympauthy, accessToken, registry).active,

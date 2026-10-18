@@ -39,10 +39,10 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokensStateWhenThePersonAuthenticated(database: Database) {
         withContainer(database, REFRESH_ENABLED, confidentialClient()) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
+            val tokens = signUpAndExchange(sympauthy, registry)
 
-            val idToken = requireIdToken(tokens.idToken())
-            val accessToken = checkNotNull(tokens.accessToken()) { "the exchange should yield an access token" }
+            val idToken = requireIdToken(tokens.idToken)
+            val accessToken = tokens.accessToken
 
             val idClaims = verifyIdTokenSignature(sympauthy, idToken)
             val authTime = checkNotNull(idClaims.getLongClaim(AUTH_TIME)) {
@@ -69,9 +69,9 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun refreshReissuesTheOriginalAuthenticationTime(database: Database) {
         withContainer(database, REFRESH_ENABLED, confidentialClient()) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val idToken = requireIdToken(tokens.idToken())
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
+            val tokens = signUpAndExchange(sympauthy, registry)
+            val idToken = requireIdToken(tokens.idToken)
+            val refreshToken = checkNotNull(tokens.refreshToken) { "refresh-enabled should yield a refresh token" }
             val authTime = checkNotNull(verifyIdTokenSignature(sympauthy, idToken).getLongClaim(AUTH_TIME))
 
             val refreshed = refresh(sympauthy, registry, refreshToken)

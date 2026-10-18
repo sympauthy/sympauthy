@@ -1,11 +1,11 @@
 package com.sympauthy.it.feature
 
 import com.sympauthy.api.client.api.OpenidApi
+import com.sympauthy.api.client.model.TokenResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.client.TokenResponse
 import com.sympauthy.testcontainers.flow.FlowException
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -70,9 +70,9 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun carriesARequestedClaimInTheChannelTheDeploymentOpened(database: Database) {
         withRequestableClaims(database) { sympauthy, registry ->
-            val tokens = signUpAsking(registry, REQUEST)
+            val tokens = signUpAsking(sympauthy, registry, REQUEST)
 
-            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken))
             assertEquals(GOLD, idTokenClaims.getStringClaim("loyalty_tier"), "asked for, and the channel is open")
             assertEquals(SIZE, idTokenClaims.getStringClaim("shoe_size"), "published here for every request")
             assertNull(idTokenClaims.getClaim("internal_note"), "asked for, and no channel was opened for it")
@@ -87,7 +87,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
                 "both channels are open and the userinfo member alone named it, so this one must not carry it",
             )
 
-            val userInfo = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+            val userInfo = withApiClient(sympauthy, token = tokens.accessToken) { ctx ->
                 ctx.getBean(OpenidApi::class.java).getUserInfo().block()
             }
             requireNotNull(userInfo) { "userinfo returned an empty body" }
@@ -105,7 +105,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
                 "both channels are open and the id_token member alone named it, so this one must not carry it",
             )
 
-            val refreshToken = requireNotNull(tokens.refreshToken()) {
+            val refreshToken = requireNotNull(tokens.refreshToken) {
                 "refresh-enabled should yield a refresh token"
             }
             val refreshed = refresh(sympauthy, registry, refreshToken)
@@ -113,7 +113,7 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
                 "the refresh response should carry an id_token, body=$refreshed"
             }
             val refreshedClaims = verifyIdTokenSignature(sympauthy, refreshedIdToken)
-            assertNotEquals(tokens.idToken(), refreshedIdToken, "the refresh should issue a new id_token")
+            assertNotEquals(tokens.idToken, refreshedIdToken, "the refresh should issue a new id_token")
             assertEquals(
                 GOLD,
                 refreshedClaims.getStringClaim("loyalty_tier"),
@@ -133,15 +133,15 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun leavesAnOnRequestChannelShutWhenNothingIsAsked(database: Database) {
         withRequestableClaims(database) { sympauthy, registry ->
-            val tokens = signUpAsking(registry, claims = null)
+            val tokens = signUpAsking(sympauthy, registry, claims = null)
 
-            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
+            val idTokenClaims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken))
             assertEquals(SIZE, idTokenClaims.getStringClaim("shoe_size"), "published here for every request")
             assertNull(idTokenClaims.getClaim("loyalty_tier"), "the channel is open and nothing asked")
             assertNull(idTokenClaims.getClaim("audit_ref"), "the channel is open and nothing asked")
             assertNull(idTokenClaims.getClaim("cross_tier"), "both channels are open and nothing asked")
 
-            val userInfo = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+            val userInfo = withApiClient(sympauthy, token = tokens.accessToken) { ctx ->
                 ctx.getBean(OpenidApi::class.java).getUserInfo().block()
             }
             requireNotNull(userInfo) { "userinfo returned an empty body" }
@@ -182,13 +182,18 @@ class RequestedClaimPublicationFeatureIT : AbstractSympauthyIT() {
      * Signs a person up through an authorization asking for [claims], and exchanges the code it yields.
      * A null [claims] sends no such parameter at all.
      */
-    private fun signUpAsking(registry: InteractiveFlowRegistry, claims: String?): TokenResponse =
-        registry.newFlow()
+    private fun signUpAsking(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        claims: String?,
+    ): TokenResource {
+        val signedUp = registry.newFlow()
             .apply { claims?.let { withAuthorizationParam("claims", it) } }
             .withSignUpHandler { credentials(EMAIL) }
             .withClaimsHandler { requested -> requested.associate { it.id() to COLLECTED.getValue(it.id()) } }
             .run()
-            .exchange()
+        return exchange(sympauthy, registry, signedUp)
+    }
 
     /**
      * The six custom claims the scenarios turn on, under the `profile` scope the person consents to, and

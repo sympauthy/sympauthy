@@ -50,16 +50,16 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, plainOAuth2, confidentialClient, listOf(REPORTS_SCOPE)) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
+            val tokens = signUpAndExchange(sympauthy, registry)
 
-            assertNotNull(tokens.accessToken(), "a plain OAuth 2.0 grant should still yield an access token")
+            assertNotNull(tokens.accessToken, "a plain OAuth 2.0 grant should still yield an access token")
             assertEquals(
                 REPORTS_SCOPE,
-                tokens.scope(),
+                tokens.scope,
                 "the grant under test must be a real one, and not an OpenID Connect one",
             )
-            assertNull(tokens.idToken(), "a grant without openid must receive no id_token at the code exchange")
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
+            assertNull(tokens.idToken, "a grant without openid must receive no id_token at the code exchange")
+            val refreshToken = checkNotNull(tokens.refreshToken) { "refresh-enabled should yield a refresh token" }
 
             val refreshed = refresh(sympauthy, registry, refreshToken)
             assertNotNull(refreshed.accessToken, "the refresh should answer with a new access token")

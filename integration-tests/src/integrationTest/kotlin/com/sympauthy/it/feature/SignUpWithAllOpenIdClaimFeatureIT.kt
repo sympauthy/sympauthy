@@ -60,17 +60,17 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
                 "invitation routes to sign-up, then one collect-claims step, then completion",
             )
 
-            val tokens = result.exchange()
-            assertNotNull(tokens.accessToken(), "token response should carry an access token")
+            val tokens = exchange(sympauthy, registry, result)
+            assertNotNull(tokens.accessToken, "token response should carry an access token")
             assertTrue(
-                tokens.scope()?.split(" ")?.contains("admin:users:read") == true,
-                "the is_sympauthy_admin rule should grant the admin read scope, was: ${tokens.scope()}",
+                tokens.scope?.split(" ")?.contains("admin:users:read") == true,
+                "the is_sympauthy_admin rule should grant the admin read scope, was: ${tokens.scope}",
             )
 
             // The id_token subject is the user id; verifying it also proves the token is genuinely signed.
-            val userId = subjectOf(sympauthy, tokens.idToken())
+            val userId = subjectOf(sympauthy, tokens.idToken)
 
-            val claimList = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+            val claimList = withApiClient(sympauthy, token = tokens.accessToken) { ctx ->
                 ctx.getBean(AdminApi::class.java)
                     .listUserClaims(UUID.fromString(userId), size = 100)
                     .block()

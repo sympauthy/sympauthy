@@ -35,8 +35,8 @@ class PublicClientRevokesItsRefreshTokenIT : AbstractSympauthyIT() {
         )
 
         withContainer(database, refreshAllowed) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val issued = checkNotNull(tokens.refreshToken()) { "the refresh grant should yield a refresh token" }
+            val tokens = signUpAndExchange(sympauthy, registry)
+            val issued = checkNotNull(tokens.refreshToken) { "the refresh grant should yield a refresh token" }
 
             val refreshToken = checkNotNull(refresh(sympauthy, registry, issued).refreshToken) {
                 "the refresh grant should answer a refresh token"

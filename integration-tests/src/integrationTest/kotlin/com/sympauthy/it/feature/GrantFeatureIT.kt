@@ -71,8 +71,8 @@ class GrantFeatureIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, shortGrants, confidentialClient) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
+            val tokens = signUpAndExchange(sympauthy, registry)
+            val refreshToken = checkNotNull(tokens.refreshToken) { "refresh-enabled should yield a refresh token" }
 
             val refreshed = refresh(sympauthy, registry, refreshToken)
             val expiresIn = checkNotNull(refreshed.expiresIn) { "the refreshed access token should expire" }.toLong()
@@ -108,9 +108,9 @@ class GrantFeatureIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
-            val accessTokens = listOf(checkNotNull(tokens.accessToken())) +
+            val tokens = signUpAndExchange(sympauthy, registry)
+            val refreshToken = checkNotNull(tokens.refreshToken) { "refresh-enabled should yield a refresh token" }
+            val accessTokens = listOf(tokens.accessToken) +
                 List(2) { refresh(sympauthy, registry, refreshToken).accessToken }
 
             accessTokens.forEachIndexed { index, accessToken ->

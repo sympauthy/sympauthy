@@ -30,10 +30,10 @@ class TokenEndpointRequiresDpopWhenConfiguredIT : AbstractSympauthyIT() {
         val dpopRequired = mapOf("auth" to mapOf("token" to mapOf("dpop-required" to true)))
 
         withContainer(database, dpopRequired) { sympauthy, registry ->
-            val code = signUpForCode(registry)
+            val signedUp = signUp(registry)
 
             // No DPoP header: exchangeCode sends none, which is the request under test.
-            val response = exchangeCode(sympauthy, registry, code)
+            val response = exchangeCode(sympauthy, registry, signedUp)
 
             assertOAuthError(
                 response, 400, "invalid_dpop_proof",

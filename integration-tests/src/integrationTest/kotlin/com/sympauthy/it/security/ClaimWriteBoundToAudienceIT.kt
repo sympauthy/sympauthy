@@ -77,8 +77,8 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
     ): UUID {
-        val tokens = signUpAndExchange(registry, EMAIL)
-        return UUID.fromString(subjectOf(sympauthy, tokens.idToken()))
+        val tokens = signUpAndExchange(sympauthy, registry, EMAIL)
+        return UUID.fromString(subjectOf(sympauthy, tokens.idToken))
     }
 
     /**
