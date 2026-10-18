@@ -17,6 +17,10 @@ alongside its code. The standards are symlinked into `.claude/rules/`, each load
 governs is read, so a rule one of them states is not restated here — it would be a second copy, and
 the copy that drifts.
 
+**A bug fix is not a design decision.** It brings the code back to what `docs/` or a specification
+already says, so it adds no design FAQ entry and no sentence to a design document. What it weighed
+on the way, and what it changes for a caller, is its pull request's to say.
+
 **Rules, not inventory.** What exists is answered by the package tree, `git log` and `docs/`. What
 belongs here is what no symlinked standard carries: how the project is run, and the shape of the
 system the design documentation in `docs/design/` holds. Never a status report.
