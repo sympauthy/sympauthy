@@ -1,7 +1,6 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.auth
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.data.repository.AuthenticationTokenRepository

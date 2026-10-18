@@ -6,6 +6,7 @@ import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.manager.auth.ActorGrantValidator
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager

@@ -1,7 +1,6 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.auth
 
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.model.oauth2.Grant
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.mockk.coEvery
