@@ -22,7 +22,7 @@ class ThrowableExceptionHandler<T : Throwable>(
      * the log. A `4xx` is the caller's to read and is not logged.
      */
     override fun handle(request: HttpRequest<*>, throwable: T): HttpResponse<ErrorResource> {
-        val httpException = exceptionNormalizer.normalize(throwable, request)
+        val httpException = exceptionNormalizer.normalize(throwable)
         if (httpException.status.code >= 500) {
             logger.error("Server failure ${httpException.detailsId} ${httpException.values}", throwable)
         }

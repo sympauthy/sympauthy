@@ -1,7 +1,7 @@
 package com.sympauthy.security
 
-import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.ClientManager
@@ -41,7 +41,8 @@ import org.reactivestreams.Publisher
  * or a client only (client_credentials flow), we return a [UserAuthentication] or [ClientAuthentication].
  *
  * Every refusal is a `401` challenging the token under the scheme it was presented with: `invalid_dpop_proof`
- * where its DPoP proof is what refused it, and `invalid_token` for every other reason.
+ * where its DPoP proof is what refused it, and `invalid_token` for every other reason. The challenge is sent
+ * only where the route the request reached accepts an access token.
  */
 @Singleton
 class AccessTokenValidator(
@@ -91,15 +92,12 @@ class AccessTokenValidator(
         // A grant does not outlive its client, and is refused rather than revoked. See `docs/design/grants.md`.
         val grant = authenticationToken.grant
         val client = clientManager.findClientByIdOrNull(grant.clientId)
-            ?: throw AccessTokenChallengeException(
-                status = UNAUTHORIZED,
-                recoverable = false,
-                detailsId = "grant.client_disabled",
-                descriptionId = "description.grant.client_disabled",
-                values = mapOf("clientId" to grant.clientId),
-                scheme = scheme,
-                error = INVALID_TOKEN
-            )
+            ?: throw httpExceptionOf(
+                UNAUTHORIZED,
+                "grant.client_disabled",
+                "description.grant.client_disabled",
+                "clientId" to grant.clientId
+            ).toAccessTokenChallengeException(scheme, INVALID_TOKEN)
 
         val authentication = if (grant.userId != null) {
             val consentedScopes = grant.consentedScopes.mapNotNull {

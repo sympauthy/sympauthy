@@ -272,6 +272,11 @@ challenge**, as RFC 6750 §3 requires of a request presenting no token and of on
 not give access. The body beside it is [the API standard's](../standards/api-standard.md#errors),
 and the challenge is how a client reading headers learns the same thing.
 
+**A route accepts a token where its gate names a role or a scope a token grants.** A request no
+route answers, and one to a route gated on the state or open to anyone, is refused without a
+challenge, whatever it presented: telling it how to present a token would send it after a token
+that route does not take.
+
 **The challenge names both schemes a token is accepted under, `Bearer` and then `DPoP`.** Every
 route accepting one accepts the other, and RFC 9449 §7.2 leaves a server free to name both. A client
 whose bound token was refused would otherwise be challenged only under the scheme [it may not

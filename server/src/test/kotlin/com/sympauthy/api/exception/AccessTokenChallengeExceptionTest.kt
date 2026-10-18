@@ -12,7 +12,9 @@ import io.micronaut.http.HttpStatus
 import io.micronaut.http.HttpStatus.FORBIDDEN
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class AccessTokenChallengeExceptionTest {
 
@@ -47,9 +49,26 @@ class AccessTokenChallengeExceptionTest {
     }
 
     @Test
-    fun `toAccessTokenChallengeException - Keep the code, the description and the values`() {
+    fun `Refuse an error without the scheme of the token it is carried for`() {
+        assertThrows<IllegalArgumentException> { challengeOf(UNAUTHORIZED, scheme = null, error = INVALID_TOKEN) }
+        assertThrows<IllegalArgumentException> { challengeOf(UNAUTHORIZED, scheme = BEARER, error = null) }
+    }
+
+    @Test
+    fun `withoutChallenge - Keep the status and the codes and answer with no header`() {
+        val exception = challengeOf(UNAUTHORIZED, BEARER, INVALID_TOKEN).withoutChallenge()
+
+        assertFalse(exception is AccessTokenChallengeException)
+        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals("unauthorized", exception.detailsId)
+        assertEquals("description.unauthorized", exception.descriptionId)
+        assertEquals(emptyMap<String, String>(), exception.headers)
+    }
+
+    @Test
+    fun `toAccessTokenChallengeException - Keep the code, the description, the values and the status`() {
         val exception = httpExceptionOf(FORBIDDEN, "forbidden", "description.forbidden", "scope" to "openid")
-            .toAccessTokenChallengeException(FORBIDDEN, BEARER, INSUFFICIENT_SCOPE)
+            .toAccessTokenChallengeException(BEARER, INSUFFICIENT_SCOPE)
 
         assertEquals(FORBIDDEN, exception.status)
         assertEquals("forbidden", exception.detailsId)

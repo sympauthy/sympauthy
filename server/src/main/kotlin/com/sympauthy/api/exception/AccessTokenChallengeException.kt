@@ -44,6 +44,12 @@ open class AccessTokenChallengeException(
     throwable = throwable
 ) {
 
+    init {
+        require((scheme == null) == (error == null)) {
+            "A challenge names an error exactly where it names the scheme the refused token came under."
+        }
+    }
+
     /**
      * The parameters the challenge carrying the [error] names after it, in order: none for most refusals.
      */
@@ -67,13 +73,18 @@ open class AccessTokenChallengeException(
                 addAll(errorParameters)
             }
             if (challengedScheme == DPOP) {
-                add("algs" to SUPPORTED_ALGORITHMS.joinToString(" "))
+                add("algs" to ALGS)
             }
         }
         return parameters.joinToString(", ", prefix = "${challengedScheme.scheme} ") { (name, value) ->
             "$name=\"$value\""
         }
     }
+
+    /**
+     * This refusal with the status, the codes and the values it holds, and no challenge.
+     */
+    fun withoutChallenge(): LocalizedHttpException = toHttpException(status)
 
     companion object {
         /**
@@ -90,8 +101,22 @@ open class AccessTokenChallengeException(
          * Nothing branches on the value, so renaming it breaks no client.
          */
         const val REALM = "sympauthy"
+
+        /**
+         * The `algs` the `DPoP` challenge names: every algorithm a proof may be signed with.
+         */
+        private val ALGS = SUPPORTED_ALGORITHMS.joinToString(" ")
     }
 }
+
+/**
+ * This refusal as an [AccessTokenChallengeException] answering with the status it already names and challenging
+ * the token presented under [scheme] with [error].
+ */
+fun LocalizedHttpException.toAccessTokenChallengeException(
+    scheme: AccessTokenScheme?,
+    error: OAuth2ErrorCode?
+) = toAccessTokenChallengeException(status, scheme, error)
 
 /**
  * This failure as an [AccessTokenChallengeException] answering with [httpStatus] and challenging the token

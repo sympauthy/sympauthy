@@ -19,7 +19,7 @@ class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
 
     override fun fetchAuthentication(request: HttpRequest<*>): Publisher<Authentication> {
         return publish {
-            if (!isFlowRequest(request)) {
+            if (!request.path.contains("/flow/")) {
                 return@publish
             }
 
@@ -34,13 +34,5 @@ class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
             }
             state?.let { this.send(StateAuthentication(it)) }
         }
-    }
-
-    companion object {
-        /**
-         * Whether [request] is one a state is read off: a request to the flow surface, whose routes are gated on
-         * the state and accept no access token.
-         */
-        fun isFlowRequest(request: HttpRequest<*>): Boolean = request.path.contains("/flow/")
     }
 }

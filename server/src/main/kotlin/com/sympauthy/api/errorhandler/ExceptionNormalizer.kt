@@ -9,13 +9,11 @@ import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
 import com.sympauthy.exception.LocalizedException
-import com.sympauthy.security.StateAuthenticationFetcher
 import com.sympauthy.security.accessTokenSchemeOrNull
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
 import io.micronaut.core.convert.exceptions.ConversionErrorException
 import io.micronaut.core.type.Argument
-import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.*
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.exceptions.BufferLengthExceededException
@@ -41,12 +39,9 @@ import jakarta.inject.Singleton
 @Singleton
 class ExceptionNormalizer {
 
-    /**
-     * The [throwable] as the refusal [request] is answered with.
-     */
-    fun normalize(throwable: Throwable, request: HttpRequest<*>): LocalizedHttpException {
+    fun normalize(throwable: Throwable): LocalizedHttpException {
         return when (throwable) {
-            is AuthorizationException -> toException(throwable, request)
+            is AuthorizationException -> toException(throwable)
             is AuthenticationException -> unauthorized()
             is NotFoundException -> httpExceptionOf(NOT_FOUND, "not_found", "description.not_found")
             is NotAllowedException -> UnsupportedMethodException(throwable.requestMethod, throwable.allowedMethods)
@@ -84,33 +79,25 @@ class ExceptionNormalizer {
     )
 
     /**
-     * The refusal of a request the security rules of its route turned away: `forbidden` where it carried an
-     * authentication those rules do not accept, and `unauthorized` where it carried none.
+     * The refusal of a request the security rules turned away: `forbidden` where it carried an authentication
+     * those rules do not accept, and `unauthorized` where it carried none.
      *
-     * Either challenges the access token wherever [request] reached a route accepting one, which is every route
-     * outside the flow surface: `insufficient_scope` on the challenge of the scheme a token turned away came
-     * under, and no error where the request presented nothing.
+     * Either challenges the access token: `insufficient_scope` on the challenge of the scheme a token turned away
+     * came under, and no error where the request presented nothing. A `forbidden` turning away anything but an
+     * access token challenges nothing.
      */
-    private fun toException(exception: AuthorizationException, request: HttpRequest<*>): LocalizedHttpException {
+    private fun toException(exception: AuthorizationException): LocalizedHttpException {
         val authentication = exception.authentication
-        val isForbidden = authentication != null && exception.isForbidden
-        val refusal = if (isForbidden) {
-            httpExceptionOf(
-                status = FORBIDDEN,
-                detailsId = "forbidden",
-                descriptionId = "description.forbidden"
-            )
-        } else {
-            unauthorized()
+        if (authentication == null || !exception.isForbidden) {
+            return unauthorized().toAccessTokenChallengeException(scheme = null, error = null)
         }
-        if (StateAuthenticationFetcher.isFlowRequest(request)) {
-            return refusal
-        }
-        if (!isForbidden) {
-            return refusal.toAccessTokenChallengeException(refusal.status, scheme = null, error = null)
-        }
-        val scheme = authentication?.accessTokenSchemeOrNull ?: return refusal
-        return refusal.toAccessTokenChallengeException(refusal.status, scheme, INSUFFICIENT_SCOPE)
+        val forbidden = httpExceptionOf(
+            status = FORBIDDEN,
+            detailsId = "forbidden",
+            descriptionId = "description.forbidden"
+        )
+        val scheme = authentication.accessTokenSchemeOrNull ?: return forbidden
+        return forbidden.toAccessTokenChallengeException(scheme, INSUFFICIENT_SCOPE)
     }
 
     private fun unauthorized() = recoverableHttpExceptionOf(
