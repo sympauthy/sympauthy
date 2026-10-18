@@ -145,7 +145,6 @@ open class TokenManager(
             accessTokenGenerator.generateAccessToken(
                 grant = grant,
                 audience = client.audience,
-                grantType = GrantType.AUTHORIZATION_CODE,
                 dpopJkt = dpopJkt
             )
         }
@@ -154,7 +153,6 @@ open class TokenManager(
                 refreshTokenGenerator.generateRefreshToken(
                     grant = grant,
                     audience = client.audience,
-                    grantType = GrantType.AUTHORIZATION_CODE,
                     dpopJkt = dpopJkt
                 )
             }
@@ -166,7 +164,6 @@ open class TokenManager(
                 grant = grant,
                 audienceId = client.audience.id,
                 accessToken = accessToken,
-                grantType = GrantType.AUTHORIZATION_CODE,
                 nonce = oauth2.nonce
             )
         }
@@ -221,7 +218,6 @@ open class TokenManager(
         return accessTokenGenerator.generateAccessToken(
             grant = grant,
             audience = client.audience,
-            grantType = GrantType.CLIENT_CREDENTIALS,
             dpopJkt = dpopJkt
         )
     }

@@ -11,7 +11,6 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
@@ -102,7 +101,6 @@ open class TokenExchangeManager(
         return accessTokenGenerator.generateAccessToken(
             grant = grant,
             audience = targetAudience,
-            grantType = GrantType.TOKEN_EXCHANGE,
             dpopJkt = dpopJkt
         )
     }

@@ -42,7 +42,8 @@ class AccessTokenGenerator(
 ) {
 
     /**
-     * Generate a new access token under the [grant], issued by the [grantType] the client asked with.
+     * Generate a new access token under the [grant], recorded as issued by [grantType]: the grant type that
+     * opened the [grant], unless a refresh issues it.
      *
      * [audience] is the one the token is issued for: it names the token's own `aud`, and a claim
      * restricted to another audience is left out.
@@ -61,7 +62,7 @@ class AccessTokenGenerator(
     suspend fun generateAccessToken(
         grant: Grant,
         audience: Audience,
-        grantType: GrantType,
+        grantType: GrantType = grant.grantType,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()

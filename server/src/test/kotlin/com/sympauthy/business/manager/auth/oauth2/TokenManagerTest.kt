@@ -210,9 +210,14 @@ class TokenManagerTest {
         coEvery { grantManager.findByIdOrNull(grantId) } returns grant
     }
 
-    private fun mockGrant(revoked: Boolean = false, expired: Boolean = false): Grant = mockk {
+    private fun mockGrant(
+        revoked: Boolean = false,
+        expired: Boolean = false,
+        grantType: GrantType? = null
+    ): Grant = mockk {
         every { this@mockk.revoked } returns revoked
         if (!revoked) every { this@mockk.expired } returns expired
+        grantType?.let { every { this@mockk.grantType } returns it }
     }
 
     @Test
@@ -222,7 +227,7 @@ class TokenManagerTest {
         val oauth2 = mockk<InteractiveFlowSessionOAuth2> { every { nonce } returns "nonce" }
         val client = mockClientWithGrantTypes(*GrantType.entries.toTypedArray())
         val audience = client.audience
-        val grant = mockGrant()
+        val grant = mockGrant(grantType = GrantType.AUTHORIZATION_CODE)
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()
@@ -353,7 +358,7 @@ class TokenManagerTest {
             every { id } returns "client"
             every { this@mockk.audience } returns audience
         }
-        val grant = mockk<Grant>()
+        val grant = mockk<Grant> { every { grantType } returns GrantType.CLIENT_CREDENTIALS }
         val accessToken = mockk<EncodedAuthenticationToken>()
         coEvery {
             grantManager.createClientCredentialsGrant("client", "audience", listOf("scope"))

@@ -36,11 +36,11 @@ class IdTokenGenerator(
 ) {
 
     /**
-     * Generate a new id token under the [grant], issued by the [grantType] the client asked with, containing
-     * user info accessible according to the scopes the [grant] holds. Only claims the end-user has consented
-     * to share with the client are included, and of those only the ones the deployment publishes in the id
-     * token — always, or on request where the `claims` parameter of the authorization behind the [grant]
-     * named them.
+     * Generate a new id token under the [grant], recorded as issued by [grantType] — the grant type that opened
+     * the [grant], unless a refresh issues it — containing user info accessible according to the scopes the
+     * [grant] holds. Only claims the end-user has consented to share with the client are included, and of
+     * those only the ones the deployment publishes in the id token — always, or on request where the `claims`
+     * parameter of the authorization behind the [grant] named them.
      *
      * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
@@ -67,7 +67,7 @@ class IdTokenGenerator(
         grant: Grant,
         audienceId: String,
         accessToken: EncodedAuthenticationToken,
-        grantType: GrantType,
+        grantType: GrantType = grant.grantType,
         nonce: String? = null
     ): EncodedAuthenticationToken? {
         // ID tokens are only for user authentication, not client credentials

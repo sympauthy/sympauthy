@@ -84,7 +84,7 @@ class TokenExchangeManagerTest {
         audience: Audience,
         encoded: EncodedAuthenticationToken = mockk()
     ): Grant {
-        val grant = mockk<Grant>()
+        val grant = mockk<Grant> { every { grantType } returns GrantType.TOKEN_EXCHANGE }
         val actorGrant = actorToken.grant
         coEvery { grantManager.createTokenExchangeGrant(userId, audience.id, actorGrant) } returns grant
         coEvery {
