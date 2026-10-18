@@ -1,9 +1,7 @@
 package com.sympauthy.it.security
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -40,32 +38,16 @@ class PublicClientRevokesItsRefreshTokenIT : AbstractSympauthyIT() {
             val tokens = signUpAndExchange(registry)
             val issued = checkNotNull(tokens.refreshToken()) { "the refresh grant should yield a refresh token" }
 
-            val refreshed = refreshAsPublicClient(discovery(sympauthy).tokenEndpoint, issued, registry.clientId())
-            assertEquals(200, refreshed.statusCode(), "the refresh grant should serve, body=${refreshed.body()}")
-            val refreshToken = JSONObjectUtils.parse(refreshed.body())["refresh_token"] as String
+            val refreshToken = checkNotNull(refresh(sympauthy, registry, issued).refreshToken) {
+                "the refresh grant should answer a refresh token"
+            }
 
-            val revoke = httpPostForm(
-                discovery(sympauthy).revocationEndpoint!!,
-                mapOf(
-                    "token" to refreshToken,
-                    "token_type_hint" to "refresh_token",
-                    "client_id" to registry.clientId(),
-                ),
-            )
-            assertEquals(200, revoke.statusCode(), "a public client should be able to revoke, body=${revoke.body()}")
+            revoke(sympauthy, refreshToken, registry)
 
-            val afterRevocation = refreshAsPublicClient(
-                discovery(sympauthy).tokenEndpoint,
-                refreshToken,
-                registry.clientId(),
+            assertRefreshRefused(
+                sympauthy, registry, refreshToken, 400, "invalid_grant",
+                "a revoked refresh token must not be refreshed",
             )
-            assertOAuthError(afterRevocation, 400, "invalid_grant", "a revoked refresh token must not be refreshed")
         }
     }
-
-    private fun refreshAsPublicClient(tokenEndpoint: String, refreshToken: String, clientId: String) =
-        httpPostForm(
-            tokenEndpoint,
-            mapOf("grant_type" to "refresh_token", "refresh_token" to refreshToken, "client_id" to clientId),
-        )
 }

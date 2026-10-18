@@ -1,10 +1,11 @@
 package com.sympauthy.it.security
 
+import com.sympauthy.api.client.api.FlowApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+import io.micronaut.http.client.exceptions.HttpClientResponseException
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
@@ -33,22 +34,19 @@ class CancelledFlowStateNotReplayableIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun cancelledStateCannotBeReplayed(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            withFlowClient(sympauthy) { flow ->
-                val authorize = flow.get(authorizeUrl(sympauthy, registry))
-                val internalState = internalState(authorize)
+            val internalState = withFlowClient(sympauthy) { flow ->
+                internalState(flow.get(authorizeUrl(sympauthy, registry)))
+            }
 
-                val cancel = flow.cancel(internalState)
-                assertEquals(200, cancel.status, "the first cancel should succeed, body=${cancel.body}")
+            withApiClient(sympauthy, state = internalState) { ctx ->
+                val flowApi = ctx.getBean(FlowApi::class.java)
+                flowApi.cancel().block()
 
-                val replay = flow.get("/api/v1/flow/mfa/challenge?state=${encode(internalState)}")
-                assertEquals(
-                    400, replay.status,
-                    "replaying a cancelled flow's state must be rejected, body=${replay.body}",
-                )
-                assertTrue(
-                    replay.body.contains("ctrl.flow.not_ongoing"),
-                    "the rejection should report the session is no longer ongoing, was: ${replay.body}",
-                )
+                val message = "replaying a cancelled flow's state must be rejected as no longer ongoing"
+                val replay = assertThrows<HttpClientResponseException>(message) {
+                    flowApi.getChallengeRedirect().block()
+                }
+                assertError(replay, 400, "ctrl.flow.not_ongoing", message)
             }
         }
     }

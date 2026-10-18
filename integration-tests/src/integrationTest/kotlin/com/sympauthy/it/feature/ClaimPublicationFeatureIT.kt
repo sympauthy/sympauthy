@@ -1,10 +1,12 @@
 package com.sympauthy.it.feature
 
+import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
+import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -109,7 +111,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             assertNull(idTokenClaims.getClaim("stored_tier"), "a claim naming the access token alone")
             assertNull(idTokenClaims.getClaim("stored_ref"), "a claim naming introspection alone")
 
-            val introspection = introspect(sympauthy, accessToken, basicAuth(registry))
+            val introspection = introspectedMembers(sympauthy, registry, accessToken)
 
             assertEquals(true, introspection["active"])
             assertEquals(REFERENCE, introspection["stored_ref"], "a claim naming introspection")
@@ -122,6 +124,27 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
             assertEquals(LOCALITY, address["locality"], "a component of the address object")
             assertEquals("$LOCALITY\n$COUNTRY", address["formatted"], "the rendered address")
         }
+    }
+
+    /**
+     * The members introspecting [token] as [registry]'s client answers, read off the raw body: the
+     * generated model holds the members RFC 7662 defines and drops the claims published beside them,
+     * which are what this scenario asserts.
+     */
+    private fun introspectedMembers(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        token: String,
+    ): Map<String, Any> {
+        val response = httpPostForm(
+            checkNotNull(discovery(sympauthy).introspectionEndpoint) {
+                "the deployment publishes no introspection endpoint"
+            },
+            mapOf("token" to token),
+            basicAuth(registry),
+        )
+        assertEquals(200, response.statusCode(), "introspection should answer, body=${response.body()}")
+        return JSONObjectUtils.parse(response.body())
     }
 
     private fun signUpCollectingClaims(registry: InteractiveFlowRegistry) = registry.newFlow()

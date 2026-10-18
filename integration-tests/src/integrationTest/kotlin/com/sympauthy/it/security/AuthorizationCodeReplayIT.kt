@@ -1,6 +1,5 @@
 package com.sympauthy.it.security
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
@@ -49,36 +48,33 @@ class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
             val tokens = result.exchange()
             val accessToken = checkNotNull(tokens.accessToken()) { "the first exchange should return an access token" }
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
-            val auth = basicAuth(registry)
-            val refreshedAccessToken = JSONObjectUtils.getString(
-                refresh(sympauthy, registry, refreshToken), "access_token"
-            )
+            val refreshedAccessToken = refresh(sympauthy, registry, refreshToken).accessToken
 
             assertEquals(
-                true, introspect(sympauthy, accessToken, auth)["active"],
+                true, introspect(sympauthy, accessToken, registry).active,
                 "the access token of the first exchange should introspect as active",
             )
             assertEquals(
-                true, introspect(sympauthy, refreshedAccessToken, auth)["active"],
+                true, introspect(sympauthy, refreshedAccessToken, registry).active,
                 "the access token of the refresh should introspect as active",
             )
             assertEquals(
-                true, introspect(sympauthy, refreshToken, auth)["active"],
+                true, introspect(sympauthy, refreshToken, registry).active,
                 "the refresh token of the first exchange should introspect as active",
             )
 
             assertThrows<SympauthyApiException>("a replayed code must be refused") { result.exchange() }
 
             assertEquals(
-                false, introspect(sympauthy, accessToken, auth)["active"],
+                false, introspect(sympauthy, accessToken, registry).active,
                 "a replayed code must revoke the access token the first exchange was issued",
             )
             assertEquals(
-                false, introspect(sympauthy, refreshToken, auth)["active"],
+                false, introspect(sympauthy, refreshToken, registry).active,
                 "a replayed code must revoke the refresh token the first exchange was issued",
             )
             assertEquals(
-                false, introspect(sympauthy, refreshedAccessToken, auth)["active"],
+                false, introspect(sympauthy, refreshedAccessToken, registry).active,
                 "a replayed code must revoke the tokens every refresh descended from the first exchange issued",
             )
         }

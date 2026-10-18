@@ -1,7 +1,7 @@
 package com.sympauthy.it.feature
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.nimbusds.jwt.SignedJWT
+import com.sympauthy.api.client.model.IntrospectionResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
@@ -74,9 +74,9 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
             val authTime = checkNotNull(verifyIdTokenSignature(sympauthy, idToken).getLongClaim(AUTH_TIME))
 
-            val body = refresh(sympauthy, registry, refreshToken)
-            val refreshedIdToken = checkNotNull(JSONObjectUtils.getString(body, "id_token"))
-            val refreshedAccessToken = JSONObjectUtils.getString(body, "access_token")
+            val refreshed = refresh(sympauthy, registry, refreshToken)
+            val refreshedIdToken = checkNotNull(refreshed.idToken)
+            val refreshedAccessToken = refreshed.accessToken
 
             assertEquals(
                 authTime,
@@ -100,24 +100,14 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun clientCredentialsTokenStatesNoAuthenticationTime(database: Database) {
         withContainer(database, BACKEND_CLIENT, confidentialClient()) { sympauthy, _ ->
-            val response = httpPostForm(
-                discovery(sympauthy).tokenEndpoint,
-                mapOf("grant_type" to "client_credentials"),
-                basicAuth(BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET),
-            )
-            assertEquals(
-                200,
-                response.statusCode(),
-                "client_credentials should succeed, body=${response.body()}",
-            )
-            val token = JSONObjectUtils.getString(JSONObjectUtils.parse(response.body()), "access_token")
+            val token = clientCredentialsToken(sympauthy, BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET)
 
             assertNull(
                 claimsOf(token).getClaim(AUTH_TIME),
                 "no person proved a credential behind a client_credentials token",
             )
             assertNull(
-                introspectedAuthTime(sympauthy, basicAuth(BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET), token),
+                introspectedAuthTime(introspect(sympauthy, token, BACKEND_CLIENT_ID, BACKEND_CLIENT_SECRET)),
                 "introspecting one must not report an authentication that never happened",
             )
         }
@@ -134,16 +124,11 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         token: String,
-    ): Long? = introspectedAuthTime(sympauthy, basicAuth(registry), token)
+    ): Long? = introspectedAuthTime(introspect(sympauthy, token, registry))
 
-    private fun introspectedAuthTime(
-        sympauthy: SympauthyContainer,
-        auth: Map<String, String>,
-        token: String,
-    ): Long? {
-        val body = introspect(sympauthy, token, auth)
-        assertTrue(JSONObjectUtils.getBoolean(body, "active"), "the token should introspect as active")
-        return if (body.containsKey(AUTH_TIME)) JSONObjectUtils.getLong(body, AUTH_TIME) else null
+    private fun introspectedAuthTime(introspection: IntrospectionResource): Long? {
+        assertTrue(introspection.active, "the token should introspect as active")
+        return introspection.authTime
     }
 
     private fun confidentialClient() = Client.confidentialClient(clientId, CLIENT_SECRET)

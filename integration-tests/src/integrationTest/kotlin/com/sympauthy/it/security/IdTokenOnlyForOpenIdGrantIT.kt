@@ -62,9 +62,9 @@ class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
             val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
 
             val refreshed = refresh(sympauthy, registry, refreshToken)
-            assertNotNull(refreshed["access_token"], "the refresh should answer with a new access token")
+            assertNotNull(refreshed.accessToken, "the refresh should answer with a new access token")
             assertNull(
-                refreshed["id_token"],
+                refreshed.idToken,
                 "a grant without openid must receive no id_token at the refresh either, was: $refreshed",
             )
         }

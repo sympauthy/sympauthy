@@ -82,14 +82,9 @@ class DpopBoundAccessTokenRefusedAsBearerIT : AbstractSympauthyIT() {
         key: ECKey,
     ): String {
         val pkce = generatePkce()
-        val authorize = httpGet(authorizeUrl(sympauthy, registry, pkce))
-        assertEquals(303, authorize.statusCode(), "authorize should redirect to the first step")
-        val firstStep = authorize.headers().firstValue("Location").orElseGet { error("authorize 303 had no Location") }
-        val result = registry.newFlow()
-            .withSignUpHandler { credentials() }
-            .driveFrom(firstStep, registry.redirectUri(), registry.redirectUri())
-            .drive()
-        val code = checkNotNull(result.terminalParam("code")) { "expected an authorization code from sign-up" }
+        val code = checkNotNull(signUpWithPkce(sympauthy, registry, pkce).terminalParam("code")) {
+            "expected an authorization code from sign-up"
+        }
 
         val tokenEndpoint = discovery(sympauthy).tokenEndpoint
         val response = exchangeCode(

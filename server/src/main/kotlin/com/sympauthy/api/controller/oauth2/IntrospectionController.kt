@@ -28,7 +28,6 @@ import io.micronaut.security.annotation.Secured
 import io.micronaut.security.rules.SecurityRule
 import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.Operation
-import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
@@ -47,29 +46,6 @@ class IntrospectionController(
             "or with `client_id` and `client_secret` in the body. A token that does not validate, has expired " +
             "or been revoked, or was issued to another client is answered as inactive.",
         tags = ["oauth2"],
-        parameters = [
-            Parameter(
-                name = TOKEN_PARAM,
-                description = "Access token or refresh token to introspect, RFC 7662 §2.1.",
-                schema = Schema(type = "string"),
-                required = true
-            ),
-            Parameter(
-                name = TOKEN_TYPE_HINT_PARAM,
-                description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
-                schema = Schema(type = "string", allowableValues = ["access_token", "refresh_token"])
-            ),
-            Parameter(
-                name = "client_id",
-                description = CLIENT_ID_PARAMETER_DESCRIPTION,
-                schema = Schema(type = "string")
-            ),
-            Parameter(
-                name = "client_secret",
-                description = CLIENT_SECRET_PARAMETER_DESCRIPTION,
-                schema = Schema(type = "string")
-            )
-        ],
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -89,9 +65,26 @@ class IntrospectionController(
     @Post(consumes = [APPLICATION_FORM_URLENCODED])
     suspend fun introspectToken(
         request: HttpRequest<*>,
-        @Part(TOKEN_PARAM) token: String?,
-        @Part("client_id") clientId: String?,
-        @Part("client_secret") clientSecret: String?,
+        @Part(TOKEN_PARAM)
+        @Schema(
+            name = TOKEN_PARAM,
+            description = "Access token or refresh token to introspect, RFC 7662 §2.1.",
+            requiredMode = Schema.RequiredMode.REQUIRED
+        )
+        token: String?,
+        @Part(TOKEN_TYPE_HINT_PARAM)
+        @Schema(
+            name = TOKEN_TYPE_HINT_PARAM,
+            description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
+            allowableValues = ["access_token", "refresh_token"]
+        )
+        tokenTypeHint: String? = null,
+        @Part("client_id")
+        @Schema(name = "client_id", description = CLIENT_ID_PARAMETER_DESCRIPTION)
+        clientId: String?,
+        @Part("client_secret")
+        @Schema(name = "client_secret", description = CLIENT_SECRET_PARAMETER_DESCRIPTION)
+        clientSecret: String?,
     ): IntrospectionResource {
         val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
         if (token.isNullOrBlank()) {

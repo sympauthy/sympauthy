@@ -1,6 +1,5 @@
 package com.sympauthy.it.security
 
-import com.nimbusds.jose.util.JSONObjectUtils
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -40,30 +39,17 @@ class RevokedTokenBecomesInactiveIT : AbstractSympauthyIT() {
         )
 
         withContainer(database, confidentialClient) { sympauthy, _ ->
-            val discovery = discovery(sympauthy)
-            val auth = basicAuth(CLIENT_ID, CLIENT_SECRET)
-
-            val tokenResponse = httpPostForm(
-                discovery.tokenEndpoint,
-                mapOf("grant_type" to "client_credentials"),
-                auth,
-            )
-            assertEquals(
-                200, tokenResponse.statusCode(),
-                "client_credentials must issue a token, body=${tokenResponse.body()}",
-            )
-            val accessToken = JSONObjectUtils.parse(tokenResponse.body())["access_token"] as String
+            val accessToken = clientCredentialsToken(sympauthy, CLIENT_ID, CLIENT_SECRET)
 
             assertEquals(
-                true, introspect(sympauthy, accessToken, auth)["active"],
+                true, introspect(sympauthy, accessToken, CLIENT_ID, CLIENT_SECRET).active,
                 "the freshly issued token should introspect as active",
             )
 
-            val revoke = httpPostForm(discovery.revocationEndpoint!!, mapOf("token" to accessToken), auth)
-            assertEquals(200, revoke.statusCode(), "revocation should return 200, body=${revoke.body()}")
+            revoke(sympauthy, accessToken, CLIENT_ID, CLIENT_SECRET)
 
             assertEquals(
-                false, introspect(sympauthy, accessToken, auth)["active"],
+                false, introspect(sympauthy, accessToken, CLIENT_ID, CLIENT_SECRET).active,
                 "a revoked token must introspect as inactive",
             )
         }
