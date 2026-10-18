@@ -333,11 +333,11 @@ every token under it out of service rather than travel on them unnoticed.
 with the meaning §3.1.2.1 gives it, refusing anything but a non-negative number of seconds. It is
 satisfied by construction: this server keeps no session between authorizations — see
 [the state authentication is not a session](#the-state-authentication-is-not-a-session) and
-[the interactive flow](interactive-flow.md#what-this-design-does-not-do) — so every authorization
-signs the person in anew and the authentication a code represents is always younger than the flow
-that produced it. Should a session ever be kept, this is what would prepend the re-authentication
-gate; today there is nothing to prepend, and what a client observes is the `auth_time` §3.1.2.1
-asks for, which every id token states whether or not one was asked for.
+[the interactive flow](interactive-flow.md#what-this-document-does-not-settle) — so every
+authorization signs the person in anew and the authentication a code represents is always younger
+than the flow that produced it. Should a session ever be kept, this is what would prepend the
+re-authentication gate; today there is nothing to prepend, and what a client observes is the
+`auth_time` §3.1.2.1 asks for, which every id token states whether or not one was asked for.
 
 **A surface may refuse an authentication that is too old**, with the challenge RFC 9470 §3 defines:
 a `401` carrying
@@ -385,7 +385,7 @@ the audience filtering them is the refreshing client's, and a consent revoked si
 refresh outright rather than narrowing the token it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
 
-## What this design does not do
+## What this document does not settle
 
 **It does not rate-limit or lock out.** Nothing limits password attempts, validation-code attempts,
 or second-factor attempts — anywhere. An attacker with a valid identifier gets unlimited guesses at

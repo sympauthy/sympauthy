@@ -267,7 +267,7 @@ one could repoint an account's sign-in at an address it holds, with nobody asked
 The scopes that let a client write a claim say what it may record about a person, not what that
 person signs in as. The client surface refuses one by name rather than dropping it, and the manager
 behind it leaves it out the same way the interactive flow already does. Why no surface changes one
-afterwards is [security's](security.md#what-this-design-does-not-do).
+afterwards is [security's](security.md#what-this-document-does-not-settle).
 
 ## Configuration
 
@@ -631,8 +631,9 @@ would otherwise type, even for its own audience, is the deployment's call and is
 
 **Changing the identifier an account signs in with.** An account keeps the identifier claims it was
 given, and why no surface writes one afterwards is
-[security's](security.md#what-this-design-does-not-do); proving a new one is a flow of its own, and
-[the identifier claims](identifier-claims.md#what-this-document-does-not-settle) leave it open too.
+[security's](security.md#what-this-document-does-not-settle); proving a new one is a flow of its
+own, and [the identifier claims](identifier-claims.md#what-this-document-does-not-settle) leave it
+open too.
 
 ---
 

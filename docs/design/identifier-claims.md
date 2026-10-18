@@ -189,7 +189,7 @@ normal-form decision of its own.
 
 **Changing the identifier an account signs in with.** An account takes its identifier claims at
 sign-up and keeps them; why no surface writes one afterwards is
-[security's](security.md#what-this-design-does-not-do).
+[security's](security.md#what-this-document-does-not-settle).
 
 ---
 

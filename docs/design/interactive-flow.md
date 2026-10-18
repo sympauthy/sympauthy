@@ -253,7 +253,7 @@ because everything else is a decision the server has already made and the client
 never assembled by hand, because a link that loses the state is a page that cannot continue the flow
 and whose failure looks like a session expiry.
 
-## What this design does not do
+## What this document does not settle
 
 **It does not let a client choose the steps.** A client asks for a purpose; which steps that implies
 is the server's, derived from configuration and from what the person has already done.
@@ -279,6 +279,7 @@ way.
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take
 would be a purpose, not a step.
+
 ---
 
 ← [How the system works](index.md)

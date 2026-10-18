@@ -94,7 +94,7 @@ session created, and `InteractiveFlowSessionOAuth2Manager` reads and writes the 
 what makes a second impossible, and a completion that lost the race to write one is told so as the
 concurrent modification it is, to be routed by where the winner left the session.
 
-## What this design does not do
+## What this document does not settle
 
 **It does not keep a session between authorizations.** Every authorization signs the person in
 anew, which is what makes `max_age` satisfied by construction —
