@@ -97,6 +97,12 @@ class UserInfoRejectsInvalidBearerIT : AbstractSympauthyIT() {
         }
     }
 
+    /**
+     * `JWT` is the cookie Micronaut's `CookieTokenReader` reads by default. The reader is a bean in any
+     * cookie-based authentication mode, `idtoken` among them, unless `micronaut.security.token.cookie`
+     * is disabled. Configuring such a mode again would let a browser send a token along that no surface
+     * here is meant to accept.
+     */
     @ParameterizedTest(name = "userinfo ignores an access token sent in a cookie on {0}")
     @EnumSource(Database::class)
     fun userInfoIgnoresAccessTokenInCookie(database: Database) {
