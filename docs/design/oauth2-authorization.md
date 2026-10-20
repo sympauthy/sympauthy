@@ -70,8 +70,9 @@ client's `state` echoed, and no code.
 
 **A code is good only for the client that asked for it, with the verifier of its challenge.** The
 token endpoint refuses a code it does not hold, one past [its own
-lifetime](#how-long-a-code-is-exchangeable), or one whose grant was opened for another client;
-then one whose PKCE verifier does not match the challenge. The redirect URI is not compared again,
+lifetime](#how-long-a-code-is-exchangeable), or one whose grant was opened for another client or
+for an audience its client [no longer belongs to](grants.md#how-a-revocation-reaches-a-grant); then
+one whose PKCE verifier does not match the challenge. The redirect URI is not compared again,
 as [OAuth 2.1](security.md#the-protocol-surfaces) has it: PKCE is what binds the code to the request
 that produced it, so a code read off a redirect is useless without what only that client holds.
 

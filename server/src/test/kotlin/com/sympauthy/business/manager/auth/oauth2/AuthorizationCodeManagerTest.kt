@@ -22,6 +22,7 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.spyk
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -45,8 +46,13 @@ class AuthorizationCodeManagerTest {
 
     private val codeRepository = mockk<AuthorizationCodeRepository>()
     private val codeMapper = mockk<AuthorizationCodeMapper>()
-    private val grantManager = mockk<GrantManager>()
     private val randomGenerator = mockk<RandomGenerator>()
+
+    /**
+     * The real manager behind a spy: whether a grant was opened for the client presenting it is a function of
+     * the two alone, so the scenarios run it rather than stub an answer to it.
+     */
+    private val grantManager = spyk(GrantManager(mockk(), mockk(), mockk(), mockk(), mockk()))
     private val authConfig = EnabledAuthConfig(
         issuer = "https://auth.example.com",
         token = mockk(),
@@ -71,9 +77,10 @@ class AuthorizationCodeManagerTest {
 
     private fun grant(): Grant = mockk { every { id } returns GRANT_ID }
 
-    private fun grantOpenedFor(clientId: String): Grant = mockk { every { this@mockk.clientId } returns clientId }
-
-    private fun client(): Client = mockk { every { id } returns CLIENT_ID }
+    private fun client(): Client = mockk {
+        every { id } returns CLIENT_ID
+        every { audience.id } returns AUDIENCE_ID
+    }
 
     private fun code(expirationDate: LocalDateTime = LocalDateTime.now().plusMinutes(1)) = AuthorizationCode(
         grantId = GRANT_ID,
@@ -89,11 +96,13 @@ class AuthorizationCodeManagerTest {
     fun `generateCode - Writes the code under the grant and answers what the row became`() = runTest {
         val code = mockk<AuthorizationCode>()
         val written = slot<AuthorizationCodeEntity>()
-        every { randomGenerator.generateAndEncodeToHex(any()) } returns "0123456789abcdef"
+        every {
+            randomGenerator.generateAndEncodeToHex(AuthorizationCodeManager.CODE_LENGTH_IN_BYTES)
+        } returns "0123456789abcdef"
         coEvery { codeRepository.save(capture(written)) } answers { written.captured }
         every { codeMapper.toAuthorizationCode(any()) } returns code
 
-        assertSame(code, manager.generateCode(mockk(), oauth2(), grant()))
+        assertSame(code, manager.generateCode(oauth2(), grant()))
 
         assertEquals(GRANT_ID, written.captured.grantId)
         assertEquals("0123456789abcdef", written.captured.code)
@@ -109,7 +118,7 @@ class AuthorizationCodeManagerTest {
         coEvery { codeRepository.save(capture(written)) } answers { written.captured }
         every { codeMapper.toAuthorizationCode(any()) } returns mockk()
 
-        manager.generateCode(mockk(), oauth2(), grant())
+        manager.generateCode(oauth2(), grant())
 
         assertEquals(written.captured.creationDate.plusMinutes(1), written.captured.expirationDate)
     }
@@ -117,11 +126,12 @@ class AuthorizationCodeManagerTest {
     @Test
     fun `generateCode - Refuses an authorization request holding no challenge as the server failing`() = runTest {
         val oauth2 = mockk<InteractiveFlowSessionOAuth2> {
+            every { sessionId } returns SESSION_ID
             every { codeChallenge } returns null
             every { codeChallengeMethod } returns null
         }
 
-        val exception = assertThrows<BusinessException> { manager.generateCode(sessionById(), oauth2, mockk()) }
+        val exception = assertThrows<BusinessException> { manager.generateCode(oauth2, mockk()) }
 
         assertEquals("code.missing_code_challenge", exception.detailsId)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
@@ -172,11 +182,16 @@ class AuthorizationCodeManagerTest {
         assertNull(manager.fetchCodeOrNull(sessionById()))
     }
 
+    private fun grantOpenedFor(clientId: String, audienceId: String = AUDIENCE_ID): Grant = mockk {
+        every { this@mockk.clientId } returns clientId
+        every { this@mockk.audienceId } returns audienceId
+    }
+
     @Test
     fun `checkCanExchange - Answers the code and the grant it names`() = runTest {
         val code = code()
         val grant = grantOpenedFor(CLIENT_ID)
-        coEvery { grantManager.findByIdOrNull(GRANT_ID) } returns grant
+        coEvery { grantManager.findByIdOrNull(code.grantId) } returns grant
 
         val (checkedCode, checkedGrant) = manager.checkCanExchange(code, client())
 
@@ -204,23 +219,49 @@ class AuthorizationCodeManagerTest {
     }
 
     @Test
-    fun `checkCanExchange - Refuses a code whose grant was opened for another client`() = runTest {
-        coEvery { grantManager.findByIdOrNull(GRANT_ID) } returns grantOpenedFor("another-client")
+    fun `checkCanExchange - Refuses as expired a code whose grant was collected since it was read`() = runTest {
+        val code = code()
+        coEvery { grantManager.findByIdOrNull(code.grantId) } returns null
 
-        val exception = assertThrows<OAuth2Exception> { manager.checkCanExchange(code(), client()) }
+        val exception = assertThrows<OAuth2Exception> { manager.checkCanExchange(code, mockk()) }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkCanExchange - Refuses a code whose grant was opened for another client`() = runTest {
+        val code = code()
+        val grant = mockk<Grant> { every { clientId } returns "another-client" }
+        coEvery { grantManager.findByIdOrNull(code.grantId) } returns grant
+
+        val client = mockk<Client> { every { id } returns CLIENT_ID }
+
+        val exception = assertThrows<OAuth2Exception> { manager.checkCanExchange(code, client) }
 
         assertEquals(INVALID_GRANT, exception.errorCode)
         assertEquals("token.mismatching_client", exception.detailsId)
     }
 
     @Test
-    fun `checkCanExchange - Refuses a code naming a grant that is gone as the server failing`() = runTest {
-        coEvery { grantManager.findByIdOrNull(GRANT_ID) } returns null
+    fun `checkCanExchange - Refuses a code whose client has moved to another audience`() = runTest {
+        val code = code()
+        coEvery {
+            grantManager.findByIdOrNull(code.grantId)
+        } returns grantOpenedFor(CLIENT_ID, audienceId = "another-audience")
 
-        val exception = assertThrows<BusinessException> { manager.checkCanExchange(code(), mockk()) }
+        val exception = assertThrows<OAuth2Exception> { manager.checkCanExchange(code, client()) }
 
-        assertEquals("code.missing_grant", exception.detailsId)
-        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("grant.mismatching_audience", exception.detailsId)
+    }
+
+    @Test
+    fun `fetchGrant - Answers the grant the code names`() = runTest {
+        val grant = mockk<Grant>()
+        coEvery { grantManager.findByIdOrNull(GRANT_ID) } returns grant
+
+        assertSame(grant, manager.fetchGrant(code()))
     }
 
     @Test
@@ -241,6 +282,7 @@ class AuthorizationCodeManagerTest {
         val SESSION_ID: UUID = UUID.randomUUID()
         val GRANT_ID: UUID = UUID.randomUUID()
         const val CLIENT_ID = "client-id"
+        const val AUDIENCE_ID = "audience-id"
         const val CODE_CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
         const val NONCE = "the-nonce"
     }

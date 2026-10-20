@@ -92,9 +92,10 @@ reach of the consent they were opened under. An act-as grant rests on the act-as
 on a consent, which [security](security.md#acting-as-a-person) argues.
 
 **A grant is the audience's it was opened for.** A client moved to another audience can no longer
-refresh the grants it was opened for, which are refused with `invalid_grant` and
-`grant.mismatching_audience`, and the person signs in again: tokens issued for the new audience
-would rest on a consent whose revocation could not reach the grant they stand under.
+refresh the grants it was opened for, nor exchange a code issued under one: either is refused with
+`invalid_grant` and `grant.mismatching_audience`, and the person signs in again. Tokens issued for
+the new audience would rest on a consent whose revocation could not reach the grant they stand
+under.
 
 **A code still to be exchanged is reached with its grant.** A revocation finds the grant of a code
 as surely as the grant of a token, so a person signed out, or a consent revoked, between the sign-in
@@ -169,9 +170,10 @@ transaction already holds the locks its promotion named, and a unique index over
 grant came from is what settles two completions racing: the one refused there never reaches its
 code.
 
-**`GrantManager` opens a grant and revokes one**, and is where every revocation above is written.
-`TokenManager` issues the tokens under a grant and checks one presented to it against its grant;
-`ActorGrantValidator` is the check an act-as token adds.
+**`GrantManager` opens a grant, checks one presented to it and revokes one**, and is where every
+revocation above is written: whether a grant is live, and whether it was opened for the client and
+the audience presenting it, are asked of it by a refresh and a code exchange alike. `TokenManager`
+issues the tokens under a grant; `ActorGrantValidator` is the check an act-as token adds.
 
 **A refresh, a code exchange and a revocation of the same person's grants take turns.** A token
 issued under a grant is revoked with it whichever commits first, because a token's liveness is read

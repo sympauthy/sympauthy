@@ -104,12 +104,12 @@ class TokenControllerTest {
         every { supportsGrantType(any()) } returns true
     }
 
-    /** A token the response only carries the encoded form of. */
     private fun mockCode(): AuthorizationCode = mockk {
         every { codeChallenge } returns "stored-challenge"
         every { codeChallengeMethod } returns CodeChallengeMethod.S256
     }
 
+    /** A token the response only carries the encoded form of. */
     private fun mockEncodedToken(token: String): EncodedAuthenticationToken = mockk {
         every { this@mockk.token } returns token
     }

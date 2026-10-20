@@ -13,35 +13,25 @@ import java.util.*
 class PkceManager {
 
     /**
-     * Verifies the `code_verifier` against the stored `code_challenge` and `code_challenge_method`.
+     * Verify that [codeVerifier] is the one [codeChallenge] was derived from with [codeChallengeMethod], as
+     * RFC 7636 §4.6 has it. Every authorization code carries a challenge, so a request without a verifier is
+     * refused.
      *
-     * - If no challenge was stored, `code_verifier` must be absent (no PKCE flow).
-     * - If a challenge was stored, `code_verifier` is required and must match.
+     * Throws `token.pkce.missing_code_verifier` where [codeVerifier] is null or blank, and
+     * `token.pkce.invalid_code_verifier` where it does not derive [codeChallenge].
      */
     fun verifyCodeVerifier(
         codeVerifier: String?,
-        codeChallenge: String?,
-        codeChallengeMethod: CodeChallengeMethod?
+        codeChallenge: String,
+        codeChallengeMethod: CodeChallengeMethod
     ) {
-        if (codeChallenge == null) {
-            // No PKCE was used during authorization; code_verifier should not be present
-            if (!codeVerifier.isNullOrBlank()) {
-                throw businessExceptionOf(
-                    detailsId = "token.pkce.unexpected_code_verifier"
-                )
-            }
-            return
-        }
-
-        // PKCE was used; code_verifier is required
         if (codeVerifier.isNullOrBlank()) {
             throw businessExceptionOf(
                 detailsId = "token.pkce.missing_code_verifier"
             )
         }
 
-        val method = codeChallengeMethod ?: CodeChallengeMethod.S256
-        val computedChallenge = when (method) {
+        val computedChallenge = when (codeChallengeMethod) {
             CodeChallengeMethod.S256 -> computeS256Challenge(codeVerifier)
         }
 

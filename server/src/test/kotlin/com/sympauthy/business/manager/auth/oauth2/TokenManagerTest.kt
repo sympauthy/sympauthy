@@ -89,8 +89,13 @@ class TokenManagerTest {
     @MockK
     lateinit var authorizationCodeManager: AuthorizationCodeManager
 
-    @MockK
-    lateinit var grantManager: GrantManager
+    /**
+     * The real manager behind a spy rather than a mock: whether a grant is live and opened for the client
+     * presenting it are functions of the grant and the client alone, so every scenario runs them instead of
+     * stubbing an answer to them.
+     */
+    @SpyK
+    var grantManager = GrantManager(mockk(), mockk(), mockk(), mockk(), mockk())
 
     private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
 
@@ -195,7 +200,7 @@ class TokenManagerTest {
     /** Stubs [code] as naming [grant] once the lock is held, and [userId] as an account a sign-up finished. */
     private fun stubExchangeableCode(code: AuthorizationCode, userId: UUID, grant: Grant) {
         coJustRun { userManager.checkPromoted(userId) }
-        coEvery { grantManager.findByIdOrNull(code.grantId) } returns grant
+        coEvery { authorizationCodeManager.fetchGrant(code) } returns grant
     }
 
     private fun mockGrant(
@@ -206,20 +211,6 @@ class TokenManagerTest {
         every { this@mockk.revoked } returns revoked
         if (!revoked) every { this@mockk.expired } returns expired
         grantType?.let { every { this@mockk.grantType } returns it }
-    }
-
-    @Test
-    fun `generateTokensForUser - Refuses a code past its lifetime as expired, and spends nothing`() = runTest {
-        val code = code(expirationDate = now().minusSeconds(1))
-
-        val exception = assertThrows<OAuth2Exception> {
-            tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(UUID.randomUUID()), mockk())
-        }
-
-        assertEquals(INVALID_GRANT, exception.errorCode)
-        assertEquals("token.expired", exception.detailsId)
-        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
-        coVerify(exactly = 0) { grantManager.revokeGrant(any(), any(), any()) }
     }
 
     @Test
@@ -270,7 +261,7 @@ class TokenManagerTest {
         assertSame(idToken, result.idToken)
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
-            grantManager.findByIdOrNull(code.grantId)
+            authorizationCodeManager.fetchGrant(code)
             authorizationCodeManager.markExchanged(code)
             accessTokenGenerator.generateAccessToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
         }
@@ -296,7 +287,9 @@ class TokenManagerTest {
         val userId = UUID.randomUUID()
         val code = code()
         coJustRun { userManager.checkPromoted(userId) }
-        coEvery { grantManager.findByIdOrNull(code.grantId) } returns null
+        coEvery {
+            authorizationCodeManager.fetchGrant(code)
+        } throws oauth2ExceptionOf(INVALID_GRANT, "token.expired")
 
         val exception = assertThrows<OAuth2Exception> {
             tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(userId), mockk())

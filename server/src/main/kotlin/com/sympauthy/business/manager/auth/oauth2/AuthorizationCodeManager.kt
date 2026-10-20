@@ -36,9 +36,10 @@ class AuthorizationCodeManager(
 ) {
 
     /**
-     * Generate the authorization code a client exchanges for [session]'s tokens, in the transaction completing
-     * [session], naming the [grant] its authorization opened. The code carries the PKCE challenge and the
-     * `nonce` of the authorization request [oauth2], which are what its exchange reads instead of the session.
+     * Generate the authorization code a client exchanges for the tokens of the authorization request [oauth2],
+     * in the transaction completing its interactive flow session, naming the [grant] that authorization
+     * opened. The code carries the PKCE challenge and the `nonce` of [oauth2], which are what its exchange
+     * reads instead of the session.
      *
      * The grant is written in the same transaction, just before, and holds this code alone: a session opens
      * one grant, so a completion that lost the race to a concurrent one is refused at the grant and never
@@ -49,20 +50,19 @@ class AuthorizationCodeManager(
      * request without one is refused before its session starts, so one completing is this server's failure.
      */
     suspend fun generateCode(
-        session: InteractiveFlowSession,
         oauth2: InteractiveFlowSessionOAuth2,
         grant: Grant
     ): AuthorizationCode {
         val codeChallenge = oauth2.codeChallenge
         val codeChallengeMethod = oauth2.codeChallengeMethod
         if (codeChallenge == null || codeChallengeMethod == null) {
-            throw internalBusinessExceptionOf("code.missing_code_challenge", "sessionId" to session.id.toString())
+            throw internalBusinessExceptionOf("code.missing_code_challenge", "sessionId" to oauth2.sessionId.toString())
         }
         val creationDate = LocalDateTime.now()
         val entity = AuthorizationCodeEntity(
             grantId = grant.id,
             // To avoid encoded characters in the returned code.
-            code = randomGenerator.generateAndEncodeToHex(),
+            code = randomGenerator.generateAndEncodeToHex(CODE_LENGTH_IN_BYTES),
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod.value,
             nonce = oauth2.nonce,
@@ -104,13 +104,10 @@ class AuthorizationCodeManager(
 
     /**
      * Either return the [code] the caller found together with the grant it names, if [client] may exchange
-     * it, or throw:
-     * - an `OAuth2Exception` carrying `invalid_grant` and `token.expired` where [code] is null, which is a code
-     *   this server does not hold, or where it has expired.
-     * - an `OAuth2Exception` carrying `invalid_grant` and `token.mismatching_client` where its grant was opened
-     *   for another client.
-     * - `code.missing_grant`, internal, where the grant is not there: a grant a stored code names is kept as
-     *   long as the code is, so a code naming one that is gone is this server's failure.
+     * it, or throw an `OAuth2Exception` carrying `invalid_grant`:
+     * - `token.expired` where [code] is null, which is a code this server does not hold, where it has
+     *   expired, or where its grant is gone, as [fetchGrant] says.
+     * - `token.mismatching_client` or `grant.mismatching_audience`, as [GrantManager.checkOpenedFor] says.
      *
      * Nothing here spends the code, and nothing it refuses revokes anything. Whether the grant is still live
      * is read again where the code is spent, once the lock its revocations take is held.
@@ -119,12 +116,21 @@ class AuthorizationCodeManager(
         if (code == null || code.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
-        val grant = grantManager.findByIdOrNull(code.grantId)
-            ?: throw internalBusinessExceptionOf("code.missing_grant", "grantId" to code.grantId.toString())
-        if (grant.clientId != client.id) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
-        }
+        val grant = fetchGrant(code)
+        grantManager.checkOpenedFor(grant, client)
         return code to grant
+    }
+
+    /**
+     * The grant [code] names.
+     *
+     * Throws an `OAuth2Exception` carrying `invalid_grant` and `token.expired` where the grant is gone. A grant
+     * is kept as long as its code is, so one gone is a code collected since it was read: it had expired, and is
+     * refused as one.
+     */
+    suspend fun fetchGrant(code: AuthorizationCode): Grant {
+        return grantManager.findByIdOrNull(code.grantId)
+            ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
     }
 
     /**
@@ -140,5 +146,13 @@ class AuthorizationCodeManager(
             grantId = code.grantId,
             exchangeDate = LocalDateTime.now()
         ) == 1
+    }
+
+    companion object {
+        /**
+         * The random bytes an authorization code is made of: 256 bits, past the 2^-160 chance of guessing one
+         * that RFC 6749 §10.10 recommends.
+         */
+        const val CODE_LENGTH_IN_BYTES = 32
     }
 }

@@ -85,12 +85,13 @@ a request.
 
 ## The OAuth2 carve-out
 
-**A manager implementing an OAuth2 endpoint throws the protocol's exception directly**, so that the
-code the specification names — `invalid_grant`, `invalid_request`, `invalid_target` — reaches the
-client. This is the one place `business` imports `api`.
+**A manager in `business.manager.auth` throws the protocol's exception directly**, so that the code
+the specification names — `invalid_grant`, `invalid_request`, `invalid_target` — reaches the client.
+This is the one place `business` imports `api`.
 
-**It applies to the OAuth2 managers and nothing else.** Everywhere else, the factories above are
-the contract.
+**It applies to the managers of that package and the packages under it, and nothing else.** The
+grants the OAuth2 endpoints answer for are checked there as well as the endpoints themselves;
+everywhere else, the factories above are the contract.
 
 ## A code names two messages
 

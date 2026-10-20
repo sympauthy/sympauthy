@@ -104,7 +104,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     private fun stubCodeIssuance(session: OnGoingInteractiveFlowSession, userId: UUID) {
         val grant = mockk<Grant>()
         coEvery { grantManager.createAuthorizationCodeGrant(session, any(), userId, testAudience.id) } returns grant
-        coEvery { authorizationCodeManager.generateCode(session, any(), grant) } returns mockk()
+        coEvery { authorizationCodeManager.generateCode(any(), grant) } returns mockk()
     }
 
     @Test
@@ -274,7 +274,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery {
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
         } returns grant
-        coEvery { authorizationCodeManager.generateCode(session, oauth2AfterGranted, grant) } returns mockk()
+        coEvery { authorizationCodeManager.generateCode(oauth2AfterGranted, grant) } returns mockk()
 
         val result = handler.applyTerminalEffect(session)
 
@@ -282,7 +282,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coVerifyOrder {
             consentManager.saveConsent(userId, testAudience.id, clientId, any())
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
-            authorizationCodeManager.generateCode(session, oauth2AfterGranted, grant)
+            authorizationCodeManager.generateCode(oauth2AfterGranted, grant)
         }
     }
 
@@ -336,7 +336,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val fail = assertInstanceOf(TerminalEffectResult.Fail::class.java, result)
         assertEquals("flow.authorization_flow.complete.no_scope", fail.error.detailsId)
         coVerify(exactly = 0) { grantManager.createAuthorizationCodeGrant(any(), any(), any(), any()) }
-        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any(), any(), any()) }
+        coVerify(exactly = 0) { authorizationCodeManager.generateCode(any(), any()) }
     }
 
     @Test

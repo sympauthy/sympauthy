@@ -85,18 +85,17 @@ open class TokenManager(
     }
 
     /**
-     * Mark [code] as exchanged, and generate the tokens it is exchanged for under the grant it names. [grant]
-     * is that grant as the caller read it, which names the account whose lock is taken; it is read again once
-     * the lock is held.
+     * Mark [code] as exchanged, and generate the tokens it is exchanged for under the grant it names. [code]
+     * and [grant] are what [AuthorizationCodeManager.checkCanExchange] answered: the grant names the account
+     * whose lock is taken, and is read again once the lock is held.
      *
      * Throws `code.missing_user`, internal, where [grant] names no user: an authorization opens its grant for
      * the person it signed in, so one without is this server's failure.
      *
      * Always generates an access token. An id token is generated where the grant carries the `openid`
      * scope, repeating the `nonce` [code] carries, and a refresh token where the [client] supports the
-     * [GrantType.REFRESH_TOKEN] grant type. A [code] that has expired issues nothing and throws an
-     * `OAuth2Exception` carrying `token.expired`, and so does a grant that is no longer live, as [checkLive]
-     * says, leaving the code unspent.
+     * [GrantType.REFRESH_TOKEN] grant type. A grant that is no longer live, as [GrantManager.checkLive] says,
+     * issues nothing and leaves the code unspent.
      *
      * Answers null where a client already exchanged the code, having issued nothing and revoked its grant —
      * the earlier exchange's tokens, and every refresh descended from them — as RFC 6749 §4.1.2 recommends.
@@ -122,9 +121,6 @@ open class TokenManager(
     ): GenerateTokenResult? {
         val userId = grant.userId
             ?: throw internalBusinessExceptionOf("code.missing_user", "grantId" to grant.id.toString())
-        if (code.expired) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
-        }
         // Never mint a token for an account a sign-up has not finished, however the code reached this point: a
         // token is what turns an account into one another system will act on. Answered as the grant being
         // invalid rather than as a business failure — this surface owes its caller an RFC 6749 error object,
@@ -132,12 +128,12 @@ open class TokenManager(
         checkPromotedOrInvalidGrant(userId)
 
         return lockManager.withLock(listOf(LockKey.User(userId))) {
-            val liveGrant = fetchGrantOfCode(code)
+            val liveGrant = authorizationCodeManager.fetchGrant(code)
             if (!authorizationCodeManager.markExchanged(code)) {
                 grantManager.revokeGrant(liveGrant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, revokedById = null)
                 return@withLock null
             }
-            checkLive(liveGrant)
+            grantManager.checkLive(liveGrant)
             generateTokensUnder(liveGrant, code.nonce, client, dpopJkt)
         }
     }
@@ -184,30 +180,6 @@ open class TokenManager(
             refreshToken = deferredRefreshToken?.await(),
             idToken = deferredIdToken.await()
         )
-    }
-
-    /**
-     * The grant [code] names, read again once the lock over its account is held: a revocation committed while
-     * the lock was awaited is only seen by a read made after.
-     *
-     * Throws an `OAuth2Exception` carrying `invalid_grant` and `token.expired` where the grant is gone. A grant
-     * is kept as long as its code is, so one gone is a code collected since it was read: it had expired, and is
-     * refused as one.
-     */
-    internal suspend fun fetchGrantOfCode(code: AuthorizationCode): Grant {
-        return grantManager.findByIdOrNull(code.grantId)
-            ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
-    }
-
-    /**
-     * Refuse [grant] unless it is live, as an `OAuth2Exception` carrying `invalid_grant`: `grant.revoked`
-     * where it has been revoked, and `grant.expired` where it is past its lifetime.
-     */
-    internal fun checkLive(grant: Grant) {
-        when {
-            grant.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
-            grant.expired -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.expired", "description.grant.expired")
-        }
     }
 
     /**
@@ -291,21 +263,7 @@ open class TokenManager(
     ): GenerateTokenResult {
         val refreshToken = getAuthenticationToken(decodedToken)
         val grant = refreshToken.grant
-        if (grant.clientId != client.id) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
-        }
-        // A grant is the audience's it was opened for, and that is what revoking a consent reaches it by:
-        // tokens issued for an audience its client has since moved to would escape the consent they rest on.
-        if (grant.audienceId != client.audience.id) {
-            throw oauth2ExceptionOf(
-                INVALID_GRANT,
-                "grant.mismatching_audience",
-                "description.grant.mismatching_audience",
-                "grantAudienceId" to grant.audienceId,
-                "clientId" to client.id,
-                "clientAudienceId" to client.audience.id
-            )
-        }
+        grantManager.checkOpenedFor(grant, client)
 
         dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
 
@@ -481,7 +439,7 @@ open class TokenManager(
             )
 
             else -> {
-                checkLive(token.grant)
+                grantManager.checkLive(token.grant)
                 actorGrantValidator.validateActorGrant(token.grant)
                 token
             }

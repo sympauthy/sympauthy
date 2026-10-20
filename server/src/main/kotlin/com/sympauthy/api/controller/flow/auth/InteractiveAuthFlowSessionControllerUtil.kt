@@ -370,8 +370,7 @@ class InteractiveAuthFlowSessionControllerUtil(
      * **An expired one is not either, and that is the sharper reason.** `InteractiveFlowSessionCleaner`
      * deletes a session's places and the session itself in one transaction: a row inserted between the
      * two takes a key lock the parent delete then fails on, and on PostgreSQL that rolls the whole
-     * collection back — every expired session, authorization code and validation code with it, until a
-     * run gets through.
+     * collection back — every expired session and validation code with it, until a run gets through.
      *
      * A session created already failed is still recorded, by the entry point that created it: that row is
      * the only thing such a session will ever say about the browser that started it.

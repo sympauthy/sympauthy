@@ -1,15 +1,18 @@
 package com.sympauthy.business.manager.auth
 
+import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.GrantMapper
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -24,7 +27,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * Opens the grants tokens are issued under, and revokes them.
+ * Opens the grants tokens are issued under, checks one presented to it, and revokes them.
  *
  * Every revocation reaches grants rather than tokens, and only a grant still live: one not revoked yet and
  * holding a token that has not expired. A grant already revoked keeps who revoked it first, and one that
@@ -50,6 +53,41 @@ open class GrantManager(
      */
     suspend fun findByIdOrNull(id: UUID): Grant? {
         return grantRepository.findById(id)?.let(grantMapper::toGrant)
+    }
+
+    /**
+     * Refuse [grant] unless it was opened for [client], and for the audience [client] belongs to now, as an
+     * `OAuth2Exception` carrying `invalid_grant`: `token.mismatching_client` where it was opened for another
+     * client, and `grant.mismatching_audience` where [client] has since moved to another audience.
+     *
+     * A grant is the audience's it was opened for, and that is what revoking a consent reaches it by: tokens
+     * issued for an audience its client has since moved to would escape the consent they rest on.
+     */
+    fun checkOpenedFor(grant: Grant, client: Client) {
+        if (grant.clientId != client.id) {
+            throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
+        }
+        if (grant.audienceId != client.audience.id) {
+            throw oauth2ExceptionOf(
+                INVALID_GRANT,
+                "grant.mismatching_audience",
+                "description.grant.mismatching_audience",
+                "grantAudienceId" to grant.audienceId,
+                "clientId" to client.id,
+                "clientAudienceId" to client.audience.id
+            )
+        }
+    }
+
+    /**
+     * Refuse [grant] unless it is live, as an `OAuth2Exception` carrying `invalid_grant`: `grant.revoked`
+     * where it has been revoked, and `grant.expired` where it is past its lifetime.
+     */
+    fun checkLive(grant: Grant) {
+        when {
+            grant.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
+            grant.expired -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.expired", "description.grant.expired")
+        }
     }
 
     /**

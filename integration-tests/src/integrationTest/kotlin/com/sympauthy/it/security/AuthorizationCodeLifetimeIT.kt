@@ -1,11 +1,14 @@
 package com.sympauthy.it.security
 
+import com.sympauthy.api.client.api.Oauth2Api
+import com.sympauthy.api.client.model.GetTokensRequestGrantType
+import com.sympauthy.api.client.model.TokenResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.client.SympauthyApiException
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
+import io.micronaut.http.client.exceptions.HttpClientResponseException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
@@ -21,14 +24,15 @@ import org.junit.jupiter.params.provider.EnumSource
  * that lived as long as its session would have that lifetime depend on how fast the person signed in, and
  * a code whose exchange read its session would die with it however recently it was issued.
  *
- * The first scenario gives codes a lifetime of a few seconds, signs a person up and presents the code, with
- * the verifier of its own challenge, once that lifetime has passed: it is refused with `invalid_grant`,
- * every other check passing. The second gives the flow a few seconds and codes their default minute, and
+ * Every exchange goes through the generated client with the verifier of the code's own challenge, so a
+ * refusal is the code's lifetime and nothing else the token endpoint checks. The first scenario gives codes
+ * a lifetime of a few seconds, signs a person up and exchanges the code once that lifetime has passed: it is
+ * refused with `invalid_grant`. The second gives the flow a few seconds and codes their default minute, and
  * exchanges a code once the session that issued it has expired: tokens are issued. The third has a
  * confidential client exchange its code, waits past the code's lifetime and exchanges it again: the second
- * exchange is refused, and the tokens of the first still introspect as active — a code past its lifetime is
- * refused as expired, and revokes nothing as a replay inside it would. Each runs on every supported
- * database.
+ * exchange is refused with `invalid_grant`, and the tokens of the first still introspect as active — a code
+ * past its lifetime is refused as expired, and revokes nothing as a replay inside it would. Each runs on
+ * every supported database.
  *
  * Source: [sympauthy#590](https://github.com/sympauthy/sympauthy/issues/590), and
  * [RFC 6749 §4.1.2](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2).
@@ -45,8 +49,7 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
 
             Thread.sleep((CODE_LIFETIME_SECONDS + 1) * 1000)
 
-            val response = exchangeCode(sympauthy, registry, code, mapOf("code_verifier" to pkce.verifier))
-            assertOAuthError(response, 400, "invalid_grant", "a code past its lifetime must be refused")
+            assertExchangeRefused(sympauthy, registry, code, pkce, "a code past its lifetime must be refused")
         }
     }
 
@@ -62,11 +65,9 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
             // Past the time the flow was allowed from its start, and well inside the code's own minute.
             Thread.sleep((FLOW_SECONDS + 1) * 1000)
 
-            val response = exchangeCode(sympauthy, registry, code, mapOf("code_verifier" to pkce.verifier))
-            assertEquals(
-                200, response.statusCode(),
-                "a code must be exchangeable after its session expired, body=${response.body()}",
-            )
+            checkNotNull(exchange(sympauthy, registry, code, pkce).accessToken) {
+                "a code must be exchangeable after its session expired"
+            }
         }
     }
 
@@ -76,14 +77,15 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, SHORT_CODES, confidentialClient) { sympauthy, registry ->
-            val result = signUp(registry)
-            val accessToken = checkNotNull(result.exchange().accessToken()) {
+            val pkce = generatePkce()
+            val code = signUpWithPkceForCode(sympauthy, registry, pkce)
+            val accessToken = checkNotNull(exchange(sympauthy, registry, code, pkce).accessToken) {
                 "the first exchange should return an access token"
             }
 
             Thread.sleep((CODE_LIFETIME_SECONDS + 1) * 1000)
 
-            assertThrows<SympauthyApiException>("a code past its lifetime must be refused") { result.exchange() }
+            assertExchangeRefused(sympauthy, registry, code, pkce, "a code past its lifetime must be refused")
             assertEquals(
                 true, introspect(sympauthy, accessToken, registry).active,
                 "a code presented past its lifetime must not revoke what its first exchange was issued",
@@ -100,14 +102,52 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
         "expected an authorization code from sign-up"
     }
 
+    /** Exchanges [code] with [pkce]'s verifier as [registry]'s client, and answers the tokens issued. */
+    private fun exchange(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        code: String,
+        pkce: Pkce,
+    ): TokenResource = withApiClient(sympauthy) { ctx ->
+        ctx.getBean(Oauth2Api::class.java).exchange(registry, code, pkce).block()
+    } ?: error("the code exchange answered an empty body")
+
+    /**
+     * Exchanges [code] as [exchange] does, and asserts the token endpoint refuses it with `400` and
+     * `invalid_grant`, reporting [message] when it does not.
+     */
+    private fun assertExchangeRefused(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        code: String,
+        pkce: Pkce,
+        message: String,
+    ) {
+        withApiClient(sympauthy) { ctx ->
+            val refusal = assertThrows<HttpClientResponseException>(message) {
+                ctx.getBean(Oauth2Api::class.java).exchange(registry, code, pkce).block()
+            }
+            assertOAuthError(refusal, 400, "invalid_grant", message)
+        }
+    }
+
+    /** The `authorization_code` grant for [code], as [registry]'s client with its credentials in the body. */
+    private fun Oauth2Api.exchange(registry: InteractiveFlowRegistry, code: String, pkce: Pkce) = getTokens(
+        grantType = GetTokensRequestGrantType.AUTHORIZATION_CODE,
+        code = code,
+        clientId = registry.clientId(),
+        clientSecret = registry.clientSecret(),
+        codeVerifier = pkce.verifier,
+    )
+
     private companion object {
         const val CLIENT_SECRET = "authorization-code-lifetime-secret-value"
 
-        /** Long enough for a client to exchange a code it was just redirected with, and no longer. */
-        const val CODE_LIFETIME_SECONDS = 5L
+        /** Long enough for a client to exchange a code it was just redirected with, on a slow runner too. */
+        const val CODE_LIFETIME_SECONDS = 10L
 
-        /** Long enough for the mock frontend to sign a person up. */
-        const val FLOW_SECONDS = 10L
+        /** Long enough for the mock frontend to sign a person up, on a slow runner too. */
+        const val FLOW_SECONDS = 30L
 
         val SHORT_CODES = mapOf(
             "auth" to mapOf("authorization-code" to mapOf("expiration" to "${CODE_LIFETIME_SECONDS}s")),
