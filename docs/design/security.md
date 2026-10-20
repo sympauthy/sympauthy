@@ -265,6 +265,54 @@ of a bound refresh token, so the token endpoint and the resource surfaces cannot
 which key a proof must be signed with. The framework reads the `Bearer` scheme alone, and
 `DpopTokenReader` is what reads the other.
 
+### A refused token is challenged
+
+**Every refusal of a request to a route an access token is accepted on carries a `WWW-Authenticate`
+challenge**, as RFC 6750 §3 requires of a request presenting no token and of one whose token does
+not give access. The body beside it is [the API standard's](../standards/api-standard.md#errors),
+and the challenge is how a client reading headers learns the same thing.
+
+**A route accepts a token where its gate names a role or a scope a token grants.** A request no
+route answers, and one to a route gated on the state or open to anyone, is refused without a
+challenge, whatever it presented: telling it how to present a token would send it after a token
+that route does not take.
+
+**The challenge names both schemes a token is accepted under, `Bearer` and then `DPoP`.** Every
+route accepting one accepts the other, and RFC 9449 §7.2 leaves a server free to name both. A client
+whose bound token was refused would otherwise be challenged only under the scheme [it may not
+present that token with](#a-token-bound-to-a-key). The `DPoP` challenge lists the algorithms a proof
+may be signed with, which are the ones the discovery document publishes.
+
+**The error is carried by the challenge of the scheme the token came under**, as RFC 9449 §7.2
+recommends, and a request that presented no token is told of no error at all, as RFC 6750 §3.1 asks:
+
+| The request presented | Status | `error` |
+| --- | --- | --- |
+| no token | `401` | none |
+| a token that does not validate | `401` | `invalid_token` |
+| a token whose DPoP proof does not validate | `401` | `invalid_dpop_proof`, on the `DPoP` challenge |
+| a valid token, without the role or the scope the route is gated on | `403` | `insufficient_scope` |
+
+**What refuses the proof is what RFC 9449 §4.3 checks**, which includes the `ath` naming the token
+and the key matching the one the token is bound to. A bound token presented as a bearer token, and
+an unbound one presented under `DPoP`, are refused for the token they are rather than for a proof,
+and are told `invalid_token`.
+
+**Both challenges name the realm `sympauthy`.** RFC 6750 §3 requires a `Bearer` challenge to carry a
+parameter, and one answering a request that presented no token has no error to carry. A token is
+accepted on the userinfo endpoint and on the client and admin surfaces, so no one surface names the
+space it is good in, and the realm names the server. The `Basic` challenge of [a client that fails
+to authenticate](#the-protocol-surfaces) names its surface, because client credentials are accepted
+on that one and nowhere else.
+
+**The `403` names no scope.** RFC 6750 §3.1 allows `insufficient_scope` to say which scope the route
+requires, and the refusal is the framework's, raised from a `@Secured` annotation: what answers it
+is not told which rule of the route the token failed. The operation's published `403` names it.
+
+**A page in a browser is told what a server-side client is told.** A response to another origin
+shows a page only the headers it lists, so every surface challenging a token lists
+`WWW-Authenticate` among the ones [it exposes](../standards/api-standard.md#cors).
+
 ### When the person authenticated
 
 **Every token issued for a person says when they proved a credential of their account**, as the
@@ -305,16 +353,16 @@ every token under it out of service rather than travel on them unnoticed.
 with the meaning §3.1.2.1 gives it, refusing anything but a non-negative number of seconds. It is
 satisfied by construction: this server keeps no session between authorizations — see
 [the state authentication is not a session](#the-state-authentication-is-not-a-session) and
-[the interactive flow](interactive-flow.md#what-this-design-does-not-do) — so every authorization
-signs the person in anew and the authentication a code represents is always younger than the flow
-that produced it. Should a session ever be kept, this is what would prepend the re-authentication
-gate; today there is nothing to prepend, and what a client observes is the `auth_time` §3.1.2.1
-asks for, which every id token states whether or not one was asked for.
+[the interactive flow](interactive-flow.md#what-this-document-does-not-settle) — so every
+authorization signs the person in anew and the authentication a code represents is always younger
+than the flow that produced it. Should a session ever be kept, this is what would prepend the
+re-authentication gate; today there is nothing to prepend, and what a client observes is the
+`auth_time` §3.1.2.1 asks for, which every id token states whether or not one was asked for.
 
 **A surface may refuse an authentication that is too old**, with the challenge RFC 9470 §3 defines:
-a `401` carrying
-`WWW-Authenticate: Bearer error="insufficient_user_authentication", …, max_age="300"`, and the
-[API standard's body](../standards/api-standard.md#errors) under
+a `401` carrying `error="insufficient_user_authentication", …, max_age="300"` on the challenge of
+the scheme the token came under, as [every refused token's error is](#a-refused-token-is-challenged),
+and the [API standard's body](../standards/api-standard.md#errors) under
 `authentication.insufficient_user_authentication` beside it, so a client reading headers and one
 reading bodies learn the same thing. The client re-authorizes with `max_age` and retries with the
 token it is issued, which a public client can do because authorizing is a redirect and nothing in
@@ -357,7 +405,7 @@ the audience filtering them is the refreshing client's, and a consent revoked si
 refresh outright rather than narrowing the token it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
 
-## What this design does not do
+## What this document does not settle
 
 **It does not rate-limit or lock out.** Nothing limits password attempts, validation-code attempts,
 or second-factor attempts — anywhere. An attacker with a valid identifier gets unlimited guesses at
@@ -382,6 +430,12 @@ recording its `jti` optional, so a proof captured with the token it accompanies 
 against the same method and URI until it ages out. Without the nonce of §8, nothing stops a client,
 or the person using it, signing proofs ahead for a future `iat` and carrying them away from the key;
 the `ath` they carry bounds that to the access token's lifetime.
+
+**It does not challenge a request to the flow surface that carries no state.** The state is not an
+access token, and on a `GET` it travels as a query parameter rather than under an authentication
+scheme, so neither [challenge](#a-refused-token-is-challenged) applies to it. RFC 9110 §15.5.2 asks
+one of every `401` all the same. Answering it is the flow's decision — a `State` challenge naming the
+scheme a `POST` already presents it under, or a status other than `401` — and it has not been taken.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
 claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint,

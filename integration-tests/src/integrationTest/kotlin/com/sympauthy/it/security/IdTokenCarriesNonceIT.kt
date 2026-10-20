@@ -31,13 +31,13 @@ class IdTokenCarriesNonceIT : AbstractSympauthyIT() {
         withContainer(database) { sympauthy, registry ->
             val nonce = "integration-test-nonce-Xy7Zq"
 
-            val tokens = registry.newFlow()
+            val signedUp = registry.newFlow()
                 .withNonce(nonce)
                 .withSignUpHandler { credentials() }
                 .run()
-                .exchange()
+            val tokens = exchange(sympauthy, registry, signedUp)
 
-            val claims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken()))
+            val claims = verifyIdTokenSignature(sympauthy, requireIdToken(tokens.idToken))
 
             assertEquals(
                 nonce,

@@ -29,12 +29,10 @@ class PkceVerifierMismatchIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun tokenEndpointRejectsMismatchedVerifier(database: Database) {
         withContainer(database) { sympauthy, registry ->
-            val code = signUpForCode(registry)
+            val signedUp = signUp(registry)
 
-            // Named rather than left to the default: that this verifier cannot hash to the challenge the
-            // code carries is what the refusal below turns on.
             val response = exchangeCode(
-                sympauthy, registry, code,
+                sympauthy, registry, signedUp,
                 mapOf("code_verifier" to generatePkce().verifier),
             )
 

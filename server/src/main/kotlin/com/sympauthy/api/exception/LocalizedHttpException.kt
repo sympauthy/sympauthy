@@ -8,8 +8,9 @@ import io.micronaut.http.HttpStatus
  * status the root type's [recoverable] flag would have chosen.
  *
  * A failure the `api` layer raises names both of its messages, since it is the layer that knows
- * which caller is reading. The factories below take the description for that reason, and the one
- * null [descriptionId] left is a business failure converted by [toHttpException].
+ * which caller is reading. The factories below take the description for that reason. A null
+ * [descriptionId] is left only where a failure raised below the `api` layer is converted with the
+ * codes it already holds, and had no description to forward.
  *
  * Note: one of those factories should be preferred over this constructor, which is for a failure
  * carrying more than a code and its values — the [propertyErrors] of a payload, or the codes and
@@ -58,9 +59,8 @@ open class LocalizedHttpException(
  * This failure as a [LocalizedHttpException] answering with [httpStatus], carrying the code, the
  * description, the values and the recoverability it already holds.
  *
- * It is how a failure raised below the `api` layer reaches a caller, and the one way a
- * [LocalizedHttpException] ends up naming no description: a non-recoverable business failure has
- * none to forward.
+ * It is how a failure raised below the `api` layer reaches a caller, and it names no description
+ * where that failure had none: a non-recoverable business failure has none to forward.
  */
 fun <T : LocalizedException> T.toHttpException(httpStatus: HttpStatus) = LocalizedHttpException(
     status = httpStatus,

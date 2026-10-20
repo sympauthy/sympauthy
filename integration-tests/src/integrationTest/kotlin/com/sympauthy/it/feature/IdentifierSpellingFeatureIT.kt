@@ -34,10 +34,10 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun signsInWithAnySpellingOfTheAddress(database: Database) {
         withContainer(database, extraConfig = emailScope(), scopes = SCOPES) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry, PADDED)
-            val account = subjectOf(sympauthy, tokens.idToken())
+            val tokens = signUpAndExchange(sympauthy, registry, PADDED)
+            val account = subjectOf(sympauthy, tokens.idToken)
 
-            val stored = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+            val stored = withApiClient(sympauthy, token = tokens.accessToken) { ctx ->
                 ctx.getBean(OpenidApi::class.java).getUserInfo().block()
             }
             requireNotNull(stored) { "userinfo returned an empty body" }
@@ -47,11 +47,11 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
                 "the address comes back as it was written, trimmed and otherwise untouched",
             )
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, SHOUTED)),
+                account, subjectOf(sympauthy, signIn(sympauthy, registry, SHOUTED)),
                 "a third spelling of the address reaches the account that owns it",
             )
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, "  $LOWERED  ")),
+                account, subjectOf(sympauthy, signIn(sympauthy, registry, "  $LOWERED  ")),
                 "a login padded with whitespace reaches the same account",
             )
         }
@@ -62,7 +62,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     fun refusesASecondAccountOverAnotherSpelling(database: Database) {
         withContainer(database) { sympauthy, registry ->
             val first = signUp(registry, PADDED)
-            val account = subjectOf(sympauthy, first.exchange().idToken())
+            val account = subjectOf(sympauthy, exchange(sympauthy, registry, first).idToken)
 
             // The same address in the spelling the first account did not type. Its password differs, so
             // an account that did come out of it could not be mistaken for the one that already exists.
@@ -72,7 +72,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
             assertThrows<FlowException>("the sign-up must not complete") { second.run() }
 
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, LOWERED, DEFAULT_PASSWORD)),
+                account, subjectOf(sympauthy, signIn(sympauthy, registry, LOWERED, DEFAULT_PASSWORD)),
                 "the address still reaches the account that owns it, under its own password",
             )
         }
@@ -82,13 +82,13 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun matchesEveryClaimOfTheIdentifierSetTheSameWay(database: Database) {
         withContainer(database, extraConfig = twoIdentifierClaims(), scopes = PROFILE_SCOPES) { sympauthy, registry ->
-            val tokens = registry.newFlow()
+            val signedUp = registry.newFlow()
                 .withSignUpHandler { credentials(WRITTEN) + mapOf("preferred_username" to WRITTEN_USERNAME) }
                 .run()
-                .exchange()
-            val account = subjectOf(sympauthy, tokens.idToken())
+            val tokens = exchange(sympauthy, registry, signedUp)
+            val account = subjectOf(sympauthy, tokens.idToken)
 
-            val stored = withApiClient(sympauthy, token = tokens.accessToken()) { ctx ->
+            val stored = withApiClient(sympauthy, token = tokens.accessToken) { ctx ->
                 ctx.getBean(OpenidApi::class.java).getUserInfo().block()
             }
             requireNotNull(stored) { "userinfo returned an empty body" }
@@ -98,7 +98,7 @@ class IdentifierSpellingFeatureIT : AbstractSympauthyIT() {
                 "the username keeps the capitalisation its owner chose",
             )
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, SHOUTED_USERNAME)),
+                account, subjectOf(sympauthy, signIn(sympauthy, registry, SHOUTED_USERNAME)),
                 "a username is matched like an address, whatever its claim's type",
             )
 

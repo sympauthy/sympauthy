@@ -92,6 +92,45 @@ enum class OAuth2ErrorCode(
     ),
 
     /**
+     * The access token presented to a protected resource is expired, revoked, malformed, or invalid for other
+     * reasons.
+     *
+     * A resource of this server answers it with the API standard's body and names it in the challenge beside
+     * that body, never in the body RFC 6749 defines.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc6750#section-3.1">RFC 6750 Section 3.1</a>
+     */
+    INVALID_TOKEN(
+        UNAUTHORIZED,
+        "invalid_token",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The request requires higher privileges than the access token presented provides. Named in a challenge
+     * only, as [INVALID_TOKEN] is.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc6750#section-3.1">RFC 6750 Section 3.1</a>
+     */
+    INSUFFICIENT_SCOPE(
+        FORBIDDEN,
+        "insufficient_scope",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authentication behind the access token presented does not meet what the resource requires of it.
+     * Named in a challenge only, as [INVALID_TOKEN] is.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc9470#section-3">RFC 9470 Section 3</a>
+     */
+    INSUFFICIENT_USER_AUTHENTICATION(
+        UNAUTHORIZED,
+        "insufficient_user_authentication",
+        "description.oauth2.invalid"
+    ),
+
+    /**
      * The authorization server is unable to issue a token for the target service or resource indicated by the
      * `resource` or `audience` request parameter of a token exchange request.
      *

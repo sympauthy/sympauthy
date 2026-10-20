@@ -31,9 +31,9 @@ class RefreshGrantFeatureIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, refreshEnabled, confidentialClient) { sympauthy, registry ->
-            val tokens = signUpAndExchange(registry)
-            val idToken = requireIdToken(tokens.idToken())
-            val refreshToken = checkNotNull(tokens.refreshToken()) { "refresh-enabled should yield a refresh token" }
+            val tokens = signUpAndExchange(sympauthy, registry)
+            val idToken = requireIdToken(tokens.idToken)
+            val refreshToken = checkNotNull(tokens.refreshToken) { "refresh-enabled should yield a refresh token" }
 
             val refreshed = refresh(sympauthy, registry, refreshToken)
             val refreshedAccessToken = refreshed.accessToken

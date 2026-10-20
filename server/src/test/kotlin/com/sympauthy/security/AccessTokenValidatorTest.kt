@@ -1,7 +1,8 @@
 package com.sympauthy.security
 
-import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
@@ -13,6 +14,10 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
+import com.sympauthy.security.AccessTokenScheme.BEARER
+import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
 import io.mockk.coEvery
@@ -76,14 +81,30 @@ class AccessTokenValidatorTest {
             stubBindingAccepted()
             coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns null
 
-            val exception = assertThrows<LocalizedHttpException> {
+            val exception = assertThrows<AccessTokenChallengeException> {
                 validator().validateToken(ENCODED_TOKEN, bearerRequest()).asFlow().single()
             }
 
             assertEquals(UNAUTHORIZED, exception.status)
             assertEquals("grant.client_disabled", exception.detailsId)
             assertEquals(CLIENT_ID, exception.values["clientId"])
+            assertEquals(BEARER, exception.scheme)
+            assertEquals(INVALID_TOKEN, exception.error)
         }
+
+    @Test
+    fun `validateToken - Challenge a token that does not decode with invalid_token`() = runTest {
+        coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, ENCODED_TOKEN) } throws InvalidJwtException("jwt.expired")
+
+        val exception = assertThrows<AccessTokenChallengeException> {
+            validator().validateToken(ENCODED_TOKEN, bearerRequest()).awaitFirstOrNull()
+        }
+
+        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals("jwt.expired", exception.detailsId)
+        assertEquals(BEARER, exception.scheme)
+        assertEquals(INVALID_TOKEN, exception.error)
+    }
 
     @Test
     fun `validateToken - Carry the client a client_credentials token was issued to`() = runTest {
@@ -165,14 +186,58 @@ class AccessTokenValidatorTest {
                 proofs = emptyList(),
                 boundRequest = any()
             )
-        } throws oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.bound_token_as_bearer")
+        } throws oauth2ExceptionOf(INVALID_TOKEN, "dpop.bound_token_as_bearer")
 
         // No client is stubbed: reaching the assertion proves the binding refused before the client was read.
-        val exception = assertThrows<LocalizedHttpException> {
+        val exception = assertThrows<AccessTokenChallengeException> {
             validator().validateToken(ENCODED_TOKEN, bearerRequest()).awaitFirstOrNull()
         }
         assertEquals(UNAUTHORIZED, exception.status)
         assertEquals("dpop.bound_token_as_bearer", exception.detailsId)
+        assertEquals(BEARER, exception.scheme)
+        assertEquals(INVALID_TOKEN, exception.error)
+    }
+
+    @Test
+    fun `validateToken - Challenge a refused proof with invalid_dpop_proof under the DPoP scheme`() = runTest {
+        val authenticationToken = mockk<AuthenticationToken>()
+        stubToken(authenticationToken)
+        coEvery {
+            dpopManager.validateAccessTokenBinding(
+                token = authenticationToken,
+                presentedWithDpopScheme = true,
+                proofs = listOf(PROOF),
+                boundRequest = any()
+            )
+        } throws oauth2ExceptionOf(INVALID_DPOP_PROOF, "dpop.invalid_htu")
+        val request = HttpRequest.GET<Any>(USERINFO_PATH)
+            .header("Authorization", "DPoP $ENCODED_TOKEN")
+            .header("DPoP", PROOF)
+
+        val exception = assertThrows<AccessTokenChallengeException> {
+            validator().validateToken(ENCODED_TOKEN, request).awaitFirstOrNull()
+        }
+
+        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals("dpop.invalid_htu", exception.detailsId)
+        assertEquals(DPOP, exception.scheme)
+        assertEquals(INVALID_DPOP_PROOF, exception.error)
+    }
+
+    @Test
+    fun `validateToken - Challenge a token refused by its grant with invalid_token`() = runTest {
+        val decodedToken = mockk<DecodedJwt>()
+        coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, ENCODED_TOKEN) } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } throws
+            oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
+
+        val exception = assertThrows<AccessTokenChallengeException> {
+            validator().validateToken(ENCODED_TOKEN, bearerRequest()).awaitFirstOrNull()
+        }
+
+        assertEquals("grant.revoked", exception.detailsId)
+        assertEquals(BEARER, exception.scheme)
+        assertEquals(INVALID_TOKEN, exception.error)
     }
 
     @Test

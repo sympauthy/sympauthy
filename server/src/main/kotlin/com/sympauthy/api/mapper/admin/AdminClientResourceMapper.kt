@@ -29,7 +29,7 @@ class AdminClientResourceMapper {
             audienceId = client.audience.id,
             allowedGrantTypes = client.allowedGrantTypes.map(::toGrantType),
             authorizationFlowId = client.authorizationFlow?.id,
-            allowedScopes = client.allowedScopes?.map(::toScope) ?: emptyList(),
+            allowedScopes = client.allowedScopes?.map(::toScope),
             defaultScopes = client.defaultScopes?.map(::toScope) ?: emptyList(),
             allowedRedirectUris = client.allowedRedirectUris,
             authorizationWebhook = toWebhookResource(client.authorizationWebhook),

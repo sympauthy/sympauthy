@@ -41,10 +41,10 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
             val signedUp = registry.newFlow()
                 .withSignUpHandler { credentials() + mapOf("preferred_username" to USERNAME) }
                 .run()
-            val account = subjectOf(sympauthy, signedUp.exchange().idToken())
+            val account = subjectOf(sympauthy, exchange(sympauthy, registry, signedUp).idToken)
 
-            val byEmail = signIn(registry, DEFAULT_EMAIL)
-            val byUsername = signIn(registry, USERNAME)
+            val byEmail = signIn(sympauthy, registry, DEFAULT_EMAIL)
+            val byUsername = signIn(sympauthy, registry, USERNAME)
 
             assertEquals(account, subjectOf(sympauthy, byEmail), "signing in with the email reaches the account")
             assertEquals(
@@ -61,7 +61,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
             val first = registry.newFlow()
                 .withSignUpHandler { credentials() + mapOf("preferred_username" to USERNAME) }
                 .run()
-            val account = subjectOf(sympauthy, first.exchange().idToken())
+            val account = subjectOf(sympauthy, exchange(sympauthy, registry, first).idToken)
 
             // Offered as a username, the address the first account signs in with. Nothing about this
             // account collides claim by claim — its own email is free — which is why the check has to
@@ -75,7 +75,7 @@ class MultipleIdentifierClaimsFeatureIT : AbstractSympauthyIT() {
             assertThrows<FlowException>("the sign-up must not complete") { crossing.run() }
 
             assertEquals(
-                account, subjectOf(sympauthy, signIn(registry, DEFAULT_EMAIL, DEFAULT_PASSWORD)),
+                account, subjectOf(sympauthy, signIn(sympauthy, registry, DEFAULT_EMAIL, DEFAULT_PASSWORD)),
                 "the address still reaches the account that owns it, under its own password",
             )
         }

@@ -461,8 +461,8 @@ resource server it is used against, where a refresh token is shown to nobody: fo
 which the endpoint authenticates by its identifier alone and asks no DPoP proof of, whoever sees one
 of its access tokens can revoke the grant it stands under — a resource server, a log, or a thief
 holding a token bound to a key nothing else honours — and sign the person out of that client.
-Nothing throttles the endpoint either, as [security](security.md#what-this-design-does-not-do) has
-of every surface.
+Nothing throttles the endpoint either, as
+[security](security.md#what-this-document-does-not-settle) has of every surface.
 
 That second cost is accepted. The holder reads nothing and acts as nobody, so what is lost is a
 sign-in, which a refresh token of the same client in the same hands could already cost the person;
@@ -490,7 +490,7 @@ Nothing reads who revoked a grant or when once it is written. A token whose gran
 this server does not know, which every surface refuses already, so keeping the row changes nothing
 any caller observes. A retention period would be a configuration key and a second rule for a record
 nothing shows: an audit trail with no surface, which
-[security](security.md#what-this-design-does-not-do) leaves to a feature of its own.
+[security](security.md#what-this-document-does-not-settle) leaves to a feature of its own.
 
 The code is the exception, and not for the record's sake: a grant a stored code names is kept so
 that a later replay of the code reaches it, and is collected once the code is.

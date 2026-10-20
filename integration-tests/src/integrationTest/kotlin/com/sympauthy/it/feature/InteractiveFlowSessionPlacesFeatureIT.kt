@@ -176,12 +176,11 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
     /** Redeems the first-admin bootstrap invitation, signs up, and answers the admin's access token. */
     private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
         val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
-        val tokens = registry.newFlow()
+        val signedUp = registry.newFlow()
             .withInvitationToken(invitationToken)
             .withSignUpHandler { credentials(ADMIN_EMAIL) }
             .run()
-            .exchange()
-        return tokens.accessToken() ?: fail("first-admin sign-up should yield an access token")
+        return exchange(sympauthy, registry, signedUp).accessToken
     }
 
     private companion object {

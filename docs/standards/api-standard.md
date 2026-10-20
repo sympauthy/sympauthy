@@ -154,6 +154,10 @@ deployment's decision.
 
 **A new flow step served from a new origin is a configuration change as well as a controller.**
 
+**A surface answering with a challenge exposes `WWW-Authenticate`.** A page on another origin reads
+only the response headers `Access-Control-Expose-Headers` lists, and a challenge it cannot read
+tells it nothing a server-side client is told.
+
 ## Breaking a contract
 
 **A contract is reshaped rather than versioned until a release ships it.** The surface prefix in the

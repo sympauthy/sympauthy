@@ -1,17 +1,10 @@
 package com.sympauthy.it.security
 
-import com.sympauthy.api.client.api.Oauth2Api
-import com.sympauthy.api.client.model.GetTokensRequestGrantType
-import com.sympauthy.api.client.model.TokenResource
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
-import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
-import io.micronaut.http.client.exceptions.HttpClientResponseException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
@@ -44,12 +37,13 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun codePastItsLifetimeIsRefused(database: Database) {
         withContainer(database, SHORT_CODES) { sympauthy, registry ->
-            val pkce = generatePkce()
-            val code = signUpWithPkceForCode(sympauthy, registry, pkce)
+            val result = signUp(registry)
 
             Thread.sleep((CODE_LIFETIME_SECONDS + 1) * 1000)
 
-            assertExchangeRefused(sympauthy, registry, code, pkce, "a code past its lifetime must be refused")
+            assertExchangeRefused(
+                sympauthy, registry, result, 400, "invalid_grant", "a code past its lifetime must be refused",
+            )
         }
     }
 
@@ -59,13 +53,12 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
         val shortFlows = mapOf("auth" to mapOf("interactive-flow" to mapOf("expiration" to "${FLOW_SECONDS}s")))
 
         withContainer(database, shortFlows) { sympauthy, registry ->
-            val pkce = generatePkce()
-            val code = signUpWithPkceForCode(sympauthy, registry, pkce)
+            val result = signUp(registry)
 
             // Past the time the flow was allowed from its start, and well inside the code's own minute.
             Thread.sleep((FLOW_SECONDS + 1) * 1000)
 
-            checkNotNull(exchange(sympauthy, registry, code, pkce).accessToken) {
+            checkNotNull(exchange(sympauthy, registry, result).accessToken) {
                 "a code must be exchangeable after its session expired"
             }
         }
@@ -77,68 +70,22 @@ class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)
 
         withContainer(database, SHORT_CODES, confidentialClient) { sympauthy, registry ->
-            val pkce = generatePkce()
-            val code = signUpWithPkceForCode(sympauthy, registry, pkce)
-            val accessToken = checkNotNull(exchange(sympauthy, registry, code, pkce).accessToken) {
+            val result = signUp(registry)
+            val accessToken = checkNotNull(exchange(sympauthy, registry, result).accessToken) {
                 "the first exchange should return an access token"
             }
 
             Thread.sleep((CODE_LIFETIME_SECONDS + 1) * 1000)
 
-            assertExchangeRefused(sympauthy, registry, code, pkce, "a code past its lifetime must be refused")
+            assertExchangeRefused(
+                sympauthy, registry, result, 400, "invalid_grant", "a code past its lifetime must be refused",
+            )
             assertEquals(
                 true, introspect(sympauthy, accessToken, registry).active,
                 "a code presented past its lifetime must not revoke what its first exchange was issued",
             )
         }
     }
-
-    /** The code a sign-up from an authorization request carrying [pkce]'s challenge yields. */
-    private fun signUpWithPkceForCode(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        pkce: Pkce,
-    ): String = checkNotNull(signUpWithPkce(sympauthy, registry, pkce).terminalParam("code")) {
-        "expected an authorization code from sign-up"
-    }
-
-    /** Exchanges [code] with [pkce]'s verifier as [registry]'s client, and answers the tokens issued. */
-    private fun exchange(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        code: String,
-        pkce: Pkce,
-    ): TokenResource = withApiClient(sympauthy) { ctx ->
-        ctx.getBean(Oauth2Api::class.java).exchange(registry, code, pkce).block()
-    } ?: error("the code exchange answered an empty body")
-
-    /**
-     * Exchanges [code] as [exchange] does, and asserts the token endpoint refuses it with `400` and
-     * `invalid_grant`, reporting [message] when it does not.
-     */
-    private fun assertExchangeRefused(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        code: String,
-        pkce: Pkce,
-        message: String,
-    ) {
-        withApiClient(sympauthy) { ctx ->
-            val refusal = assertThrows<HttpClientResponseException>(message) {
-                ctx.getBean(Oauth2Api::class.java).exchange(registry, code, pkce).block()
-            }
-            assertOAuthError(refusal, 400, "invalid_grant", message)
-        }
-    }
-
-    /** The `authorization_code` grant for [code], as [registry]'s client with its credentials in the body. */
-    private fun Oauth2Api.exchange(registry: InteractiveFlowRegistry, code: String, pkce: Pkce) = getTokens(
-        grantType = GetTokensRequestGrantType.AUTHORIZATION_CODE,
-        code = code,
-        clientId = registry.clientId(),
-        clientSecret = registry.clientSecret(),
-        codeVerifier = pkce.verifier,
-    )
 
     private companion object {
         const val CLIENT_SECRET = "authorization-code-lifetime-secret-value"

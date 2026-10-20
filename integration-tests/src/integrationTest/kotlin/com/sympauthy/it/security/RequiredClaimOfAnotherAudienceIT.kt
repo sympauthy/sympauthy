@@ -3,6 +3,7 @@ package com.sympauthy.it.security
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import com.sympauthy.testcontainers.Client
+import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.FlowStep
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -42,21 +43,21 @@ class RequiredClaimOfAnotherAudienceIT : AbstractSympauthyIT() {
             build = { fixture, registry ->
                 container(fixture, otherAudienceRequiresAClaimConfig(registry), registry)
             },
-        ) { _, registry -> asksForNoClaimOfTheOtherAudience(registry) }
+        ) { sympauthy, registry -> asksForNoClaimOfTheOtherAudience(sympauthy, registry) }
     }
 
-    private fun asksForNoClaimOfTheOtherAudience(registry: InteractiveFlowRegistry) {
+    private fun asksForNoClaimOfTheOtherAudience(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry) {
         val flow = registry.newFlow()
             .withSignUpHandler { credentials(EMAIL) }
 
-        val tokens = flow.run().exchange()
+        val tokens = exchange(sympauthy, registry, flow.run())
 
         assertEquals(
             listOf(FlowStep.Type.SIGN_UP, FlowStep.Type.COMPLETED),
             flow.stepTypes(),
             "a claim only 'billing' requires must add no step to a 'default' sign-up",
         )
-        assertNotNull(tokens.accessToken(), "the sign-up should have issued tokens")
+        assertNotNull(tokens.accessToken, "the sign-up should have issued tokens")
     }
 
     /**

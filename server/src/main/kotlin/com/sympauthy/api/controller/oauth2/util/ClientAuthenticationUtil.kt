@@ -8,12 +8,15 @@ import io.micronaut.http.HttpRequest
 import io.micronaut.security.authentication.BasicAuthUtils
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets.UTF_8
 
 /**
  * Utility class for OAuth2 controllers that require client authentication.
  *
  * It resolves and authenticates the client from the request, supporting two credential transmission methods:
- * - HTTP Basic Auth header (`Authorization: Basic <base64(client_id:client_secret)>`)
+ * - HTTP Basic Auth header (`Authorization: Basic <base64(client_id:client_secret)>`), the identifier and the
+ *   secret each form-encoded, RFC 6749 §2.3.1
  * - Form body parameters (`client_id` / `client_secret`)
  *
  * Every refusal is `invalid_client`, RFC 6749 §5.2. It carries [BASIC_CHALLENGE], and so answers `401`, wherever
@@ -85,6 +88,10 @@ class ClientAuthenticationUtil(
      * The scheme is matched regardless of case, and the credentials may follow it after more than one space, as
      * RFC 9110 §11.1 and §11.4 have it. The framework's parser accepts the scheme spelled one way and one space
      * after it, so it is handed the header written that way.
+     *
+     * The framework's parser undoes the base64 alone. The form encoding RFC 6749 §2.3.1 applies to the identifier
+     * and to the secret is undone here, on each half once the parser has split them: a `:` inside either arrives
+     * escaped, so the first one left is the separator.
      */
     private suspend fun authenticateWithHeaderOrNull(request: HttpRequest<*>): Client? {
         val authorization = request.headers.authorization
@@ -95,8 +102,23 @@ class ClientAuthenticationUtil(
             .parseCredentials(BASIC_SCHEME_PREFIX + authorization.substring(BASIC_SCHEME_PREFIX.length).trimStart(' '))
             .orElse(null)
             ?: throw wrongCredentialsException(challenged = true)
-        return clientManager.authenticateClientOrNull(credentials.username, credentials.password)
+        val clientId = credentials.username?.let(::formDecodeOrNull)
+        val clientSecret = credentials.password?.let(::formDecodeOrNull)
+        if (clientId == null || clientSecret == null) {
+            throw wrongCredentialsException(challenged = true)
+        }
+        return clientManager.authenticateClientOrNull(clientId, clientSecret)
             ?: throw wrongCredentialsException(challenged = true)
+    }
+
+    /**
+     * [value] with its `application/x-www-form-urlencoded` encoding undone, or null where it holds a `%` that does
+     * not begin an escape.
+     */
+    private fun formDecodeOrNull(value: String): String? = try {
+        URLDecoder.decode(value, UTF_8)
+    } catch (_: IllegalArgumentException) {
+        null
     }
 
     private fun wrongCredentialsException(challenged: Boolean) = OAuth2Exception(

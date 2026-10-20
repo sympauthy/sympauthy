@@ -22,14 +22,13 @@ import com.sympauthy.it.client.FlowCall
 import com.sympauthy.it.client.FlowHttpClient
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.client.TokenResponse
 import com.sympauthy.testcontainers.flow.AuthorizationResult
 import com.sympauthy.testcontainers.flow.Credentials
-import com.sympauthy.testcontainers.flow.FlowResult
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import io.micronaut.context.ApplicationContext
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import java.net.URI
+import java.net.URLEncoder
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -351,58 +350,28 @@ abstract class AbstractSympauthyIT {
         .withSignUpHandler { credentials(email, password) }
         .run()
 
-    /** Signs a person up as [signUp] does, and exchanges the code it yields for tokens. */
+    /** Signs a person up as [signUp] does, and exchanges the code it yields for tokens with [exchange]. */
     protected fun signUpAndExchange(
-        registry: InteractiveFlowRegistry,
-        email: String = DEFAULT_EMAIL,
-        password: String = DEFAULT_PASSWORD,
-    ): TokenResponse = signUp(registry, email, password).exchange()
-
-    /**
-     * The authorization code a sign-up through [registry]'s flow yields, for a scenario that will present
-     * it at the token endpoint itself rather than through the driver's own exchange.
-     */
-    protected fun signUpForCode(
-        registry: InteractiveFlowRegistry,
-        email: String = DEFAULT_EMAIL,
-        password: String = DEFAULT_PASSWORD,
-    ): String = requireCode(signUp(registry, email, password))
-
-    /** The code [result] captured at the client callback, or a failure saying it carried none. */
-    protected fun requireCode(result: AuthorizationResult): String =
-        checkNotNull(result.code()) { "expected an authorization code from sign-up" }
-
-    /**
-     * Signs a person up through [registry]'s flow from the authorization request [authorizeUrl] builds
-     * for [pkce], for a scenario that will present the verifier of that pair at the token endpoint
-     * itself. The code the sign-up yields is the result's `code` parameter.
-     */
-    protected fun signUpWithPkce(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
-        pkce: Pkce,
-    ): FlowResult {
-        val authorize = httpGet(authorizeUrl(sympauthy, registry, pkce))
-        assertEquals(303, authorize.statusCode(), "authorize should redirect to the first step")
-        val firstStep = authorize.headers().firstValue("Location").orElseGet { error("authorize 303 had no Location") }
-        return registry.newFlow()
-            .withSignUpHandler { credentials() }
-            .driveFrom(firstStep, registry.redirectUri(), registry.redirectUri())
-            .drive()
-    }
+        email: String = DEFAULT_EMAIL,
+        password: String = DEFAULT_PASSWORD,
+    ): TokenResource = exchange(sympauthy, registry, signUp(registry, email, password))
 
     /** The id token of a complete sign-in with [login], as the server signed it. */
     protected fun signIn(
+        sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
         login: String,
         password: String = DEFAULT_PASSWORD,
-    ): String = requireNotNull(
-        registry.newFlow()
+    ): String {
+        val signedIn = registry.newFlow()
             .withSignInHandler { Credentials.of(login, password) }
             .run()
-            .exchange()
-            .idToken(),
-    ) { "the openid scope should yield an id_token for '$login'" }
+        return requireNotNull(exchange(sympauthy, registry, signedIn).idToken) {
+            "the openid scope should yield an id_token for '$login'"
+        }
+    }
 
     /** [idToken], or a failure saying the grant it came from should have carried one. */
     protected fun requireIdToken(idToken: String?): String =
@@ -508,22 +477,16 @@ abstract class AbstractSympauthyIT {
 
     /**
      * A valid authorization request URL for the mock frontend's public client, carrying the challenge of
-     * [pkce]. It echoes [CLIENT_STATE] back on the redirect it ends at. A scenario that will exchange the
-     * code it yields passes the pair it will present the verifier of; the default is a fresh one nobody
-     * holds.
+     * a fresh PKCE pair nobody holds. It echoes [CLIENT_STATE] back on the redirect it ends at.
      */
-    protected fun authorizeUrl(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        pkce: Pkce = generatePkce(),
-    ): String {
+    protected fun authorizeUrl(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
         val params = linkedMapOf(
             "response_type" to "code",
             "client_id" to registry.clientId(),
             "redirect_uri" to registry.redirectUri(),
             "scope" to "openid",
             "state" to CLIENT_STATE,
-            "code_challenge" to pkce.challenge,
+            "code_challenge" to generatePkce().challenge,
             "code_challenge_method" to "S256",
         )
         val query = params.entries.joinToString("&") { (key, value) -> "${encode(key)}=${encode(value)}" }
@@ -560,36 +523,79 @@ abstract class AbstractSympauthyIT {
     // --- Token endpoint -----------------------------------------------------------------------------
 
     /**
-     * Posts an `authorization_code` exchange of [code] for [registry]'s client, answering the raw
-     * response so a refusal is read rather than thrown. Each entry of [overrides] replaces the form field
-     * it names, and a null value removes that field entirely; [headers] are sent beside the form.
+     * Exchanges the code of [result] at the token endpoint through the generated client, as [registry]'s
+     * client with its credentials in the body — `client_id` alone for a public one — and presenting the
+     * verifier of the authorization [result] answers. Answers the tokens issued, and throws on a refusal.
+     */
+    protected fun exchange(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        result: AuthorizationResult,
+    ): TokenResource = withApiClient(sympauthy) { ctx ->
+        ctx.getBean(Oauth2Api::class.java).exchange(registry, result).block()
+    } ?: error("the code exchange answered an empty body")
+
+    /**
+     * Exchanges the code of [result] as [exchange] does, and asserts the token endpoint refuses it with
+     * HTTP [status] and [error], reporting [message] when it does not.
+     */
+    protected fun assertExchangeRefused(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        result: AuthorizationResult,
+        status: Int,
+        error: String,
+        message: String,
+    ) {
+        withApiClient(sympauthy) { ctx ->
+            val refusal = assertThrows<HttpClientResponseException>(message) {
+                ctx.getBean(Oauth2Api::class.java).exchange(registry, result).block()
+            }
+            assertOAuthError(refusal, status, error, message)
+        }
+    }
+
+    /**
+     * The `authorization_code` grant of [result]'s code and verifier, as [registry]'s client with its
+     * credentials in the body.
+     */
+    private fun Oauth2Api.exchange(registry: InteractiveFlowRegistry, result: AuthorizationResult) = getTokens(
+        grantType = GetTokensRequestGrantType.AUTHORIZATION_CODE,
+        code = requireCode(result),
+        clientId = registry.clientId(),
+        clientSecret = registry.clientSecret(),
+        codeVerifier = result.codeVerifier(),
+    )
+
+    /**
+     * Posts an `authorization_code` exchange of [result]'s code and verifier for [registry]'s client, as a
+     * form built by hand, answering the raw response so a refusal is read rather than thrown. Each entry
+     * of [overrides] replaces the form field it names, and a null value removes that field entirely;
+     * [headers] are sent beside the form.
      *
      * The request carries `client_id` and no client authentication, so [registry]'s client has to be a
      * public one; a confidential client is answered `invalid_client` before anything else is read.
-     *
-     * The `code_verifier` is freshly generated and so cannot hash to the challenge the code carries. That
-     * is what the PKCE scenarios want and it is harmless to the others only because of an order the token
-     * endpoint owns: it resolves the code's own client and verifies PKCE last — so a scenario forging the
-     * code or its client is refused before the verifier is read. A scenario whose rule is checked after
-     * PKCE overrides `code_verifier` with the verifier of the pair it authorized with through
-     * [authorizeUrl].
      */
     protected fun exchangeCode(
         sympauthy: SympauthyContainer,
         registry: InteractiveFlowRegistry,
-        code: String,
+        result: AuthorizationResult,
         overrides: Map<String, String?> = emptyMap(),
         headers: Map<String, String> = emptyMap(),
     ): HttpResponse<String> {
         val form = linkedMapOf(
             "grant_type" to "authorization_code",
-            "code" to code,
+            "code" to requireCode(result),
             "client_id" to registry.clientId(),
-            "code_verifier" to generatePkce().verifier,
+            "code_verifier" to result.codeVerifier(),
         )
         overrides.forEach { (key, value) -> if (value == null) form.remove(key) else form[key] = value }
         return httpPostForm(discovery(sympauthy).tokenEndpoint, form, headers)
     }
+
+    /** The code [result] captured at the client callback, or a failure saying it carried none. */
+    private fun requireCode(result: AuthorizationResult): String =
+        checkNotNull(result.code()) { "the flow should have yielded an authorization code" }
 
     /**
      * Presents [refreshToken] at the token endpoint through the generated client, as [registry]'s client
@@ -749,11 +755,18 @@ abstract class AbstractSympauthyIT {
     private fun bodyOf(refusal: HttpClientResponseException): String =
         refusal.response.getBody(String::class.java).orElse("")
 
-    /** The `Authorization: Basic` header authenticating the confidential client [clientId] with [secret]. */
-    protected fun basicAuth(clientId: String, secret: String): Map<String, String> = mapOf(
-        "Authorization" to "Basic " + Base64.getEncoder()
-            .encodeToString("$clientId:$secret".toByteArray(StandardCharsets.UTF_8)),
-    )
+    /**
+     * The `Authorization: Basic` header authenticating the confidential client [clientId] with [secret],
+     * each form-encoded as RFC 6749 §2.3.1 requires.
+     */
+    protected fun basicAuth(clientId: String, secret: String): Map<String, String> {
+        val credentials = URLEncoder.encode(clientId, StandardCharsets.UTF_8) + ":" +
+            URLEncoder.encode(secret, StandardCharsets.UTF_8)
+        return mapOf(
+            "Authorization" to "Basic " + Base64.getEncoder()
+                .encodeToString(credentials.toByteArray(StandardCharsets.UTF_8)),
+        )
+    }
 
     /**
      * [basicAuth] for [registry]'s own client, which has to be a confidential one — a public client holds

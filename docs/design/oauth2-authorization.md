@@ -148,7 +148,7 @@ refused at [the grant](grants.md#what-implements-it) before it reaches its code.
 session: it outlives the one that issued it, and reaches it through its grant while the session is
 there to be reached.
 
-## What this design does not do
+## What this document does not settle
 
 **It does not keep a session between authorizations.** Every authorization signs the person in
 anew, which is what makes `max_age` satisfied by construction —
