@@ -6,7 +6,10 @@ import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
 import com.sympauthy.config.parsing.ParsedAuthConfig
 import com.sympauthy.config.properties.AuthConfigurationProperties.Companion.AUTH_KEY
+import com.sympauthy.config.properties.AuthorizationCodeConfigurationProperties.Companion.AUTHORIZATION_CODE_KEY
 import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
+import com.sympauthy.config.properties.GrantConfigurationProperties.Companion.GRANT_KEY
+import com.sympauthy.config.properties.InteractiveFlowConfigurationProperties.Companion.INTERACTIVE_FLOW_KEY
 import com.sympauthy.config.properties.TokenConfigurationProperties.Companion.TOKEN_KEY
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
@@ -59,33 +62,33 @@ class AuthConfigValidator {
             )
         }
 
-        // Zero reads as "no lifetime of its own" and means the opposite: every grant would be opened already
-        // expired, and nobody could sign in. Leaving the key out is how a grant is given no lifetime.
-        parsed.grantExpiration?.let { grantExpiration ->
-            if (!grantExpiration.isPositive) {
-                ctx.addError(
-                    configExceptionOf(
-                        "$TOKEN_KEY.grant-expiration",
-                        "config.auth.token.grant_expiration.not_positive",
-                        "duration" to grantExpiration.toString()
-                    )
-                )
-            }
-        }
+        validateLifetime(ctx, "$TOKEN_KEY.access-expiration", parsed.accessExpiration)
+        validateLifetime(ctx, "$TOKEN_KEY.id-expiration", parsed.idExpiration)
+        validateLifetime(ctx, "$TOKEN_KEY.refresh-expiration", parsed.refreshExpiration)
+        validateLifetime(ctx, "$AUTHORIZATION_CODE_KEY.expiration", parsed.authorizationCodeExpiration)
+        validateLifetime(ctx, "$INTERACTIVE_FLOW_KEY.expiration", parsed.interactiveFlowExpiration)
+        validateLifetime(ctx, "$GRANT_KEY.expiration", parsed.grantExpiration)
 
         if (ctx.hasErrors) return null
         return EnabledAuthConfig(
             issuer = parsed.issuer!!,
             token = TokenConfig(
                 accessExpiration = parsed.accessExpiration!!,
-                idExpiration = parsed.idExpiration!!,
+                // An id token lives as long as the access token it is issued beside, unless a deployment says
+                // otherwise.
+                idExpiration = parsed.idExpiration ?: parsed.accessExpiration!!,
                 refreshEnabled = parsed.refreshEnabled!!,
                 refreshExpiration = parsed.refreshExpiration,
-                grantExpiration = parsed.grantExpiration,
                 dpopRequired = parsed.dpopRequired ?: false
             ),
             authorizationCode = AuthorizationCodeConfig(
                 expiration = parsed.authorizationCodeExpiration!!
+            ),
+            interactiveFlow = InteractiveFlowConfig(
+                expiration = parsed.interactiveFlowExpiration!!
+            ),
+            grant = GrantConfig(
+                expiration = parsed.grantExpiration
             ),
             identifierClaims = parsed.identifierClaims,
             userMergingEnabled = parsed.userMergingEnabled!!,

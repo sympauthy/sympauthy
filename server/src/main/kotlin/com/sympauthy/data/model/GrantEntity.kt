@@ -79,7 +79,7 @@ class GrantEntity(
     val actorGrantId: UUID? = null,
     val creationDate: LocalDateTime,
     /**
-     * When this grant can no longer be refreshed, as `auth.token.grant-expiration` set it when the grant was
+     * When this grant can no longer be refreshed, as `auth.grant.expiration` set it when the grant was
      * opened. Null where it has no lifetime of its own.
      */
     val expirationDate: LocalDateTime? = null,

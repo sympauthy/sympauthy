@@ -53,10 +53,9 @@ change to this table before it is a class.
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
 | `expression` | `business.model`, the JDK | `business`, `config`, `data`, `api` |
 
-**`business` may import `api` in exactly one case**: a manager implementing an OAuth2 endpoint
-throws the protocol's own error type, which lives in `api` because an OAuth2 error code is a wire
-format. [The exception standard](exception-code-standard.md) argues that carve-out, and nothing else
-uses it.
+**`business` may import `api` in exactly one case**: a manager in `business.manager.auth` throws the
+protocol's own error type, which lives in `api` because an OAuth2 error code is a wire format. [The
+exception standard](exception-code-standard.md) argues that carve-out, and nothing else uses it.
 
 **`config` may import `business.model`.** A validated configuration is a domain value, and these two
 model packages are one layer with two names.

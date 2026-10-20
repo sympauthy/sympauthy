@@ -69,18 +69,70 @@ client's `state` echoed, and no code.
 ## What the code is good for
 
 **A code is good only for the client that asked for it, with the verifier of its challenge.** The
-token endpoint refuses a code whose session did not complete an authorization, has expired, or
-names another client; then one whose PKCE verifier does not match the challenge. The redirect URI is
-not compared again, as [OAuth 2.1](security.md#the-protocol-surfaces) has it: PKCE is what binds the
-code to the request that produced it, so a code read off a redirect is useless without what only
-that client holds.
+token endpoint refuses a code it does not hold, one past [its own
+lifetime](#how-long-a-code-is-exchangeable), or one whose grant was opened for another client or
+for an audience its client [no longer belongs to](grants.md#how-a-revocation-reaches-a-grant); then
+one whose PKCE verifier does not match the challenge. The redirect URI is not compared again,
+as [OAuth 2.1](security.md#the-protocol-surfaces) has it: PKCE is what binds the code to the request
+that produced it, so a code read off a redirect is useless without what only that client holds.
 
 **A code is issued under a grant, and exchanging it issues tokens under that grant.** The grant
 copies what the person went through for — the client, the scopes and how each set was obtained, when
-they authenticated, the claims asked for — so it outlives the session, and a refresh issues its
-tokens under the same grant: [the grants](grants.md) are that record. A code whose grant was revoked
-before it was exchanged is refused, and a second exchange of the code revokes it, as
-[security](security.md#the-authorization-code) has it.
+they authenticated, the claims asked for — and a refresh issues its tokens under the same grant:
+[the grants](grants.md) are that record. A code whose grant was revoked before it was exchanged is
+refused, and [a second exchange](#a-code-is-exchanged-once) of the code revokes it.
+
+**An exchange reads the code and its grant, never the session that issued them.** Everything it
+checks either comes with the code — the PKCE challenge, the `nonce` the id token repeats — or is
+already on [the grant](grants.md#what-a-grant-is): the client, the person, the scopes, when they
+authenticated, the claims asked for. A session therefore does not have to outlive its code, and a
+code issued near the end of a flow's time is exchangeable for its whole lifetime, the session
+collected or not.
+
+### How long a code is exchangeable
+
+**A code is exchangeable for a lifetime of its own, counted from when it was issued.**
+`auth.authorization-code.expiration` says how long, a minute unless a deployment says otherwise. A
+client exchanges a code as soon as the person is redirected back to it, so a minute covers a slow
+network and a retry, and leaves a code that leaked little time to be used. How fast the person got
+through the flow has no bearing on it: a code ending with its session would stay exchangeable for
+nearly the whole flow's time when they were quick, and for a moment when they were slow. [The design
+FAQ](design-faq.md#how-long-is-an-authorization-code-exchangeable) holds the lifetimes that lost.
+
+### A code is exchanged once
+
+**An authorization code is exchanged once**, as RFC 6749 §10.5 requires. The exchange that is
+issued tokens is the one that spends it: the code is marked in the transaction that writes those
+tokens, so two exchanges racing over one code are issued one set between them, and an exchange that
+fails while issuing leaves the code unspent.
+
+**A second exchange is refused, and revokes the grant the code was issued under.** RFC 6749 §4.1.2
+recommends it. A code presented twice is either a client that lost track of its own exchange or a
+code somebody else is using, and the two cannot be told apart; revoking the grant — under which the
+first exchange's tokens and every refresh descended from them stand — is what takes back the tokens
+of whichever of them came first. A client that retries an exchange whose answer it lost pays for
+that: the person signs in again. The code names the grant its authorization opened, which is how [a
+replay reaches it](grants.md#how-a-revocation-reaches-a-grant) rather than through the session the
+grant came from, which is collected long before most grants end.
+
+**Only an exchange that passes every other check is a second one.** Client authentication and the
+PKCE verifier are checked before the code is spent, and a request failing either is refused for that
+reason and revokes nothing. A code alone is what leaks — into a log, a
+browser's history, a `Referer` — and a party holding only that is not handed a way to sign a person
+out of the client that exchanged it. [The design
+FAQ](design-faq.md#does-any-presentation-of-a-spent-authorization-code-revoke-what-it-was-exchanged-for)
+argues the alternative.
+
+**A spent code is kept until its own lifetime ends, not deleted when it is exchanged.** A replay is
+recognised by the code it presents: a row deleted on exchange would make the second exchange read as
+a code nobody issued, refused like any unknown one and revoking nothing. Kept that long, a replay is
+recognised for as long as the code could have been exchanged at all.
+
+**A code presented after its lifetime is refused as expired, and revokes nothing**, exchanged or
+not. The revocation answers a code that reached somebody who exchanged it before the client did, and
+both of them exchange within its lifetime, the client because it exchanges as soon as it is
+redirected. [The design FAQ](design-faq.md#how-long-is-a-spent-authorization-code-kept) holds the
+retention that lost.
 
 ## What implements it
 
@@ -90,9 +142,11 @@ engine](interactive-flow.md#the-engine) asks of an initiating purpose.
 `InteractiveAuthFlowSessionManager.startAuthorizationWith` is where a request is validated and its
 session created, and `InteractiveFlowSessionOAuth2Manager` reads and writes the record.
 
-**`AuthorizationCodeManager` owns the code, one per session.** The primary key over `session_id` is
-what makes a second impossible, and a completion that lost the race to write one is told so as the
-concurrent modification it is, to be routed by where the winner left the session.
+**`AuthorizationCodeManager` owns the code, one per grant.** The primary key over `grant_id` is what
+makes a second impossible, and a session opens one grant, so a completion that lost the race is
+refused at [the grant](grants.md#what-implements-it) before it reaches its code. The code names no
+session: it outlives the one that issued it, and reaches it through its grant while the session is
+there to be reached.
 
 ## What this document does not settle
 

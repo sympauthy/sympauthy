@@ -2,14 +2,10 @@ package com.sympauthy.config.model
 
 import java.time.Duration
 
-/**
- * Configuration for the authorization code grant flow.
- */
 data class AuthorizationCodeConfig(
     /**
-     * Maximum duration an authorization attempt is valid before it expires and is cleaned up.
-     * The end-user must complete the entire authorization flow (sign-in, claims collection, MFA, etc.)
-     * within this duration.
+     * How long an authorization code can be exchanged for tokens, from when the authorization hands it out.
+     * It does not depend on the interactive flow session that issued the code, which may be collected first.
      */
     val expiration: Duration
 )

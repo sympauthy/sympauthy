@@ -122,16 +122,9 @@ class ClaimAclValidator {
                 configExceptionOf(configKey, "config.claim.acl.write_max_authentication_age.not_writable")
             )
         }
-        // Zero is the case a reader stumbles on: it looks like "no age at all" and means the opposite,
-        // since no authentication is ever more recent than the moment it is asked about.
-        if (!maxAge.isPositive) {
-            ctx.addError(
-                configExceptionOf(
-                    configKey, "config.claim.acl.write_max_authentication_age.not_positive",
-                    "duration" to maxAge.toString()
-                )
-            )
-        }
+        // Zero would refuse every write, since no authentication is ever more recent than the moment it is
+        // asked about.
+        validateLifetime(ctx, configKey, maxAge)
     }
 
     private fun validateConsentScope(

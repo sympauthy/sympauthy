@@ -263,6 +263,21 @@ class ClaimAclValidatorTest {
     }
 
     @Test
+    fun `validateAcl - Reject a maximum authentication age of zero`() {
+        val ctx = ConfigParsingContext()
+
+        validator.validateAcl(
+            ctx,
+            parsedAcl(writableByPerson = true, writeMaxAuthenticationAge = Duration.ZERO),
+            "claims.test",
+            scopesById
+        )
+
+        assertEquals(listOf("config.lifetime.not_positive"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.test.acl.write-max-authentication-age"), ctx.errors.map { it.key })
+    }
+
+    @Test
     fun `validateTemplateAcl - Keep a maximum authentication age the claim's own write opens`() {
         val ctx = ConfigParsingContext()
 

@@ -8,13 +8,10 @@ import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.ClientGrantScopesResult
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
 import com.sympauthy.business.manager.auth.oauth2.*
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
@@ -44,13 +41,7 @@ import java.time.LocalDateTime
 class TokenControllerTest {
 
     @MockK
-    lateinit var sessionManager: InteractiveFlowSessionManager
-
-    @MockK
-    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
-
-    @MockK
-    lateinit var authorizeFlowManager: AuthorizationFlowManager
+    lateinit var authorizationCodeManager: AuthorizationCodeManager
 
     @MockK
     lateinit var tokenManager: TokenManager
@@ -80,12 +71,13 @@ class TokenControllerTest {
             idExpiration = java.time.Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
-            grantExpiration = null,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(
             expiration = java.time.Duration.ofMinutes(30)
         ),
+        interactiveFlow = InteractiveFlowConfig(expiration = java.time.Duration.ofMinutes(30)),
+        grant = GrantConfig(expiration = null),
         identifierClaims = emptyList(),
         userMergingEnabled = false,
         byPassword = ByPasswordConfig(enabled = false)
@@ -110,6 +102,11 @@ class TokenControllerTest {
 
     private fun mockClient(): Client = mockk {
         every { supportsGrantType(any()) } returns true
+    }
+
+    private fun mockCode(): AuthorizationCode = mockk {
+        every { codeChallenge } returns "stored-challenge"
+        every { codeChallengeMethod } returns CodeChallengeMethod.S256
     }
 
     /** A token the response only carries the encoded form of. */
@@ -339,75 +336,45 @@ class TokenControllerTest {
     }
 
     @Test
-    fun `getTokensUsingAuthorizationCode - Throws invalid_grant when session is not found`() = runTest {
-        val request = mockRequest()
-        coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-        coEvery { sessionManager.findByCodeOrNull("the-code") } returns null
-        // No OAuth2 record is fetched when there is no session; checkCanIssueToken rejects the null session.
-        coEvery {
-            authorizeFlowManager.checkCanIssueToken(null, null, any())
-        } throws businessExceptionOf("token.expired")
+    fun `getTokensUsingAuthorizationCode - Refuses the code as the check does, before reading the verifier`() =
+        runTest {
+            val request = mockRequest()
+            coEvery {
+                clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
+            } returns mockClient()
+            coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns null
+            coEvery {
+                authorizationCodeManager.checkCanExchange(null, any())
+            } throws oauth2ExceptionOf(INVALID_GRANT, "token.expired")
 
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = "the-code",
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
+            val exception = assertThrows<OAuth2Exception> {
+                controller.getTokens(
+                    request = request,
+                    grantType = "authorization_code",
+                    code = "the-code",
+                    refreshToken = null,
+                    scope = null,
+                    clientId = "client",
+                    clientSecret = "secret",
+                    codeVerifier = "the-verifier"
+                )
+            }
+            assertEquals(INVALID_GRANT, exception.errorCode)
+            assertEquals("token.expired", exception.detailsId)
+            verify(exactly = 0) { pkceManager.verifyCodeVerifier(any(), any(), any()) }
+            coVerify(exactly = 0) { tokenManager.generateTokensForUser(any(), any(), any(), any()) }
         }
-        assertEquals(INVALID_GRANT, exception.errorCode)
-        assertEquals("token.expired", exception.detailsId)
-    }
-
-    @Test
-    fun `getTokensUsingAuthorizationCode - Throws invalid_grant when oauth2 record is missing`() = runTest {
-        val request = mockRequest()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
-        coEvery {
-            authorizeFlowManager.checkCanIssueToken(session, null, any())
-        } throws businessExceptionOf("token.expired")
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = "the-code",
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
-        }
-        assertEquals(INVALID_GRANT, exception.errorCode)
-        assertEquals("token.expired", exception.detailsId)
-    }
 
     @Test
     fun `getTokensUsingAuthorizationCode - Throws when PKCE verification fails`() = runTest {
         val request = mockRequest()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockk<InteractiveFlowSessionOAuth2>()
-        every { oauth2.codeChallenge } returns "stored-challenge"
-        every { oauth2.codeChallengeMethod } returns CodeChallengeMethod.S256
+        val code = mockCode()
+        val grant = mockk<Grant>()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
-        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
-        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
+        coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns code
+        coEvery { authorizationCodeManager.checkCanExchange(code, any()) } returns (code to grant)
         every {
             pkceManager.verifyCodeVerifier("wrong-verifier", "stored-challenge", CodeChallengeMethod.S256)
         } throws businessExceptionOf(detailsId = "token.pkce.invalid_code_verifier")
@@ -426,7 +393,7 @@ class TokenControllerTest {
         }
         assertEquals(INVALID_GRANT, exception.errorCode)
         assertEquals("token.pkce.invalid_code_verifier", exception.detailsId)
-        coVerify(exactly = 0) { tokenManager.generateTokens(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { tokenManager.generateTokensForUser(any(), any(), any(), any()) }
     }
 
     @Test
@@ -435,18 +402,17 @@ class TokenControllerTest {
         val accessToken = mockAccessToken("access-jwt", listOf("openid"))
         val refreshToken = mockEncodedToken("refresh-jwt")
         val idToken = mockEncodedToken("id-jwt")
-        val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockk<InteractiveFlowSessionOAuth2>()
-        every { oauth2.codeChallenge } returns null
-        every { oauth2.codeChallengeMethod } returns null
+        val code = mockCode()
+        val grant = mockk<Grant>()
         coEvery {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } returns mockClient()
-        coEvery { sessionManager.findByCodeOrNull("the-code") } returns session
-        coEvery { authorizeFlowManager.checkCanIssueToken(session, oauth2, any()) } returns (session to oauth2)
-        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
-        every { pkceManager.verifyCodeVerifier(null, null, null) } just runs
-        coEvery { tokenManager.generateTokens(session, oauth2, any(), dpopJkt = null) } returns GenerateTokenResult(
+        coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns code
+        coEvery { authorizationCodeManager.checkCanExchange(code, any()) } returns (code to grant)
+        every {
+            pkceManager.verifyCodeVerifier("the-verifier", "stored-challenge", CodeChallengeMethod.S256)
+        } just runs
+        coEvery { tokenManager.generateTokensForUser(code, grant, any(), dpopJkt = null) } returns GenerateTokenResult(
             accessToken = accessToken,
             refreshToken = refreshToken,
             idToken = idToken
@@ -460,7 +426,7 @@ class TokenControllerTest {
             scope = null,
             clientId = "client",
             clientSecret = "secret",
-            codeVerifier = null
+            codeVerifier = "the-verifier"
         )
 
         assertEquals("access-jwt", result.accessToken)

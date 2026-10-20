@@ -124,23 +124,16 @@ class AdvancedConfigValidator {
     }
 
     /**
-     * How long a place is kept, refused where it is not a length of time at all.
+     * How long a place is kept, the default where the deployment wrote none, or null where it is not a
+     * lifetime.
      *
      * Zero or a negative retention would have the sweep delete every row as fast as the flows writing
      * them commit, and say nothing about it — a feature silently doing the opposite of what it is for.
      */
     private fun validateKnownUserRetention(ctx: ConfigParsingContext, parsed: Duration?): Duration? {
-        val retention = parsed ?: DEFAULT_KNOWN_USER_RETENTION
-        if (!retention.isPositive) {
-            ctx.addError(
-                configExceptionOf(
-                    "$SECURITY_CONTEXT_KEY.known-user-retention",
-                    "config.advanced.security_context.invalid_known_user_retention"
-                )
-            )
-            return null
-        }
-        return retention
+        return validateLifetime(
+            ctx, "$SECURITY_CONTEXT_KEY.known-user-retention", parsed ?: DEFAULT_KNOWN_USER_RETENTION
+        )
     }
 
     private fun validateSecurityContextIpConfig(
@@ -334,6 +327,8 @@ class AdvancedConfigValidator {
             )
         }
 
+        validateLifetime(subCtx, "$INVITATION_KEY.default-expiration", parsed.defaultExpiration)
+        validateLifetime(subCtx, "$INVITATION_KEY.max-expiration", parsed.maxExpiration)
         if (parsed.defaultExpiration != null && parsed.maxExpiration != null
             && parsed.defaultExpiration > parsed.maxExpiration
         ) {
@@ -366,6 +361,7 @@ class AdvancedConfigValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedValidationCodeConfig
     ): ValidationCodeConfig? {
+        validateLifetime(ctx, "$VALIDATION_CODE_KEY.expiration", parsed.expiration)
         if (parsed.length != null && parsed.length <= 0) {
             ctx.addError(
                 configExceptionOf(

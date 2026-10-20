@@ -24,9 +24,9 @@ of a loopback address aside, and the implicit and password grants are not offere
 and `GrantType` are the authority on what is.
 
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
-redirect-URI matching, the signed state, [one-time authorization codes](#the-authorization-code):
-the endpoints are anonymous because a specification says they are, and every check they do is one
-the specification names.
+redirect-URI matching, the signed state, [one-time authorization
+codes](oauth2-authorization.md#a-code-is-exchanged-once): the endpoints are anonymous because a
+specification says they are, and every check they do is one the specification names.
 
 **A client that fails to authenticate is refused with `invalid_client`, and challenged wherever no
 public client can be the one refused.** RFC 6749 §5.2 requires a `401` and a `Basic` challenge where
@@ -312,34 +312,6 @@ is not told which rule of the route the token failed. The operation's published 
 **A page in a browser is told what a server-side client is told.** A response to another origin
 shows a page only the headers it lists, so every surface challenging a token lists
 `WWW-Authenticate` among the ones [it exposes](../standards/api-standard.md#cors).
-
-### The authorization code
-
-**An authorization code is exchanged once**, as RFC 6749 §10.5 requires. The exchange that is
-issued tokens is the one that spends it: the code is marked in the transaction that writes those
-tokens, so two exchanges racing over one code are issued one set between them, and an exchange that
-fails while issuing leaves the code unspent.
-
-**A second exchange is refused, and revokes the grant the code was issued under.** RFC 6749 §4.1.2
-recommends it. A code presented twice is either a client that lost track of its own exchange or a
-code somebody else is using, and the two cannot be told apart; revoking the grant — under which the
-first exchange's tokens and every refresh descended from them stand — is what takes back the tokens
-of whichever of them came first. A client that retries an exchange whose answer it lost pays for
-that: the person signs in again. The code names the grant its authorization opened, which is how [a
-replay reaches it](grants.md#how-a-revocation-reaches-a-grant) rather than through the session the
-grant came from, which is collected long before most grants end.
-
-**Only an exchange that passes every other check is a second one.** Client authentication and the
-PKCE verifier are checked before the code is spent, and a request failing either is refused for that
-reason and revokes nothing. A code alone is what leaks — into a log, a
-browser's history, a `Referer` — and a party holding only that is not handed a way to sign a person
-out of the client that exchanged it. [The design
-FAQ](design-faq.md#does-any-presentation-of-a-spent-authorization-code-revoke-what-it-was-exchanged-for)
-argues the alternative.
-
-**A spent code is kept until its session is collected, not deleted when it is exchanged.** A
-replay is recognised by the code it presents: a row deleted on exchange would make the second
-exchange read as a code nobody issued, refused like any unknown one and revoking nothing.
 
 ### When the person authenticated
 

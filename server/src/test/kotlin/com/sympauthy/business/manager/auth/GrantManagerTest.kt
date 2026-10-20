@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth
 
+import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.lock.HeldStripes
@@ -7,6 +8,7 @@ import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.GrantMapper
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
@@ -14,11 +16,14 @@ import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.ByPasswordConfig
 import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.config.model.GrantConfig
+import com.sympauthy.config.model.InteractiveFlowConfig
 import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
@@ -70,10 +75,11 @@ class GrantManagerTest {
             idExpiration = Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = Duration.ofDays(30),
-            grantExpiration = grantExpiration,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(expiration = Duration.ofMinutes(30)),
+        interactiveFlow = InteractiveFlowConfig(expiration = Duration.ofMinutes(30)),
+        grant = GrantConfig(expiration = grantExpiration),
         identifierClaims = emptyList(),
         userMergingEnabled = false,
         byPassword = ByPasswordConfig(enabled = false)
@@ -351,5 +357,74 @@ class GrantManagerTest {
         coEvery { grantRepository.findById(created.id) } returns saved.captured
 
         assertEquals(created, grantManager().findByIdOrNull(created.id))
+    }
+
+    @Test
+    fun `checkOpenedFor - Accept a grant opened for the client and its audience`() {
+        grantManager().checkOpenedFor(grantOpenedFor("client", "audience"), clientOf("client", "audience"))
+    }
+
+    @Test
+    fun `checkOpenedFor - Refuse a grant opened for another client`() {
+        val client = mockk<Client> { every { id } returns "another-client" }
+
+        val exception = assertThrows<OAuth2Exception> {
+            grantManager().checkOpenedFor(mockk { every { clientId } returns "client" }, client)
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.mismatching_client", exception.detailsId)
+    }
+
+    @Test
+    fun `checkOpenedFor - Refuse a grant whose client has moved to another audience`() {
+        val exception = assertThrows<OAuth2Exception> {
+            grantManager().checkOpenedFor(grantOpenedFor("client", "audience"), clientOf("client", "another-audience"))
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("grant.mismatching_audience", exception.detailsId)
+        assertEquals("another-audience", exception.values["clientAudienceId"])
+    }
+
+    @Test
+    fun `checkLive - Refuse a grant that was revoked`() {
+        val grant = mockk<Grant> { every { revoked } returns true }
+
+        val exception = assertThrows<OAuth2Exception> { grantManager().checkLive(grant) }
+
+        assertEquals("grant.revoked", exception.detailsId)
+    }
+
+    @Test
+    fun `checkLive - Refuse a grant past its lifetime`() {
+        val grant = mockk<Grant> {
+            every { revoked } returns false
+            every { expired } returns true
+        }
+
+        val exception = assertThrows<OAuth2Exception> { grantManager().checkLive(grant) }
+
+        assertEquals("grant.expired", exception.detailsId)
+    }
+
+    @Test
+    fun `checkLive - Accept a grant neither revoked nor past its lifetime`() {
+        val grant = mockk<Grant> {
+            every { revoked } returns false
+            every { expired } returns false
+        }
+
+        grantManager().checkLive(grant)
+    }
+
+    private fun grantOpenedFor(clientId: String, audienceId: String): Grant = mockk {
+        every { this@mockk.clientId } returns clientId
+        every { this@mockk.audienceId } returns audienceId
+    }
+
+    private fun clientOf(id: String, audienceId: String): Client = mockk {
+        every { this@mockk.id } returns id
+        every { audience.id } returns audienceId
     }
 }

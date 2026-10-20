@@ -66,12 +66,13 @@ class OpenIdConfigurationControllerTest {
             idExpiration = java.time.Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = java.time.Duration.ofDays(30),
-            grantExpiration = null,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(
             expiration = java.time.Duration.ofMinutes(30)
         ),
+        interactiveFlow = InteractiveFlowConfig(expiration = java.time.Duration.ofMinutes(30)),
+        grant = GrantConfig(expiration = null),
         identifierClaims = emptyList(),
         userMergingEnabled = false,
         byPassword = ByPasswordConfig(enabled = false)

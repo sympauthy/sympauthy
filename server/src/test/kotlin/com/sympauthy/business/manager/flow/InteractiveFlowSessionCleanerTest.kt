@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
-import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
@@ -49,9 +48,6 @@ class InteractiveFlowSessionCleanerTest {
     @MockK
     lateinit var validationCodeRepository: ValidationCodeRepository
 
-    @MockK
-    lateinit var authorizationCodeRepository: AuthorizationCodeRepository
-
     @InjectMockKs
     lateinit var cleaner: InteractiveFlowSessionCleaner
 
@@ -81,12 +77,10 @@ class InteractiveFlowSessionCleanerTest {
         val result = cleaner.clean()
 
         assertEquals(0, result.sessionCount)
-        assertEquals(0, result.authorizationCodeCount)
         assertEquals(0, result.validationCodesCount)
     }
 
     private fun dependencyDeletes(): List<suspend () -> Int> = listOf(
-        { authorizationCodeRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { validationCodeRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { oauth2Repository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { providerRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
@@ -107,7 +101,6 @@ class InteractiveFlowSessionCleanerTest {
         }
         val idList = ids.toList()
         coEvery { sessionRepository.findExpired() } returns sessions
-        coEvery { authorizationCodeRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { validationCodeRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { oauth2Repository.deleteBySessionIdIn(idList) } returns 0
         coEvery { providerRepository.deleteBySessionIdIn(idList) } returns 0

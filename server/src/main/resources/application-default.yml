@@ -48,6 +48,10 @@ audiences:
 
 auth:
   authorization-code:
+    # A minute rather than the ten RFC 6749 §4.1.2 allows, because a client exchanges a code as soon
+    # as the person is redirected back to it, and the rest would only serve a code that leaked.
+    expiration: 1m
+  interactive-flow:
     expiration: 30m
   user-merging-enabled: false
   token:

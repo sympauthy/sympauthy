@@ -227,8 +227,7 @@ class AdvancedConfigValidatorTest {
 
         assertEquals(
             listOf(
-                "advanced.security-context.known-user-retention" to
-                    "config.advanced.security_context.invalid_known_user_retention"
+                "advanced.security-context.known-user-retention" to "config.lifetime.not_positive"
             ),
             ctx.errors.map { it.key to it.messageId }
         )
@@ -242,10 +241,33 @@ class AdvancedConfigValidatorTest {
 
         assertEquals(
             listOf(
-                "advanced.security-context.known-user-retention" to
-                    "config.advanced.security_context.invalid_known_user_retention"
+                "advanced.security-context.known-user-retention" to "config.lifetime.not_positive"
             ),
             ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Refuse every lifetime of zero, under the key it was written at`() {
+        val ctx = ConfigParsingContext()
+
+        val validated = validator.validate(
+            ctx,
+            parsedConfig(
+                invitationDefaultExpiration = Duration.ZERO,
+                invitationMaxExpiration = Duration.ZERO,
+                validationCodeExpiration = Duration.ZERO
+            )
+        )
+
+        assertNull(validated)
+        assertEquals(
+            listOf(
+                "advanced.invitation.default-expiration",
+                "advanced.invitation.max-expiration",
+                "advanced.validation-code.expiration"
+            ),
+            ctx.errors.filter { it.messageId == "config.lifetime.not_positive" }.map { it.key }
         )
     }
 
@@ -256,7 +278,10 @@ class AdvancedConfigValidatorTest {
         geoProvidersAt: List<Pair<Int, String>> = geoProviders.mapIndexed { index, qualifier -> index to qualifier },
         ipHeader: String? = null,
         cityHeader: String? = null,
-        knownUserRetention: Duration? = null
+        knownUserRetention: Duration? = null,
+        invitationDefaultExpiration: Duration = Duration.ofDays(7),
+        invitationMaxExpiration: Duration = Duration.ofDays(30),
+        validationCodeExpiration: Duration = Duration.ofMinutes(10)
     ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
@@ -273,12 +298,12 @@ class AdvancedConfigValidatorTest {
             hash = hash,
             invitation = ParsedInvitationConfig(
                 tokenLength = 32,
-                defaultExpiration = Duration.ofDays(7),
-                maxExpiration = Duration.ofDays(30),
+                defaultExpiration = invitationDefaultExpiration,
+                maxExpiration = invitationMaxExpiration,
                 hash = hash
             ),
             validationCode = ParsedValidationCodeConfig(
-                expiration = Duration.ofMinutes(10),
+                expiration = validationCodeExpiration,
                 length = 6,
                 resendDelay = Duration.ofMinutes(1)
             ),

@@ -8,6 +8,8 @@ import com.sympauthy.config.parsing.AuthConfigParser
 import com.sympauthy.config.properties.AuthConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationCodeConfigurationProperties
 import com.sympauthy.config.properties.ByPasswordConfigurationProperties
+import com.sympauthy.config.properties.GrantConfigurationProperties
+import com.sympauthy.config.properties.InteractiveFlowConfigurationProperties
 import com.sympauthy.config.properties.TokenConfigurationProperties
 import com.sympauthy.config.validation.AuthConfigValidator
 import io.micronaut.context.annotation.Factory
@@ -25,12 +27,15 @@ class AuthConfigFactory(
         properties: AuthConfigurationProperties,
         tokenProperties: TokenConfigurationProperties?,
         authorizationCodeProperties: AuthorizationCodeConfigurationProperties?,
+        interactiveFlowProperties: InteractiveFlowConfigurationProperties?,
+        grantProperties: GrantConfigurationProperties?,
         byPasswordProperties: ByPasswordConfigurationProperties?,
         uncheckedClaimsConfig: ClaimsConfig
     ): AuthConfig {
         val ctx = ConfigParsingContext()
         val parsed = authParser.parse(
-            ctx, properties, tokenProperties, authorizationCodeProperties, byPasswordProperties
+            ctx, properties, tokenProperties, authorizationCodeProperties, interactiveFlowProperties,
+            grantProperties, byPasswordProperties
         )
         val config = authValidator.validate(ctx, parsed, uncheckedClaimsConfig)
         return config ?: DisabledAuthConfig(ctx.errors)

@@ -94,7 +94,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * `state` and `nonce` are reported as present or absent because they exist so that only the client and the
      * browser hold them. `code_challenge` is neither — it travelled in the authorize request and the verifier
      * is never stored here — and is reduced to its method because a 43-character string tells an operator
-     * nothing they can act on. The authorization code is keyed by session id in a table this never reads.
+     * nothing they can act on. The authorization code is never read here.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val oauth2 = readOAuth2OrNull(session)
@@ -296,7 +296,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         )
         oauth2.invitationId?.let { invitationManager.consumeInvitation(it, userId) }
         val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audienceId)
-        authorizationCodeManager.generateCode(session, grant)
+        authorizationCodeManager.generateCode(oauth2, grant)
         return TerminalEffectResult.Proceed
     }
 }

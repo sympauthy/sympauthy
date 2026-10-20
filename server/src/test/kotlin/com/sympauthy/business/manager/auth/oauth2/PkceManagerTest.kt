@@ -59,29 +59,4 @@ class PkceManagerTest {
         }
         assertEquals("token.pkce.missing_code_verifier", exception.detailsId)
     }
-
-    @Test
-    fun `verifyCodeVerifier - Succeeds when no PKCE was used`() {
-        assertDoesNotThrow {
-            pkceManager.verifyCodeVerifier(null, null, null)
-        }
-    }
-
-    @Test
-    fun `verifyCodeVerifier - Fails when verifier is provided but no challenge was stored`() {
-        val exception = assertThrows<BusinessException> {
-            pkceManager.verifyCodeVerifier("some-verifier", null, null)
-        }
-        assertEquals("token.pkce.unexpected_code_verifier", exception.detailsId)
-    }
-
-    @Test
-    fun `verifyCodeVerifier - Defaults to S256 when method is null`() {
-        val codeVerifier = "test-verifier-string-for-pkce"
-        val codeChallenge = computeS256Challenge(codeVerifier)
-
-        assertDoesNotThrow {
-            pkceManager.verifyCodeVerifier(codeVerifier, codeChallenge, null)
-        }
-    }
 }

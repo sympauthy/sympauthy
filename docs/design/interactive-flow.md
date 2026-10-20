@@ -44,6 +44,12 @@ initiated the session, so no rule reaching for it there stays correct as purpose
 The client is written in the same transaction as the record it duplicates and never written again,
 which is what keeps the two from disagreeing.
 
+**A session has the time `auth.interactive-flow.expiration` allows, from when it starts, whatever
+purpose started it.** That bounds the whole of what a person goes through — signing in, the claims
+collected, a second factor — and nothing the session hands out: an authorization code has [a
+lifetime of its own](oauth2-authorization.md#how-long-a-code-is-exchangeable), so a session
+expiring, or collected, takes no code out of service.
+
 **Concern-specific state is not on the session.** Each purpose that needs to remember something has
 its **own record, keyed by the session id**, in its own table, fetched on demand through its own
 manager — the OAuth2 request context is one such record, what a confirm was for is another.

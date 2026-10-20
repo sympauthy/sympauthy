@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
-import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
@@ -20,6 +19,9 @@ import kotlinx.coroutines.coroutineScope
  * Component in charge of cleaning expired interactive flow sessions, their attached records and direct
  * dependencies.
  *
+ * The authorization code a session completed with is not one of them: it outlives the session, and
+ * [com.sympauthy.business.manager.auth.GrantCleaner] collects it once its own lifetime has ended.
+ *
  * Deleting a session is what marks an account it was signing up abandoned, but collecting that account is
  * not a step of this. [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned] keys
  * on the session being gone rather than on the sessions any one run expired, so it is a cleaner of its own
@@ -37,7 +39,6 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
     @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
-    @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
 ) {
 
     @Transactional
@@ -46,9 +47,6 @@ open class InteractiveFlowSessionCleaner(
         val expiredSessionIds = expiredSessions.mapNotNull(InteractiveFlowSessionEntity::id)
 
         // Delete the direct dependencies (all FK to interactive_flow_sessions) before the sessions themselves.
-        val deferredAuthorizationCodesCount = async {
-            authorizationCodeRepository.deleteBySessionIdIn(expiredSessionIds)
-        }
         val deferredValidationCodesCount = async {
             validationCodeRepository.deleteBySessionIdIn(expiredSessionIds)
         }
@@ -74,7 +72,6 @@ open class InteractiveFlowSessionCleaner(
             securityContextRepository.deleteBySessionIdIn(expiredSessionIds)
         }
 
-        val authorizationCodesCount = deferredAuthorizationCodesCount.await()
         val validationCodesCount = deferredValidationCodesCount.await()
         deferredOAuth2Count.await()
         deferredProviderCount.await()
@@ -87,14 +84,12 @@ open class InteractiveFlowSessionCleaner(
 
         CleanResult(
             sessionCount = sessionsCount,
-            authorizationCodeCount = authorizationCodesCount,
             validationCodesCount = validationCodesCount,
         )
     }
 
     data class CleanResult(
         val sessionCount: Int,
-        val authorizationCodeCount: Int,
         val validationCodesCount: Int,
     )
 }

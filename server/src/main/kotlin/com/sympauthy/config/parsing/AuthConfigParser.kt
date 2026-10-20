@@ -8,6 +8,10 @@ import com.sympauthy.config.properties.AuthorizationCodeConfigurationProperties
 import com.sympauthy.config.properties.AuthorizationCodeConfigurationProperties.Companion.AUTHORIZATION_CODE_KEY
 import com.sympauthy.config.properties.ByPasswordConfigurationProperties
 import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Companion.BY_PASSWORD_KEY
+import com.sympauthy.config.properties.GrantConfigurationProperties
+import com.sympauthy.config.properties.GrantConfigurationProperties.Companion.GRANT_KEY
+import com.sympauthy.config.properties.InteractiveFlowConfigurationProperties
+import com.sympauthy.config.properties.InteractiveFlowConfigurationProperties.Companion.INTERACTIVE_FLOW_KEY
 import com.sympauthy.config.properties.TokenConfigurationProperties
 import com.sympauthy.config.properties.TokenConfigurationProperties.Companion.TOKEN_KEY
 import jakarta.inject.Singleton
@@ -19,9 +23,10 @@ data class ParsedAuthConfig(
     val idExpiration: Duration?,
     val refreshEnabled: Boolean?,
     val refreshExpiration: Duration?,
-    val grantExpiration: Duration?,
     val dpopRequired: Boolean?,
     val authorizationCodeExpiration: Duration?,
+    val interactiveFlowExpiration: Duration?,
+    val grantExpiration: Duration?,
     val identifierClaims: List<String>,
     val userMergingEnabled: Boolean?,
     val byPasswordEnabled: Boolean?
@@ -36,6 +41,8 @@ class AuthConfigParser(
         properties: AuthConfigurationProperties,
         tokenProperties: TokenConfigurationProperties?,
         authorizationCodeProperties: AuthorizationCodeConfigurationProperties?,
+        interactiveFlowProperties: InteractiveFlowConfigurationProperties?,
+        grantProperties: GrantConfigurationProperties?,
         byPasswordProperties: ByPasswordConfigurationProperties?
     ): ParsedAuthConfig {
         val issuer = ctx.parse {
@@ -56,7 +63,7 @@ class AuthConfigParser(
             tokenProperties?.let {
                 parser.getDuration(it, "$TOKEN_KEY.id-expiration", TokenConfigurationProperties::idExpiration)
             }
-        } ?: accessExpiration
+        }
 
         val refreshEnabled = ctx.parse {
             tokenProperties?.let {
@@ -67,12 +74,6 @@ class AuthConfigParser(
         val refreshExpiration = ctx.parse {
             tokenProperties?.let {
                 parser.getDuration(it, "$TOKEN_KEY.refresh-expiration", TokenConfigurationProperties::refreshExpiration)
-            }
-        }
-
-        val grantExpiration = ctx.parse {
-            tokenProperties?.let {
-                parser.getDuration(it, "$TOKEN_KEY.grant-expiration", TokenConfigurationProperties::grantExpiration)
             }
         }
 
@@ -88,6 +89,21 @@ class AuthConfigParser(
                     it, "$AUTHORIZATION_CODE_KEY.expiration",
                     AuthorizationCodeConfigurationProperties::expiration
                 )
+            }
+        }
+
+        val interactiveFlowExpiration = ctx.parse {
+            interactiveFlowProperties?.let {
+                parser.getDurationOrThrow(
+                    it, "$INTERACTIVE_FLOW_KEY.expiration",
+                    InteractiveFlowConfigurationProperties::expiration
+                )
+            }
+        }
+
+        val grantExpiration = ctx.parse {
+            grantProperties?.let {
+                parser.getDuration(it, "$GRANT_KEY.expiration", GrantConfigurationProperties::expiration)
             }
         }
 
@@ -117,9 +133,10 @@ class AuthConfigParser(
             idExpiration = idExpiration,
             refreshEnabled = refreshEnabled,
             refreshExpiration = refreshExpiration,
-            grantExpiration = grantExpiration,
             dpopRequired = dpopRequired,
             authorizationCodeExpiration = authorizationCodeExpiration,
+            interactiveFlowExpiration = interactiveFlowExpiration,
+            grantExpiration = grantExpiration,
             identifierClaims = identifierClaims,
             userMergingEnabled = userMergingEnabled,
             byPasswordEnabled = byPasswordEnabled
