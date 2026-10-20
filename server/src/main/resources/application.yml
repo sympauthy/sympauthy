@@ -9,7 +9,6 @@ micronaut:
 
   security:
     enabled: true
-    authentication: idtoken
     redirect:
       enabled: false
     intercept-url-map:
