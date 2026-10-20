@@ -115,6 +115,8 @@ class UserClaimCollectionManagerTest {
             issuer = "test",
             token = mockk(),
             authorizationCode = mockk(),
+            interactiveFlow = mockk(),
+            grant = mockk(),
             identifierClaims = listOf(OpenIdConnectClaimId.EMAIL),
             userMergingEnabled = false,
             byPassword = mockk()

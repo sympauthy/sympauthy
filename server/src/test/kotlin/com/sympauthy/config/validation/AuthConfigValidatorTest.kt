@@ -14,6 +14,7 @@ import com.sympauthy.config.model.EnabledClaimsConfig
 import com.sympauthy.config.parsing.ParsedAuthConfig
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.time.Duration
 
@@ -63,15 +64,24 @@ class AuthConfigValidatorTest {
         )
     )
 
-    private fun parsedAuth(identifierClaims: List<String>, grantExpiration: Duration? = null) = ParsedAuthConfig(
+    private fun parsedAuth(
+        identifierClaims: List<String>,
+        accessExpiration: Duration = Duration.ofMinutes(5),
+        idExpiration: Duration? = Duration.ofMinutes(5),
+        refreshExpiration: Duration? = null,
+        authorizationCodeExpiration: Duration = Duration.ofMinutes(1),
+        interactiveFlowExpiration: Duration = Duration.ofMinutes(30),
+        grantExpiration: Duration? = null
+    ) = ParsedAuthConfig(
         issuer = "https://auth.example.com",
-        accessExpiration = Duration.ofMinutes(5),
-        idExpiration = Duration.ofMinutes(5),
+        accessExpiration = accessExpiration,
+        idExpiration = idExpiration,
         refreshEnabled = false,
-        refreshExpiration = null,
-        grantExpiration = grantExpiration,
+        refreshExpiration = refreshExpiration,
         dpopRequired = false,
-        authorizationCodeExpiration = Duration.ofMinutes(1),
+        authorizationCodeExpiration = authorizationCodeExpiration,
+        interactiveFlowExpiration = interactiveFlowExpiration,
+        grantExpiration = grantExpiration,
         identifierClaims = identifierClaims,
         userMergingEnabled = false,
         byPasswordEnabled = true
@@ -84,19 +94,66 @@ class AuthConfigValidatorTest {
     }
 
     @Test
-    fun `validate - Refuse a grant lifetime that is not greater than zero`() {
-        listOf(Duration.ZERO, Duration.ofHours(-1)).forEach { grantExpiration ->
-            val ctx = ConfigParsingContext()
-            validator.validate(
-                ctx,
-                parsedAuth(emptyList(), grantExpiration = grantExpiration),
-                EnabledClaimsConfig(emptyList())
-            )
+    fun `validate - Refuse every lifetime of zero, under the key it was written at`() {
+        val ctx = ConfigParsingContext()
 
-            val error = ctx.errors.single { it.messageId == "config.auth.token.grant_expiration.not_positive" }
-            assertEquals("auth.token.grant-expiration", error.key)
-            assertEquals(grantExpiration.toString(), error.values["duration"])
-        }
+        val validated = validator.validate(
+            ctx,
+            parsedAuth(
+                emptyList(),
+                accessExpiration = Duration.ZERO,
+                idExpiration = Duration.ZERO,
+                refreshExpiration = Duration.ZERO,
+                authorizationCodeExpiration = Duration.ZERO,
+                interactiveFlowExpiration = Duration.ZERO,
+                grantExpiration = Duration.ZERO
+            ),
+            EnabledClaimsConfig(emptyList())
+        )
+
+        assertNull(validated)
+        assertEquals(
+            listOf(
+                "auth.token.access-expiration",
+                "auth.token.id-expiration",
+                "auth.token.refresh-expiration",
+                "auth.authorization-code.expiration",
+                "auth.interactive-flow.expiration",
+                "auth.grant.expiration"
+            ),
+            ctx.errors.filter { it.messageId == "config.lifetime.not_positive" }.map { it.key }
+        )
+    }
+
+    @Test
+    fun `validate - Give the id token the lifetime of the access token where none is written`() {
+        val ctx = ConfigParsingContext()
+
+        val validated = validator.validate(
+            ctx,
+            parsedAuth(listOf("email"), accessExpiration = Duration.ofMinutes(7), idExpiration = null),
+            EnabledClaimsConfig(listOf(claim("email", ClaimDataType.EMAIL)))
+        )
+
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+        assertEquals(Duration.ofMinutes(7), validated?.token?.idExpiration)
+    }
+
+    /** The id token's lifetime defaults to the access token's, so the one key written is the one refused. */
+    @Test
+    fun `validate - Refuse an access lifetime of zero once, where no id lifetime is written`() {
+        val ctx = ConfigParsingContext()
+
+        validator.validate(
+            ctx,
+            parsedAuth(emptyList(), accessExpiration = Duration.ZERO, idExpiration = null),
+            EnabledClaimsConfig(emptyList())
+        )
+
+        assertEquals(
+            listOf("auth.token.access-expiration"),
+            ctx.errors.filter { it.messageId == "config.lifetime.not_positive" }.map { it.key }
+        )
     }
 
     @Test
@@ -109,7 +166,7 @@ class AuthConfigValidatorTest {
         )
 
         assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
-        assertEquals(Duration.ofHours(1), validated?.token?.grantExpiration)
+        assertEquals(Duration.ofHours(1), validated?.grant?.expiration)
     }
 
     @Test

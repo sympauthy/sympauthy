@@ -33,7 +33,7 @@ class CleanExpiredInteractiveFlowSessionCron(
             jobLeaseManager.withLease(CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS) {
                 val result = interactiveFlowSessionCleaner.clean()
                 if (result.sessionCount > 0) {
-                    logger.debug("Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.authorizationCodeCount} authorization codes, ${result.validationCodesCount} validation codes).")
+                    logger.debug("Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.validationCodesCount} validation codes).")
                 }
             }
         }

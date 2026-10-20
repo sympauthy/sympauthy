@@ -12,12 +12,11 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
- * Deletes the expired tokens and the grants that are finished.
+ * Deletes the expired tokens and authorization codes, and the grants that are finished.
  *
  * A job of its own rather than a step of [CleanExpiredInteractiveFlowSessionCron]: a grant outlives the
- * session it came from by as long as its client goes on refreshing, and the one link between them — the
- * authorization code naming its grant — is what keeps a grant here until that session's cleaner has collected
- * the code.
+ * session it came from by as long as its client goes on refreshing, and so does the authorization code naming
+ * it, for as long as its own lifetime runs.
  *
  * The lease keeps a deployment of several instances from sweeping several times over, and the sweep stays
  * correct when it runs twice anyway — it deletes what is committed-expired or committed-revoked, which is the
@@ -36,8 +35,11 @@ class CleanFinishedGrantCron(
         GlobalScope.launch {
             jobLeaseManager.withLease(CLEAN_FINISHED_GRANTS) {
                 val result = grantCleaner.clean()
-                if (result.tokenCount > 0 || result.grantCount > 0) {
-                    logger.debug("Cleaned ${result.tokenCount} tokens and ${result.grantCount} finished grants.")
+                if (result.tokenCount > 0 || result.authorizationCodeCount > 0 || result.grantCount > 0) {
+                    logger.debug(
+                        "Cleaned ${result.tokenCount} tokens, ${result.authorizationCodeCount} authorization codes " +
+                            "and ${result.grantCount} finished grants."
+                    )
                 }
             }
         }

@@ -51,15 +51,6 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
 
     @Query(
         """
-        SELECT * FROM interactive_flow_sessions AS s
-        JOIN authorization_codes AS ac ON s.id = ac.session_id
-        WHERE ac.code = :code
-        """
-    )
-    suspend fun findByCode(code: String): InteractiveFlowSessionEntity?
-
-    @Query(
-        """
         SELECT * FROM interactive_flow_sessions
         WHERE expiration_date < CURRENT_TIMESTAMP
         """

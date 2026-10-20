@@ -11,13 +11,11 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
+import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenExchangeManager
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
@@ -46,9 +44,7 @@ import java.time.Duration
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
 class TokenController(
-    @Inject private val sessionManager: InteractiveFlowSessionManager,
-    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val authorizeFlowManager: AuthorizationFlowManager,
+    @Inject private val authorizationCodeManager: AuthorizationCodeManager,
     @Inject private val tokenManager: TokenManager,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
@@ -81,7 +77,7 @@ class TokenController(
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired or issued to another " +
                     "client; `refresh_token` was issued under a grant that was revoked, that " +
-                    "`auth.token.grant-expiration` has ended, or that was opened for an audience its client no " +
+                    "`auth.grant.expiration` has ended, or that was opened for an audience its client no " +
                     "longer belongs to; `code` was already exchanged; `code_verifier` " +
                     "does not match the authorization request; the consent of the end-user was revoked, or " +
                     "the user never " +
@@ -134,9 +130,10 @@ class TokenController(
         @Schema(
             name = CODE_PARAM,
             description = "Authorization code the browser brought back to the `redirect_uri` of the " +
-                "authorization request. It is exchanged once: a later exchange is refused, and one passing " +
-                "every other check also revokes every token issued for the code, refreshed ones included. " +
-                "Required for the `authorization_code` grant."
+                "authorization request. It expires `auth.authorization-code.expiration` after this server " +
+                "issued it. It is exchanged once: a later exchange is refused, and one passing every other " +
+                "check also revokes every token issued for the code, refreshed ones included. Required for " +
+                "the `authorization_code` grant."
         )
         code: String?,
         @Part(REFRESH_TOKEN_PARAM)
@@ -295,26 +292,22 @@ class TokenController(
             throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to CODE_PARAM)
         }
 
-        val session = sessionManager.findByCodeOrNull(code)
-        val oauth2 = session?.let { oauth2Manager.fetchOAuth2OrNull(it) }
-        val (completedSession, completedOAuth2) = try {
-            authorizeFlowManager.checkCanIssueToken(session, oauth2, client)
-        } catch (e: BusinessException) {
-            throw e.toOAuth2Exception(INVALID_GRANT)
-        }
+        val (authorizationCode, grant) = authorizationCodeManager.checkCanExchange(
+            authorizationCodeManager.findByCodeOrNull(code), client
+        )
 
         // Verify PKCE before issuing tokens
         try {
             pkceManager.verifyCodeVerifier(
                 codeVerifier = codeVerifier,
-                codeChallenge = completedOAuth2.codeChallenge,
-                codeChallengeMethod = completedOAuth2.codeChallengeMethod
+                codeChallenge = authorizationCode.codeChallenge,
+                codeChallengeMethod = authorizationCode.codeChallengeMethod
             )
         } catch (e: BusinessException) {
             throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
-        val tokens = tokenManager.generateTokens(completedSession, completedOAuth2, client, dpopJkt = dpopProof?.jkt)
+        val tokens = tokenManager.generateTokensForUser(authorizationCode, grant, client, dpopJkt = dpopProof?.jkt)
         val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
         return TokenResource(

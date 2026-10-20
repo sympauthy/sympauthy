@@ -106,29 +106,28 @@ class RepositoryFixture(val database: Database) {
     }
 
     /**
-     * Saves the authorization code a session was handed back, naming the grant [grantId] its authorization
-     * opened, or a grant of its own where none is given.
+     * Saves the authorization code an authorization handed back, under the grant [grantId] it opened.
      */
     suspend fun newCode(
-        sessionId: UUID,
+        grantId: UUID,
         code: String,
-        grantId: UUID? = null,
         expirationDate: LocalDateTime = BASE_DATE.plusMinutes(10),
         exchangeDate: LocalDateTime? = null
     ) {
         val codes = database.bean<AuthorizationCodeRepository>()
-        val namedGrantId = grantId ?: newGrant(newUser())
         codes.save(
             AuthorizationCodeEntity(
-                sessionId = sessionId,
+                grantId = grantId,
                 code = code,
-                grantId = namedGrantId,
+                codeChallenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+                codeChallengeMethod = "S256",
+                nonce = null,
                 creationDate = BASE_DATE,
                 expirationDate = expirationDate,
                 exchangeDate = exchangeDate
             )
         )
-        deleteOnEnd { codes.deleteBySessionIdIn(listOf(sessionId)) }
+        deleteOnEnd { codes.deleteById(grantId) }
     }
 
     /**

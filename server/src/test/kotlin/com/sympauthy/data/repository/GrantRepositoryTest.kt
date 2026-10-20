@@ -151,7 +151,7 @@ class GrantRepositoryTest {
         withFixture(database) {
             val grants = repository<GrantRepository>()
             val id = newGrant(newUser(), clientId = clientId, audienceId = audienceId)
-            newCode(newSession().id!!, "grant-repository-test-pending-code", grantId = id, expirationDate = liveUntil)
+            newCode(id, "grant-repository-test-pending-code", expirationDate = liveUntil)
 
             assertEquals(1, grants.updateRevokedAt(id, revokedAt, "ADMIN", null))
         }
@@ -164,14 +164,11 @@ class GrantRepositoryTest {
         val grants = repository<GrantRepository>()
         val exchanged = newGrant(newUser(), clientId = clientId, audienceId = audienceId)
         newCode(
-            newSession().id!!, "grant-repository-test-exchanged-code", grantId = exchanged,
+            exchanged, "grant-repository-test-exchanged-code",
             expirationDate = liveUntil, exchangeDate = BASE_DATE
         )
         val expired = newGrant(newUser(), clientId = clientId, audienceId = audienceId)
-        newCode(
-            newSession().id!!, "grant-repository-test-expired-code", grantId = expired,
-            expirationDate = revokedAt.minusMinutes(1)
-        )
+        newCode(expired, "grant-repository-test-expired-code", expirationDate = revokedAt.minusMinutes(1))
 
         assertEquals(0, grants.updateRevokedAt(exchanged, revokedAt, "ADMIN", null))
         assertEquals(0, grants.updateRevokedAt(expired, revokedAt, "ADMIN", null))
@@ -335,7 +332,7 @@ class GrantRepositoryTest {
                 revokedAt = earlierRevokedAt,
                 revokedBy = "AUTHORIZATION_CODE_REPLAYED"
             )
-            newCode(newSession().id!!, "grant-repository-test-code", grantId = namedByCode)
+            newCode(namedByCode, "grant-repository-test-code")
 
             val count = grants.deleteFinished()
 

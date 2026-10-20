@@ -3,9 +3,7 @@ package com.sympauthy.data.repository
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.bean
-import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.withFixture
-import com.sympauthy.util.isRowAlreadyThere
 import io.r2dbc.spi.Connection
 import io.r2dbc.spi.ConnectionFactory
 import kotlinx.coroutines.Dispatchers
@@ -20,13 +18,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.util.*
 
 /**
- * The code handed back from an authorize request, keyed by the session it belongs to rather than by an
+ * The code handed back from an authorize request, keyed by the grant it was issued under rather than by an
  * identifier of its own, so the insert has to carry the key it was given.
  *
  * The exchange is the one write here two requests race over, so the case proving it holds its first
@@ -47,36 +44,81 @@ class AuthorizationCodeRepositoryTest {
     @EnumSource(Database::class)
     fun `save - Carries the assigned key and round-trips the row`(database: Database) = withFixture(database) {
         val codes = repository<AuthorizationCodeRepository>()
-        val session = newSession()
         val grantId = newGrant(newUser())
 
-        newCode(session.id!!, code, grantId = grantId)
+        newCode(grantId, code)
 
-        val stored = codes.findById(session.id!!)
+        val stored = codes.findById(grantId)
         assertNotNull(stored)
-        assertEquals(session.id, stored!!.sessionId)
+        assertEquals(grantId, stored!!.grantId)
         assertEquals(code, stored.code)
+        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", stored.codeChallenge)
+        assertEquals("S256", stored.codeChallengeMethod)
+        assertNull(stored.nonce)
         assertEquals(BASE_DATE, stored.creationDate)
         assertEquals(BASE_DATE.plusMinutes(10), stored.expirationDate)
         assertNull(stored.exchangeDate)
-        assertEquals(grantId, stored.grantId)
     }
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateExchangeDate - Writes the date once, and on the code of that session alone`(database: Database) =
+    fun `findByCode - Answers the code holding that value`(database: Database) = withFixture(database) {
+        val codes = repository<AuthorizationCodeRepository>()
+        val grantId = newGrant(newUser())
+        newCode(grantId, code)
+        newCode(newGrant(newUser()), otherCode)
+
+        assertEquals(grantId, codes.findByCode(code)?.grantId)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findByCode - Answers null when no code holds that value`(database: Database) = withFixture(database) {
+        val codes = repository<AuthorizationCodeRepository>()
+        newCode(newGrant(newUser()), code)
+
+        assertNull(codes.findByCode("authorization-code-repository-test-absent"))
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findBySessionId - Answers the code of the grant the session opened`(database: Database) =
         withFixture(database) {
             val codes = repository<AuthorizationCodeRepository>()
-            val session = newSession()
-            val other = newSession()
-            newCode(session.id!!, code)
-            newCode(other.id!!, otherCode)
+            val sessionId = UUID.randomUUID()
+            val grantId = newGrant(newUser(), sessionId = sessionId)
+            newCode(grantId, code)
+            newCode(newGrant(newUser()), otherCode)
 
-            assertEquals(1, codes.updateExchangeDate(session.id!!, BASE_DATE))
-            assertEquals(0, codes.updateExchangeDate(session.id!!, BASE_DATE.plusMinutes(1)))
+            assertEquals(code, codes.findBySessionId(sessionId)?.code)
+        }
 
-            assertEquals(BASE_DATE, codes.findById(session.id!!)!!.exchangeDate)
-            assertNull(codes.findById(other.id!!)!!.exchangeDate)
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findBySessionId - Answers null for a session whose grant holds no code`(database: Database) =
+        withFixture(database) {
+            val codes = repository<AuthorizationCodeRepository>()
+            val sessionId = UUID.randomUUID()
+            newGrant(newUser(), sessionId = sessionId)
+
+            assertNull(codes.findBySessionId(sessionId))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateExchangeDate - Writes the date once, and on the code of that grant alone`(database: Database) =
+        withFixture(database) {
+            val codes = repository<AuthorizationCodeRepository>()
+            val grantId = newGrant(newUser())
+            val otherGrantId = newGrant(newUser())
+            newCode(grantId, code)
+            newCode(otherGrantId, otherCode)
+
+            assertEquals(1, codes.updateExchangeDate(grantId, BASE_DATE))
+            assertEquals(0, codes.updateExchangeDate(grantId, BASE_DATE.plusMinutes(1)))
+
+            assertEquals(BASE_DATE, codes.findById(grantId)!!.exchangeDate)
+            assertNull(codes.findById(otherGrantId)!!.exchangeDate)
         }
 
     @ParameterizedTest
@@ -85,18 +127,18 @@ class AuthorizationCodeRepositoryTest {
         database: Database
     ) = withFixture(database) {
         val codes = repository<AuthorizationCodeRepository>()
-        val session = newSession()
-        val other = newSession()
-        newCode(session.id!!, code)
-        newCode(other.id!!, otherCode)
+        val grantId = newGrant(newUser())
+        val otherGrantId = newGrant(newUser())
+        newCode(grantId, code)
+        newCode(otherGrantId, otherCode)
         val holder = database.bean<ConnectionFactory>().create().awaitFirst()
 
         try {
-            holder.exchange(session.id!!)
+            holder.exchange(grantId)
 
             coroutineScope {
-                val waiting = async(Dispatchers.IO) { codes.updateExchangeDate(session.id!!, BASE_DATE) }
-                val elsewhere = async(Dispatchers.IO) { codes.updateExchangeDate(other.id!!, BASE_DATE) }
+                val waiting = async(Dispatchers.IO) { codes.updateExchangeDate(grantId, BASE_DATE) }
+                val elsewhere = async(Dispatchers.IO) { codes.updateExchangeDate(otherGrantId, BASE_DATE) }
                 withContext(Dispatchers.IO) { delay(hold) }
 
                 assertFalse(waiting.isCompleted, "The code was written while another exchange held it.")
@@ -112,68 +154,33 @@ class AuthorizationCodeRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `deleteBySessionIdIn - Removes the codes of every session and counts them`(database: Database) =
-        withFixture(database) {
-            val codes = repository<AuthorizationCodeRepository>()
-            val deleted = newSession()
-            val alsoDeleted = newSession()
-            val kept = newSession()
-            newCode(deleted.id!!, code)
-            newCode(alsoDeleted.id!!, otherCode)
-            newCode(kept.id!!, "authorization-code-repository-test-kept-code")
+    fun `deleteByExpirationDateLessThan - Removes the codes expired before it, exchanged or not`(
+        database: Database
+    ) = withFixture(database) {
+        val codes = repository<AuthorizationCodeRepository>()
+        val expired = newGrant(newUser())
+        val exchanged = newGrant(newUser())
+        val kept = newGrant(newUser())
+        newCode(expired, code, expirationDate = BASE_DATE.minusMinutes(1))
+        newCode(
+            exchanged, otherCode,
+            expirationDate = BASE_DATE.minusMinutes(1), exchangeDate = BASE_DATE.minusMinutes(2)
+        )
+        newCode(kept, "authorization-code-repository-test-kept-code", expirationDate = BASE_DATE)
 
-            val count = codes.deleteBySessionIdIn(listOf(deleted.id!!, alsoDeleted.id!!))
+        val count = codes.deleteByExpirationDateLessThan(BASE_DATE)
 
-            assertEquals(2, count)
-            assertNull(codes.findById(deleted.id!!))
-            assertNull(codes.findById(alsoDeleted.id!!))
-            assertNotNull(codes.findById(kept.id!!))
-        }
+        assertEquals(2, count)
+        assertNull(codes.findById(expired))
+        assertNull(codes.findById(exchanged))
+        assertNotNull(codes.findById(kept))
+    }
 
-    /**
-     * A departure from leaving a constraint to the database: `AuthorizationCodeManager` reads this refusal
-     * as the session having already taken its code and answers the replay with it, so a dialect refusing it
-     * as something else leaves that branch unreachable and answers a replay with a `500`.
-     */
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `save - Refuses a second code for one session, on either dialect`(database: Database) =
-        withFixture(database) {
-            val session = newSession()
-            newCode(session.id!!, code)
-
-            val refusal = assertThrows<Exception> { newCode(session.id!!, otherCode) }
-
-            assertTrue(refusal.isRowAlreadyThere(), "The refusal does not read as the key being taken.")
-        }
-
-    /**
-     * The other way the write is refused, and the reason that branch reads the refusal rather than the
-     * driver's whole class of integrity failures: a session that is gone is this server's own failure.
-     */
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `save - Refuses a code for a session that is not there, as something else`(database: Database) =
-        withFixture(database) {
-            val codes = repository<AuthorizationCodeRepository>()
-            val entity = AuthorizationCodeEntity(
-                sessionId = UUID.randomUUID(),
-                code = code,
-                grantId = newGrant(newUser()),
-                creationDate = BASE_DATE,
-                expirationDate = BASE_DATE.plusMinutes(10)
-            )
-
-            val refusal = assertThrows<Exception> { codes.save(entity) }
-
-            assertFalse(refusal.isRowAlreadyThere(), "A session that is gone reads as the key being taken.")
-        }
-
-    /** Opens a transaction on this connection and exchanges the code of [sessionId] in it, leaving both open. */
-    private suspend fun Connection.exchange(sessionId: UUID) {
+    /** Opens a transaction on this connection and exchanges the code of [grantId] in it, leaving both open. */
+    private suspend fun Connection.exchange(grantId: UUID) {
         beginTransaction().awaitFirstOrNull()
         createStatement(
-            "UPDATE authorization_codes SET exchange_date = LOCALTIMESTAMP WHERE session_id = '$sessionId'"
+            "UPDATE authorization_codes SET exchange_date = LOCALTIMESTAMP WHERE grant_id = '$grantId'"
         )
             .execute()
             .awaitFirst()

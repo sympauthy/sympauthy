@@ -64,8 +64,8 @@ class GrantFeatureIT : AbstractSympauthyIT() {
                 "token" to mapOf(
                     "refresh-enabled" to true,
                     "refresh-expiration" to "30d",
-                    "grant-expiration" to "${GRANT_LIFETIME_SECONDS}s",
                 ),
+                "grant" to mapOf("expiration" to "${GRANT_LIFETIME_SECONDS}s"),
             ),
         )
         val confidentialClient = Client.confidentialClient(clientId, CLIENT_SECRET)

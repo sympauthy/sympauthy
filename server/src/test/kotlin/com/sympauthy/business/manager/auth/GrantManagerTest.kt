@@ -19,6 +19,8 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.ByPasswordConfig
 import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.config.model.GrantConfig
+import com.sympauthy.config.model.InteractiveFlowConfig
 import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
@@ -70,10 +72,11 @@ class GrantManagerTest {
             idExpiration = Duration.ofHours(1),
             refreshEnabled = true,
             refreshExpiration = Duration.ofDays(30),
-            grantExpiration = grantExpiration,
             dpopRequired = false
         ),
         authorizationCode = AuthorizationCodeConfig(expiration = Duration.ofMinutes(30)),
+        interactiveFlow = InteractiveFlowConfig(expiration = Duration.ofMinutes(30)),
+        grant = GrantConfig(expiration = grantExpiration),
         identifierClaims = emptyList(),
         userMergingEnabled = false,
         byPassword = ByPasswordConfig(enabled = false)

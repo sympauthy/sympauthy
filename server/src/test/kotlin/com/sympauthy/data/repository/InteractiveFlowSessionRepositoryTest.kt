@@ -39,28 +39,6 @@ class InteractiveFlowSessionRepositoryTest {
         assertNull(stored.errorValues)
     }
 
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findByCode - Joins the authorization code back to its session`(database: Database) =
-        withFixture(database) {
-            val sessions = repository<InteractiveFlowSessionRepository>()
-            val session = newSession()
-            newCode(session.id!!, "interactive-flow-session-repository-test-code")
-
-            val found = sessions.findByCode("interactive-flow-session-repository-test-code")
-
-            assertEquals(session.id, found?.id)
-        }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `findByCode - Returns null when no code holds that value`(database: Database) = withFixture(database) {
-        val sessions = repository<InteractiveFlowSessionRepository>()
-        newSession()
-
-        assertNull(sessions.findByCode("interactive-flow-session-repository-test-absent"))
-    }
-
     /**
      * `CURRENT_TIMESTAMP` is the database's clock, not the JVM's, so the two sessions are dated a year
      * either side of now rather than around [BASE_DATE].

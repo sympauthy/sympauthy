@@ -94,7 +94,7 @@ data class Grant(
     val actorGrantId: UUID?,
     val creationDate: LocalDateTime,
     /**
-     * When this grant can no longer be refreshed, as `auth.token.grant-expiration` set it. Null where it has
+     * When this grant can no longer be refreshed, as `auth.grant.expiration` set it. Null where it has
      * no lifetime of its own. No token under it expires later.
      */
     override val expirationDate: LocalDateTime?,

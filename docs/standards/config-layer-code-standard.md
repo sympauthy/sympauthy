@@ -62,6 +62,11 @@ return an intermediate type whose fields are all nullable.
 **The validator only decides.** Check ranges, consistency between two values, and whether a
 referenced audience or scope exists, recording each error rather than throwing it.
 
+**A lifetime is refused unless it is greater than zero, through `validateLifetime`.** An expiration,
+a retention, a maximum age: zero reads as no lifetime and means the opposite, whatever the key bounds
+ending as soon as it began, so every lifetime is held to it and an operator reads
+`config.lifetime.not_positive` whichever key they wrote.
+
 **A cross-domain reference is passed in already resolved**, as a map the validator can look into.
 The factory resolves it and hands it over.
 

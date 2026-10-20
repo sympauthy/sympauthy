@@ -10,6 +10,8 @@ data class EnabledAuthConfig(
     val issuer: String,
     val token: TokenConfig,
     val authorizationCode: AuthorizationCodeConfig,
+    val interactiveFlow: InteractiveFlowConfig,
+    val grant: GrantConfig,
     /**
      * The claim IDs that identify an account, any one of which does so on its own: a value one of them
      * holds belongs to a single account across all of them rather than within one claim.

@@ -18,10 +18,9 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
@@ -69,30 +68,35 @@ open class TokenManager(
     }
 
     /**
-     * Exchange the authorization code [session] was handed for tokens, as [generateTokensOrNull] does.
+     * Exchange [code] for the tokens of the user its [grant] was opened for, as [generateTokensForUserOrNull]
+     * does.
      *
      * Throws an `OAuth2Exception` carrying `invalid_grant` and `code.already_exchanged` where a client
-     * already exchanged that code, once the grant the code names is revoked.
+     * already exchanged [code], once the grant it names is revoked.
      */
-    suspend fun generateTokens(
-        session: CompletedInteractiveFlowSession,
-        oauth2: InteractiveFlowSessionOAuth2,
+    suspend fun generateTokensForUser(
+        code: AuthorizationCode,
+        grant: Grant,
         client: Client,
         dpopJkt: String? = null
     ): GenerateTokenResult {
-        return generateTokensOrNull(session, oauth2, client, dpopJkt)
+        return generateTokensForUserOrNull(code, grant, client, dpopJkt)
             ?: throw oauth2ExceptionOf(INVALID_GRANT, "code.already_exchanged", "description.oauth2.replay")
     }
 
     /**
-     * Mark the authorization code [session] was handed as exchanged, and generate the tokens it is exchanged
-     * for under the grant the code names. [oauth2] is the request record of the authorization, read for the
-     * `nonce` the id token claims.
+     * Mark [code] as exchanged, and generate the tokens it is exchanged for under the grant it names. [grant]
+     * is that grant as the caller read it, which names the account whose lock is taken; it is read again once
+     * the lock is held.
+     *
+     * Throws `code.missing_user`, internal, where [grant] names no user: an authorization opens its grant for
+     * the person it signed in, so one without is this server's failure.
      *
      * Always generates an access token. An id token is generated where the grant carries the `openid`
-     * scope, and a refresh token where the [client] supports the [GrantType.REFRESH_TOKEN] grant type. A
-     * [session] that has expired issues nothing and throws an `OAuth2Exception` carrying `token.expired`, and
-     * so does a grant that is no longer live, as [checkLive] says, leaving the code unspent.
+     * scope, repeating the `nonce` [code] carries, and a refresh token where the [client] supports the
+     * [GrantType.REFRESH_TOKEN] grant type. A [code] that has expired issues nothing and throws an
+     * `OAuth2Exception` carrying `token.expired`, and so does a grant that is no longer live, as [checkLive]
+     * says, leaving the code unspent.
      *
      * Answers null where a client already exchanged the code, having issued nothing and revoked its grant —
      * the earlier exchange's tokens, and every refresh descended from them — as RFC 6749 §4.1.2 recommends.
@@ -104,40 +108,47 @@ open class TokenManager(
      * The grant is read, and the tokens written, holding the lock over the account every revocation of its
      * grants takes too, as a refresh does: a revocation either commits first and is read here as the refusal
      * it is, or waits for these tokens and finds the grant live through them.
+     *
+     * The code itself is not read again. A code collected since it was read while its grant is still there was
+     * one already exchanged — a grant is issued tokens through its code alone — so marking it answers false,
+     * and it is answered as the replay it is.
      */
     @Transactional
-    internal open suspend fun generateTokensOrNull(
-        session: CompletedInteractiveFlowSession,
-        oauth2: InteractiveFlowSessionOAuth2,
+    internal open suspend fun generateTokensForUserOrNull(
+        code: AuthorizationCode,
+        grant: Grant,
         client: Client,
         dpopJkt: String? = null
     ): GenerateTokenResult? {
-        if (session.expired) {
+        val userId = grant.userId
+            ?: throw internalBusinessExceptionOf("code.missing_user", "grantId" to grant.id.toString())
+        if (code.expired) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
-        // Never mint a token for an account a sign-up has not finished, however the session reached this
-        // point: a token is what turns an account into one another system will act on. Answered as the
-        // grant being invalid rather than as a business failure — this surface owes its caller an RFC 6749
-        // error object, the same reason TokenExchangeManager.resolveTargetUser refuses its own way.
-        checkPromotedOrInvalidGrant(session.userId)
+        // Never mint a token for an account a sign-up has not finished, however the code reached this point: a
+        // token is what turns an account into one another system will act on. Answered as the grant being
+        // invalid rather than as a business failure — this surface owes its caller an RFC 6749 error object,
+        // the same reason TokenExchangeManager.resolveTargetUser refuses its own way.
+        checkPromotedOrInvalidGrant(userId)
 
-        return lockManager.withLock(listOf(LockKey.User(session.userId))) {
-            val grant = fetchGrantOfCode(session)
-            if (!authorizationCodeManager.markExchanged(session)) {
-                grantManager.revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, revokedById = null)
+        return lockManager.withLock(listOf(LockKey.User(userId))) {
+            val liveGrant = fetchGrantOfCode(code)
+            if (!authorizationCodeManager.markExchanged(code)) {
+                grantManager.revokeGrant(liveGrant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, revokedById = null)
                 return@withLock null
             }
-            checkLive(grant)
-            generateTokensUnder(grant, oauth2, client, dpopJkt)
+            checkLive(liveGrant)
+            generateTokensUnder(liveGrant, code.nonce, client, dpopJkt)
         }
     }
 
     /**
-     * Generate the tokens the authorization code is exchanged for under its [grant], once the code is spent.
+     * Generate the tokens an authorization code is exchanged for under its [grant], once the code is spent,
+     * the id token repeating the [nonce] the code carries.
      */
     internal suspend fun generateTokensUnder(
         grant: Grant,
-        oauth2: InteractiveFlowSessionOAuth2,
+        nonce: String?,
         client: Client,
         dpopJkt: String?
     ): GenerateTokenResult = coroutineScope {
@@ -164,7 +175,7 @@ open class TokenManager(
                 grant = grant,
                 audienceId = client.audience.id,
                 accessToken = accessToken,
-                nonce = oauth2.nonce
+                nonce = nonce
             )
         }
 
@@ -176,19 +187,16 @@ open class TokenManager(
     }
 
     /**
-     * The grant the authorization code [session] was handed names, which the authorization opened before
-     * handing it out.
+     * The grant [code] names, read again once the lock over its account is held: a revocation committed while
+     * the lock was awaited is only seen by a read made after.
      *
-     * Throws an `OAuth2Exception` carrying `invalid_grant` and `token.expired` where the code is gone, which is
-     * a session the cleaner collected since it was read: the session had expired, and is refused as one.
-     * Throws `code.missing_grant`, internal, where the grant is not there: a grant a stored code names is kept
-     * as long as the code is, so a code naming one that is gone is this server's failure.
+     * Throws an `OAuth2Exception` carrying `invalid_grant` and `token.expired` where the grant is gone. A grant
+     * is kept as long as its code is, so one gone is a code collected since it was read: it had expired, and is
+     * refused as one.
      */
-    internal suspend fun fetchGrantOfCode(session: CompletedInteractiveFlowSession): Grant {
-        val code = authorizationCodeManager.fetchCodeOrNull(session)
-            ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
+    internal suspend fun fetchGrantOfCode(code: AuthorizationCode): Grant {
         return grantManager.findByIdOrNull(code.grantId)
-            ?: throw internalBusinessExceptionOf("code.missing_grant", "sessionId" to session.id.toString())
+            ?: throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
     }
 
     /**

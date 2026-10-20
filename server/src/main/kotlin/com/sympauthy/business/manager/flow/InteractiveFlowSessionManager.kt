@@ -75,7 +75,7 @@ open class InteractiveFlowSessionManager(
             initiatingClientId = initiatingClientId,
             flowId = flow?.id,
             sessionDate = now,
-            expirationDate = now.plus(uncheckedAuthConfig.orThrow().authorizationCode.expiration),
+            expirationDate = now.plus(uncheckedAuthConfig.orThrow().interactiveFlow.expiration),
 
             successRedirectUri = successRedirectUri?.toString(),
             redirectType = redirectType?.name,
@@ -400,14 +400,6 @@ open class InteractiveFlowSessionManager(
         return getUserOrNull(session) ?: throw businessExceptionOf(
             detailsId = "auth.interactive_flow_session.user.missing"
         )
-    }
-
-    suspend fun findByCodeOrNull(code: String): InteractiveFlowSession? {
-        val session = sessionRepository.findByCode(code)
-            ?.let(sessionMapper::toInteractiveFlowSession)
-        return if (session?.expired == false) {
-            session
-        } else null
     }
 
     /**

@@ -63,8 +63,8 @@ open class GrantManager(
      *
      * A session opens one grant: the unique index over the session a grant came from refuses a second, and
      * with the grant written as the session completes, the request refused is one whose completion lost to a
-     * concurrent one. It throws `auth.interactive_flow_session.concurrent_modification`, as the code written
-     * after it and the version check after that would, so it is routed by where the winner left the session.
+     * concurrent one. It throws `auth.interactive_flow_session.concurrent_modification`, as the version check
+     * after it would, so it is routed by where the winner left the session.
      * Every other way the write can be refused travels on as this server's own failure.
      */
     suspend fun createAuthorizationCodeGrant(
@@ -155,7 +155,7 @@ open class GrantManager(
     )
 
     /**
-     * Write a new grant, opened now, and give it the lifetime `auth.token.grant-expiration` configures.
+     * Write a new grant, opened now, and give it the lifetime `auth.grant.expiration` configures.
      *
      * Throws `user.not_found` or `user.not_promoted` where [userId] names no account this server has finished
      * creating, as [UserManager.checkPromoted] does: a grant outlives the session that may still be signing
@@ -200,7 +200,7 @@ open class GrantManager(
             sessionId = sessionId,
             actorGrantId = actorGrantId,
             creationDate = creationDate,
-            expirationDate = authConfig.token.grantExpiration?.let(creationDate::plus)
+            expirationDate = authConfig.grant.expiration?.let(creationDate::plus)
         )
         return grantMapper.toGrant(grantRepository.save(entity))
     }

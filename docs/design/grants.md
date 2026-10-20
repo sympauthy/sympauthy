@@ -102,9 +102,9 @@ and the exchange takes the code out of service too: its exchange is refused with
 `grant.revoked`, and the code is left unspent.
 
 **A replayed authorization code reaches its grant through the code.** A second exchange revokes the
-grant the code names, under [the replay rule](security.md#the-authorization-code): the first
-exchange's tokens and every refresh descended from them are under it. A grant a stored code names is
-kept as long as the code is, revoked or not, so every later replay finds it too.
+grant the code names, under [the replay rule](oauth2-authorization.md#a-code-is-exchanged-once): the
+first exchange's tokens and every refresh descended from them are under it. A grant a stored code
+names is kept as long as the code is, revoked or not, so every later replay finds it too.
 
 **A grant is revoked once, and keeps the revocation that came first.** Every revocation reaches only
 the grants still live — not revoked yet, not past their lifetime, and holding a token that has not
@@ -118,7 +118,7 @@ how many tokens stood under one depends only on how often its client refreshed.
 ## How long a grant lives
 
 **A grant may be given an absolute lifetime, which no refresh extends.** Once
-`auth.token.grant-expiration` has passed since a grant was opened, its refresh token is refused with
+`auth.grant.expiration` has passed since a grant was opened, its refresh token is refused with
 `invalid_grant` and `grant.expired`, whatever its own expiry, and so is its code if it was never
 exchanged; the person signs in again however often the client refreshed. Left unset, a grant has no
 lifetime of its own, and refreshing keeps it alive for as long as its refresh tokens allow.
@@ -138,10 +138,11 @@ with `token.invalid_token_id` like any other.
 ## What is collected
 
 **A grant is kept while a token or an authorization code names it.** A scheduled job deletes every
-expired token and every token of a revoked grant, and then every grant left with neither; the code
-goes with its interactive flow session, so a grant whose code was never exchanged goes once the
-session is collected. A refresh adds an access token to its grant every time, so a grant refreshed
-for months would otherwise keep every one of them.
+expired token, every token of a revoked grant and every code past [its
+lifetime](oauth2-authorization.md#how-long-a-code-is-exchangeable), exchanged or not, and then every
+grant left with neither; a grant whose code was never exchanged therefore goes once the code does. A
+refresh adds an access token to its grant every time, so a grant refreshed for months would
+otherwise keep every one of them.
 
 **A revoked grant is deleted on the next run, with its tokens.** Nothing reads who revoked a grant
 or when once it is written, and a token whose grant is gone is refused as surely as one whose grant
@@ -165,8 +166,8 @@ grant](design-faq.md#why-is-the-record-a-token-is-issued-under-called-a-grant) i
 effect**, after the scopes are granted and the consent recorded and before
 `AuthorizationCodeManager` generates the code naming it. It takes no lock of its own: the completion
 transaction already holds the locks its promotion named, and a unique index over the session a
-grant came from is what settles two completions racing, as the primary key over the session settles
-them at the code.
+grant came from is what settles two completions racing: the one refused there never reaches its
+code.
 
 **`GrantManager` opens a grant and revokes one**, and is where every revocation above is written.
 `TokenManager` issues the tokens under a grant and checks one presented to it against its grant;
@@ -187,9 +188,9 @@ revocation finds their tokens and revokes their grant.
 
 **`GrantCleaner` is the collecting job**, run by `CleanFinishedGrantCron` under a
 [lease](../standards/locking-standard.md#the-lease) like every job one instance is enough for. It
-deletes a grant only in the transaction deleting its tokens, and a token only some minutes after it
-expired, so a refresh that found its token unexpired a moment before still finds its grant to write
-under.
+deletes a grant only in the transaction deleting its tokens and its code, and a token or a code only
+some minutes after it expired, so a refresh that found its token unexpired a moment before, or an
+exchange its code, still finds the grant to write under.
 
 **A grant keeps the interactive flow session it came from, and nothing reads it.** The session is
 collected long before most grants end, so the reference is left dangling by design: it is what the

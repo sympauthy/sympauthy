@@ -375,6 +375,60 @@ where nobody but the client holds the verifier, that exchange was the client's o
 
 ---
 
+### How long is an authorization code exchangeable?
+
+**Decision:** For a lifetime of its own, `auth.authorization-code.expiration`, counted from when the
+authorization hands it out — a minute unless a deployment says otherwise.
+
+**Options considered:**
+
+- **Until the session that issued it expires** — what this server did while a code copied the
+  expiry of its session, which is given the whole time a flow is allowed when it starts.
+- **A lifetime of its own, ten minutes by default** — the most RFC 6749 §4.1.2 recommends.
+- **A lifetime of its own, a minute by default.**
+
+**Rationale:**
+
+A code is what leaks — into a log, a browser's history, a `Referer` — so how long it stays
+exchangeable is how long a leaked one is worth something, and that is a security property a
+deployment should be able to set. Ending it with the session made it depend on how fast the person
+was instead: one who signed in within a minute handed the client a code exchangeable for almost the
+whole of the flow's time, and one who took nearly all of it handed over a code with a moment left,
+so the client most likely to be refused was the one whose person had been slowest.
+
+A client exchanges a code as soon as the person is redirected back to it, so the lifetime has to
+cover that one request, a slow network and a retry, and a minute does. Ten would add nine minutes no
+client needs, and the only party they help is one holding a code that leaked.
+
+---
+
+### How long is a spent authorization code kept?
+
+**Decision:** Until its own lifetime ends. A code is collected then whether or not it was exchanged,
+and one presented after it is refused as expired and revokes nothing.
+
+**Options considered:**
+
+- **Until its session is collected** — what this server did while a code went with its session.
+- **Until its lifetime ends.**
+- **Until its grant is collected** — a replay recognised for as long as anything stands under the
+  grant.
+
+**Rationale:**
+
+A spent code is kept so that a replay is recognised, and revokes the grant [the OAuth2
+authorization](oauth2-authorization.md#a-code-is-exchanged-once) says it does. That revocation
+answers one race: a code reaching somebody who exchanged it before the client did. Both of them
+exchange within the code's lifetime — the client because it exchanges as soon as it is redirected —
+so a code kept that long recognises every replay the race can produce.
+
+Keeping it until its grant is collected would recognise a replay for as long as the grant lives, but
+a grant is kept while a code names it, so the two would keep each other alive long after the race
+was over. Keeping it until its session is collected tied it to the time a flow is allowed, which no
+longer bounds anything about the code.
+
+---
+
 ### Does revoking an access token revoke the refresh token beside it?
 
 **Decision:** Yes. The revocation endpoint revokes the grant of whichever token it is given, so an

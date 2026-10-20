@@ -19,13 +19,12 @@ import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.AuthorizationCode
+import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -51,6 +50,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
+import java.time.LocalDateTime
 import java.time.LocalDateTime.now
 import java.util.*
 
@@ -178,36 +178,24 @@ class TokenManagerTest {
         assertSame(failure, exception)
     }
 
-    @Test
-    fun `generateTokens - Throws if session is expired`() = runTest {
-        val session = mockk<CompletedInteractiveFlowSession>()
-        val client = mockk<Client>()
-        every { session.expired } returns true
-        assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(session, mockk<InteractiveFlowSessionOAuth2>(), client)
-        }
+    /** A code naming a grant of its own, live for another minute unless [expirationDate] says otherwise. */
+    private fun code(expirationDate: LocalDateTime = now().plusMinutes(1)) = AuthorizationCode(
+        grantId = UUID.randomUUID(),
+        code = "code",
+        codeChallenge = "challenge",
+        codeChallengeMethod = CodeChallengeMethod.S256,
+        nonce = "nonce",
+        creationDate = expirationDate.minusMinutes(1),
+        expirationDate = expirationDate
+    )
 
-        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
-    }
+    /** The grant [code] names as the caller read it, before the lock: it is asked for nothing but its account. */
+    private fun grantReadBeforeTheLock(userId: UUID): Grant = mockk { every { this@mockk.userId } returns userId }
 
-    /** Stubs [session] as completed, unexpired and signed in as [userId], holding a code naming [grant]. */
-    private fun stubExchangeableSession(
-        session: CompletedInteractiveFlowSession,
-        userId: UUID,
-        grant: Grant?
-    ) {
-        val grantId = UUID.randomUUID()
-        every { session.expired } returns false
-        every { session.userId } returns userId
+    /** Stubs [code] as naming [grant] once the lock is held, and [userId] as an account a sign-up finished. */
+    private fun stubExchangeableCode(code: AuthorizationCode, userId: UUID, grant: Grant) {
         coJustRun { userManager.checkPromoted(userId) }
-        coEvery { authorizationCodeManager.fetchCodeOrNull(session) } returns AuthorizationCode(
-            sessionId = UUID.randomUUID(),
-            code = "code",
-            creationDate = now(),
-            expirationDate = now(),
-            grantId = grantId
-        )
-        coEvery { grantManager.findByIdOrNull(grantId) } returns grant
+        coEvery { grantManager.findByIdOrNull(code.grantId) } returns grant
     }
 
     private fun mockGrant(
@@ -221,10 +209,39 @@ class TokenManagerTest {
     }
 
     @Test
-    fun `generateTokens - Generate all tokens under the grant the code names`() = runTest {
+    fun `generateTokensForUser - Refuses a code past its lifetime as expired, and spends nothing`() = runTest {
+        val code = code(expirationDate = now().minusSeconds(1))
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(UUID.randomUUID()), mockk())
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("token.expired", exception.detailsId)
+        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
+        coVerify(exactly = 0) { grantManager.revokeGrant(any(), any(), any()) }
+    }
+
+    @Test
+    fun `generateTokensForUser - Throws internal for a grant opened for no user, and spends nothing`() = runTest {
+        val grant = mockk<Grant> {
+            every { id } returns UUID.randomUUID()
+            every { userId } returns null
+        }
+
+        val exception = assertThrows<BusinessException> {
+            tokenManager.generateTokensForUser(code(), grant, mockk())
+        }
+
+        assertEquals("code.missing_user", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
+    }
+
+    @Test
+    fun `generateTokensForUser - Generate all tokens under the grant the code names`() = runTest {
         val userId = UUID.randomUUID()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        val oauth2 = mockk<InteractiveFlowSessionOAuth2> { every { nonce } returns "nonce" }
+        val code = code()
         val client = mockClientWithGrantTypes(*GrantType.entries.toTypedArray())
         val audience = client.audience
         val grant = mockGrant(grantType = GrantType.AUTHORIZATION_CODE)
@@ -232,8 +249,8 @@ class TokenManagerTest {
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()
 
-        stubExchangeableSession(session, userId, grant)
-        coEvery { authorizationCodeManager.markExchanged(session) } returns true
+        stubExchangeableCode(code, userId, grant)
+        coEvery { authorizationCodeManager.markExchanged(code) } returns true
         coEvery {
             accessTokenGenerator.generateAccessToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
         } returns accessToken
@@ -246,49 +263,63 @@ class TokenManagerTest {
             )
         } returns idToken
 
-        val result = tokenManager.generateTokens(session, oauth2, client)
+        val result = tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(userId), client)
 
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)
         assertSame(idToken, result.idToken)
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
-            authorizationCodeManager.fetchCodeOrNull(session)
-            authorizationCodeManager.markExchanged(session)
+            grantManager.findByIdOrNull(code.grantId)
+            authorizationCodeManager.markExchanged(code)
             accessTokenGenerator.generateAccessToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
         }
     }
 
     @Test
-    fun `generateTokens - Refuses as expired a session whose code the cleaner collected meanwhile`() = runTest {
+    fun `generateTokensForUser - Refuses an account no sign-up finished, and spends nothing`() = runTest {
         val userId = UUID.randomUUID()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        every { session.expired } returns false
-        every { session.userId } returns userId
-        coJustRun { userManager.checkPromoted(userId) }
-        coEvery { authorizationCodeManager.fetchCodeOrNull(session) } returns null
+        coEvery { userManager.checkPromoted(userId) } throws BusinessException(
+            recoverable = false, detailsId = "user.not_promoted"
+        )
 
         val exception = assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(session, mockk(), mockk())
+            tokenManager.generateTokensForUser(code(), grantReadBeforeTheLock(userId), mockk())
+        }
+
+        assertEquals("grant.invalid_user", exception.detailsId)
+        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
+    }
+
+    @Test
+    fun `generateTokensForUser - Refuses as expired a code the cleaner collected with its grant meanwhile`() = runTest {
+        val userId = UUID.randomUUID()
+        val code = code()
+        coJustRun { userManager.checkPromoted(userId) }
+        coEvery { grantManager.findByIdOrNull(code.grantId) } returns null
+
+        val exception = assertThrows<OAuth2Exception> {
+            tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(userId), mockk())
         }
 
         assertEquals(INVALID_GRANT, exception.errorCode)
         assertEquals("token.expired", exception.detailsId)
         coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
+        coVerify(exactly = 0) { grantManager.revokeGrant(any(), any(), any()) }
     }
 
     @Test
-    fun `generateTokens - Revokes the grant the code names and issues none for a code already exchanged`() =
+    fun `generateTokensForUser - Revokes the grant the code names and issues none for a code already exchanged`() =
         runTest {
             val userId = UUID.randomUUID()
-            val session = mockk<CompletedInteractiveFlowSession>()
+            val code = code()
             val grant = mockk<Grant>()
-            stubExchangeableSession(session, userId, grant)
-            coEvery { authorizationCodeManager.markExchanged(session) } returns false
+            stubExchangeableCode(code, userId, grant)
+            coEvery { authorizationCodeManager.markExchanged(code) } returns false
             coJustRun { grantManager.revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, null) }
 
             val exception = assertThrows<OAuth2Exception> {
-                tokenManager.generateTokens(session, mockk(), mockk())
+                tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(userId), mockk())
             }
 
             assertEquals(INVALID_GRANT, exception.errorCode)
@@ -302,14 +333,14 @@ class TokenManagerTest {
         }
 
     @Test
-    fun `generateTokens - Refuses a code whose grant was revoked before it was exchanged`() = runTest {
+    fun `generateTokensForUser - Refuses a code whose grant was revoked before it was exchanged`() = runTest {
         val userId = UUID.randomUUID()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        stubExchangeableSession(session, userId, mockGrant(revoked = true))
-        coEvery { authorizationCodeManager.markExchanged(session) } returns true
+        val code = code()
+        stubExchangeableCode(code, userId, mockGrant(revoked = true))
+        coEvery { authorizationCodeManager.markExchanged(code) } returns true
 
         val exception = assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(session, mockk(), mockk())
+            tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(userId), mockk())
         }
 
         assertEquals(INVALID_GRANT, exception.errorCode)
@@ -319,36 +350,19 @@ class TokenManagerTest {
     }
 
     @Test
-    fun `generateTokens - Refuses a code whose grant is past its lifetime`() = runTest {
+    fun `generateTokensForUser - Refuses a code whose grant is past its lifetime`() = runTest {
         val userId = UUID.randomUUID()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        stubExchangeableSession(session, userId, mockGrant(expired = true))
-        coEvery { authorizationCodeManager.markExchanged(session) } returns true
+        val code = code()
+        stubExchangeableCode(code, userId, mockGrant(expired = true))
+        coEvery { authorizationCodeManager.markExchanged(code) } returns true
 
         val exception = assertThrows<OAuth2Exception> {
-            tokenManager.generateTokens(session, mockk(), mockk())
+            tokenManager.generateTokensForUser(code, grantReadBeforeTheLock(userId), mockk())
         }
 
         assertEquals("grant.expired", exception.detailsId)
         assertEquals("description.grant.expired", exception.descriptionId)
         coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
-    }
-
-    @Test
-    fun `generateTokens - Throws internal for a code naming a grant that is not there`() = runTest {
-        val userId = UUID.randomUUID()
-        val sessionId = UUID.randomUUID()
-        val session = mockk<CompletedInteractiveFlowSession>()
-        stubExchangeableSession(session, userId, grant = null)
-        every { session.id } returns sessionId
-
-        val exception = assertThrows<BusinessException> {
-            tokenManager.generateTokens(session, mockk(), mockk())
-        }
-
-        assertEquals("code.missing_grant", exception.detailsId)
-        assertFalse(exception.recoverable)
-        coVerify(exactly = 0) { authorizationCodeManager.markExchanged(any()) }
     }
 
     @Test
