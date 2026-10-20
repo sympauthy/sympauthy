@@ -16,15 +16,19 @@ import org.junit.jupiter.params.provider.EnumSource
  * any party could read a user's profile. The endpoint is `@Secured(IS_USER)`, so a missing or
  * unverifiable bearer must yield a 401, and a `client_credentials` token, which has no end-user behind
  * it, a 403. A refusal without a `WWW-Authenticate` challenge leaves a client unable to tell from the
- * response how it is expected to authenticate, which RFC 6750 §3 requires the challenge to say.
+ * response how it is expected to authenticate, which RFC 6750 §3 requires the challenge to say. A
+ * token is read from the `Authorization` header alone: one a browser sent along in a cookie would let
+ * any page the wildcard CORS policy admits act on behalf of whoever holds it.
  *
  * This calls UserInfo on the running native image with (a) no `Authorization` header, (b) a garbage
- * bearer and (c) a token issued by the `client_credentials` grant, asserting the status and the
- * challenge of each, on each supported database.
+ * bearer, (c) a token issued by the `client_credentials` grant and (d) a valid access token in the
+ * framework's `JWT` cookie and no `Authorization` header, asserting the status and the challenge of
+ * each, on each supported database.
  *
  * Source: [RFC 6750 §3 (The WWW-Authenticate Response Header Field)](https://datatracker.ietf.org/doc/html/rfc6750#section-3),
  * [RFC 9449 §7.2 (Compatibility with the Bearer Authentication Scheme)](https://datatracker.ietf.org/doc/html/rfc9449#section-7.2)
- * and [issue #533](https://github.com/sympauthy/sympauthy/issues/533).
+ * and issues [#533](https://github.com/sympauthy/sympauthy/issues/533) and
+ * [#598](https://github.com/sympauthy/sympauthy/issues/598).
  */
 @Tag("security")
 class UserInfoRejectsInvalidBearerIT : AbstractSympauthyIT() {
@@ -89,6 +93,30 @@ class UserInfoRejectsInvalidBearerIT : AbstractSympauthyIT() {
                 """Bearer realm="sympauthy", error="insufficient_scope", DPoP realm="sympauthy", algs="$ALGS"""",
                 response.headers().firstValue("WWW-Authenticate").orElse(null),
                 "a token that does not give access must be challenged with insufficient_scope",
+            )
+        }
+    }
+
+    @ParameterizedTest(name = "userinfo ignores an access token sent in a cookie on {0}")
+    @EnumSource(Database::class)
+    fun userInfoIgnoresAccessTokenInCookie(database: Database) {
+        withContainer(database) { sympauthy, registry ->
+            val accessToken = signUpAndExchange(sympauthy, registry).accessToken
+
+            val response = httpGet(
+                discovery(sympauthy).userinfoEndpoint!!,
+                headers = mapOf("Cookie" to "JWT=$accessToken"),
+            )
+
+            assertEquals(
+                401,
+                response.statusCode(),
+                "userinfo must not read an access token from a cookie, body=${response.body()}",
+            )
+            assertEquals(
+                """Bearer realm="sympauthy", DPoP realm="sympauthy", algs="$ALGS"""",
+                response.headers().firstValue("WWW-Authenticate").orElse(null),
+                "a request carrying its token only in a cookie must be challenged as one carrying none",
             )
         }
     }
