@@ -6,12 +6,15 @@ import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledProvidersConfig
 import com.sympauthy.config.model.ProvidersConfig
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -32,6 +35,8 @@ class UserProviderCollectionManagerTest {
     lateinit var userProviderCollectionManager: UserProviderCollectionManager
 
     private val userId: UUID = UUID.randomUUID()
+
+    private val user = mockk<User> { every { id } returns userId }
     private val linkedAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
     private val firstPage = PageParams(page = 0, size = 20)
 
@@ -56,7 +61,7 @@ class UserProviderCollectionManagerTest {
         val earlier = providerUserInfo("apple", linkDate = linkedAt.minusDays(1))
         coEvery { providerClaimsManager.findByUserId(userId) } returns listOf(tiedSecond, tiedFirst, earlier)
 
-        val result = userProviderCollectionManager.listUserProviders(userId, criteriaOf(), firstPage)
+        val result = userProviderCollectionManager.listUserProviders(user, criteriaOf(), firstPage)
 
         assertEquals(listOf("apple", "discord", "google"), result.items.map { it.providerId })
     }
@@ -70,7 +75,7 @@ class UserProviderCollectionManagerTest {
         )
 
         val result = userProviderCollectionManager.listUserProviders(
-            userId, criteriaOf(), PageParams(page = 1, size = 2)
+            user, criteriaOf(), PageParams(page = 1, size = 2)
         )
 
         assertEquals(listOf("google"), result.items.map { it.providerId })

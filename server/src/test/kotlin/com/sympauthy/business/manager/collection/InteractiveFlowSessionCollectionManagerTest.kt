@@ -407,16 +407,15 @@ class InteractiveFlowSessionCollectionManagerTest {
     fun `listSecurityContexts - Answers the places the session holds, the one seen most recently first`() =
         runTest {
             val session = entity()
-            coEvery { sessionRepository.findById(session.id!!) } returns session
             coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
                 observation(session.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
                 observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
             )
 
-            val page = manager.listSecurityContexts(session.id!!, placeCriteria(), PageParams(0, 20))
+            val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(0, 20))
 
-            assertEquals(listOf("198.51.100.4", "203.0.113.9"), page?.items?.map { it.ip })
-            assertEquals(2, page?.total)
+            assertEquals(listOf("198.51.100.4", "203.0.113.9"), page.items?.map { it.ip })
+            assertEquals(2, page.total)
         }
 
     /** Two places last seen at once still order the same way twice, so a walk cannot repeat one. */
@@ -424,55 +423,49 @@ class InteractiveFlowSessionCollectionManagerTest {
     fun `listSecurityContexts - Orders places seen at the same moment by address and user agent`() =
         runTest {
             val session = entity()
-            coEvery { sessionRepository.findById(session.id!!) } returns session
             coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
                 observation(session.id!!, ip = "198.51.100.4", userAgent = "b"),
                 observation(session.id!!, ip = "198.51.100.4", userAgent = "a"),
                 observation(session.id!!, ip = "127.0.0.1", userAgent = null)
             )
 
-            val page = manager.listSecurityContexts(session.id!!, placeCriteria(), PageParams(0, 20))
+            val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(0, 20))
 
             assertEquals(
                 listOf("127.0.0.1" to null, "198.51.100.4" to "a", "198.51.100.4" to "b"),
-                page?.items?.map { it.ip to it.userAgent }
+                page.items?.map { it.ip to it.userAgent }
             )
         }
 
     @Test
     fun `listSecurityContexts - Answers a page of the places the caller asked for`() = runTest {
         val session = entity()
-        coEvery { sessionRepository.findById(session.id!!) } returns session
         coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
             observation(session.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
             observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
         )
 
-        val page = manager.listSecurityContexts(session.id!!, placeCriteria(), PageParams(1, 1))
+        val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(1, 1))
 
-        assertEquals(listOf("203.0.113.9"), page?.items?.map { it.ip })
-        assertEquals(2, page?.total)
-    }
-
-    @Test
-    fun `listSecurityContexts - Answers nothing where no session holds the identifier`() = runTest {
-        val id = UUID.randomUUID()
-        coEvery { sessionRepository.findById(id) } returns null
-
-        assertNull(manager.listSecurityContexts(id, placeCriteria(), PageParams(0, 20)))
+        assertEquals(listOf("203.0.113.9"), page.items?.map { it.ip })
+        assertEquals(2, page.total)
     }
 
     /** A session that was driven from nowhere it could record is not a session that is gone. */
     @Test
     fun `listSecurityContexts - Answers an empty page where the session holds no place`() = runTest {
         val session = entity()
-        coEvery { sessionRepository.findById(session.id!!) } returns session
         coEvery { securityContextRepository.findBySessionId(session.id!!) } returns emptyList()
 
-        val page = manager.listSecurityContexts(session.id!!, placeCriteria(), PageParams(0, 20))
+        val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(0, 20))
 
-        assertEquals(emptyList<String>(), page?.items?.map { it.ip })
-        assertEquals(0, page?.total)
+        assertEquals(emptyList<String>(), page.items?.map { it.ip })
+        assertEquals(0, page.total)
+    }
+
+    /** The model of the session [entity] holds, as the caller that resolved it hands it over. */
+    private fun modelOf(entity: InteractiveFlowSessionEntity): InteractiveFlowSession = mockk {
+        every { id } returns entity.id!!
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.sympauthy.api.resource.openid.AddressResource
 import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -19,7 +20,7 @@ class UserInfoResourceMapper(
 
 
     /**
-     * The `/userinfo` answer for [userId], built from the [claims] a caller may read.
+     * The `/userinfo` answer for [user], built from the [claims] a caller may read.
      *
      * A claim the deployment does not publish in `/userinfo` is left out, whatever the ACL that let the
      * caller read it: this narrows what it is handed and permits nothing it was refused.
@@ -34,7 +35,7 @@ class UserInfoResourceMapper(
      * endpoint and then the other is owed the same shape from both.
      */
     suspend fun toResource(
-        userId: UUID,
+        user: User,
         claims: List<CollectedClaim>,
         requestedClaims: RequestedClaims = RequestedClaims.NONE
     ): UserInfoResource {
@@ -45,7 +46,7 @@ class UserInfoResourceMapper(
         val addressClaims = publishedClaims.filter { it.claim.group == ClaimGroup.ADDRESS }
 
         return UserInfoResource(
-            sub = generatedClaimsManager.computeSubject(userId),
+            sub = generatedClaimsManager.computeSubject(user.id),
             name = claimById.stringOrNull(OpenIdConnectClaimId.NAME),
             givenName = claimById.stringOrNull(OpenIdConnectClaimId.GIVEN_NAME),
             familyName = claimById.stringOrNull(OpenIdConnectClaimId.FAMILY_NAME),
@@ -64,7 +65,7 @@ class UserInfoResourceMapper(
             phoneNumber = claimById.stringOrNull(OpenIdConnectClaimId.PHONE_NUMBER),
             phoneNumberVerified = claimById[OpenIdConnectClaimId.PHONE_NUMBER]?.let { it.verified ?: false },
             address = toAddressResource(addressClaims),
-            updatedAt = generatedClaimsManager.computeUpdatedAt(userId),
+            updatedAt = generatedClaimsManager.computeUpdatedAt(user),
             additionalClaims = toAdditionalClaims(publishedClaims)
         )
     }

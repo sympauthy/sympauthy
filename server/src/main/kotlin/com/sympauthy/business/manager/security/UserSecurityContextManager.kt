@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.security
 
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.security.SecurityContextKey
 import com.sympauthy.business.model.security.securityContextKey
@@ -153,8 +154,8 @@ open class UserSecurityContextManager(
     )
 
     /**
-     * Fold what [sessionId] observed into the places [userId] is known to sign in from, and answer
-     * nothing.
+     * Fold what the completed [session] observed into the places its user is known to sign in from, and
+     * answer nothing.
      *
      * **Driven by a proven row rather than by the session carrying a user.** A session may hold a user
      * from the moment it was created without anybody having proven who they are — an enrollment an
@@ -168,10 +169,11 @@ open class UserSecurityContextManager(
      * sign-in succeeded with a `500`, over a history row. A transaction of its own is also what lets the
      * loser of that race re-read and update, which on PostgreSQL an aborted transaction could not.
      */
-    suspend fun fold(sessionId: UUID, userId: UUID) {
+    suspend fun fold(session: CompletedInteractiveFlowSession) {
+        val sessionId = session.id
         repeat(ATTEMPTS) { attempt ->
             try {
-                foldObservation(sessionId, userId)
+                foldObservation(sessionId, session.userId)
                 return
             } catch (cancelled: CancellationException) {
                 throw cancelled

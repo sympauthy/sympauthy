@@ -120,12 +120,13 @@ class ClaimsValidationController(
         @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest,
         @Body inputResource: ClaimValidationInputResource
     ): SimpleFlowResource =
-        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect(
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
             state = authentication.stateOrNull,
             observedRequest = observedRequest,
-            update = { session, _ ->
+            update = { session, _, user ->
                 claimValidationManager.validateClaimsByCode(
                     session = session,
+                    user = user,
                     media = toMedia(inputResource.media),
                     code = inputResource.code
                 )

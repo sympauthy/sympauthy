@@ -8,6 +8,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.user.User
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -37,6 +38,8 @@ class ConsentCollectionManagerTest {
     lateinit var consentCollectionManager: ConsentCollectionManager
 
     private val userId: UUID = UUID.randomUUID()
+
+    private val user = mockk<User> { every { id } returns userId }
     private val consentedAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
     private val firstPage = PageParams(page = 0, size = 20)
 
@@ -63,7 +66,7 @@ class ConsentCollectionManagerTest {
         coEvery { consentManager.findActiveConsentsByUser(userId) } returns
                 listOf(tiedSecond, tiedFirst, earlier)
 
-        val result = consentCollectionManager.listUserConsents(userId, criteriaOf(), firstPage)
+        val result = consentCollectionManager.listUserConsents(user, criteriaOf(), firstPage)
 
         assertEquals(listOf(earlier.id, tiedFirst.id, tiedSecond.id), result.items.map { it.id })
     }
@@ -76,7 +79,7 @@ class ConsentCollectionManagerTest {
             consent(id(3), consentedAt.plusDays(2))
         )
 
-        val result = consentCollectionManager.listUserConsents(userId, criteriaOf(), PageParams(page = 1, size = 2))
+        val result = consentCollectionManager.listUserConsents(user, criteriaOf(), PageParams(page = 1, size = 2))
 
         assertEquals(listOf(id(3)), result.items.map { it.id })
         assertEquals(3, result.total)
@@ -88,7 +91,7 @@ class ConsentCollectionManagerTest {
         val profile = consent(id(2), consentedAt).copy(scopes = listOf("profile"))
         coEvery { consentManager.findActiveConsentsByUser(userId) } returns listOf(openId, profile)
 
-        val result = consentCollectionManager.listUserConsents(userId, criteriaOf("scope" to "profile"), firstPage)
+        val result = consentCollectionManager.listUserConsents(user, criteriaOf("scope" to "profile"), firstPage)
 
         assertEquals(listOf(profile.id), result.items.map { it.id })
     }

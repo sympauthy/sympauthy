@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.user.claim.Claim
@@ -34,11 +35,11 @@ class ScopeManager(
     }
 
     /**
-     * List all [EnabledScope] visible for the given [audienceId].
+     * List all [EnabledScope] visible for the given [audience].
      * A scope is visible if it has no audience restriction or is restricted to this audience.
      */
-    suspend fun listEnabledScopesForAudience(audienceId: String): List<EnabledScope> {
-        return listEnabledScopes().filter { it.audienceId == null || it.audienceId == audienceId }
+    suspend fun listEnabledScopesForAudience(audience: Audience): List<EnabledScope> {
+        return listEnabledScopes().filter { it.audienceId == null || it.audienceId == audience.id }
     }
 
     /**

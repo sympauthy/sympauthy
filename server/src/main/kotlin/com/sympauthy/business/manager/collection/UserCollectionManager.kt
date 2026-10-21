@@ -145,7 +145,7 @@ class UserCollectionManager(
         user = row.user,
         collectedClaims = row.collectedClaims,
         generatedClaimValues = generatedClaimsManager.computeValues(
-            userId = row.user.id,
+            user = row.user,
             latestCollectionDate = row.latestCollectionDate
         )
     )

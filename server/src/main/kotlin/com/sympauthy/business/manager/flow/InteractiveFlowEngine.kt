@@ -151,7 +151,7 @@ open class InteractiveFlowEngine(
             // in user_security_contexts ever names one the abandoned-account sweep may delete — and a write
             // that can violate a unique index is kept out of a transaction whose rollback would answer a
             // person whose sign-in succeeded with a failure. It fails quietly for the same reason.
-            userSecurityContextManager.fold(completed.id, completed.userId)
+            userSecurityContextManager.fold(completed)
             InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
         } catch (refused: TerminalEffectRefusedException) {
             InteractiveFlowStepResult(
@@ -192,7 +192,7 @@ open class InteractiveFlowEngine(
         // nothing about the sweep that collects the account, which may have listed it before the promotion
         // committed and refuses to delete a promoted one on its own terms rather than on this one's — see
         // ProvisionalAccountManager.deleteAbandoned.
-        session.userId?.let { provisionalAccountManager.promote(session.id, it) }
+        provisionalAccountManager.promote(session)
         for (purpose in session.purposes) {
             val effect = purposeRegistry.getForPurpose(purpose).applyTerminalEffect(session)
             if (effect is TerminalEffectResult.Fail) {

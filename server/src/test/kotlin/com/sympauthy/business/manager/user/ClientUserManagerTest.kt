@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.collection.CollectionCriteria
@@ -45,6 +46,7 @@ class ClientUserManagerTest {
     lateinit var manager: ClientUserManager
 
     private val audienceId = "test-audience"
+    private val audience = Audience(id = audienceId, tokenAudience = audienceId)
 
     private fun mockUser(id: UUID = UUID.randomUUID()) = User(
         id = id,
@@ -86,10 +88,10 @@ class ClientUserManagerTest {
 
     @Test
     fun `listUsersForAudience - Returns empty when no consents`() = runTest {
-        coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20) } returns emptyList()
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 0
+        coEvery { consentManager.listActiveConsentsByAudience(audience, null, null, 0, 20) } returns emptyList()
+        coEvery { consentManager.countActiveConsentsByAudience(audience, null, null) } returns 0
 
-        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audience, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertTrue(page.items.isEmpty())
         assertEquals(0, page.total)
@@ -97,10 +99,10 @@ class ClientUserManagerTest {
 
     @Test
     fun `listUsersForAudience - Reports the total even on a page past the last`() = runTest {
-        coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 5, 20) } returns emptyList()
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 42
+        coEvery { consentManager.listActiveConsentsByAudience(audience, null, null, 5, 20) } returns emptyList()
+        coEvery { consentManager.countActiveConsentsByAudience(audience, null, null) } returns 42
 
-        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(5, 20))
+        val page = manager.listUsersForAudience(audience, CollectionCriteria.NONE, PageParams(5, 20))
 
         assertTrue(page.items.isEmpty())
         assertEquals(42, page.total)
@@ -112,13 +114,13 @@ class ClientUserManagerTest {
         val user = mockUser(userId)
         val consent = mockConsent(userId)
 
-        coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20) } returns listOf(consent)
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 1
+        coEvery { consentManager.listActiveConsentsByAudience(audience, null, null, 0, 20) } returns listOf(consent)
+        coEvery { consentManager.countActiveConsentsByAudience(audience, null, null) } returns 1
         coEvery { userManager.listByIds(listOf(userId)) } returns listOf(user)
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns emptyList()
 
-        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audience, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(1, page.items.size)
         assertEquals(userId, page.items[0].user.id)
@@ -136,9 +138,9 @@ class ClientUserManagerTest {
         val provider2 = mockProviderUserInfo(userId2, "discord", "456")
 
         coEvery {
-            consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20)
+            consentManager.listActiveConsentsByAudience(audience, null, null, 0, 20)
         } returns listOf(consent1, consent2)
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 2
+        coEvery { consentManager.countActiveConsentsByAudience(audience, null, null) } returns 2
         coEvery { userManager.listByIds(listOf(userId1, userId2)) } returns listOf(
             mockUser(userId1),
             mockUser(userId2)
@@ -148,7 +150,7 @@ class ClientUserManagerTest {
         } returns listOf(claim1)
         coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns listOf(provider2)
 
-        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audience, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(listOf(claim1), page.items[0].identifierClaims)
         assertTrue(page.items[0].providers.isEmpty())
@@ -165,13 +167,13 @@ class ClientUserManagerTest {
         val userIds = (1..3).map { UUID.randomUUID() }
         val consents = userIds.map { mockConsent(it) }
 
-        coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20) } returns consents
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 3
+        coEvery { consentManager.listActiveConsentsByAudience(audience, null, null, 0, 20) } returns consents
+        coEvery { consentManager.countActiveConsentsByAudience(audience, null, null) } returns 3
         coEvery { userManager.listByIds(userIds) } returns userIds.map(::mockUser).reversed()
         coEvery { collectedClaimManager.listIdentifierByUserIds(userIds) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(userIds) } returns emptyList()
 
-        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audience, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(userIds, page.items.map { it.user.id })
     }
@@ -182,13 +184,13 @@ class ClientUserManagerTest {
         val userId2 = UUID.randomUUID()
         val consents = listOf(mockConsent(userId1), mockConsent(userId2))
 
-        coEvery { consentManager.listActiveConsentsByAudience(audienceId, null, null, 0, 20) } returns consents
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, null, null) } returns 2
+        coEvery { consentManager.listActiveConsentsByAudience(audience, null, null, 0, 20) } returns consents
+        coEvery { consentManager.countActiveConsentsByAudience(audience, null, null) } returns 2
         coEvery { userManager.listByIds(listOf(userId1, userId2)) } returns listOf(mockUser(userId2))
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId1, userId2)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId1, userId2)) } returns emptyList()
 
-        val page = manager.listUsersForAudience(audienceId, CollectionCriteria.NONE, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audience, CollectionCriteria.NONE, PageParams(0, 20))
 
         assertEquals(listOf(userId2), page.items.map { it.user.id })
     }
@@ -200,15 +202,15 @@ class ClientUserManagerTest {
         val provider = mockProviderUserInfo(userId, "discord", "123")
 
         coEvery {
-            consentManager.listActiveConsentsByAudience(audienceId, "discord", "123", 1, 2)
+            consentManager.listActiveConsentsByAudience(audience, "discord", "123", 1, 2)
         } returns listOf(consent)
-        coEvery { consentManager.countActiveConsentsByAudience(audienceId, "discord", "123") } returns 3
+        coEvery { consentManager.countActiveConsentsByAudience(audience, "discord", "123") } returns 3
         coEvery { userManager.listByIds(listOf(userId)) } returns listOf(mockUser(userId))
         coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns emptyList()
         coEvery { providerClaimsManager.listByUserIds(listOf(userId)) } returns listOf(provider)
 
         val page = manager.listUsersForAudience(
-            audienceId, criteriaOf("provider_id" to "discord", "subject" to "123"), PageParams(1, 2)
+            audience, criteriaOf("provider_id" to "discord", "subject" to "123"), PageParams(1, 2)
         )
 
         assertEquals(listOf(userId), page.items.map { it.user.id })
@@ -262,7 +264,7 @@ class ClientUserManagerTest {
         // Nothing is stubbed on purpose: reaching the assertion is proof no query was run for a
         // subject that identifies nobody on its own.
         val exception = assertThrows<BusinessException> {
-            manager.listUsersForAudience(audienceId, criteriaOf("subject" to "123"), PageParams(0, 20))
+            manager.listUsersForAudience(audience, criteriaOf("subject" to "123"), PageParams(0, 20))
         }
 
         assertEquals("client.subject_without_provider", exception.detailsId)
@@ -274,7 +276,7 @@ class ClientUserManagerTest {
         // per field, so the answer is given without asking the database for it.
         val criteria = criteriaOf("provider_id" to "google", "provider_id" to "github")
 
-        val page = manager.listUsersForAudience(audienceId, criteria, PageParams(0, 20))
+        val page = manager.listUsersForAudience(audience, criteria, PageParams(0, 20))
 
         assertTrue(page.items.isEmpty())
         assertEquals(0, page.total)

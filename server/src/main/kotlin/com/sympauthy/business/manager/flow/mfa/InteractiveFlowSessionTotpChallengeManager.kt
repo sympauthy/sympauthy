@@ -30,7 +30,7 @@ class InteractiveFlowSessionTotpChallengeManager(
         user: User,
         code: String?
     ): InteractiveFlowSession {
-        if (code.isNullOrBlank() || !totpManager.isCodeValidForUser(user.id, code)) {
+        if (code.isNullOrBlank() || !totpManager.isCodeValidForUser(user, code)) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.mfa.totp.challenge.invalid_code",
                 descriptionId = "description.flow.mfa.totp.challenge.invalid_code"

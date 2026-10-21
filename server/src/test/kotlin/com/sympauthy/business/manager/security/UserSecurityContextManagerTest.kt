@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.security
 
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.security.SecurityContextGeo
 import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.business.model.security.securityContextKey
@@ -12,6 +13,7 @@ import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
+import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
@@ -42,6 +44,12 @@ class UserSecurityContextManagerTest {
 
     private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()
+    private val completedSession by lazy {
+        mockk<CompletedInteractiveFlowSession> {
+            every { id } returns sessionId
+            every { userId } returns this@UserSecurityContextManagerTest.userId
+        }
+    }
 
     @Test
     fun `observe - Records where the request came from`() = runTest {
@@ -162,7 +170,7 @@ class UserSecurityContextManagerTest {
     fun `fold - Writes nothing where the session recorded nothing`() = runTest {
         coEvery { sessionRepository.findBySessionId(sessionId) } returns emptyList()
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         coVerify(exactly = 0) { contextRepository.save(any()) }
         coVerify(exactly = 0) {
@@ -179,7 +187,7 @@ class UserSecurityContextManagerTest {
     fun `fold - Writes nothing against the person where no place was proven`() = runTest {
         coEvery { sessionRepository.findBySessionId(sessionId) } returns listOf(row(provenDate = null))
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         coVerify(exactly = 0) { contextRepository.save(any()) }
         coVerify { sessionRepository.deleteBySessionIdIn(listOf(sessionId)) }
@@ -192,7 +200,7 @@ class UserSecurityContextManagerTest {
         val written = slot<UserSecurityContextEntity>()
         coEvery { contextRepository.save(capture(written)) } answers { written.captured }
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         assertEquals(userId, written.captured.userId)
         assertEquals(FINGERPRINT, written.captured.fingerprint)
@@ -214,7 +222,7 @@ class UserSecurityContextManagerTest {
         val written = slot<UserSecurityContextEntity>()
         coEvery { contextRepository.save(capture(written)) } answers { written.captured }
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         assertEquals("e".repeat(64), written.captured.fingerprint)
         assertEquals("Paris", written.captured.city)
@@ -231,7 +239,7 @@ class UserSecurityContextManagerTest {
             contextRepository.updateLastSeenDate(any(), any(), any(), any(), any(), any(), any(), any())
         } returns 1
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         coVerify {
             contextRepository.updateLastSeenDate(
@@ -256,7 +264,7 @@ class UserSecurityContextManagerTest {
         )
         coEvery { contextRepository.findByUserIdAndFingerprint(userId, FINGERPRINT) } returns null
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         coVerify { sessionRepository.deleteBySessionIdIn(listOf(sessionId)) }
     }
@@ -266,7 +274,7 @@ class UserSecurityContextManagerTest {
         coEvery { sessionRepository.findBySessionId(sessionId) } returns listOf(row())
         coEvery { userManager.checkPromoted(userId) } throws IllegalStateException("provisional")
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         coVerify(exactly = 0) { contextRepository.save(any()) }
     }
@@ -286,7 +294,7 @@ class UserSecurityContextManagerTest {
             "transaction failed", EntityExistsException("duplicate key")
         )
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
 
         coVerify {
             contextRepository.updateLastSeenDate(
@@ -306,7 +314,7 @@ class UserSecurityContextManagerTest {
     fun `fold - Does not fail the flow when the place cannot be written`() = runTest {
         coEvery { sessionRepository.findBySessionId(sessionId) } throws IllegalStateException("down")
 
-        manager.fold(sessionId, userId)
+        manager.fold(completedSession)
     }
 
     /**

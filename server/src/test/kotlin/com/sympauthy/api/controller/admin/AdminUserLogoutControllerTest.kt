@@ -41,6 +41,8 @@ class AdminUserLogoutControllerTest {
     lateinit var controller: AdminUserLogoutController
 
     private val userId: UUID = UUID.randomUUID()
+    private val user = mockk<User>()
+    private val client = mockk<Client>()
     private val adminId: UUID = UUID.randomUUID()
     private val clientId: String = "my-app"
 
@@ -55,8 +57,8 @@ class AdminUserLogoutControllerTest {
     @Test
     fun `forceLogout - Revokes all user grants and returns count`() = runTest {
         val authentication = mockAdminAuthentication()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { grantManager.revokeGrantsByUser(userId, GrantRevokedBy.ADMIN, adminId) } returns 5
+        coEvery { userManager.findByIdOrNull(userId) } returns user
+        coEvery { grantManager.revokeGrantsByUser(user, GrantRevokedBy.ADMIN, adminId) } returns 5
 
         val result = controller.forceLogout(userId, authentication)
 
@@ -80,9 +82,9 @@ class AdminUserLogoutControllerTest {
     @Test
     fun `forceClientLogout - Revokes all grants for user+client and returns count`() = runTest {
         val authentication = mockAdminAuthentication()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
-        coEvery { clientManager.findClientByIdOrNull(clientId) } returns mockk<Client>()
-        coEvery { grantManager.revokeGrantsByUserAndClient(userId, clientId, GrantRevokedBy.ADMIN, adminId) } returns 3
+        coEvery { userManager.findByIdOrNull(userId) } returns user
+        coEvery { clientManager.findClientByIdOrNull(clientId) } returns client
+        coEvery { grantManager.revokeGrantsByUserAndClient(user, client, GrantRevokedBy.ADMIN, adminId) } returns 3
 
         val result = controller.forceClientLogout(userId, clientId, authentication)
 
@@ -106,7 +108,7 @@ class AdminUserLogoutControllerTest {
     @Test
     fun `forceClientLogout - Returns 404 when client not found`() = runTest {
         val authentication = mockk<UserAuthentication>()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull(clientId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {

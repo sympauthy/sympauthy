@@ -304,15 +304,15 @@ open class CollectedClaimManager(
     }
 
     /**
-     * Mark the [claims] collected from the user validated.
+     * Mark the [claims] collected from the [user] validated.
      */
     suspend fun validateClaims(
-        userId: UUID,
+        user: User,
         claims: List<EnabledClaim>
     ) {
         claims.map(Claim::id).forEach {
             collectedClaimRepository.updateClaimsToVerified(
-                userId = userId,
+                userId = user.id,
                 claim = it
             )
         }

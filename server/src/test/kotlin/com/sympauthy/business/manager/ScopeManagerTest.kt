@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
@@ -220,7 +221,7 @@ class ScopeManagerTest {
     fun `listEnabledScopesForAudience - Excludes admin scopes from non-admin audience`() = runTest {
         coEvery { scopeManager.listEnabledScopes() } returns adminScopes(audienceId = "admin")
 
-        val result = scopeManager.listEnabledScopesForAudience("default")
+        val result = scopeManager.listEnabledScopesForAudience(Audience(id = "default", tokenAudience = "default"))
 
         assertTrue(result.isEmpty())
     }
@@ -229,7 +230,7 @@ class ScopeManagerTest {
     fun `listEnabledScopesForAudience - Includes admin scopes for admin audience`() = runTest {
         coEvery { scopeManager.listEnabledScopes() } returns adminScopes(audienceId = "admin")
 
-        val result = scopeManager.listEnabledScopesForAudience("admin")
+        val result = scopeManager.listEnabledScopesForAudience(Audience(id = "admin", tokenAudience = "admin"))
 
         assertEquals(AdminScope.entries.size, result.size)
     }

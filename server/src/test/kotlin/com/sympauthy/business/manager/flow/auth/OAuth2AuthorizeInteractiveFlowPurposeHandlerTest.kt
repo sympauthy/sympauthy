@@ -7,13 +7,16 @@ import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -23,11 +26,13 @@ import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStat
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.TerminalEffectResult
+import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
@@ -93,7 +98,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     @MockK
     lateinit var clientManager: ClientManager
 
+    @MockK
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var userManager: UserManager
+
     private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
+    private val testUser = mockk<User>()
+    private val testClient by lazy { mockk<Client> { every { audience } returns testAudience } }
     private val clientManagerProvider: Provider<ClientManager> = Provider { clientManager }
 
     @SpyK
@@ -210,7 +223,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val userId = UUID.randomUUID()
         val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.isEnrolled(userId) } returns true
+        coEvery { sessionManager.getUser(session) } returns testUser
+        coEvery { totpManager.isEnrolled(testUser) } returns true
 
         assertEquals(InteractiveFlowPurpose.MFA_CHALLENGE, handler.requiredMfaPurpose(session))
     }
@@ -223,7 +237,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             every { signedUp } returns true
         }
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.isEnrolled(userId) } returns false
+        coEvery { sessionManager.getUser(session) } returns testUser
+        coEvery { totpManager.isEnrolled(testUser) } returns false
 
         assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, handler.requiredMfaPurpose(session))
     }
@@ -237,7 +252,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         }
         every { uncheckedMfaConfig.enabled } returns true
         every { uncheckedMfaConfig.required } returns true
-        coEvery { totpManager.isEnrolled(userId) } returns false
+        coEvery { sessionManager.getUser(session) } returns testUser
+        coEvery { totpManager.isEnrolled(testUser) } returns false
 
         assertEquals(InteractiveFlowPurpose.MFA_ENROLLMENT, handler.requiredMfaPurpose(session))
     }
@@ -251,7 +267,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         }
         every { uncheckedMfaConfig.enabled } returns true
         every { uncheckedMfaConfig.required } returns false
-        coEvery { totpManager.isEnrolled(userId) } returns false
+        coEvery { sessionManager.getUser(session) } returns testUser
+        coEvery { totpManager.isEnrolled(testUser) } returns false
 
         assertNull(handler.requiredMfaPurpose(session))
     }
@@ -269,7 +286,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, testAudience, testClient, any()) } returns mockk()
         val grant = mockk<Grant>()
         coEvery {
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
@@ -280,7 +297,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         assertEquals(TerminalEffectResult.Proceed, result)
         coVerifyOrder {
-            consentManager.saveConsent(userId, testAudience.id, clientId, any())
+            consentManager.saveConsent(testUser, testAudience, testClient, any())
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
             authorizationCodeManager.generateCode(oauth2AfterGranted, grant)
         }
@@ -304,15 +321,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
-        coEvery { invitationManager.consumeInvitation(invitationId, userId) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, testAudience, testClient, any()) } returns mockk()
+        val invitation = mockk<Invitation>()
+        coEvery { invitationManager.findById(invitationId) } returns invitation
+        coEvery { invitationManager.consumeInvitation(invitation, testUser) } returns mockk()
 
         stubCodeIssuance(session, userId)
 
         val result = handler.applyTerminalEffect(session)
 
         assertEquals(TerminalEffectResult.Proceed, result)
-        coVerify { invitationManager.consumeInvitation(invitationId, userId) }
+        coVerify { invitationManager.consumeInvitation(invitation, testUser) }
     }
 
     @Test
@@ -355,7 +374,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
                 grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(userId, any(), clientId, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, any(), testClient, any()) } returns mockk()
 
         stubCodeIssuance(session, userId)
 
@@ -376,7 +395,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, audienceClaims) } returns
                 grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(userId, testAudience.id, clientId, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, testAudience, testClient, any()) } returns mockk()
 
         stubCodeIssuance(session, userId)
 
@@ -404,19 +423,19 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             val oauth2 = oauth2Of(consentedScopes = consentedScopes)
             val collectedInFlow = listOf(mockk<CollectedClaim>())
 
-            coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
-                coEvery {
+            coEvery { oauth2Manager.getAudience(oauth2) } returns testAudience
+            coEvery {
                 consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                     userId, testAudience.id, consentedScopes
                 )
             } returns collectedInFlow
             every {
                 consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
-                    collectedInFlow, testAudience.id, consentedScopes
+                    collectedInFlow, testAudience, consentedScopes
                 )
             } returns true
             every {
-                claimValidationManager.getReasonsToSendValidationCode(testAudience.id, collectedInFlow)
+                claimValidationManager.getReasonsToSendValidationCode(testAudience, collectedInFlow)
             } returns emptyList()
 
             val status = handler.computeStatus(session, oauth2)
@@ -552,7 +571,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     ): InteractiveFlowSessionOAuth2 {
         val oauth2 = oauth2Of(clientId = "client-id")
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
+        coEvery { userManager.findById(userId) } returns testUser
+        coEvery { clientManager.findClientById(oauth2.clientId) } returns testClient
         coEvery { collectedClaimManager.findByUserIdAndAudience(userId, testAudience.id) } returns audienceClaims
         return oauth2
     }
@@ -569,7 +589,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     ): InteractiveFlowSessionOAuth2 {
         val consentedScopes = listOf("openid", "profile")
         val oauth2 = oauth2Of(consentedScopes = consentedScopes)
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns testAudience.id
+        coEvery { oauth2Manager.getAudience(oauth2) } returns testAudience
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, testAudience.id, consentedScopes
@@ -577,7 +597,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         } returns emptyList()
         every {
             consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
-                any(), testAudience.id, consentedScopes
+                any(), testAudience, consentedScopes
             )
         } returns allRequiredCollected
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons

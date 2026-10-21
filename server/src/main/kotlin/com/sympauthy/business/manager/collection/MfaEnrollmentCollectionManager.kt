@@ -10,6 +10,7 @@ import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -28,15 +29,15 @@ class MfaEnrollmentCollectionManager(
     suspend fun capabilities(): CollectionCapabilities = fields().capabilities
 
     /**
-     * Read the page [pageParams] names of the enrollments the user [userId] has confirmed that
+     * Read the page [pageParams] names of the enrollments the [user] has confirmed that
      * [criteria] keep.
      */
     suspend fun listConfirmedEnrollments(
-        userId: UUID,
+        user: User,
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<TotpEnrollment> = fields().page(
-        items = totpManager.findConfirmedEnrollments(userId),
+        items = totpManager.findConfirmedEnrollments(user.id),
         criteria = criteria,
         pageParams = pageParams
     )

@@ -9,11 +9,14 @@ import com.sympauthy.business.model.flow.ConfirmActionType
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import java.time.LocalDateTime
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -68,7 +71,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
                 cancelRedirectUri = cancelUri,
             )
         } returns newSession
-        coJustRun { userManager.checkPromoted(userId) }
+        justRun { userManager.checkPromoted(any<User>()) }
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
         coEvery {
             confirmManager.setConfirm(withUser, ConfirmActionType.LINK_PROVIDER, initiatingClientId)
@@ -90,7 +93,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
             val withUser = stubStart(sessionId, userId, returnUri, cancelUri, "client-id", flow)
 
             val result = manager.startLinkProviderSession(
-                userId = userId,
+                user = userOf(userId),
                 providerId = "target-provider",
                 returnUri = returnUri,
                 flow = flow,
@@ -118,7 +121,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
         stubStart(sessionId, userId, returnUri, null, null, flow)
 
         manager.startLinkProviderSession(
-            userId = userId,
+            user = userOf(userId),
             providerId = "target-provider",
             returnUri = returnUri,
             flow = flow,
@@ -128,4 +131,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
 
         coVerify { confirmManager.setConfirm(any(), ConfirmActionType.LINK_PROVIDER, null) }
     }
+
+    private fun userOf(userId: UUID) =
+        User(id = userId, status = UserStatus.ENABLED, creationDate = LocalDateTime.now(), sessionId = null)
 }

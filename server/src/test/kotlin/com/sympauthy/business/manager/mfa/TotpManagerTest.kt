@@ -197,7 +197,7 @@ class TotpManagerTest {
         val userId = UUID.randomUUID()
         coEvery { totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(userId) } returns emptyList()
 
-        assertFalse(manager.isCodeValidForUser(userId, "123456"))
+        assertFalse(manager.isCodeValidForUser(mockk { every { id } returns userId }, "123456"))
     }
 
     @Test
@@ -209,7 +209,7 @@ class TotpManagerTest {
 
         coEvery { totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(userId) } returns listOf(entity)
 
-        assertTrue(manager.isCodeValidForUser(userId, validCode))
+        assertTrue(manager.isCodeValidForUser(mockk { every { id } returns userId }, validCode))
     }
 
     @Test
@@ -221,7 +221,7 @@ class TotpManagerTest {
 
         coEvery { totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(userId) } returns listOf(entity)
 
-        assertFalse(manager.isCodeValidForUser(userId, invalidCode))
+        assertFalse(manager.isCodeValidForUser(mockk { every { id } returns userId }, invalidCode))
     }
 
     @Test

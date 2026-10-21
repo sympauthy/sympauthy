@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager
 
+import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -23,14 +24,14 @@ class GeneratedClaimsManager(
 ) {
 
     /**
-     * Compute values for all enabled generated claims for the given user.
+     * Compute values for all enabled generated claims for the given [user].
      */
-    suspend fun computeValues(userId: UUID): Map<String, Any?> = computeValues(userId) {
-        computeUpdatedAt(userId)
+    suspend fun computeValues(user: User): Map<String, Any?> = computeValues(user.id) {
+        computeUpdatedAt(user)
     }
 
     /**
-     * Compute values for all enabled generated claims of the user [userId], reading `updated_at`
+     * Compute values for all enabled generated claims of the [user], reading `updated_at`
      * from the date the caller already holds instead of querying for it.
      *
      * [latestCollectionDate] is the date of the most recent claim collected from that user, over
@@ -38,8 +39,8 @@ class GeneratedClaimsManager(
      * only the rows whose claim is still configured — answers with a date that is too old, and one
      * this server publishes elsewhere from the full table would then disagree with it.
      */
-    suspend fun computeValues(userId: UUID, latestCollectionDate: LocalDateTime?): Map<String, Any?> =
-        computeValues(userId) { latestCollectionDate?.epochSecond }
+    suspend fun computeValues(user: User, latestCollectionDate: LocalDateTime?): Map<String, Any?> =
+        computeValues(user.id) { latestCollectionDate?.epochSecond }
 
     private suspend fun computeValues(userId: UUID, updatedAt: suspend () -> Long?): Map<String, Any?> {
         // A generated claim this server computes per authorization rather than per account — `auth_time`
@@ -61,12 +62,12 @@ class GeneratedClaimsManager(
     fun computeSubject(userId: UUID): String = userId.toString()
 
     /**
-     * Compute the value of the `updated_at` claim for the given user.
+     * Compute the value of the `updated_at` claim for the given [user].
      * Returns the timestamp (as Unix epoch seconds) of the most recent claim collection, or null if no claims
      * have been collected.
      */
-    suspend fun computeUpdatedAt(userId: UUID): Long? =
-        collectedClaimRepository.findMaxCollectionDateByUserId(userId)?.epochSecond
+    suspend fun computeUpdatedAt(user: User): Long? =
+        collectedClaimRepository.findMaxCollectionDateByUserId(user.id)?.epochSecond
 
     private val LocalDateTime.epochSecond: Long get() = toInstant(ZoneOffset.UTC).epochSecond
 }

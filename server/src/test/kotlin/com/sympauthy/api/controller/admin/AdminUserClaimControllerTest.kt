@@ -59,6 +59,7 @@ class AdminUserClaimControllerTest {
     lateinit var controller: AdminUserClaimController
 
     private val userId: UUID = UUID.randomUUID()
+    private val user = mockk<User>()
 
     private val originField = CollectionField(
         name = "origin",
@@ -123,11 +124,11 @@ class AdminUserClaimControllerTest {
 
     private fun foundUser() {
         coEvery { userClaimCollectionManager.capabilities() } returns capabilities
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
     }
 
     private fun managerAnswers(vararg claims: UserClaim) {
-        coEvery { userClaimCollectionManager.listUserClaims(userId, any(), defaultPage) } returns pageOf(*claims)
+        coEvery { userClaimCollectionManager.listUserClaims(user, any(), defaultPage) } returns pageOf(*claims)
     }
 
     @Test
@@ -155,7 +156,7 @@ class AdminUserClaimControllerTest {
 
         foundUser()
         coEvery {
-            userClaimCollectionManager.listUserClaims(userId, capture(criteria), PageParams(1, 2))
+            userClaimCollectionManager.listUserClaims(user, capture(criteria), PageParams(1, 2))
         } returns pageOf(custom)
         every { userClaimMapper.toResource(custom) } returns resource
 
@@ -181,7 +182,7 @@ class AdminUserClaimControllerTest {
     @Test
     fun `listUserClaims - Publish the page the manager answered, not the one that was asked for`() = runTest {
         foundUser()
-        coEvery { userClaimCollectionManager.listUserClaims(userId, any(), defaultPage) } returns
+        coEvery { userClaimCollectionManager.listUserClaims(user, any(), defaultPage) } returns
                 Page(items = emptyList(), page = 3, size = 7, total = 42)
 
         val result = controller.listUserClaims(collectionRequest(), userId, null, null, null, null)

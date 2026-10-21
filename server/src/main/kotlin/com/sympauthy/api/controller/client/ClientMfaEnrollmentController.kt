@@ -15,6 +15,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.security.ObservedRequest
@@ -53,6 +54,7 @@ class ClientMfaEnrollmentController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val tokenManager: TokenManager,
+    @Inject private val userManager: UserManager,
     @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
@@ -111,7 +113,8 @@ class ClientMfaEnrollmentController(
         // (enforced by introspectToken), and associated with an end-user (not a client-credentials token).
         val userToken = resource.accessToken
             ?.let { tokenManager.introspectToken(client, it, ACCESS) }
-        val userId = userToken?.grant?.userId
+        // A token whose account is gone names no end-user any more, which is the same refusal.
+        val user = userToken?.grant?.userId?.let { userManager.findByIdOrNull(it) }
             ?: throw recoverableBusinessExceptionOf(
                 "client.mfa.enrollment.invalid_access_token",
                 "description.client.mfa.enrollment.invalid_access_token"
@@ -130,7 +133,7 @@ class ClientMfaEnrollmentController(
 
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = mfaEnrollmentManager.startMfaEnrollmentSession(
-            userId = userId,
+            user = user,
             returnUri = returnUri,
             flow = flow,
             initiatingClientId = client.id,

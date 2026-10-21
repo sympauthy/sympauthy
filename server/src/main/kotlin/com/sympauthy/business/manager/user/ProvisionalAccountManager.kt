@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -46,9 +47,9 @@ open class ProvisionalAccountManager(
 ) {
 
     /**
-     * Promote the account [userId] the interactive flow session [sessionId] signed up, making it and every
-     * row it owns permanent. Does nothing when that session signed no account up — a sign-in has nothing
-     * provisional to promote.
+     * Promote the account the interactive flow [session] signed up, making it and every row it owns
+     * permanent. Does nothing when that session holds no user, or signed no account up — a sign-in has
+     * nothing provisional to promote.
      *
      * Throws a non-recoverable [BusinessException] when another account has taken one of this one's
      * identifiers in the meantime: `user.promote.identifier_taken` for a claim, and
@@ -74,7 +75,9 @@ open class ProvisionalAccountManager(
      * [com.sympauthy.business.manager.flow.InteractiveFlowEngine].
      */
     @Transactional
-    open suspend fun promote(sessionId: UUID, userId: UUID) {
+    open suspend fun promote(session: OnGoingInteractiveFlowSession) {
+        val sessionId = session.id
+        val userId = session.userId ?: return
         userRepository.findByIdAndSessionId(userId, sessionId) ?: return
 
         val claimIds = claimManager.listIdentifierClaims().map(Claim::id)

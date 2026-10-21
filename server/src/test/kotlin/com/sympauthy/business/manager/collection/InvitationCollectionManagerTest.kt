@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.collection
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.invitation.Invitation
@@ -14,6 +15,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import java.time.LocalDateTime
 import java.util.*
 import kotlinx.coroutines.test.runTest
@@ -155,7 +157,9 @@ class InvitationCollectionManagerTest {
         coEvery { invitationManager.findByCreatedById("client") } returns listOf(tiedLater, tied, earlier)
 
         val result = invitationCollectionManager.listInvitationsCreatedBy(
-            "client", invitationCollectionManager.clientCapabilities().criteriaOf(), firstPage
+            mockk<Client> { every { id } returns "client" },
+            invitationCollectionManager.clientCapabilities().criteriaOf(),
+            firstPage
         )
 
         assertEquals(listOf(earlier.id, tied.id, tiedLater.id), result.items.map { it.id })

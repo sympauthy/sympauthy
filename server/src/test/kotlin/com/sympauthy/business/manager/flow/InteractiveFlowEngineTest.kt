@@ -462,30 +462,11 @@ class InteractiveFlowEngineTest {
             // Promotion first, so a consent or a consumed invitation a terminal effect writes attaches to an
             // account that exists.
             coVerifyOrder {
-                provisionalAccountManager.promote(marked.id, userId)
+                provisionalAccountManager.promote(marked)
                 handler.applyTerminalEffect(marked)
                 sessionManager.markAsCompleted(marked)
             }
         }
-
-    @Test
-    fun `advance - Promotes nothing for a session that never established a user`() = runTest {
-        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
-        val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
-        val handler = mockk<InteractiveFlowPurposeHandler>()
-        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
-        coEvery { handler.nextStepOrNull(session) } returns null
-        coEvery {
-            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
-        } returns marked
-        coEvery { handler.followUpPurposes(marked) } returns emptyList()
-        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Proceed
-        coEvery { sessionManager.markAsCompleted(marked) } returns completedSession()
-
-        engine.advance(session)
-
-        coVerify(exactly = 0) { provisionalAccountManager.promote(any(), any()) }
-    }
 
     @Test
     fun `advance - A refused terminal effect never completes the session`() = runTest {

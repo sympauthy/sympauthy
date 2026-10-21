@@ -250,7 +250,7 @@ class TokenManagerTest {
         } returns refreshToken
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, "test-audience", accessToken, GrantType.AUTHORIZATION_CODE, "nonce"
+                grant, match { it.id == "test-audience" }, accessToken, GrantType.AUTHORIZATION_CODE, "nonce"
             )
         } returns idToken
 
@@ -506,7 +506,9 @@ class TokenManagerTest {
             refreshTokenGenerator.generateRefreshToken(grant, audience, GrantType.REFRESH_TOKEN, null)
         } returns refreshedRefreshToken
         coEvery {
-            idTokenGenerator.generateIdToken(grant, "test-audience", accessToken, GrantType.REFRESH_TOKEN)
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+            )
         } returns null
 
         val tokens = tokenManager.refreshToken(client, "token")
@@ -534,7 +536,9 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
-            idTokenGenerator.generateIdToken(grant, "test-audience", accessToken, GrantType.REFRESH_TOKEN)
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+            )
         } returns null
 
         val tokens = tokenManager.refreshToken(client, "token")
@@ -560,7 +564,9 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
-            idTokenGenerator.generateIdToken(grant, "test-audience", accessToken, GrantType.REFRESH_TOKEN)
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+            )
         } returns null
 
         val tokens = tokenManager.refreshToken(client, "token", dpopJkt = "jkt")
@@ -604,7 +610,9 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
-            idTokenGenerator.generateIdToken(grant, "test-audience", accessToken, GrantType.REFRESH_TOKEN)
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+            )
         } returns null
 
         val tokens = tokenManager.refreshToken(client, "token")
@@ -633,7 +641,9 @@ class TokenManagerTest {
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
-            idTokenGenerator.generateIdToken(grant, "test-audience", accessToken, GrantType.REFRESH_TOKEN)
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+            )
         } returns idToken
 
         val tokens = tokenManager.refreshToken(client, "token")

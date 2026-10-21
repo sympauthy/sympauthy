@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.reauth
 
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -7,6 +8,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionReauthentication
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
 import io.mockk.every
@@ -34,6 +36,9 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
 
     @MockK
     lateinit var totpManager: TotpManager
+
+    @MockK
+    lateinit var sessionManager: InteractiveFlowSessionManager
 
     @InjectMockKs
     lateinit var handler: ReauthenticationInteractiveFlowPurposeHandler
@@ -106,7 +111,9 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
         every { session.purposes } returns listOf(InteractiveFlowPurpose.REAUTHENTICATION)
         every { session.userId } returns userId
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.isEnrolled(userId) } returns true
+        val user = mockk<User>()
+        coEvery { sessionManager.getUser(session) } returns user
+        coEvery { totpManager.isEnrolled(user) } returns true
 
         assertEquals(listOf(InteractiveFlowPurpose.MFA_CHALLENGE), handler.followUpPurposes(session))
     }
@@ -117,7 +124,9 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
         every { session.purposes } returns listOf(InteractiveFlowPurpose.REAUTHENTICATION)
         every { session.userId } returns userId
         every { uncheckedMfaConfig.enabled } returns true
-        coEvery { totpManager.isEnrolled(userId) } returns false
+        val user = mockk<User>()
+        coEvery { sessionManager.getUser(session) } returns user
+        coEvery { totpManager.isEnrolled(user) } returns false
 
         assertTrue(handler.followUpPurposes(session).isEmpty())
     }

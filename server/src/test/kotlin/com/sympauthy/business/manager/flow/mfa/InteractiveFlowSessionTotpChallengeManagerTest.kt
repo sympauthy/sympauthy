@@ -7,7 +7,6 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
@@ -17,7 +16,6 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
-import java.util.*
 
 @Suppress("unused")
 @ExtendWith(MockKExtension::class)
@@ -32,20 +30,13 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionTotpChallengeManager
 
-    private val userId = UUID.randomUUID()
     private val user = mockk<User>()
     private val session = mockk<OnGoingInteractiveFlowSession>()
-
-    /** Identifies the user, for the paths that get as far as checking a code against them. */
-    private fun identifyUser() {
-        every { user.id } returns userId
-    }
 
     @Test
     fun `validateTotpChallenge - Records mfaPassedDate and returns updated session when code is valid`() = runTest {
         val updatedSession = mockk<OnGoingInteractiveFlowSession>()
-        identifyUser()
-        coEvery { totpManager.isCodeValidForUser(userId, "123456") } returns true
+        coEvery { totpManager.isCodeValidForUser(user, "123456") } returns true
         coEvery { sessionManager.setMfaPassed(session) } returns updatedSession
 
         val result = manager.validateTotpChallenge(session, user, "123456")
@@ -79,8 +70,7 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
 
     @Test
     fun `validateTotpChallenge - Throws recoverable exception when code does not match any enrollment`() = runTest {
-        identifyUser()
-        coEvery { totpManager.isCodeValidForUser(userId, "000000") } returns false
+        coEvery { totpManager.isCodeValidForUser(user, "000000") } returns false
 
         val exception = assertThrows<BusinessException> {
             manager.validateTotpChallenge(session, user, "000000")

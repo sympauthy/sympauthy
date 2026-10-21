@@ -121,8 +121,8 @@ class AdminUserProviderController(
     ): AdminUserProviderListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, userProviderCollectionManager.capabilities(), sort, q)
-        userManager.findByIdOrNull(userId).orNotFound()
-        val providers = userProviderCollectionManager.listUserProviders(userId, criteria, pageParams)
+        val user = userManager.findByIdOrNull(userId).orNotFound()
+        val providers = userProviderCollectionManager.listUserProviders(user, criteria, pageParams)
         return AdminUserProviderListResource(
             providers = providers.items.map(userProviderMapper::toResource),
             page = providers.page,
@@ -184,8 +184,8 @@ class AdminUserProviderController(
         @PathVariable @Parameter(description = "Identifier of the provider to unlink.") providerId: String
     ) {
         userManager.findByIdOrNull(userId).orNotFound()
-        providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, providerId).orNotFound()
-        providerClaimsManager.deleteProviderLink(userId, providerId)
+        val link = providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, providerId).orNotFound()
+        providerClaimsManager.deleteProviderLink(link)
     }
 
     @Operation(
@@ -228,7 +228,7 @@ class AdminUserProviderController(
         @Body resource: AdminUserProviderLinkInputResource
     ): AdminUserProviderLinkResource {
         // Both the target user and the named client must exist.
-        userManager.findByIdOrNull(userId).orNotFound()
+        val user = userManager.findByIdOrNull(userId).orNotFound()
         val client = resource.clientId
             ?.let { clientManager.findClientByIdOrNull(it) }
             .orNotFound()
@@ -250,7 +250,7 @@ class AdminUserProviderController(
         // Admin-initiated: pass a null client id so the confirmation shows "an administrator".
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = linkProviderManager.startLinkProviderSession(
-            userId = userId,
+            user = user,
             providerId = providerId,
             returnUri = returnUri,
             flow = flow,

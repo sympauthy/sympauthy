@@ -11,6 +11,7 @@ import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledProvidersConfig
 import com.sympauthy.config.model.ProvidersConfig
 import jakarta.inject.Inject
@@ -32,15 +33,15 @@ class UserProviderCollectionManager(
     suspend fun capabilities(): CollectionCapabilities = fields().capabilities
 
     /**
-     * Read the page [pageParams] names of the providers the user [userId] has linked that [criteria]
+     * Read the page [pageParams] names of the providers the [user] has linked that [criteria]
      * keep.
      */
     suspend fun listUserProviders(
-        userId: UUID,
+        user: User,
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<ProviderUserInfo> = fields().page(
-        items = providerClaimsManager.findByUserId(userId),
+        items = providerClaimsManager.findByUserId(user.id),
         criteria = criteria,
         pageParams = pageParams
     )

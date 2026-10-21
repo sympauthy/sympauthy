@@ -12,13 +12,13 @@ import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.MfaMethodType
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
-import java.util.*
 
 /**
  * Manager owning the MFA **enrollment** purpose end to end. It provides methods to:
@@ -97,7 +97,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
     }
 
     /**
-     * Start a standalone MFA enrollment [InteractiveFlowSession] for the [userId] within the [flow], storing on
+     * Start a standalone MFA enrollment [InteractiveFlowSession] for the [user] within the [flow], storing on
      * the session the [returnUri] the end-user is redirected back to once the enrollment completes (as a
      * [InteractiveFlowRedirectType.PLAIN] redirect) and the optional [cancelUri] they are redirected back to if
      * they cancel, in a single transaction.
@@ -113,15 +113,15 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
      */
     @Transactional
     open suspend fun startMfaEnrollmentSession(
-        userId: UUID,
+        user: User,
         returnUri: URI,
         flow: AuthorizationFlow,
         initiatingClientId: String?,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
-        // The user id arrives from a client's access token or an administrator's path parameter, neither of
+        // The user arrives from a client's access token or an administrator's path parameter, neither of
         // which is the session that would be entitled to an account still being signed up.
-        userManager.checkPromoted(userId)
+        userManager.checkPromoted(user)
         val session = sessionManager.newSession(
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
             initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
@@ -132,7 +132,7 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
             cancelRedirectUri = cancelUri,
         ) as? OnGoingInteractiveFlowSession
             ?: throw internalBusinessExceptionOf("flow.mfa.enrollment.start.not_ongoing")
-        val sessionWithUser = sessionManager.setAuthenticatedUserId(session, userId)
+        val sessionWithUser = sessionManager.setAuthenticatedUserId(session, user.id)
         confirmManager.setConfirm(
             session = sessionWithUser,
             action = ConfirmActionType.ENROLL_MFA,

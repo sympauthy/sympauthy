@@ -17,7 +17,6 @@ import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
@@ -56,13 +55,6 @@ class ClientInvitationControllerTest {
 
     private fun clientAuthentication(client: Client, vararg scopes: String): ClientAuthentication =
         ClientAuthentication(mockk(), client, scopes.map(::ClientScope))
-
-    private fun clientAuthentication(clientId: String): ClientAuthentication {
-        val authenticationToken = mockk<AuthenticationToken> {
-            every { grant } returns mockk { every { this@mockk.clientId } returns clientId }
-        }
-        return ClientAuthentication(authenticationToken, mockk(), emptyList())
-    }
 
     private fun id(last: Int): UUID = UUID.fromString("00000000-0000-0000-0000-00000000000$last")
 
@@ -158,15 +150,17 @@ class ClientInvitationControllerTest {
     fun `listInvitations - Map every invitation the page holds, and publish the page it came in`() = runTest {
         val invitation = invitation(id(1), createdAt)
         val resource = mockResource(invitation.id)
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
 
         coEvery { invitationCollectionManager.clientCapabilities() } returns noCapabilities()
         coEvery {
-            invitationCollectionManager.listInvitationsCreatedBy("client", any(), PageParams(0, 20))
+            invitationCollectionManager.listInvitationsCreatedBy(client, any(), PageParams(0, 20))
         } returns Page(items = listOf(invitation), page = 3, size = 7, total = 42)
         every { invitationMapper.toResource(invitation) } returns resource
 
         val result = controller.listInvitations(
-            collectionRequest(), clientAuthentication("client"), null, null, null, null
+            collectionRequest(), authentication, null, null, null, null
         )
 
         assertSame(resource, result.invitations.single())

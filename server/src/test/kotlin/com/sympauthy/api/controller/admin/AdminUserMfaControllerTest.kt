@@ -109,6 +109,7 @@ class AdminUserMfaControllerTest {
 
     private val observed = observedRequestOf()
     private val userId: UUID = UUID.randomUUID()
+    private val user = mockk<User>()
     private val mfaId: UUID = UUID.randomUUID()
     private val confirmedDate: LocalDateTime = LocalDateTime.of(2026, 2, 10, 8, 45, 0)
 
@@ -135,9 +136,9 @@ class AdminUserMfaControllerTest {
         val enrollment = mockEnrollment()
         val resource = mockResource()
         coEvery { mfaEnrollmentCollectionManager.capabilities() } returns noCapabilities()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery {
-            mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, any(), PageParams(0, 20))
+            mfaEnrollmentCollectionManager.listConfirmedEnrollments(user, any(), PageParams(0, 20))
         } returns Page(items = listOf(enrollment), page = 3, size = 7, total = 42)
         every { mfaMapper.toResource(enrollment) } returns resource
 
@@ -164,9 +165,9 @@ class AdminUserMfaControllerTest {
     @Test
     fun `listMfaMethods - Returns empty list when user has no MFA`() = runTest {
         coEvery { mfaEnrollmentCollectionManager.capabilities() } returns noCapabilities()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery {
-            mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, any(), PageParams(0, 20))
+            mfaEnrollmentCollectionManager.listConfirmedEnrollments(user, any(), PageParams(0, 20))
         } returns Page(items = emptyList(), page = 0, size = 20, total = 0)
 
         val result = controller().listMfaMethods(collectionRequest(), userId, null, null, null)
@@ -178,7 +179,7 @@ class AdminUserMfaControllerTest {
     @Test
     fun `revokeMfaMethod - Deletes the enrollment`() = runTest {
         val enrollment = mockEnrollment()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns enrollment
         coEvery { totpManager.deleteEnrollment(enrollment) } returns Unit
 
@@ -200,7 +201,7 @@ class AdminUserMfaControllerTest {
 
     @Test
     fun `revokeMfaMethod - Returns 404 when MFA method not found`() = runTest {
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
@@ -214,7 +215,7 @@ class AdminUserMfaControllerTest {
     fun `revokeMfaMethod - Returns 404 when enrollment belongs to different user`() = runTest {
         val otherUserId = UUID.randomUUID()
         val enrollment = mockEnrollment(enrollmentUserId = otherUserId)
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { totpManager.findConfirmedEnrollmentOrNull(mfaId) } returns enrollment
 
         val exception = assertThrows<LocalizedHttpException> {
@@ -235,7 +236,7 @@ class AdminUserMfaControllerTest {
             val steppedSession = mockk<OnGoingInteractiveFlowSession>()
             val redirectUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
 
-            coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+            coEvery { userManager.findByIdOrNull(userId) } returns user
             coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
             every {
                 clientRedirectUriManager.parseRequestedRedirectUri(
@@ -248,7 +249,7 @@ class AdminUserMfaControllerTest {
             // Admin-initiated: the initiating client id must be null (rendered as "an administrator"). Keying
             // the stub on null means the test only reaches the assertion when the controller passes null.
             coEvery {
-                mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, null, null)
+                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, null, null)
             } returns session
             coEvery { engine.advance(session) } returns
                 InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -279,7 +280,7 @@ class AdminUserMfaControllerTest {
         val steppedSession = mockk<OnGoingInteractiveFlowSession>()
         val redirectUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
 
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
         every {
             clientRedirectUriManager.parseRequestedRedirectUri(
@@ -298,7 +299,7 @@ class AdminUserMfaControllerTest {
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.
         coEvery {
-            mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, null, cancelUri)
+            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, null, cancelUri)
         } returns session
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -361,7 +362,7 @@ class AdminUserMfaControllerTest {
 
     @Test
     fun `startEnrollment - Returns 404 when client not found`() = runTest {
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns null
 
         val exception = assertThrows<LocalizedHttpException> {

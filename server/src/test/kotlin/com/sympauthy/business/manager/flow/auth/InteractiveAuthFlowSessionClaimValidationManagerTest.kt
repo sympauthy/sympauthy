@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.util.coAssertThrowsBusinessException
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
@@ -68,7 +69,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
-            AUDIENCE,
+            audience,
             collectedClaims = listOf(collectedClaim)
         )
 
@@ -86,7 +87,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
-            AUDIENCE,
+            audience,
             collectedClaims = emptyList()
         )
 
@@ -108,7 +109,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
-            AUDIENCE,
+            audience,
             collectedClaims = listOf(cleared)
         )
 
@@ -127,7 +128,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
-            AUDIENCE,
+            audience,
             collectedClaims = emptyList()
         )
 
@@ -150,7 +151,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         every { manager.getClaimValidatedBy(EMAIL_CLAIM) } returns emailClaim
 
         val result = manager.getUnfilteredReasonsToSendValidationCode(
-            AUDIENCE,
+            audience,
             collectedClaims = listOf(collectedClaim)
         )
 
@@ -174,14 +175,14 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         val validationCode = mockk<ValidationCode>()
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, AUDIENCE, consentedScopes
             )
         } returns collectedClaims
         every {
-            manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims)
+            manager.getReasonsToSendValidationCode(audience, collectedClaims)
         } returns reasons
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
@@ -225,14 +226,14 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, AUDIENCE, consentedScopes
             )
         } returns collectedClaims
         every {
-            manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims)
+            manager.getReasonsToSendValidationCode(audience, collectedClaims)
         } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
@@ -268,14 +269,14 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
                 userId, AUDIENCE, consentedScopes
             )
         } returns collectedClaims
         every {
-            manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims)
+            manager.getReasonsToSendValidationCode(audience, collectedClaims)
         } returns reasons
 
         val result = manager.getOrSendValidationCode(
@@ -311,11 +312,11 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { consentedScopes } returns emptyList()
         }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudienceId(oauth2) } returns AUDIENCE
+        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, emptyList())
         } returns collectedClaims
-        every { manager.getReasonsToSendValidationCode(AUDIENCE, collectedClaims) } returns listOf(EMAIL_CLAIM)
+        every { manager.getReasonsToSendValidationCode(audience, collectedClaims) } returns listOf(EMAIL_CLAIM)
         coEvery {
             validationCodeManager.refreshAndQueueValidationCode(
                 user = user,
@@ -390,10 +391,8 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @Test
     fun `validateClaimsByCode - Validate claims`() = runTest {
-        val attemptUserId = UUID.randomUUID()
-        val session = mockk<OnGoingInteractiveFlowSession> {
-            every { userId } returns attemptUserId
-        }
+        val user = mockk<User>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
         val media = EMAIL
         val reason = EMAIL_CLAIM
         val validCode = "123456"
@@ -409,11 +408,12 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         } returns listOf(validValidationCode)
         every { manager.getClaimValidatedBy(reason) } returns emailClaim
         coEvery {
-            collectedClaimManager.validateClaims(userId = attemptUserId, claims = listOf(emailClaim))
+            collectedClaimManager.validateClaims(user = user, claims = listOf(emailClaim))
         } returns Unit
 
         manager.validateClaimsByCode(
             session = session,
+            user = user,
             media = media,
             code = validCode,
         )
@@ -434,6 +434,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         coAssertThrowsBusinessException("flow.claim_validation.invalid_code") {
             manager.validateClaimsByCode(
                 session = session,
+                user = mockk(),
                 media = media,
                 code = "654321",
             )
@@ -457,11 +458,14 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         coAssertThrowsBusinessException("flow.claim_validation.expired_code") {
             manager.validateClaimsByCode(
                 session = session,
+                user = mockk(),
                 media = media,
                 code = validCode,
             )
         }
     }
+
+    private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
 
     private companion object {
         const val AUDIENCE = "test-audience"

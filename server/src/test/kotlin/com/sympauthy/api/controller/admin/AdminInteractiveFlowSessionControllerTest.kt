@@ -12,6 +12,7 @@ import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionField
@@ -20,6 +21,7 @@ import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.collection.enumFieldValues
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -47,6 +49,9 @@ class AdminInteractiveFlowSessionControllerTest {
 
     @MockK
     lateinit var sessionCollectionManager: InteractiveFlowSessionCollectionManager
+
+    @MockK
+    lateinit var sessionManager: InteractiveFlowSessionManager
 
     @MockK
     lateinit var sessionMapper: AdminInteractiveFlowSessionResourceMapper
@@ -207,9 +212,11 @@ class AdminInteractiveFlowSessionControllerTest {
         runTest {
             val place = mockk<InteractiveFlowSessionSecurityContext>()
             val resource = mockk<AdminInteractiveFlowSessionSecurityContextResource>()
+            val session = mockk<InteractiveFlowSession>()
+            coEvery { sessionManager.fetchByIdOrNull(sessionId) } returns session
             coEvery { sessionCollectionManager.securityContextCapabilities() } returns noCapabilities()
             coEvery {
-                sessionCollectionManager.listSecurityContexts(sessionId, any(), PageParams(0, 20))
+                sessionCollectionManager.listSecurityContexts(session, any(), PageParams(0, 20))
             } returns Page(items = listOf(place), page = 2, size = 5, total = 9)
             every { sessionMapper.toResource(place) } returns resource
 
@@ -227,7 +234,7 @@ class AdminInteractiveFlowSessionControllerTest {
     fun `listInteractiveFlowSessionSecurityContexts - Answer not found for a session already collected`() =
         runTest {
             coEvery { sessionCollectionManager.securityContextCapabilities() } returns noCapabilities()
-            coEvery { sessionCollectionManager.listSecurityContexts(sessionId, any(), PageParams(0, 20)) } returns null
+            coEvery { sessionManager.fetchByIdOrNull(sessionId) } returns null
 
             val exception = assertThrows<LocalizedHttpException> {
                 controller.listInteractiveFlowSessionSecurityContexts(

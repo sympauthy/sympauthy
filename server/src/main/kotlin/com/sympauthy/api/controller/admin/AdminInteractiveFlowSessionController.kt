@@ -19,6 +19,7 @@ import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_INTERACTIVE_FLOW_SESSIONS_READ
 import com.sympauthy.util.orDefault
@@ -50,6 +51,7 @@ private const val SESSION_NOT_FOUND_DESCRIPTION =
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ])
 class AdminInteractiveFlowSessionController(
     @Inject private val sessionCollectionManager: InteractiveFlowSessionCollectionManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val sessionMapper: AdminInteractiveFlowSessionResourceMapper,
     @Inject private val capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
@@ -193,7 +195,8 @@ class AdminInteractiveFlowSessionController(
     ): AdminInteractiveFlowSessionSecurityContextListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, sessionCollectionManager.securityContextCapabilities(), sort, q)
-        val places = sessionCollectionManager.listSecurityContexts(sessionId, criteria, pageParams).orNotFound()
+        val session = sessionManager.fetchByIdOrNull(sessionId).orNotFound()
+        val places = sessionCollectionManager.listSecurityContexts(session, criteria, pageParams)
         return AdminInteractiveFlowSessionSecurityContextListResource(
             securityContexts = places.items.map(sessionMapper::toResource),
             page = places.page,

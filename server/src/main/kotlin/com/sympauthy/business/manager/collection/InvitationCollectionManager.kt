@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.collection
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.DATE_TIME
@@ -61,17 +62,16 @@ class InvitationCollectionManager(
     ): Page<Invitation> = adminFields().page(invitationManager.findAll(), criteria, pageParams)
 
     /**
-     * Read the page [pageParams] names of the invitations [createdById] created that [criteria]
-     * keep.
+     * Read the page [pageParams] names of the invitations [client] created that [criteria] keep.
      *
      * Who created them is not a criterion: it is the whole of what this caller may read.
      */
     suspend fun listInvitationsCreatedBy(
-        createdById: String,
+        client: Client,
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<Invitation> = clientFields()
-        .page(invitationManager.findByCreatedById(createdById), criteria, pageParams)
+        .page(invitationManager.findByCreatedById(client.id), criteria, pageParams)
 
     private suspend fun adminFields(): CollectionFields<Invitation> = collectionFields(
         uniqueKey = compareBy(Invitation::id)

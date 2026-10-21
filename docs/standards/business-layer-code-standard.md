@@ -150,9 +150,32 @@ What one declares, what its criteria mean and what it publishes about itself are
 publishing one of those rows on its own calls its `find…OrNull`, rather than fetching the concept
 and what the row carries beside it apart and pairing them itself.
 
-**A manager takes a record the caller already holds as a parameter.** Fetch once at the top of the
-flow and thread the record downward, usually as a nullable parameter the first method validates and
-returns non-null.
+**A manager method takes the records it acts on, never their identifiers.** The caller resolves each
+one and passes the model, narrowed to the variant the method needs — an `EnabledClaim`, an
+`OnGoingInteractiveFlowSession` — so the method neither looks it up again nor re-checks what the type
+says.
+
+**A `find…` is where an identifier becomes a record, and it is the method that takes one.**
+`…OrNull` leaves the refusal to its caller; the throwing twin owns one code for the callers with
+nothing better to say, such as a manager resolving an identifier read from a row it already holds.
+
+**A `list…` or a `count…` of a parent's rows takes the parent.** Write `listClaims(user)`: the
+caller that refused an unknown user is holding it.
+
+**An identifier the method only records stays an identifier.** A reference written into a new row,
+stored on a session or signed into a token names a record the method never reads.
+
+**A manager trusts the identity of a record it is handed, never its state.** A state checked before
+a write is checked by the write — an update conditional on it, or a read inside the transaction or
+under the lock the write holds.
+
+**These use cases resolve an identifier inside the manager instead:**
+
+| Use case | Why |
+| --- | --- |
+| a flow step, once the session is bound | the refusal stays a business failure, so the flow decides between the step and the error page |
+| a protocol endpoint | the specification names the answer to a value that does not resolve |
+| a sign-in by identifier and password | an unknown identifier and a wrong password are one answer |
 
 **A cycle between two managers is broken with field injection, and it is a smell.** The two usually
 share a concept that wants to be a third manager.

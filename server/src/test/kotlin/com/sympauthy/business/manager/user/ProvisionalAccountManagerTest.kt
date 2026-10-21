@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
@@ -73,6 +74,12 @@ class ProvisionalAccountManagerTest {
 
     private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()
+    private val session by lazy {
+        mockk<OnGoingInteractiveFlowSession> {
+            every { id } returns sessionId
+            every { userId } returns this@ProvisionalAccountManagerTest.userId
+        }
+    }
     /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
     private val ownerId = UUID.randomUUID()
 
@@ -103,7 +110,7 @@ class ProvisionalAccountManagerTest {
         coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
         coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
-        manager.promote(sessionId, userId)
+        manager.promote(session)
 
         coVerifyOrder {
             passwordRepository.clearSessionId(userId, sessionId)
@@ -118,10 +125,23 @@ class ProvisionalAccountManagerTest {
     fun `promote - Does nothing when the session signed no account up`() = runTest {
         coEvery { userRepository.findByIdAndSessionId(userId, sessionId) } returns null
 
-        manager.promote(sessionId, userId)
+        manager.promote(session)
 
         coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
         coVerify(exactly = 0) { collectedClaimRepository.clearSessionId(any(), any()) }
+    }
+
+    @Test
+    fun `promote - Does nothing when the session holds no user`() = runTest {
+        val sessionWithoutUser = mockk<OnGoingInteractiveFlowSession> {
+            every { id } returns sessionId
+            every { userId } returns null
+        }
+
+        manager.promote(sessionWithoutUser)
+
+        coVerify(exactly = 0) { userRepository.findByIdAndSessionId(any(), any()) }
+        coVerify(exactly = 0) { userRepository.clearSessionId(any(), any()) }
     }
 
     @Test
@@ -139,7 +159,7 @@ class ProvisionalAccountManagerTest {
         } returns TakenIdentifier(claimId = "email", userId = ownerId)
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
 
-        val exception = assertThrows<BusinessException> { manager.promote(sessionId, userId) }
+        val exception = assertThrows<BusinessException> { manager.promote(session) }
 
         assertEquals("user.promote.identifier_taken", exception.detailsId)
         assertEquals("email", exception.values["claim"])
@@ -164,7 +184,7 @@ class ProvisionalAccountManagerTest {
             providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull("discord", "subject-1")
         } returns link("discord", "subject-1")
 
-        val exception = assertThrows<BusinessException> { manager.promote(sessionId, userId) }
+        val exception = assertThrows<BusinessException> { manager.promote(session) }
 
         assertEquals("user.promote.provider_subject_taken", exception.detailsId)
         assertEquals("discord", exception.values["providerId"])
@@ -189,7 +209,7 @@ class ProvisionalAccountManagerTest {
         coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
         coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
-        manager.promote(sessionId, userId)
+        manager.promote(session)
 
         coVerify { userRepository.clearSessionId(userId, sessionId) }
     }
@@ -264,7 +284,7 @@ class ProvisionalAccountManagerTest {
         coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
         coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
-        manager.promote(sessionId, userId)
+        manager.promote(session)
 
         coVerify { userRepository.clearSessionId(userId, sessionId) }
         coVerifyOrder {
@@ -285,7 +305,7 @@ class ProvisionalAccountManagerTest {
         coEvery { totpEnrollmentRepository.clearSessionId(userId, sessionId) } returns 0
         coEvery { userRepository.clearSessionId(userId, sessionId) } returns 1
 
-        manager.promote(sessionId, userId)
+        manager.promote(session)
 
         coVerify(exactly = 0) { objectLockRepository.lock(any()) }
     }

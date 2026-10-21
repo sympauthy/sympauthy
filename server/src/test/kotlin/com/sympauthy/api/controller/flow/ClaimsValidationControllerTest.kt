@@ -75,7 +75,9 @@ class ClaimsValidationControllerTest {
     @Test
     fun `validate - Validates the code through the media named`() = runTest {
         stubUpdate()
-        coEvery { claimValidationManager.validateClaimsByCode(session, ValidationCodeMedia.EMAIL, "123456") } just Runs
+        coEvery {
+            claimValidationManager.validateClaimsByCode(session, user, ValidationCodeMedia.EMAIL, "123456")
+        } just Runs
 
         val result = controller.validate(
             StateAuthentication("encoded-state"),
@@ -99,7 +101,7 @@ class ClaimsValidationControllerTest {
         }
 
         assertUnknownMedia(exception)
-        coVerify(exactly = 0) { claimValidationManager.validateClaimsByCode(any(), any(), any()) }
+        coVerify(exactly = 0) { claimValidationManager.validateClaimsByCode(any(), any(), any(), any()) }
     }
 
     @Test
@@ -129,13 +131,15 @@ class ClaimsValidationControllerTest {
 
     private fun stubUpdate() {
         coEvery {
-            interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect<SimpleFlowResource>(
-                eq("encoded-state"), any(), any(), any()
-            )
+            interactiveAuthFlowSessionControllerUtil
+                .fetchOnGoingSessionWithUserThenUpdateAndRedirect<SimpleFlowResource>(
+                    eq("encoded-state"), any(), any(), any()
+                )
         } coAnswers {
-            val update = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> InteractiveFlowSession>(2)
+            val update =
+                arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow, User) -> InteractiveFlowSession>(2)
             val mapRedirectUriToResource = arg<suspend (URI) -> SimpleFlowResource>(3)
-            update(session, flow)
+            update(session, flow, user)
             mapRedirectUriToResource(URI.create("https://example.com/next"))
         }
     }
