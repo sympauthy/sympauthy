@@ -12,13 +12,13 @@ import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionLinkProvider
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.InteractiveFlowSessionLinkProviderEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
-import java.util.*
 
 /**
  * Manager owning the [InteractiveFlowPurpose.LINK_PROVIDER] purpose end to end. It provides methods to:
@@ -90,7 +90,7 @@ open class InteractiveFlowSessionLinkProviderManager(
      * control and take over the account. Re-authentication is the only proof that the browser user genuinely
      * owns the account; it *confirms* the pre-set user and must never *establish* a different one.
      *
-     * [userId] must name an account this server has finished creating, which is checked before anything is
+     * [user] must be an account this server has finished creating, which is checked before anything is
      * written: a caller naming one an interactive flow session is still signing up would be attaching a login
      * credential to an account that does not exist yet, and could be made to exist afterwards by whoever owns
      * that session.
@@ -100,14 +100,16 @@ open class InteractiveFlowSessionLinkProviderManager(
      */
     @Transactional
     open suspend fun startLinkProviderSession(
-        userId: UUID,
+        user: User,
         providerId: String,
         returnUri: URI,
         flow: AuthorizationFlow,
         initiatingClientId: String?,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
-        userManager.checkPromoted(userId)
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
         val session = sessionManager.newSession(
             purposes = listOf(
                 InteractiveFlowPurpose.CONFIRM,
@@ -122,7 +124,7 @@ open class InteractiveFlowSessionLinkProviderManager(
             cancelRedirectUri = cancelUri,
         ) as? OnGoingInteractiveFlowSession
             ?: throw internalBusinessExceptionOf("flow.link_provider.start.not_ongoing")
-        val sessionWithUser = sessionManager.setAuthenticatedUserId(session, userId)
+        val sessionWithUser = sessionManager.setAuthenticatedUserId(session, user.id)
         confirmManager.setConfirm(
             session = sessionWithUser,
             action = ConfirmActionType.LINK_PROVIDER,

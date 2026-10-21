@@ -8,6 +8,7 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.GeneratedUserClaim
+import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.*
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.mockk.coEvery
@@ -35,6 +36,8 @@ class UserClaimCollectionManagerTest {
     lateinit var generatedClaimsManager: GeneratedClaimsManager
 
     private val userId: UUID = UUID.randomUUID()
+
+    private val user = mockk<User> { every { id } returns userId }
 
     private val acl = ClaimAcl(
         consent = ConsentAcl(
@@ -126,7 +129,7 @@ class UserClaimCollectionManagerTest {
     private fun enabledClaims(vararg claims: EnabledClaim, collected: List<CollectedClaim> = emptyList()) {
         every { claimManager.listEnabledClaims() } returns claims.toList()
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns collected
-        coEvery { generatedClaimsManager.computeValues(userId) } returns emptyMap()
+        coEvery { generatedClaimsManager.computeValues(user) } returns emptyMap()
     }
 
     private suspend fun listUserClaims(
@@ -134,7 +137,7 @@ class UserClaimCollectionManagerTest {
         query: String? = null,
         pageParams: PageParams = PageParams(page = 0, size = 20)
     ) = manager().let { manager ->
-        manager.listUserClaims(userId, manager.capabilities().criteriaOf(*filters, query = query), pageParams)
+        manager.listUserClaims(user, manager.capabilities().criteriaOf(*filters, query = query), pageParams)
     }
 
     @Test
@@ -265,7 +268,7 @@ class UserClaimCollectionManagerTest {
     fun `listUserClaims - Answer a generated claim with the value computed for the user`() = runTest {
         every { claimManager.listEnabledClaims() } returns listOf(subClaim)
         coEvery { collectedClaimManager.findByUserIdAndClaims(userId, any()) } returns emptyList()
-        coEvery { generatedClaimsManager.computeValues(userId) } returns mapOf(subClaim.id to "$userId")
+        coEvery { generatedClaimsManager.computeValues(user) } returns mapOf(subClaim.id to "$userId")
 
         val result = listUserClaims()
 

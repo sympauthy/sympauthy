@@ -13,6 +13,7 @@ import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModific
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
@@ -270,14 +271,14 @@ open class GrantManager(
     }
 
     /**
-     * Revoke every grant of [userId] that is still live, regardless of client, and return how many there
+     * Revoke every grant of [user] that is still live, regardless of client, and return how many there
      * were.
      */
     @Transactional
-    open suspend fun revokeGrantsByUser(userId: UUID, revokedBy: GrantRevokedBy, revokedById: UUID?): Int {
-        return lockManager.withLock(listOf(LockKey.User(userId))) {
+    open suspend fun revokeGrantsByUser(user: User, revokedBy: GrantRevokedBy, revokedById: UUID?): Int {
+        return lockManager.withLock(listOf(LockKey.User(user.id))) {
             grantRepository.updateRevokedAtByUserId(
-                userId = userId,
+                userId = user.id,
                 revokedAt = LocalDateTime.now(),
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
@@ -286,20 +287,20 @@ open class GrantManager(
     }
 
     /**
-     * Revoke every grant of [userId] opened for [clientId] that is still live, and return how many there
+     * Revoke every grant of [user] opened for [client] that is still live, and return how many there
      * were.
      */
     @Transactional
     open suspend fun revokeGrantsByUserAndClient(
-        userId: UUID,
-        clientId: String,
+        user: User,
+        client: Client,
         revokedBy: GrantRevokedBy,
         revokedById: UUID?
     ): Int {
-        return lockManager.withLock(listOf(LockKey.User(userId))) {
+        return lockManager.withLock(listOf(LockKey.User(user.id))) {
             grantRepository.updateRevokedAtByUserIdAndClientId(
-                userId = userId,
-                clientId = clientId,
+                userId = user.id,
+                clientId = client.id,
                 revokedAt = LocalDateTime.now(),
                 revokedBy = revokedBy.name,
                 revokedById = revokedById

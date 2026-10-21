@@ -195,8 +195,7 @@ class InteractiveFlowSessionCollectionManager(
     }
 
     /**
-     * Read the page [pageParams] names of the places [sessionId] was driven from, or null where no session
-     * holds that identifier — which, past the expiry window, is every session this server ever ran.
+     * Read the page [pageParams] names of the places [session] was driven from.
      *
      * **Most recently seen first where the caller named no order of their own**, because what a reader
      * opens a stalled session for is where it is being driven from now. That is a column every request
@@ -204,12 +203,11 @@ class InteractiveFlowSessionCollectionManager(
      * the endpoint's own description says so.
      */
     suspend fun listSecurityContexts(
-        sessionId: UUID,
+        session: InteractiveFlowSession,
         criteria: CollectionCriteria,
         pageParams: PageParams
-    ): Page<InteractiveFlowSessionSecurityContext>? {
-        sessionRepository.findById(sessionId) ?: return null
-        val places = securityContextRepository.findBySessionId(sessionId)
+    ): Page<InteractiveFlowSessionSecurityContext> {
+        val places = securityContextRepository.findBySessionId(session.id)
             .map(securityContextMapper::toInteractiveFlowSessionSecurityContext)
         return securityContextFields().page(places, criteria, pageParams)
     }

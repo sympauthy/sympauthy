@@ -17,6 +17,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.security.ObservedRequest
@@ -56,6 +57,7 @@ class ClientProviderLinkController(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val clientRedirectUriManager: ClientRedirectUriManager,
     @Inject private val tokenManager: TokenManager,
+    @Inject private val userManager: UserManager,
     @Inject private val providerManager: ProviderManager,
     @Inject private val linkProviderManager: InteractiveFlowSessionLinkProviderManager,
     @Inject private val engine: InteractiveFlowEngine,
@@ -110,7 +112,8 @@ class ClientProviderLinkController(
         // (enforced by introspectToken), and associated with an end-user (not a client-credentials token).
         val userToken = resource.accessToken
             ?.let { tokenManager.introspectToken(client, it, ACCESS) }
-        val userId = userToken?.grant?.userId
+        // A token whose account is gone names no end-user any more, which is the same refusal.
+        val user = userToken?.grant?.userId?.let { userManager.findByIdOrNull(it) }
             ?: throw recoverableBusinessExceptionOf(
                 "client.providers.link.invalid_access_token",
                 "description.client.providers.link.invalid_access_token"
@@ -133,7 +136,7 @@ class ClientProviderLinkController(
 
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = linkProviderManager.startLinkProviderSession(
-            userId = userId,
+            user = user,
             providerId = providerId,
             returnUri = returnUri,
             flow = flow,

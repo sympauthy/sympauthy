@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowStep
@@ -18,6 +19,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.security.observedRequestOf
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.DisabledMfaConfig
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
@@ -49,6 +51,9 @@ class ClientMfaEnrollmentControllerTest {
     lateinit var tokenManager: TokenManager
 
     @MockK
+    lateinit var userManager: UserManager
+
+    @MockK
     lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
 
     @MockK
@@ -69,6 +74,7 @@ class ClientMfaEnrollmentControllerTest {
         interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
         clientRedirectUriManager = clientRedirectUriManager,
         tokenManager = tokenManager,
+        userManager = userManager,
         mfaEnrollmentManager = mfaEnrollmentManager,
         engine = engine,
         stepUriMapper = stepUriMapper,
@@ -88,6 +94,7 @@ class ClientMfaEnrollmentControllerTest {
     fun `startEnrollment - Validates the token and return URI, starts the session, and returns state and redirect URL`() =
         runTest {
             val userId = UUID.randomUUID()
+            val user = mockk<User>()
             val client = mockk<Client>()
             val authentication = clientAuthentication(client)
             val userToken = mockk<AuthenticationToken> {
@@ -101,6 +108,7 @@ class ClientMfaEnrollmentControllerTest {
 
             every { client.id } returns "client-id"
             coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+            coEvery { userManager.findByIdOrNull(userId) } returns user
             every {
                 clientRedirectUriManager.parseRequestedRedirectUri(
                     client,
@@ -110,7 +118,7 @@ class ClientMfaEnrollmentControllerTest {
             } returns returnUri
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
-                mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, "client-id")
+                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, "client-id")
             } returns session
             coEvery { engine.advance(session) } returns
                 InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
@@ -136,6 +144,7 @@ class ClientMfaEnrollmentControllerTest {
     @Test
     fun `startEnrollment - Validates and forwards the optional cancel URI`() = runTest {
         val userId = UUID.randomUUID()
+        val user = mockk<User>()
         val client = mockk<Client>()
         val authentication = clientAuthentication(client)
         val userToken = mockk<AuthenticationToken> {
@@ -150,6 +159,7 @@ class ClientMfaEnrollmentControllerTest {
 
         every { client.id } returns "client-id"
         coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         every {
             clientRedirectUriManager.parseRequestedRedirectUri(
                 client,
@@ -167,7 +177,7 @@ class ClientMfaEnrollmentControllerTest {
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.
         coEvery {
-            mfaEnrollmentManager.startMfaEnrollmentSession(userId, returnUri, flow, "client-id", cancelUri)
+            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, "client-id", cancelUri)
         } returns session
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
@@ -255,4 +265,31 @@ class ClientMfaEnrollmentControllerTest {
             assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
             coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any()) }
         }
+
+    @Test
+    fun `startEnrollment - Fails with invalid_access_token when the account the token names is gone`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any()) }
+    }
 }

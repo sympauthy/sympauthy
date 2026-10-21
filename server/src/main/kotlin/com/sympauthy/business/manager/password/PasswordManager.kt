@@ -12,7 +12,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.time.LocalDateTime.now
-import java.util.UUID
 
 @Singleton
 class PasswordManager(
@@ -58,12 +57,12 @@ class PasswordManager(
         expirationDate == null || expirationDate.isAfter(now())
 
     /**
-     * Return true if the user identified by [userId] has any non-expired password stored — i.e. a password
+     * Return true if the [user] has any non-expired password stored — i.e. a password
      * credential that [arePasswordMatching] could match against. Used to offer the password method only when
      * the account actually has one (e.g. during re-authentication).
      */
-    suspend fun hasPassword(userId: UUID): Boolean {
-        return passwordRepository.findByUserId(userId).any { it.isUsable() }
+    suspend fun hasPassword(user: User): Boolean {
+        return passwordRepository.findByUserId(user.id).any { it.isUsable() }
     }
 
     /**

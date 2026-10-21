@@ -81,10 +81,10 @@ class TotpManager(
     }
 
     /**
-     * Returns true if [code] is valid against any confirmed TOTP enrollment for the given [userId].
+     * Returns true if [code] is valid against any confirmed TOTP enrollment for the given [user].
      */
-    suspend fun isCodeValidForUser(userId: UUID, code: String): Boolean {
-        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(userId)
+    suspend fun isCodeValidForUser(user: User, code: String): Boolean {
+        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(user.id)
             .any { isCodeValid(it.secret, code) }
     }
 
@@ -106,10 +106,10 @@ class TotpManager(
     }
 
     /**
-     * Returns true if [userId] has at least one confirmed TOTP enrollment (i.e. the account is MFA-enrolled).
+     * Returns true if [user] has at least one confirmed TOTP enrollment (i.e. the account is MFA-enrolled).
      */
-    suspend fun isEnrolled(userId: UUID): Boolean {
-        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(userId).isNotEmpty()
+    suspend fun isEnrolled(user: User): Boolean {
+        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(user.id).isNotEmpty()
     }
 
     /**

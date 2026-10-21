@@ -100,6 +100,7 @@ class AdminUserProviderControllerTest {
 
     private val observed = observedRequestOf()
     private val userId: UUID = UUID.randomUUID()
+    private val user = mockk<User>()
     private val linkedAt: LocalDateTime = LocalDateTime.of(2026, 1, 15, 14, 30, 0)
 
     private val lastFetchedAt: LocalDateTime = LocalDateTime.of(2026, 3, 2, 9, 0, 0)
@@ -127,9 +128,9 @@ class AdminUserProviderControllerTest {
             linkedAt = linkedAt
         )
         coEvery { userProviderCollectionManager.capabilities() } returns noCapabilities()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery {
-            userProviderCollectionManager.listUserProviders(userId, any(), PageParams(0, 20))
+            userProviderCollectionManager.listUserProviders(user, any(), PageParams(0, 20))
         } returns Page(items = listOf(providerInfo), page = 3, size = 7, total = 42)
         every { userProviderMapper.toResource(providerInfo) } returns resource
 
@@ -156,9 +157,9 @@ class AdminUserProviderControllerTest {
     @Test
     fun `listProviders - Returns empty list when user has no providers`() = runTest {
         coEvery { userProviderCollectionManager.capabilities() } returns noCapabilities()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery {
-            userProviderCollectionManager.listUserProviders(userId, any(), PageParams(0, 20))
+            userProviderCollectionManager.listUserProviders(user, any(), PageParams(0, 20))
         } returns Page(items = emptyList(), page = 0, size = 20, total = 0)
 
         val result = controller.listProviders(collectionRequest(), userId, null, null, null, null)
@@ -170,13 +171,13 @@ class AdminUserProviderControllerTest {
     @Test
     fun `unlinkProvider - Deletes the provider link`() = runTest {
         val providerInfo = mockProviderUserInfo()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, "discord") } returns providerInfo
-        coEvery { providerClaimsManager.deleteProviderLink(userId, "discord") } returns 1
+        coEvery { providerClaimsManager.deleteProviderLink(providerInfo) } returns 1
 
         controller.unlinkProvider(userId, "discord")
 
-        coVerify { providerClaimsManager.deleteProviderLink(userId, "discord") }
+        coVerify { providerClaimsManager.deleteProviderLink(providerInfo) }
     }
 
     @Test
@@ -192,7 +193,7 @@ class AdminUserProviderControllerTest {
 
     @Test
     fun `unlinkProvider - Returns 404 when provider link not found`() = runTest {
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, "discord") } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
@@ -211,7 +212,7 @@ class AdminUserProviderControllerTest {
         val steppedSession = mockk<OnGoingInteractiveFlowSession>()
         val nextUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
 
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
         coEvery { providerManager.listEnabledProviders() } returns
             listOf(mockk<EnabledProvider> { every { id } returns "discord" })
@@ -225,7 +226,7 @@ class AdminUserProviderControllerTest {
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // Admin-initiated: initiatingClientId must be null (confirmation shows "an administrator").
         coEvery {
-            linkProviderManager.startLinkProviderSession(userId, "discord", returnUri, flow, null, null)
+            linkProviderManager.startLinkProviderSession(user, "discord", returnUri, flow, null, null)
         } returns session
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -244,7 +245,7 @@ class AdminUserProviderControllerTest {
         assertEquals(nextUri.toString(), result.redirectUrl)
         coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
         coVerify {
-            linkProviderManager.startLinkProviderSession(userId, "discord", returnUri, flow, null, null)
+            linkProviderManager.startLinkProviderSession(user, "discord", returnUri, flow, null, null)
         }
     }
 
@@ -272,7 +273,7 @@ class AdminUserProviderControllerTest {
 
     @Test
     fun `startLink - Returns 404 when the named client is not found`() = runTest {
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("missing-client") } returns null
 
         val exception = assertThrows<LocalizedHttpException> {
@@ -296,7 +297,7 @@ class AdminUserProviderControllerTest {
     @Test
     fun `startLink - Returns 404 and starts no session for an unknown provider`() = runTest {
         val client = mockk<Client>()
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
         // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
         coEvery { providerManager.listEnabledProviders() } returns emptyList()

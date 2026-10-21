@@ -101,8 +101,8 @@ class AdminConsentController(
     ): AdminConsentListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, consentCollectionManager.capabilities(), sort, q)
-        userManager.findByIdOrNull(userId).orNotFound()
-        val consents = consentCollectionManager.listUserConsents(userId, criteria, pageParams)
+        val user = userManager.findByIdOrNull(userId).orNotFound()
+        val consents = consentCollectionManager.listUserConsents(user, criteria, pageParams)
         return AdminConsentListResource(
             consents = consents.items.map(consentMapper::toResource),
             page = consents.page,

@@ -8,11 +8,13 @@ import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -42,6 +44,7 @@ import jakarta.inject.Singleton
 @Singleton
 class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
@@ -52,6 +55,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val grantManager: GrantManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
+    @Inject private val userManager: UserManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
 ) : InteractiveFlowPurposeHandler {
 
@@ -170,8 +174,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     internal suspend fun requiredMfaPurpose(session: OnGoingInteractiveFlowSession): InteractiveFlowPurpose? {
         val mfaConfig = uncheckedMfaConfig.orThrow()
         if (!mfaConfig.enabled) return null
-        val userId = session.userId ?: return null
-        val enrolled = totpManager.isEnrolled(userId)
+        session.userId ?: return null
+        val enrolled = totpManager.isEnrolled(sessionManager.getUser(session))
         return when {
             enrolled -> InteractiveFlowPurpose.MFA_CHALLENGE
             session.signedUp -> InteractiveFlowPurpose.MFA_ENROLLMENT
@@ -203,16 +207,16 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         val userId = session.userId ?: return OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
 
         val consentedScopes = oauth2.consentedScopes ?: emptyList()
-        val audienceId = oauth2Manager.getAudienceId(oauth2)
+        val audience = oauth2Manager.getAudience(oauth2)
         val collectedClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = userId,
-            audienceId = audienceId,
+            audienceId = audience.id,
             consentedScopes = consentedScopes
         )
         val missingRequiredClaims = !consentAwareCollectedClaimManager
-            .areAllIdentifierAndRequiredClaimsCollectedInFlow(collectedClaims, audienceId, consentedScopes)
+            .areAllIdentifierAndRequiredClaimsCollectedInFlow(collectedClaims, audience, consentedScopes)
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
-            audienceId = audienceId,
+            audience = audience,
             collectedClaims = collectedClaims
         )
             .map(ValidationCodeReason::media)
@@ -258,11 +262,13 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
         val userId = session.userId
             ?: throw internalBusinessExceptionOf("flow.authorization_flow.complete.missing_user")
+        // The account was promoted before any terminal effect ran, so it is read as a committed one.
+        val user = userManager.findById(userId)
         // Fetched once here and threaded downward: the granting pipeline and the consent below both answer for
         // the audience it names, and neither reads the record again.
         val oauth2BeforeGranting = oauth2Manager.fetchOAuth2(session)
-        val audienceId = oauth2Manager.getAudienceId(oauth2BeforeGranting)
-        val audienceClaims = collectedClaimManager.findByUserIdAndAudience(userId, audienceId)
+        val audience = oauth2Manager.getAudience(oauth2BeforeGranting)
+        val audienceClaims = collectedClaimManager.findByUserIdAndAudience(userId, audience.id)
 
         // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
@@ -289,13 +295,13 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         }
 
         consentManager.saveConsent(
-            userId = userId,
-            audienceId = audienceId,
+            user = user,
+            audience = audience,
             clientId = oauth2.clientId,
             scopes = oauth2.consentedScopes ?: emptyList()
         )
-        oauth2.invitationId?.let { invitationManager.consumeInvitation(it, userId) }
-        val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audienceId)
+        oauth2.invitationId?.let { invitationManager.consumeInvitation(invitationManager.findById(it), user) }
+        val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audience.id)
         authorizationCodeManager.generateCode(oauth2, grant)
         return TerminalEffectResult.Proceed
     }

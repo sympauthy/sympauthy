@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
@@ -49,22 +50,22 @@ class UserClaimCollectionManager(
     suspend fun capabilities(): CollectionCapabilities = fields().capabilities
 
     /**
-     * Read the page [pageParams] names of the claims of the user [userId] that [criteria] keep.
+     * Read the page [pageParams] names of the claims of the [user] that [criteria] keep.
      *
      * The value of every listable claim is read before the criteria run, because a criterion may be
      * about the value: `collected`, `verified` and `value` are all read off what was collected from
      * that user, and the read is one query whichever of them the caller named.
      */
     suspend fun listUserClaims(
-        userId: UUID,
+        user: User,
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<UserClaim> {
         val identifierClaimIds = uncheckedAuthConfig.orThrow().identifierClaims.toSet()
         val claims = listableClaims()
-        val collectedClaims = collectedClaimManager.findByUserIdAndClaims(userId, claims)
+        val collectedClaims = collectedClaimManager.findByUserIdAndClaims(user.id, claims)
             .associateBy { it.claim.id }
-        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
+        val generatedClaimValues = generatedClaimsManager.computeValues(user)
 
         val userClaims = claims.map { claim ->
             val isIdentifier = claim.id in identifierClaimIds

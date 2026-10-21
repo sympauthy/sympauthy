@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
@@ -85,6 +86,7 @@ class IdTokenGeneratorTest {
 
     private val savedEntity = slot<AuthenticationTokenEntity>()
 
+    private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
     private val readAudienceId = slot<String>()
 
     private val readRequestedClaims = slot<RequestedClaims>()
@@ -163,7 +165,7 @@ class IdTokenGeneratorTest {
 
         val idToken = generator.generateIdToken(
             grant = grant,
-            audienceId = AUDIENCE,
+            audience = audience,
             accessToken = mockk { every { token } returns ACCESS_TOKEN },
             grantType = GrantType.AUTHORIZATION_CODE
         )
@@ -175,7 +177,7 @@ class IdTokenGeneratorTest {
     fun `generateIdToken - Issue none where the grant does not carry openid`() = runTest {
         val idToken = generator.generateIdToken(
             grant = grant(grantedScopes = listOf(CONSENTED_SCOPE)),
-            audienceId = AUDIENCE,
+            audience = audience,
             accessToken = mockk(),
             grantType = GrantType.REFRESH_TOKEN
         )
@@ -187,7 +189,7 @@ class IdTokenGeneratorTest {
     fun `generateIdToken - Issue none where the grant names no person`() = runTest {
         val idToken = generator.generateIdToken(
             grant = grant(userId = null),
-            audienceId = AUDIENCE,
+            audience = audience,
             accessToken = mockk(),
             grantType = GrantType.CLIENT_CREDENTIALS
         )
@@ -388,7 +390,7 @@ class IdTokenGeneratorTest {
             consentedScopes = grant.consentedScopes
         )
 
-        generator.generateIdToken(grant, AUDIENCE, accessToken, grantType, nonce)
+        generator.generateIdToken(grant, audience, accessToken, grantType, nonce)
 
         return builder.build()
     }
@@ -429,7 +431,7 @@ class IdTokenGeneratorTest {
 
         generator.generateIdToken(
             grant = grant(userId = userId, consentedScopes = emptyList()),
-            audienceId = AUDIENCE,
+            audience = audience,
             accessToken = accessToken,
             grantType = GrantType.AUTHORIZATION_CODE
         )

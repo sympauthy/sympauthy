@@ -195,7 +195,7 @@ class ClientInvitationController(
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, invitationCollectionManager.clientCapabilities(), sort, q)
         val invitations = invitationCollectionManager.listInvitationsCreatedBy(
-            createdById = clientAuth.clientId,
+            client = clientAuth.client,
             criteria = criteria,
             pageParams = pageParams
         )

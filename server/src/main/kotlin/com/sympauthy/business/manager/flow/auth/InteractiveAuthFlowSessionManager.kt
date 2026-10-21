@@ -190,7 +190,7 @@ class InteractiveAuthFlowSessionManager(
 
         val (invitation, invitationException) = if (!uncheckedInvitationToken.isNullOrBlank() && client != null) {
             try {
-                invitationManager.validateToken(uncheckedInvitationToken, client.audience.id) to null
+                invitationManager.validateToken(uncheckedInvitationToken, client.audience) to null
             } catch (e: BusinessException) {
                 null to e
             }

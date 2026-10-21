@@ -231,9 +231,9 @@ open class InvitationManager(
 
     /**
      * Validate a raw invitation token for use during the authorize flow.
-     * Checks that the invitation exists, is pending, not expired, and matches the client's audience.
+     * Checks that the invitation exists, is pending, not expired, and is for the [audience] of the client.
      */
-    suspend fun validateToken(rawToken: String, clientAudienceId: String): Invitation {
+    suspend fun validateToken(rawToken: String, audience: Audience): Invitation {
         val invitation = findByRawTokenOrNull(rawToken)
             ?: throw recoverableBusinessExceptionOf(
                 detailsId = "invitation.invalid_token",
@@ -260,12 +260,12 @@ open class InvitationManager(
             }
         }
 
-        if (invitation.audienceId != clientAudienceId) {
+        if (invitation.audienceId != audience.id) {
             throw businessExceptionOf(
                 detailsId = "invitation.audience_mismatch",
                 values = arrayOf(
                     "invitationAudience" to invitation.audienceId,
-                    "clientAudience" to clientAudienceId
+                    "clientAudience" to audience.id
                 )
             )
         }
@@ -274,9 +274,7 @@ open class InvitationManager(
     }
 
     /**
-     * If an invitation is bound to the authorize attempt, apply its pre-assigned claims to [user].
-     *
-     * Does nothing if no invitation is bound to the attempt.
+     * Apply the pre-assigned claims of the [invitation] bound to the authorize attempt to [user].
      *
      * **An identifier claim is applied only to an account the flow created.** [user] is a committed account
      * whenever the flow resolved one instead — a provider merge landing on an account that already exists —
@@ -297,9 +295,7 @@ open class InvitationManager(
      * long gone, and the invitee is mid-sign-up answering for a value they never chose.
      */
     @Transactional
-    open suspend fun applyInvitationClaims(invitationId: UUID?, user: User) {
-        if (invitationId == null) return
-        val invitation = findById(invitationId)
+    open suspend fun applyInvitationClaims(invitation: Invitation, user: User) {
         val claims = invitation.claims
         if (claims.isNullOrEmpty()) return
 
@@ -312,7 +308,7 @@ open class InvitationManager(
                 logger.info(
                     "Invitation {} pre-assigns the identifier claim {}, and the flow resolved an existing " +
                         "account rather than creating one. The claim is left alone.",
-                    invitationId,
+                    invitation.id,
                     claim.id
                 )
                 return@mapNotNull null
@@ -326,7 +322,7 @@ open class InvitationManager(
             if (cleaned == null) {
                 logger.info(
                     "Invitation {} carries a value for {} that the claim no longer accepts. It is left alone.",
-                    invitationId,
+                    invitation.id,
                     claim.id
                 )
                 return@mapNotNull null
@@ -342,20 +338,23 @@ open class InvitationManager(
     }
 
     /**
-     * Mark the invitation [id] as consumed by the user [userId] and return it.
+     * Mark the [invitation] as consumed by the [user] and return it.
      *
      * Throws a non-recoverable [BusinessException] `invitation.already_consumed` when the invitation is no
-     * longer pending. Two sign-ups may hold one invitation at the same time — neither blocks the other while
-     * both are provisional — so this is where the first of them to complete wins and the other is refused.
+     * longer pending, which the write checks rather than [invitation]. Two sign-ups may hold one invitation
+     * at the same time — neither blocks the other while both are provisional — so this is where the first
+     * of them to complete wins and the other is refused.
      * It is non-recoverable because there is no step left for the end-user to retry: every purpose has
      * resolved, and the session is completing.
      */
     @Transactional
-    open suspend fun consumeInvitation(id: UUID, userId: UUID): Invitation {
-        userManager.checkPromoted(userId)
+    open suspend fun consumeInvitation(invitation: Invitation, user: User): Invitation {
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
         val consumed = invitationRepository.consumeIfPending(
-            id = id,
-            consumedByUserId = userId,
+            id = invitation.id,
+            consumedByUserId = user.id,
             consumedAt = LocalDateTime.now()
         )
         if (consumed == 0) {
@@ -364,7 +363,7 @@ open class InvitationManager(
                 descriptionId = "description.invitation.already_consumed"
             )
         }
-        return findById(id)
+        return findById(invitation.id)
     }
 
     /**

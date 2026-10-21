@@ -34,14 +34,6 @@ class ScopeManager(
     }
 
     /**
-     * List all [EnabledScope] visible for the given [audienceId].
-     * A scope is visible if it has no audience restriction or is restricted to this audience.
-     */
-    suspend fun listEnabledScopesForAudience(audienceId: String): List<EnabledScope> {
-        return listEnabledScopes().filter { it.audienceId == null || it.audienceId == audienceId }
-    }
-
-    /**
      * Return the [EnabledScope], otherwise null, if:
      * - [scope] is an OpenID Connect scope and has not been explicitly disabled by configuration.
      * - [scope] is a custom scope that has been properly defined in the configuration and has not

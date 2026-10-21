@@ -55,9 +55,9 @@ class AdminUserLogoutController(
         @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
         authentication: Authentication
     ): AdminForceLogoutResource {
-        userManager.findByIdOrNull(userId).orNotFound()
+        val user = userManager.findByIdOrNull(userId).orNotFound()
         val grantsRevoked = grantManager.revokeGrantsByUser(
-            userId = userId,
+            user = user,
             revokedBy = GrantRevokedBy.ADMIN,
             revokedById = authentication.userId
         )
@@ -94,11 +94,11 @@ class AdminUserLogoutController(
         @PathVariable @Parameter(description = "Identifier of the client whose grants to revoke.") clientId: String,
         authentication: Authentication
     ): AdminForceLogoutResource {
-        userManager.findByIdOrNull(userId).orNotFound()
-        clientManager.findClientByIdOrNull(clientId).orNotFound()
+        val user = userManager.findByIdOrNull(userId).orNotFound()
+        val client = clientManager.findClientByIdOrNull(clientId).orNotFound()
         val grantsRevoked = grantManager.revokeGrantsByUserAndClient(
-            userId = userId,
-            clientId = clientId,
+            user = user,
+            client = client,
             revokedBy = GrantRevokedBy.ADMIN,
             revokedById = authentication.userId
         )

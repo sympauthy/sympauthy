@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -165,7 +166,7 @@ open class ConsentAwareCollectedClaimManager(
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndCollectedInFlow(
                     userId = userId,
-                    audienceId = oauth2Manager.getAudienceId(oauth2),
+                    audienceId = oauth2Manager.getAudience(oauth2).id,
                     consentedScopes = consentedScopes
                 )
             }
@@ -175,7 +176,7 @@ open class ConsentAwareCollectedClaimManager(
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndCollectedInFlow(
                     userId = session.userId,
-                    audienceId = oauth2Manager.getAudienceId(oauth2),
+                    audienceId = oauth2Manager.getAudience(oauth2).id,
                     consentedScopes = consentedScopes
                 )
             }
@@ -183,8 +184,8 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Return true if every claim this flow holds the end-user to has been collected, for the audience
-     * identified by [audienceId] and given the [consentedScopes]. There are two kinds of them, and each
+     * Return true if every claim this flow holds the end-user to has been collected, for the [audience]
+     * and given the [consentedScopes]. There are two kinds of them, and each
      * arrives by a rule of its own.
      *
      * **An identifier claim is held to whatever its file says.** It is what the account signs in with, so it
@@ -194,7 +195,7 @@ open class ConsentAwareCollectedClaimManager(
      * consent scope is not either: an account holding no value for a claim it is identified by holds a row no
      * login matches, which is not something a client's consent decides.
      *
-     * **A required claim is one of three things at once**: it belongs to [audienceId], the end-user consented
+     * **A required claim is one of three things at once**: it belongs to [audience], the end-user consented
      * to the scope it sits under, and the flow collects it. Required claims outside the consented scopes are
      * not considered, since the end-user has not consented to provide them in this authorization flow;
      * required claims restricted to another audience are not either, because they are not this audience's
@@ -214,7 +215,7 @@ open class ConsentAwareCollectedClaimManager(
      */
     fun areAllIdentifierAndRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
-        audienceId: String,
+        audience: Audience,
         consentedScopes: List<String>
     ): Boolean {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
@@ -223,14 +224,13 @@ open class ConsentAwareCollectedClaimManager(
         // which is the rule ConsentAcl.collectedInFlow states.
         val heldToClaims = identifierClaims + claimManager.listRequiredClaims()
             .filter { it !in identifierClaims }
-            .filter { it.belongsToAudience(audienceId) && it.isCollectedInFlow(consentedScopes) }
+            .filter { it.belongsToAudience(audience.id) && it.isCollectedInFlow(consentedScopes) }
         val claimsHoldingAValue = collectedClaims.filter { it.value != null }.map { it.claim }.toSet()
         return heldToClaims.all { it in claimsHoldingAValue }
     }
 
     /**
-     * Update the claims collected for the [user] during the authorization flow, for the audience identified
-     * by [audienceId].
+     * Update the claims collected for the [user] during the authorization flow, for the [audience].
      *
      * Only updates targeting claims the flow collects (non-identifier, of that audience and within
      * the [consentedScopes]) are applied. Other updates are silently ignored — a flow may only write what it
@@ -239,12 +239,12 @@ open class ConsentAwareCollectedClaimManager(
     @Transactional
     open suspend fun updateInFlow(
         user: User,
-        audienceId: String,
+        audience: Audience,
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
         val collectableClaims = consentAwareClaimManager.listClaimsCollectedInFlowWithScopes(
-            audienceId = audienceId,
+            audience = audience,
             consentedScopes = consentedScopes
         )
         val applicableUpdates = updates.filter { it.claim in collectableClaims }
@@ -252,8 +252,7 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Update the claims collected for the [user] on behalf of a client of the audience identified by
-     * [audienceId].
+     * Update the claims collected for the [user] on behalf of a client of the [audience].
      *
      * Only claims of that audience and writable by a client according to the [consentedScopes] and
      * [clientScopes] are applied. Updates targeting any other claim are silently ignored.
@@ -276,7 +275,7 @@ open class ConsentAwareCollectedClaimManager(
     @Transactional
     open suspend fun updateByClient(
         user: User,
-        audienceId: String,
+        audience: Audience,
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>,
         clientScopes: List<String> = emptyList()
@@ -284,12 +283,12 @@ open class ConsentAwareCollectedClaimManager(
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
-                it.claim.belongsToAudience(audienceId) &&
+                it.claim.belongsToAudience(audience.id) &&
                 it.claim.canBeWrittenByClient(consentedScopes, clientScopes)
         }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
         return collectedClaims.filter {
-            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
+            it.claim.belongsToAudience(audience.id) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
         }
     }
 }

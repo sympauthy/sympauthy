@@ -67,12 +67,12 @@ class ClientUserClaimController(
         val client = clientAuth.client
         val audienceId = client.audience.id
         val clientScopeIds = clientAuth.scopes.map { it.scope }
-        clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
+        val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId, audienceId, consent.scopes, clientScopeIds
         )
-        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
+        val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user)
         return claimMapper.toResource(userId, claims, generatedClaimValues)
     }
 
@@ -158,14 +158,14 @@ class ClientUserClaimController(
 
         val updates = collectedClaimUpdateMapper.toUpdates(body)
         consentAwareCollectedClaimManager.updateByClient(
-            clientUser.user, audienceId, updates, consent.scopes, clientScopeIds
+            clientUser.user, client.audience, updates, consent.scopes, clientScopeIds
         )
 
         // Return the full claim set after update
         val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId, audienceId, consent.scopes, clientScopeIds
         )
-        val generatedClaimValues = generatedClaimsManager.computeValues(userId)
+        val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user)
         return claimMapper.toResource(userId, allClaims, generatedClaimValues)
     }
 }

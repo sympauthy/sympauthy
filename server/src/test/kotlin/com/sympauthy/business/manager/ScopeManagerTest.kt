@@ -1,7 +1,6 @@
 package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.oauth2.AdminScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
@@ -217,24 +216,6 @@ class ScopeManagerTest {
     }
 
     @Test
-    fun `listEnabledScopesForAudience - Excludes admin scopes from non-admin audience`() = runTest {
-        coEvery { scopeManager.listEnabledScopes() } returns adminScopes(audienceId = "admin")
-
-        val result = scopeManager.listEnabledScopesForAudience("default")
-
-        assertTrue(result.isEmpty())
-    }
-
-    @Test
-    fun `listEnabledScopesForAudience - Includes admin scopes for admin audience`() = runTest {
-        coEvery { scopeManager.listEnabledScopes() } returns adminScopes(audienceId = "admin")
-
-        val result = scopeManager.listEnabledScopesForAudience("admin")
-
-        assertEquals(AdminScope.entries.size, result.size)
-    }
-
-    @Test
     fun `listEnabledScopes - Leave out the scopes the deployment turned off`() = runTest {
         val result = managerConfiguredWith(enabledScope, disabledScope).listEnabledScopes()
 
@@ -281,10 +262,4 @@ class ScopeManagerTest {
      */
     private fun managerConfiguredWith(vararg scopes: Scope) =
         ScopeManager(EnabledScopesConfig(scopes.toList()), claimManager)
-
-    private fun adminScopes(audienceId: String): List<EnabledScope> {
-        return AdminScope.entries.map {
-            GrantableUserScope(scope = it.scope, publishedIn = emptySet(), audienceId = audienceId)
-        }
-    }
 }

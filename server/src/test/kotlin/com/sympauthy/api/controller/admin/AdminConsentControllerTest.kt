@@ -84,9 +84,10 @@ class AdminConsentControllerTest {
         val consent = consent(id(1), consentedAt)
         val resource = mockResource(consent.id)
 
-        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        val user = mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { consentCollectionManager.capabilities() } returns noCapabilities()
-        coEvery { consentCollectionManager.listUserConsents(userId, any(), PageParams(0, 20)) } returns Page(
+        coEvery { consentCollectionManager.listUserConsents(user, any(), PageParams(0, 20)) } returns Page(
             items = listOf(consent),
             page = 3,
             size = 7,

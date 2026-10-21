@@ -17,6 +17,7 @@ import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -37,15 +38,15 @@ class ConsentCollectionManager(
     suspend fun capabilities(): CollectionCapabilities = fields().capabilities
 
     /**
-     * Read the page [pageParams] names of the consents the user [userId] has granted and not
+     * Read the page [pageParams] names of the consents the [user] has granted and not
      * revoked that [criteria] keep.
      */
     suspend fun listUserConsents(
-        userId: UUID,
+        user: User,
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<Consent> = fields().page(
-        items = consentManager.findActiveConsentsByUser(userId),
+        items = consentManager.findActiveConsentsByUser(user.id),
         criteria = criteria,
         pageParams = pageParams
     )

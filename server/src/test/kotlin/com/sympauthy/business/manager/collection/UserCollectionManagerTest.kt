@@ -341,7 +341,7 @@ class UserCollectionManagerTest {
         every { collectedClaimMapper.toCollectedClaim(claimEntity) } returns
                 mockCollectedClaim(user.id, emailClaim, "jane@example.com")
         coEvery {
-            generatedClaimsManager.computeValues(user.id, collectedAt)
+            generatedClaimsManager.computeValues(user, collectedAt)
         } returns mapOf("sub" to user.id.toString())
 
         val result = manager.listUsers(criteriaOf(), firstPage)
@@ -356,13 +356,13 @@ class UserCollectionManagerTest {
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         givenUsers(listOf(onPage, offPage))
         coEvery {
-            generatedClaimsManager.computeValues(onPage.id, null)
+            generatedClaimsManager.computeValues(onPage, null)
         } returns mapOf("sub" to onPage.id.toString())
 
         val result = manager.listUsers(criteriaOf(), PageParams(0, 1))
 
         assertEquals(mapOf("sub" to onPage.id.toString()), result.items.single().generatedClaimValues)
-        coVerify(exactly = 0) { generatedClaimsManager.computeValues(offPage.id, any()) }
+        coVerify(exactly = 0) { generatedClaimsManager.computeValues(offPage, any()) }
     }
 
     @Test
@@ -371,12 +371,12 @@ class UserCollectionManagerTest {
         val dropped = mockUser()
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim)
         givenUsers(listOf(kept, dropped), mapOf(kept to "jane@example.com", dropped to "john@example.com"))
-        coEvery { generatedClaimsManager.computeValues(kept.id, any()) } returns emptyMap()
+        coEvery { generatedClaimsManager.computeValues(kept, any()) } returns emptyMap()
 
         val result = manager.listUsers(criteriaOf(query = "jan"), firstPage)
 
         assertEquals(kept.id, result.items.single().user.id)
-        coVerify(exactly = 0) { generatedClaimsManager.computeValues(dropped.id, any()) }
+        coVerify(exactly = 0) { generatedClaimsManager.computeValues(dropped, any()) }
     }
 
     @Test
@@ -411,7 +411,7 @@ class UserCollectionManagerTest {
         every { collectedClaimMapper.toCollectedClaim(mapped) } returns
                 mockCollectedClaim(user.id, emailClaim, "jane@example.com")
         every { collectedClaimMapper.toCollectedClaim(unmappable) } returns null
-        coEvery { generatedClaimsManager.computeValues(user.id, droppedAt) } returns emptyMap()
+        coEvery { generatedClaimsManager.computeValues(user, droppedAt) } returns emptyMap()
 
         val result = manager.listUsers(criteriaOf(), firstPage)
 

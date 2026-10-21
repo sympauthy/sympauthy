@@ -4,6 +4,7 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
@@ -42,7 +43,7 @@ class IdTokenGenerator(
      * those only the ones the deployment publishes in the id token — always, or on request where the `claims`
      * parameter of the authorization behind the [grant] named them.
      *
-     * [audienceId] is the audience the client belongs to, and a claim restricted to another one is left out.
+     * [audience] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it.
@@ -65,7 +66,7 @@ class IdTokenGenerator(
      */
     suspend fun generateIdToken(
         grant: Grant,
-        audienceId: String,
+        audience: Audience,
         accessToken: EncodedAuthenticationToken,
         grantType: GrantType = grant.grantType,
         nonce: String? = null
@@ -84,7 +85,7 @@ class IdTokenGenerator(
 
         val publishedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
             userId = userId,
-            audienceId = audienceId,
+            audienceId = audience.id,
             place = ClaimPublicationPlace.ID_TOKEN,
             consentedScopes = grant.consentedScopes,
             requestedClaims = grant.requestedClaims

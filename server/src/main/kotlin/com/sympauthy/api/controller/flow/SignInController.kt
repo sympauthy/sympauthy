@@ -20,6 +20,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
@@ -63,6 +64,7 @@ class SignInController(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val collectableClaimResourceMapper: CollectableClaimResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
@@ -139,11 +141,11 @@ class SignInController(
         // When re-authenticating, the session user is already fixed (see signInApplies) and only the methods
         // that account actually has are offered — password if it has one, providers already linked to it —
         // and there is no sign-up. Otherwise this is a normal sign-in and every configured method is offered.
-        val reauthUserId = session.userId
+        val reauthUser = session.userId?.let { sessionManager.getUser(session) }
 
         val password = if (
             passwordFlowManager.signInEnabled &&
-            (reauthUserId == null || passwordManager.hasPassword(reauthUserId))
+            (reauthUser == null || passwordManager.hasPassword(reauthUser))
         ) {
             PasswordResource(
                 identifierClaims = collectableClaimResourceMapper.toResources(
@@ -153,8 +155,8 @@ class SignInController(
         } else null
 
         val enabledProviders = providerManager.listEnabledProviders()
-        val offeredProviders = if (reauthUserId != null) {
-            val linkedProviderIds = providerClaimsManager.findByUserId(reauthUserId)
+        val offeredProviders = if (reauthUser != null) {
+            val linkedProviderIds = providerClaimsManager.findByUserId(reauthUser.id)
                 .map { it.providerId }
                 .toSet()
             enabledProviders.filter { it.id in linkedProviderIds }
@@ -166,7 +168,7 @@ class SignInController(
             ?.map { getProvider(it, session, urlsConfig) }
 
         val signUpRedirectUrl = if (
-            reauthUserId == null &&
+            reauthUser == null &&
             interactiveAuthFlowSessionManager.isSignUpAllowed(session) && flow.signUpUri != null
         ) {
             stepUriMapper.getSignUpRedirectUri(session, flow)?.toString()
@@ -175,7 +177,7 @@ class SignInController(
         // A re-authenticating account with no offerable method (no password set, its providers disabled or
         // unlinked) would otherwise be served an empty sign-in page with no way to prove ownership — fail the
         // flow with a clear error instead of stranding the end-user on a dead-end step.
-        if (reauthUserId != null && password == null && providers == null) {
+        if (reauthUser != null && password == null && providers == null) {
             throw businessExceptionOf(
                 "flow.reauthentication.no_method",
                 "description.flow.reauthentication.no_method"

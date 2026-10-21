@@ -55,8 +55,8 @@ class ProviderClaimsManager(
             ?.let(userInfoMapper::toProviderUserInfo)
     }
 
-    suspend fun deleteProviderLink(userId: UUID, providerId: String): Int {
-        return userInfoRepository.deleteByProviderIdAndUserId(providerId, userId)
+    suspend fun deleteProviderLink(link: ProviderUserInfo): Int {
+        return userInfoRepository.deleteByProviderIdAndUserId(link.providerId, link.userId)
     }
 
     /**

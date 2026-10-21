@@ -126,8 +126,8 @@ class AdminUserMfaController(
     ): AdminUserMfaMethodListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, mfaEnrollmentCollectionManager.capabilities(), sort)
-        userManager.findByIdOrNull(userId).orNotFound()
-        val enrollments = mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, criteria, pageParams)
+        val user = userManager.findByIdOrNull(userId).orNotFound()
+        val enrollments = mfaEnrollmentCollectionManager.listConfirmedEnrollments(user, criteria, pageParams)
         return AdminUserMfaMethodListResource(
             mfaMethods = enrollments.items.map(mfaMapper::toResource),
             page = enrollments.page,
@@ -246,7 +246,7 @@ class AdminUserMfaController(
         }
 
         // Both the target user and the named client must exist.
-        userManager.findByIdOrNull(userId).orNotFound()
+        val user = userManager.findByIdOrNull(userId).orNotFound()
         val client = resource.clientId
             ?.let { clientManager.findClientByIdOrNull(it) }
             .orNotFound()
@@ -265,7 +265,7 @@ class AdminUserMfaController(
         // Admin-initiated: pass a null client id so the confirmation shows "an administrator".
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = mfaEnrollmentManager.startMfaEnrollmentSession(
-            userId = userId,
+            user = user,
             returnUri = returnUri,
             flow = flow,
             initiatingClientId = null,

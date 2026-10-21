@@ -2,9 +2,12 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.data.Database
 import com.sympauthy.data.bean
 import com.sympauthy.data.withFixture
+import io.mockk.every
+import io.mockk.mockk
 import io.r2dbc.spi.Connection
 import io.r2dbc.spi.ConnectionFactory
 import kotlinx.coroutines.Dispatchers
@@ -64,8 +67,9 @@ class ProvisionalAccountPromotionRaceTest {
                 winner.hold(LockKey.IdentifierValue(email).stripe)
                 winner.run("UPDATE collected_claims SET session_id = NULL WHERE user_id = '$winnerId'")
 
+                val session = ongoingSession(loserSession, loserId)
                 coroutineScope {
-                    val loser = async(Dispatchers.IO) { runCatching { manager.promote(loserSession, loserId) } }
+                    val loser = async(Dispatchers.IO) { runCatching { manager.promote(session) } }
                     withContext(Dispatchers.IO) { delay(hold) }
 
                     assertFalse(loser.isCompleted, "The promotion did not wait for the one holding the value.")
@@ -98,8 +102,9 @@ class ProvisionalAccountPromotionRaceTest {
                 winner.hold(LockKey.ProviderSubject(providerId, subject).stripe)
                 winner.run("UPDATE provider_user_info SET session_id = NULL WHERE user_id = '$winnerId'")
 
+                val session = ongoingSession(loserSession, loserId)
                 coroutineScope {
-                    val loser = async(Dispatchers.IO) { runCatching { manager.promote(loserSession, loserId) } }
+                    val loser = async(Dispatchers.IO) { runCatching { manager.promote(session) } }
                     withContext(Dispatchers.IO) { delay(hold) }
 
                     assertFalse(loser.isCompleted, "The promotion did not wait for the one holding the subject.")
@@ -129,5 +134,10 @@ class ProvisionalAccountPromotionRaceTest {
     /** Runs [sql] in the transaction this connection holds, which stays open. */
     private suspend fun Connection.run(sql: String) {
         createStatement(sql).execute().awaitFirst().rowsUpdated.awaitFirstOrNull()
+    }
+
+    private fun ongoingSession(sessionId: UUID, userId: UUID) = mockk<OnGoingInteractiveFlowSession> {
+        every { id } returns sessionId
+        every { this@mockk.userId } returns userId
     }
 }

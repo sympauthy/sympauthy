@@ -65,8 +65,12 @@ PKCE parses back, rather than a published name.
 
 ## The controller
 
-**Controllers route and translate.** Bind the request, call one manager method, map the result,
-return it.
+**Controllers route and translate.** Bind the request, resolve every record it names, call the use
+case with them, map the result and return it.
+
+**A controller resolves a record through its manager's `find…OrNull`, and refuses an absent one
+itself.** It chooses the status and the code its surface answers with — `orNotFound()` where the
+path names the record, a recoverable `400` naming the field where the body does.
 
 **A collection's page is read by a manager, and its criteria are resolved before they reach it.**
 The controller binds the paging pair, `sort` and `q`, resolves the bounds and maps the page it gets

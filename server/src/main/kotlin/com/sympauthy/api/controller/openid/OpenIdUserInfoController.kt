@@ -68,6 +68,8 @@ class OpenIdUserInfoController(
         )
         // Off the grant rather than off a session: the authorization that carried the `claims` parameter
         // is long over, and every access token issued under its grant answers the request it made.
+        // The account is not resolved here as other surfaces do: this is a protocol endpoint, whose
+        // specification names the answer to a token that does not resolve, and the validated token is it.
         return userInfoMapper.toResource(authentication.userId, claims, grant.requestedClaims)
     }
 

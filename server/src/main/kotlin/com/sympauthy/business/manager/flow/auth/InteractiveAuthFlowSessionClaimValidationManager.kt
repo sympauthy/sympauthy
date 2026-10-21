@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 
@@ -63,16 +64,16 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * sign-up collected and what the claims step collects, read through the flow's own half of the ACL and
      * not a client's. A narrower list leaves a claim of this audience reading as unconfirmed.
      *
-     * [audienceId] is the audience the flow is for. A reason is answered from the claim it validates, which is
+     * [audience] is the audience the flow is for. A reason is answered from the claim it validates, which is
      * read from configuration where every audience's claims live, while [collectedClaims] are one
      * audience's — so a reason naming another audience's claim would find nothing collected, read as
      * unconfirmed, and ask for a code this flow can neither send nor ever clear.
      */
     fun getReasonsToSendValidationCode(
-        audienceId: String,
+        audience: Audience,
         collectedClaims: List<CollectedClaim>
     ): List<ValidationCodeReason> {
-        return getUnfilteredReasonsToSendValidationCode(audienceId, collectedClaims)
+        return getUnfilteredReasonsToSendValidationCode(audience, collectedClaims)
             .filter { validationCodeManager.canSendValidationCodeForReason(it) }
     }
 
@@ -83,7 +84,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * for.
      *
      * [collectedClaims] are the claims this interactive flow session collects. A reason naming a claim
-     * outside [audienceId] is not this flow's to ask about.
+     * outside [audience] is not this flow's to ask about.
      *
      * **A reason is a value this server can send a code to.** A claim no value was collected for, or one
      * whose value was cleared, is nothing to prove rather than something left unproven — this server cannot
@@ -93,12 +94,12 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * same value this does.
      */
     internal fun getUnfilteredReasonsToSendValidationCode(
-        audienceId: String,
+        audience: Audience,
         collectedClaims: List<CollectedClaim>
     ): List<ValidationCodeReason> {
         return validationCodeReasons.mapNotNull { reason ->
             getClaimValidatedBy(reason)
-                ?.takeIf { it.belongsToAudience(audienceId) }
+                ?.takeIf { it.belongsToAudience(audience.id) }
                 ?.let { claim ->
                     val collected = collectedClaims.firstOrNull { it.claim.id == claim.id }
                     if (collected == null || collected.value == null || collected.verified == true) {
@@ -133,15 +134,15 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         media: ValidationCodeMedia
     ): ValidationCode? {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
-        val audienceId = oauth2Manager.getAudienceId(oauth2)
+        val audience = oauth2Manager.getAudience(oauth2)
         val collectedClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = user.id,
-            audienceId = audienceId,
+            audienceId = audience.id,
             consentedScopes = oauth2.consentedScopes ?: emptyList()
         )
 
         val reasons = getReasonsToSendValidationCode(
-            audienceId = audienceId,
+            audience = audience,
             collectedClaims = collectedClaims
         ).filter { it.media == media }
         if (reasons.isEmpty()) return null
@@ -194,13 +195,13 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         }
 
         val oauth2 = oauth2Manager.fetchOAuth2(session)
-        val audienceId = oauth2Manager.getAudienceId(oauth2)
+        val audience = oauth2Manager.getAudience(oauth2)
         val collectedClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = user.id,
-            audienceId = audienceId,
+            audienceId = audience.id,
             consentedScopes = oauth2.consentedScopes ?: emptyList()
         )
-        val hasReasonForMedia = getReasonsToSendValidationCode(audienceId, collectedClaims)
+        val hasReasonForMedia = getReasonsToSendValidationCode(audience, collectedClaims)
             .any { it.media == media }
         if (!hasReasonForMedia) {
             return ResendResult(resent = false, validationCode = existingCode)
@@ -221,6 +222,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
     @Transactional
     open suspend fun validateClaimsByCode(
         session: OnGoingInteractiveFlowSession,
+        user: User,
         media: ValidationCodeMedia,
         code: String
     ) {
@@ -245,7 +247,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
 
         val claims = matchingValidationCode.reasons.mapNotNull(this::getClaimValidatedBy)
         collectedClaimManager.validateClaims(
-            userId = session.userId!!,
+            user = user,
             claims = claims
         )
     }

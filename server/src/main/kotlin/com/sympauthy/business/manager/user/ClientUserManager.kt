@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionField
@@ -53,7 +54,7 @@ class ClientUserManager(
 
     /**
      * Read the page [pageParams] names of the users who have an active consent for the given
-     * [audienceId], oldest consent first, out of every user [criteria] keep.
+     * [audience], oldest consent first, out of every user [criteria] keep.
      *
      * `provider_id` restricts the page to users linked to that provider, and `subject` narrows it further to
      * the account bearing it. A `subject` without a `provider_id` identifies nobody — a subject is a
@@ -64,7 +65,7 @@ class ClientUserManager(
      * query each, so the number of round trips does not grow with [size].
      */
     suspend fun listUsersForAudience(
-        audienceId: String,
+        audience: Audience,
         criteria: CollectionCriteria,
         pageParams: PageParams
     ): Page<ClientUser> = coroutineScope {
@@ -86,13 +87,13 @@ class ClientUserManager(
 
         val deferredTotal = async {
             consentManager.countActiveConsentsByAudience(
-                audienceId = audienceId,
+                audience = audience,
                 providerId = providerId,
                 subject = subject
             )
         }
         val consents = consentManager.listActiveConsentsByAudience(
-            audienceId = audienceId,
+            audience = audience,
             providerId = providerId,
             subject = subject,
             page = pageParams.page,

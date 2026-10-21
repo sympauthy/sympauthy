@@ -6,6 +6,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
@@ -136,8 +137,7 @@ open class InteractiveFlowSessionOAuth2Manager(
     }
 
     /**
-     * Return the identifier of the audience the [oauth2] request is for — the audience of the client that
-     * started it.
+     * Return the audience the [oauth2] request is for — the audience of the client that started it.
      *
      * Consent is recorded per audience, so this is the audience [InteractiveFlowSessionOAuth2.consentedScopes]
      * were consented for, and the one every consent-scoped read of that session's claims is made for.
@@ -148,8 +148,8 @@ open class InteractiveFlowSessionOAuth2Manager(
      * Throws an unrecoverable [BusinessException] carrying ```client.invalid_client_id``` where the client the
      * authorization named is no longer configured.
      */
-    suspend fun getAudienceId(oauth2: InteractiveFlowSessionOAuth2): String {
-        return clientManager.findClientById(oauth2.clientId).audience.id
+    suspend fun getAudience(oauth2: InteractiveFlowSessionOAuth2): Audience {
+        return clientManager.findClientById(oauth2.clientId).audience
     }
 
     /**

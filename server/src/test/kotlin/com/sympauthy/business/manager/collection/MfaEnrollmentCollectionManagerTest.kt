@@ -5,10 +5,13 @@ import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.user.User
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -26,6 +29,8 @@ class MfaEnrollmentCollectionManagerTest {
     lateinit var mfaEnrollmentCollectionManager: MfaEnrollmentCollectionManager
 
     private val userId: UUID = UUID.randomUUID()
+
+    private val user = mockk<User> { every { id } returns userId }
     private val confirmedDate: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
     private val firstPage = PageParams(page = 0, size = 20)
 
@@ -51,7 +56,7 @@ class MfaEnrollmentCollectionManagerTest {
         val earlier = enrollment(id(3), confirmedDate = confirmedDate.minusDays(1))
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(tiedSecond, tiedFirst, earlier)
 
-        val result = mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, criteriaOf(), firstPage)
+        val result = mfaEnrollmentCollectionManager.listConfirmedEnrollments(user, criteriaOf(), firstPage)
 
         assertEquals(listOf(earlier.id, tiedFirst.id, tiedSecond.id), result.items.map { it.id })
     }
@@ -65,7 +70,7 @@ class MfaEnrollmentCollectionManagerTest {
         val confirmedEarlier = enrollment(id(2))
         coEvery { totpManager.findConfirmedEnrollments(userId) } returns listOf(startedEarlier, confirmedEarlier)
 
-        val result = mfaEnrollmentCollectionManager.listConfirmedEnrollments(userId, criteriaOf(), firstPage)
+        val result = mfaEnrollmentCollectionManager.listConfirmedEnrollments(user, criteriaOf(), firstPage)
 
         assertEquals(listOf(confirmedEarlier.id, startedEarlier.id), result.items.map { it.id })
     }
@@ -79,7 +84,7 @@ class MfaEnrollmentCollectionManagerTest {
         )
 
         val result = mfaEnrollmentCollectionManager.listConfirmedEnrollments(
-            userId, criteriaOf(), PageParams(page = 1, size = 2)
+            user, criteriaOf(), PageParams(page = 1, size = 2)
         )
 
         assertEquals(listOf(id(3)), result.items.map { it.id })

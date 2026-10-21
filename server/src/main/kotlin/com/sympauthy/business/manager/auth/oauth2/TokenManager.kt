@@ -169,7 +169,7 @@ open class TokenManager(
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
                 grant = grant,
-                audienceId = client.audience.id,
+                audience = client.audience,
                 accessToken = accessToken,
                 nonce = nonce
             )
@@ -298,7 +298,7 @@ open class TokenManager(
         // answer it differently.
         val idToken = idTokenGenerator.generateIdToken(
             grant = grant,
-            audienceId = client.audience.id,
+            audience = client.audience,
             accessToken = accessToken,
             grantType = GrantType.REFRESH_TOKEN
         )

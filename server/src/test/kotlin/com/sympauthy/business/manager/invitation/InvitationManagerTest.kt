@@ -4,11 +4,13 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.mapper.InvitationMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
@@ -105,6 +107,12 @@ class InvitationManagerTest {
     private fun provisionalUser(): User = mockk {
         every { sessionId } returns UUID.randomUUID()
     }
+
+    /** A committed account an invitation is spent on. */
+    private fun committedUser() =
+        User(id = UUID.randomUUID(), status = UserStatus.ENABLED, creationDate = NOW, sessionId = null)
+
+    private fun audience(id: String): Audience = Audience(id = id, tokenAudience = id)
 
     /** A committed account the flow resolved rather than created, which keeps the identifier it has. */
     private fun resolvedUser(): User = mockk {
@@ -316,7 +324,7 @@ class InvitationManagerTest {
         val invitation = createInvitation(audienceId = "default")
         mockTokenLookup("validToken", invitation)
 
-        val result = manager.validateToken("validToken", "default")
+        val result = manager.validateToken("validToken", audience(AUDIENCE))
         assertEquals(invitation, result)
     }
 
@@ -330,7 +338,7 @@ class InvitationManagerTest {
         coEvery { invitationRepository.findByTokenLookupHash(byteArrayOf(4)) } returns null
 
         val exception = assertThrows<BusinessException> {
-            manager.validateToken(rawToken, "default")
+            manager.validateToken(rawToken, audience(AUDIENCE))
         }
         assertEquals("invitation.invalid_token", exception.detailsId)
     }
@@ -341,7 +349,7 @@ class InvitationManagerTest {
         mockTokenLookup("consumedToken", invitation)
 
         val exception = assertThrows<BusinessException> {
-            manager.validateToken("consumedToken", "default")
+            manager.validateToken("consumedToken", audience(AUDIENCE))
         }
         assertEquals("invitation.already_consumed", exception.detailsId)
     }
@@ -352,7 +360,7 @@ class InvitationManagerTest {
         mockTokenLookup("revokedToken", invitation)
 
         val exception = assertThrows<BusinessException> {
-            manager.validateToken("revokedToken", "default")
+            manager.validateToken("revokedToken", audience(AUDIENCE))
         }
         assertEquals("invitation.revoked", exception.detailsId)
     }
@@ -363,7 +371,7 @@ class InvitationManagerTest {
         mockTokenLookup("expiredToken", invitation)
 
         val exception = assertThrows<BusinessException> {
-            manager.validateToken("expiredToken", "default")
+            manager.validateToken("expiredToken", audience(AUDIENCE))
         }
         assertEquals("invitation.expired", exception.detailsId)
     }
@@ -374,7 +382,7 @@ class InvitationManagerTest {
         mockTokenLookup("validToken", invitation)
 
         val exception = assertThrows<BusinessException> {
-            manager.validateToken("validToken", "default")
+            manager.validateToken("validToken", audience(AUDIENCE))
         }
         assertEquals("invitation.audience_mismatch", exception.detailsId)
     }
@@ -412,14 +420,6 @@ class InvitationManagerTest {
     }
 
     @Test
-    fun `applyInvitationClaims - Does nothing when invitationId is null`() = runTest {
-        manager.applyInvitationClaims(null, mockk())
-
-        coVerify(exactly = 0) { invitationRepository.findById(any()) }
-        coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
-    }
-
-    @Test
     fun `applyInvitationClaims - Applies the claims to the user without consuming the invitation`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(
@@ -429,14 +429,11 @@ class InvitationManagerTest {
         val claim = createStoredClaim()
         cleansStoredTextOf(claim)
         val user = provisionalUser()
-        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
 
-        manager.applyInvitationClaims(invitationId, user)
+        manager.applyInvitationClaims(invitation, user)
 
         coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == claim }) }
         coVerify(exactly = 0) { invitationRepository.consumeIfPending(any(), any(), any()) }
@@ -446,12 +443,8 @@ class InvitationManagerTest {
     fun `applyInvitationClaims - Does nothing when the invitation carries no claim`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(id = invitationId, claims = null)
-        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
-
-        manager.applyInvitationClaims(invitationId, mockk())
+        manager.applyInvitationClaims(invitation, mockk())
 
         coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
     }
@@ -468,15 +461,12 @@ class InvitationManagerTest {
         cleansStoredTextOf(ownClaim)
         val otherAudienceClaim = createStoredClaim(audienceId = OTHER_AUDIENCE)
         val user = provisionalUser()
-        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
         every { claimManager.findByIdOrNull("custom_region") } returns ownClaim
         every { claimManager.findByIdOrNull("custom_tier") } returns otherAudienceClaim
         coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
 
-        manager.applyInvitationClaims(invitationId, user)
+        manager.applyInvitationClaims(invitation, user)
 
         coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == ownClaim }) }
     }
@@ -491,13 +481,10 @@ class InvitationManagerTest {
         every { claim.id } returns "custom_role"
         every { claimValueValidator.cleanValueForClaimOrNull(claim, "admin") } returns null
         val user = provisionalUser()
-        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
         every { claimManager.findByIdOrNull("custom_role") } returns claim
 
-        manager.applyInvitationClaims(invitationId, user)
+        manager.applyInvitationClaims(invitation, user)
 
         coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
     }
@@ -513,16 +500,13 @@ class InvitationManagerTest {
         val roleClaim = createStoredClaim()
         cleansStoredTextOf(roleClaim)
         val user = resolvedUser()
-        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
         every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
         every { claimManager.findByIdOrNull("email") } returns emailClaim
         every { claimManager.findByIdOrNull("custom_role") } returns roleClaim
         coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
 
-        manager.applyInvitationClaims(invitationId, user)
+        manager.applyInvitationClaims(invitation, user)
 
         coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == roleClaim }) }
     }
@@ -537,14 +521,11 @@ class InvitationManagerTest {
             )
             val emailClaim = identifierClaim()
             val user = resolvedUser()
-            val entity = mockk<InvitationEntity>()
 
-            coEvery { invitationRepository.findById(invitationId) } returns entity
-            every { invitationMapper.toInvitation(entity) } returns invitation
             every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
             every { claimManager.findByIdOrNull("email") } returns emailClaim
 
-            manager.applyInvitationClaims(invitationId, user)
+            manager.applyInvitationClaims(invitation, user)
 
             coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
         }
@@ -560,48 +541,46 @@ class InvitationManagerTest {
         val knownClaim = createStoredClaim()
         cleansStoredTextOf(knownClaim)
         val user = provisionalUser()
-        val entity = mockk<InvitationEntity>()
 
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
         every { claimManager.findByIdOrNull("known") } returns knownClaim
         every { claimManager.findByIdOrNull("unknown") } returns null
         coEvery { collectedClaimManager.update(user, any()) } returns emptyList()
 
-        manager.applyInvitationClaims(invitationId, user)
+        manager.applyInvitationClaims(invitation, user)
 
         coVerify { collectedClaimManager.update(user, match { it.size == 1 && it[0].claim == knownClaim }) }
     }
 
     @Test
     fun `consumeInvitation - Marks the invitation consumed by the user`() = runTest {
-        val invitationId = UUID.randomUUID()
-        val userId = UUID.randomUUID()
-        val invitation = createInvitation(id = invitationId, status = InvitationStatus.CONSUMED)
+        val pending = createInvitation()
+        val consumed = createInvitation(id = pending.id, status = InvitationStatus.CONSUMED)
+        val user = committedUser()
         val entity = mockk<InvitationEntity>()
 
-        coJustRun { userManager.checkPromoted(userId) }
+        coJustRun { userManager.checkPromoted(user.id) }
         coEvery {
-            invitationRepository.consumeIfPending(invitationId, userId, any())
+            invitationRepository.consumeIfPending(pending.id, user.id, any())
         } returns 1
-        coEvery { invitationRepository.findById(invitationId) } returns entity
-        every { invitationMapper.toInvitation(entity) } returns invitation
+        coEvery { invitationRepository.findById(pending.id) } returns entity
+        every { invitationMapper.toInvitation(entity) } returns consumed
 
-        assertSame(invitation, manager.consumeInvitation(invitationId, userId))
+        assertSame(consumed, manager.consumeInvitation(pending, user))
+        coVerify { userManager.checkPromoted(user.id) }
     }
 
     @Test
     fun `consumeInvitation - Refuses when another flow has already taken the invitation`() = runTest {
-        val invitationId = UUID.randomUUID()
-        val userId = UUID.randomUUID()
+        val pending = createInvitation()
+        val user = committedUser()
 
-        coJustRun { userManager.checkPromoted(userId) }
+        coJustRun { userManager.checkPromoted(user.id) }
         coEvery {
-            invitationRepository.consumeIfPending(invitationId, userId, any())
+            invitationRepository.consumeIfPending(pending.id, user.id, any())
         } returns 0
 
         val exception = assertThrows<BusinessException> {
-            manager.consumeInvitation(invitationId, userId)
+            manager.consumeInvitation(pending, user)
         }
 
         assertEquals("invitation.already_consumed", exception.detailsId)

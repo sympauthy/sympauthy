@@ -98,9 +98,9 @@ class AdminUserClaimController(
     ): AdminUserClaimListResource {
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, userClaimCollectionManager.capabilities(), sort, q)
-        userManager.findByIdOrNull(userId).orNotFound()
+        val user = userManager.findByIdOrNull(userId).orNotFound()
 
-        val claims = userClaimCollectionManager.listUserClaims(userId, criteria, pageParams)
+        val claims = userClaimCollectionManager.listUserClaims(user, criteria, pageParams)
 
         return AdminUserClaimListResource(
             claims = claims.items.map(userClaimMapper::toResource),

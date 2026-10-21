@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow.reauth
 
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -31,6 +32,7 @@ class ReauthenticationInteractiveFlowPurposeHandler(
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
 ) : InteractiveFlowPurposeHandler {
 
     override val purpose = InteractiveFlowPurpose.REAUTHENTICATION
@@ -66,7 +68,8 @@ class ReauthenticationInteractiveFlowPurposeHandler(
         if (hasMfaPurpose) return emptyList()
         val mfaConfig = uncheckedMfaConfig.orThrow()
         if (!mfaConfig.enabled) return emptyList()
-        val userId = session.userId ?: return emptyList()
-        return if (totpManager.isEnrolled(userId)) listOf(InteractiveFlowPurpose.MFA_CHALLENGE) else emptyList()
+        session.userId ?: return emptyList()
+        val enrolled = totpManager.isEnrolled(sessionManager.getUser(session))
+        return if (enrolled) listOf(InteractiveFlowPurpose.MFA_CHALLENGE) else emptyList()
     }
 }

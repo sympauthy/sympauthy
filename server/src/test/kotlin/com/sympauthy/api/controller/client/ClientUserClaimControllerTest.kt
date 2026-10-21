@@ -67,6 +67,8 @@ class ClientUserClaimControllerTest {
 
     private val consent = mockk<Consent>()
 
+    private val audience = mockk<Audience> { every { id } returns AUDIENCE }
+
     @Test
     fun `updateUserClaims - Refuse an identifier claim the client holds the write scope for`() = runTest {
         stubResolvedUser()
@@ -133,7 +135,7 @@ class ClientUserClaimControllerTest {
         every { collectedClaimUpdateMapper.toUpdates(body) } returns updates
         coEvery {
             consentAwareCollectedClaimManager.updateByClient(
-                user, AUDIENCE, updates, listOf(CONSENTED_SCOPE), emptyList()
+                user, audience, updates, listOf(CONSENTED_SCOPE), emptyList()
             )
         } returns collectedClaims
         coEvery {
@@ -141,7 +143,7 @@ class ClientUserClaimControllerTest {
                 userId, AUDIENCE, listOf(CONSENTED_SCOPE), emptyList()
             )
         } returns collectedClaims
-        coEvery { generatedClaimsManager.computeValues(userId) } returns generatedClaimValues
+        coEvery { generatedClaimsManager.computeValues(user) } returns generatedClaimValues
         every { claimMapper.toResource(userId, collectedClaims, generatedClaimValues) } returns resource
 
         val result = controller.updateUserClaims(authentication(), userId, body)
@@ -151,7 +153,7 @@ class ClientUserClaimControllerTest {
 
     private fun authentication(): ClientAuthentication {
         val client = mockk<Client> {
-            every { audience } returns mockk<Audience> { every { id } returns AUDIENCE }
+            every { audience } returns this@ClientUserClaimControllerTest.audience
         }
         return ClientAuthentication(mockk(), client, emptyList())
     }

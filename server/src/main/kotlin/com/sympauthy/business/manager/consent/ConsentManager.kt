@@ -5,9 +5,11 @@ import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.ConsentRepository
 import io.micronaut.transaction.annotation.Transactional
@@ -38,8 +40,10 @@ open class ConsentManager(
 ) {
 
     /**
-     * Save a granted consent for the given [userId] and [audienceId] with the given [scopes].
-     * The [clientId] is recorded for audit purposes (which client prompted this consent update).
+     * Save a granted consent for the given [user] and [audience] with the given [scopes].
+     * The [clientId] is recorded for audit purposes (which client prompted this consent update). It stays an
+     * identifier rather than a [com.sympauthy.business.model.client.Client]: this method writes it into the
+     * consent and never reads the client it names.
      *
      * Since consent is audience-level, different clients in the same audience may collect different scopes
      * across separate authorization flows. The new [scopes] are merged with any existing active consent
@@ -50,19 +54,21 @@ open class ConsentManager(
      */
     @Transactional
     open suspend fun saveConsent(
-        userId: UUID,
-        audienceId: String,
+        user: User,
+        audience: Audience,
         clientId: String,
         scopes: List<String>
     ): Consent {
-        userManager.checkPromoted(userId)
-        val existingConsent = consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId)
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
+        val existingConsent = consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(user.id, audience.id)
         val mergedScopes = if (existingConsent != null) {
             consentRepository.updateRevokedAt(
                 id = existingConsent.id!!,
                 revokedAt = LocalDateTime.now(),
                 revokedBy = ConsentRevokedBy.USER.name,
-                revokedById = userId
+                revokedById = user.id
             )
             (existingConsent.scopes.toList() + scopes).distinct()
         } else {
@@ -70,8 +76,8 @@ open class ConsentManager(
         }
 
         val entity = ConsentEntity(
-            userId = userId,
-            audienceId = audienceId,
+            userId = user.id,
+            audienceId = audience.id,
             promptedByClientId = clientId,
             scopes = mergedScopes.toTypedArray(),
             consentedAt = LocalDateTime.now()
@@ -105,7 +111,7 @@ open class ConsentManager(
     }
 
     /**
-     * List one page of the active (non-revoked) consents granted for the given [audienceId], oldest first.
+     * List one page of the active (non-revoked) consents granted for the given [audience], oldest first.
      *
      * When a [providerId] is given, only the consents of users linked to that provider are returned, and a
      * [subject] narrows that further to the single account bearing it. A [subject] without a [providerId] is
@@ -117,7 +123,7 @@ open class ConsentManager(
      * page while that happens may miss one or see one twice.
      */
     suspend fun listActiveConsentsByAudience(
-        audienceId: String,
+        audience: Audience,
         providerId: String?,
         subject: String?,
         page: Int,
@@ -126,7 +132,7 @@ open class ConsentManager(
         val offset = page * size
         val entities = if (providerId != null) {
             consentRepository.findActiveByAudienceIdAndProvider(
-                audienceId = audienceId,
+                audienceId = audience.id,
                 providerId = providerId,
                 subject = subject,
                 limit = size,
@@ -134,7 +140,7 @@ open class ConsentManager(
             )
         } else {
             consentRepository.findActiveByAudienceId(
-                audienceId = audienceId,
+                audienceId = audience.id,
                 limit = size,
                 offset = offset
             )
@@ -143,22 +149,22 @@ open class ConsentManager(
     }
 
     /**
-     * Count the active (non-revoked) consents granted for the given [audienceId], under the same [providerId]
+     * Count the active (non-revoked) consents granted for the given [audience], under the same [providerId]
      * and [subject] filter [listActiveConsentsByAudience] applies.
      */
     suspend fun countActiveConsentsByAudience(
-        audienceId: String,
+        audience: Audience,
         providerId: String?,
         subject: String?
     ): Int {
         val count = if (providerId != null) {
             consentRepository.countActiveByAudienceIdAndProvider(
-                audienceId = audienceId,
+                audienceId = audience.id,
                 providerId = providerId,
                 subject = subject
             )
         } else {
-            consentRepository.countActiveByAudienceId(audienceId)
+            consentRepository.countActiveByAudienceId(audience.id)
         }
         return count.toInt()
     }

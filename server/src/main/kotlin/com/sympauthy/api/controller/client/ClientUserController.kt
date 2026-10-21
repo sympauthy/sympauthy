@@ -89,7 +89,7 @@ class ClientUserController(
         val pageParams = paginationUtil.resolvePageParams(page, size)
         val criteria = collectionCriteriaOf(request, clientUserManager.capabilities())
         val users = clientUserManager.listUsersForAudience(
-            audienceId = client.audience.id,
+            audience = client.audience,
             criteria = criteria,
             pageParams = pageParams
         )

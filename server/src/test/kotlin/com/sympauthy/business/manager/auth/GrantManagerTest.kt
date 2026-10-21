@@ -17,6 +17,7 @@ import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.AuthorizationCodeConfig
@@ -288,10 +289,11 @@ class GrantManagerTest {
     @Test
     fun `revokeGrantsByUser - Revokes holding the lock over the account`() = runTest {
         val userId = UUID.randomUUID()
+        val user = mockk<User> { every { id } returns userId }
         val adminId = UUID.randomUUID()
         coEvery { grantRepository.updateRevokedAtByUserId(userId, any(), "ADMIN", adminId) } returns 2
 
-        assertEquals(2, grantManager().revokeGrantsByUser(userId, GrantRevokedBy.ADMIN, adminId))
+        assertEquals(2, grantManager().revokeGrantsByUser(user, GrantRevokedBy.ADMIN, adminId))
 
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
@@ -302,11 +304,13 @@ class GrantManagerTest {
     @Test
     fun `revokeGrantsByUserAndClient - Revokes holding the lock over the account`() = runTest {
         val userId = UUID.randomUUID()
+        val user = mockk<User> { every { id } returns userId }
+        val client = mockk<Client> { every { id } returns "client" }
         coEvery {
             grantRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
         } returns 1
 
-        assertEquals(1, grantManager().revokeGrantsByUserAndClient(userId, "client", GrantRevokedBy.ADMIN, null))
+        assertEquals(1, grantManager().revokeGrantsByUserAndClient(user, client, GrantRevokedBy.ADMIN, null))
 
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
