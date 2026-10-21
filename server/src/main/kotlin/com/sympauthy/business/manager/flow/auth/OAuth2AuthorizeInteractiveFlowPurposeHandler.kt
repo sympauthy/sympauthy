@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.flow.auth
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
@@ -57,7 +56,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val userManager: UserManager,
-    @Inject private val clientManager: ClientManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
 ) : InteractiveFlowPurposeHandler {
 
@@ -269,8 +267,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         // Fetched once here and threaded downward: the granting pipeline and the consent below both answer for
         // the audience it names, and neither reads the record again.
         val oauth2BeforeGranting = oauth2Manager.fetchOAuth2(session)
-        val client = clientManager.findClientById(oauth2BeforeGranting.clientId)
-        val audience = client.audience
+        val audience = oauth2Manager.getAudience(oauth2BeforeGranting)
         val audienceClaims = collectedClaimManager.findByUserIdAndAudience(userId, audience.id)
 
         // Grant only grantable scopes through the granting pipeline
@@ -300,7 +297,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         consentManager.saveConsent(
             user = user,
             audience = audience,
-            client = client,
+            clientId = oauth2.clientId,
             scopes = oauth2.consentedScopes ?: emptyList()
         )
         oauth2.invitationId?.let { invitationManager.consumeInvitation(invitationManager.findById(it), user) }

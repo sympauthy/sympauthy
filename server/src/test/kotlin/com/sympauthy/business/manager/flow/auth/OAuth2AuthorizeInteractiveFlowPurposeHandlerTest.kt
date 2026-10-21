@@ -16,7 +16,6 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -106,7 +105,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
     private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
     private val testUser = mockk<User>()
-    private val testClient by lazy { mockk<Client> { every { audience } returns testAudience } }
     private val clientManagerProvider: Provider<ClientManager> = Provider { clientManager }
 
     @SpyK
@@ -286,7 +284,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(testUser, testAudience, testClient, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, testAudience, "client-id", any()) } returns mockk()
         val grant = mockk<Grant>()
         coEvery {
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
@@ -297,7 +295,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         assertEquals(TerminalEffectResult.Proceed, result)
         coVerifyOrder {
-            consentManager.saveConsent(testUser, testAudience, testClient, any())
+            consentManager.saveConsent(testUser, testAudience, "client-id", any())
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
             authorizationCodeManager.generateCode(oauth2AfterGranted, grant)
         }
@@ -321,7 +319,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             grantedScopeObjects
         )
         coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(testUser, testAudience, testClient, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, testAudience, "client-id", any()) } returns mockk()
         val invitation = mockk<Invitation>()
         coEvery { invitationManager.findById(invitationId) } returns invitation
         coEvery { invitationManager.consumeInvitation(invitation, testUser) } returns mockk()
@@ -374,7 +372,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
                 grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(testUser, any(), testClient, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, any(), "client-id", any()) } returns mockk()
 
         stubCodeIssuance(session, userId)
 
@@ -395,7 +393,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, audienceClaims) } returns
                 grantScopesResultOf(emptyList())
         coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(testUser, testAudience, testClient, any()) } returns mockk()
+        coEvery { consentManager.saveConsent(testUser, testAudience, "client-id", any()) } returns mockk()
 
         stubCodeIssuance(session, userId)
 
@@ -572,7 +570,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         val oauth2 = oauth2Of(clientId = "client-id")
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { userManager.findById(userId) } returns testUser
-        coEvery { clientManager.findClientById(oauth2.clientId) } returns testClient
+        coEvery { oauth2Manager.getAudience(oauth2) } returns testAudience
         coEvery { collectedClaimManager.findByUserIdAndAudience(userId, testAudience.id) } returns audienceClaims
         return oauth2
     }

@@ -6,7 +6,6 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -42,7 +41,9 @@ open class ConsentManager(
 
     /**
      * Save a granted consent for the given [user] and [audience] with the given [scopes].
-     * The [client] is recorded for audit purposes (which client prompted this consent update).
+     * The [clientId] is recorded for audit purposes (which client prompted this consent update). It stays an
+     * identifier rather than a [com.sympauthy.business.model.client.Client]: this method writes it into the
+     * consent and never reads the client it names.
      *
      * Since consent is audience-level, different clients in the same audience may collect different scopes
      * across separate authorization flows. The new [scopes] are merged with any existing active consent
@@ -55,10 +56,12 @@ open class ConsentManager(
     open suspend fun saveConsent(
         user: User,
         audience: Audience,
-        client: Client,
+        clientId: String,
         scopes: List<String>
     ): Consent {
-        userManager.checkPromoted(user)
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
         val existingConsent = consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(user.id, audience.id)
         val mergedScopes = if (existingConsent != null) {
             consentRepository.updateRevokedAt(
@@ -75,7 +78,7 @@ open class ConsentManager(
         val entity = ConsentEntity(
             userId = user.id,
             audienceId = audience.id,
-            promptedByClientId = client.id,
+            promptedByClientId = clientId,
             scopes = mergedScopes.toTypedArray(),
             consentedAt = LocalDateTime.now()
         )

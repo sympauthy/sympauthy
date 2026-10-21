@@ -17,11 +17,11 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.config.model.EnabledMfaConfig
 import com.sympauthy.config.model.MfaConfig
 import io.mockk.coEvery
+import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import io.mockk.justRun
 import io.mockk.mockk
 import java.time.LocalDateTime
 import kotlinx.coroutines.test.runTest
@@ -71,7 +71,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     @Suppress("MaxLineLength")
     fun `startMfaEnrollmentSession - Creates a PLAIN session with the return and cancel URIs, and sets the user`() = runTest {
         val manager = managerWith(optionalMfa)
-        justRun { userManager.checkPromoted(user) }
+        coJustRun { userManager.checkPromoted(user.id) }
         val returnUri = URI.create("https://client.example.com/enrolled")
         val cancelUri = URI.create("https://client.example.com/cancelled")
         val flow = mockk<AuthorizationFlow>()
@@ -102,7 +102,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     @Test
     fun `startMfaEnrollmentSession - Passes a null cancel URI through when none is provided`() = runTest {
         val manager = managerWith(optionalMfa)
-        justRun { userManager.checkPromoted(user) }
+        coJustRun { userManager.checkPromoted(user.id) }
         val returnUri = URI.create("https://client.example.com/enrolled")
         val flow = mockk<AuthorizationFlow>()
         val newSession = mockk<OnGoingInteractiveFlowSession>()
@@ -132,7 +132,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     fun `startMfaEnrollmentSession - Refuses an account a sign-up has not finished`() = runTest {
         val manager = managerWith(optionalMfa)
         val refusal = mockk<BusinessException>()
-        every { userManager.checkPromoted(user) } throws refusal
+        coEvery { userManager.checkPromoted(user.id) } throws refusal
 
         assertSame(
             refusal,
@@ -154,7 +154,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
     fun `startMfaEnrollmentSession - Stores a null client id on the confirm record for an admin-initiated enrollment`() =
         runTest {
             val manager = managerWith(optionalMfa)
-            justRun { userManager.checkPromoted(user) }
+            coJustRun { userManager.checkPromoted(user.id) }
             val returnUri = URI.create("https://client.example.com/enrolled")
             val flow = mockk<AuthorizationFlow>()
             val newSession = mockk<OnGoingInteractiveFlowSession>()

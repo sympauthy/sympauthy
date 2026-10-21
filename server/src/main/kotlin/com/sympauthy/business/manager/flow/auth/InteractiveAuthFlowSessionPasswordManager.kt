@@ -236,8 +236,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
 
         // The invitation's claims land on the provisional account now; the invitation itself is only spent
         // when the session completes.
-        val invitation = oauth2.invitationId?.let { invitationManager.findById(it) }
-        invitationManager.applyInvitationClaims(invitation, user)
+        oauth2.invitationId?.let { invitationManager.applyInvitationClaims(invitationManager.findById(it), user) }
 
         // Update the session with the id of the user so they can retrieve their access token.
         return sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true)

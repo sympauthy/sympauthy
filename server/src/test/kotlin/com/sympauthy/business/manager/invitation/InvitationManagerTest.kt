@@ -420,13 +420,6 @@ class InvitationManagerTest {
     }
 
     @Test
-    fun `applyInvitationClaims - Does nothing when no invitation is bound`() = runTest {
-        manager.applyInvitationClaims(null, mockk())
-
-        coVerify(exactly = 0) { collectedClaimManager.update(any(), any()) }
-    }
-
-    @Test
     fun `applyInvitationClaims - Applies the claims to the user without consuming the invitation`() = runTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(
@@ -565,7 +558,7 @@ class InvitationManagerTest {
         val user = committedUser()
         val entity = mockk<InvitationEntity>()
 
-        justRun { userManager.checkPromoted(user) }
+        coJustRun { userManager.checkPromoted(user.id) }
         coEvery {
             invitationRepository.consumeIfPending(pending.id, user.id, any())
         } returns 1
@@ -573,7 +566,7 @@ class InvitationManagerTest {
         every { invitationMapper.toInvitation(entity) } returns consumed
 
         assertSame(consumed, manager.consumeInvitation(pending, user))
-        verify { userManager.checkPromoted(user) }
+        coVerify { userManager.checkPromoted(user.id) }
     }
 
     @Test
@@ -581,7 +574,7 @@ class InvitationManagerTest {
         val pending = createInvitation()
         val user = committedUser()
 
-        justRun { userManager.checkPromoted(user) }
+        coJustRun { userManager.checkPromoted(user.id) }
         coEvery {
             invitationRepository.consumeIfPending(pending.id, user.id, any())
         } returns 0

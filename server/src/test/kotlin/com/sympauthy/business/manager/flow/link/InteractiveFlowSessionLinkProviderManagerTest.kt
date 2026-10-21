@@ -71,7 +71,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
                 cancelRedirectUri = cancelUri,
             )
         } returns newSession
-        justRun { userManager.checkPromoted(any<User>()) }
+        coJustRun { userManager.checkPromoted(any<UUID>()) }
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
         coEvery {
             confirmManager.setConfirm(withUser, ConfirmActionType.LINK_PROVIDER, initiatingClientId)

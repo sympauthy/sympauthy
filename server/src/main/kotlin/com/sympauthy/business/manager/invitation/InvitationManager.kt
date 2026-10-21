@@ -274,9 +274,7 @@ open class InvitationManager(
     }
 
     /**
-     * If an [invitation] is bound to the authorize attempt, apply its pre-assigned claims to [user].
-     *
-     * Does nothing if no invitation is bound to the attempt.
+     * Apply the pre-assigned claims of the [invitation] bound to the authorize attempt to [user].
      *
      * **An identifier claim is applied only to an account the flow created.** [user] is a committed account
      * whenever the flow resolved one instead — a provider merge landing on an account that already exists —
@@ -297,8 +295,7 @@ open class InvitationManager(
      * long gone, and the invitee is mid-sign-up answering for a value they never chose.
      */
     @Transactional
-    open suspend fun applyInvitationClaims(invitation: Invitation?, user: User) {
-        if (invitation == null) return
+    open suspend fun applyInvitationClaims(invitation: Invitation, user: User) {
         val claims = invitation.claims
         if (claims.isNullOrEmpty()) return
 
@@ -352,7 +349,9 @@ open class InvitationManager(
      */
     @Transactional
     open suspend fun consumeInvitation(invitation: Invitation, user: User): Invitation {
-        userManager.checkPromoted(user)
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
         val consumed = invitationRepository.consumeIfPending(
             id = invitation.id,
             consumedByUserId = user.id,

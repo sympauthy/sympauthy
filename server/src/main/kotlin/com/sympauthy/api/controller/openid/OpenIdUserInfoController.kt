@@ -5,7 +5,6 @@ import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.security.SecurityRule.IS_USER
 import com.sympauthy.security.consentedScopes
@@ -24,7 +23,6 @@ import jakarta.inject.Inject
 @Secured(IS_USER)
 class OpenIdUserInfoController(
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
-    @Inject private val userManager: UserManager,
     @Inject private val userInfoMapper: UserInfoResourceMapper
 ) {
 
@@ -70,8 +68,9 @@ class OpenIdUserInfoController(
         )
         // Off the grant rather than off a session: the authorization that carried the `claims` parameter
         // is long over, and every access token issued under its grant answers the request it made.
-        val user = userManager.findById(authentication.userId)
-        return userInfoMapper.toResource(user, claims, grant.requestedClaims)
+        // The account is not resolved here as other surfaces do: this is a protocol endpoint, whose
+        // specification names the answer to a token that does not resolve, and the validated token is it.
+        return userInfoMapper.toResource(authentication.userId, claims, grant.requestedClaims)
     }
 
     companion object {

@@ -27,7 +27,7 @@ class GeneratedClaimsManager(
      * Compute values for all enabled generated claims for the given [user].
      */
     suspend fun computeValues(user: User): Map<String, Any?> = computeValues(user.id) {
-        computeUpdatedAt(user)
+        computeUpdatedAt(user.id)
     }
 
     /**
@@ -62,12 +62,15 @@ class GeneratedClaimsManager(
     fun computeSubject(userId: UUID): String = userId.toString()
 
     /**
-     * Compute the value of the `updated_at` claim for the given [user].
+     * Compute the value of the `updated_at` claim for the user [userId].
      * Returns the timestamp (as Unix epoch seconds) of the most recent claim collection, or null if no claims
      * have been collected.
+     *
+     * It takes an identifier rather than a user: its caller outside this manager is `/userinfo`, a protocol
+     * endpoint, which answers from the validated token without resolving the account it names.
      */
-    suspend fun computeUpdatedAt(user: User): Long? =
-        collectedClaimRepository.findMaxCollectionDateByUserId(user.id)?.epochSecond
+    suspend fun computeUpdatedAt(userId: UUID): Long? =
+        collectedClaimRepository.findMaxCollectionDateByUserId(userId)?.epochSecond
 
     private val LocalDateTime.epochSecond: Long get() = toInstant(ZoneOffset.UTC).epochSecond
 }

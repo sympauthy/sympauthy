@@ -2,7 +2,6 @@ package com.sympauthy.api.mapper
 
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
@@ -21,7 +20,6 @@ import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -41,8 +39,6 @@ class UserInfoResourceMapperTest {
 
     private val userId = UUID.randomUUID()
 
-    private val user = mockk<User> { every { id } returns userId }
-
     private val emailClaim by lazy {
         claim(OpenIdConnectClaimId.EMAIL, EMAIL, verifiedId = OpenIdConnectClaimId.EMAIL_VERIFIED)
     }
@@ -51,7 +47,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Answer the verified companion of a verified claim as true`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(emailClaim, "ada@example.com", true)))
+        val resource = mapper.toResource(userId, listOf(collected(emailClaim, "ada@example.com", true)))
 
         assertEquals(true, resource.emailVerified)
     }
@@ -61,7 +57,7 @@ class UserInfoResourceMapperTest {
         // The id token claims false for the same account, and a client reading both is owed one shape.
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(emailClaim, "ada@example.com", null)))
+        val resource = mapper.toResource(userId, listOf(collected(emailClaim, "ada@example.com", null)))
 
         assertEquals(false, resource.emailVerified)
     }
@@ -70,7 +66,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Answer no verified companion where the claim it answers for is absent`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, emptyList())
+        val resource = mapper.toResource(userId, emptyList())
 
         assertNull(resource.emailVerified)
     }
@@ -79,7 +75,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Carry a claim the deployment publishes here under its own identifier`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(published("loyalty_tier"), "gold")))
+        val resource = mapper.toResource(userId, listOf(collected(published("loyalty_tier"), "gold")))
 
         assertEquals(mapOf("loyalty_tier" to "gold"), resource.additionalClaims)
     }
@@ -88,7 +84,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Carry no claim the deployment publishes elsewhere`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(publishedElsewhere("loyalty_tier"), "gold")))
+        val resource = mapper.toResource(userId, listOf(collected(publishedElsewhere("loyalty_tier"), "gold")))
 
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
     }
@@ -98,7 +94,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val resource = mapper.toResource(
-            user,
+            userId,
             listOf(collected(publishedHereOnRequest("loyalty_tier"), "gold")),
             requesting("loyalty_tier")
         )
@@ -110,7 +106,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Carry no claim opened to a request that no request named`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(publishedHereOnRequest("loyalty_tier"), "gold")))
+        val resource = mapper.toResource(userId, listOf(collected(publishedHereOnRequest("loyalty_tier"), "gold")))
 
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
     }
@@ -120,7 +116,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val resource = mapper.toResource(
-            user,
+            userId,
             listOf(collected(publishedElsewhere("loyalty_tier"), "gold")),
             requesting("loyalty_tier")
         )
@@ -138,7 +134,7 @@ class UserInfoResourceMapperTest {
             publishedInWhenRequested = setOf(ClaimPublicationPlace.USERINFO)
         )
         val resource = mapper.toResource(
-            user,
+            userId,
             listOf(collected(claim, "ada@example.com")),
             requesting(OpenIdConnectClaimId.EMAIL)
         )
@@ -151,7 +147,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val claim = claim(OpenIdConnectClaimId.EMAIL, EMAIL, publishedIn = setOf(ClaimPublicationPlace.ID_TOKEN))
-        val resource = mapper.toResource(user, listOf(collected(claim, "ada@example.com")))
+        val resource = mapper.toResource(userId, listOf(collected(claim, "ada@example.com")))
 
         assertNull(resource.email)
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
@@ -161,7 +157,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Carry a standard claim under its declared property rather than beside it`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(emailClaim, "ada@example.com", true)))
+        val resource = mapper.toResource(userId, listOf(collected(emailClaim, "ada@example.com", true)))
 
         assertEquals("ada@example.com", resource.email)
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
@@ -172,7 +168,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val claim = published("employee_id", verifiedId = "employee_id_verified")
-        val resource = mapper.toResource(user, listOf(collected(claim, "42", true)))
+        val resource = mapper.toResource(userId, listOf(collected(claim, "42", true)))
 
         assertEquals(mapOf("employee_id" to "42", "employee_id_verified" to true), resource.additionalClaims)
     }
@@ -181,7 +177,7 @@ class UserInfoResourceMapperTest {
     fun `toResource - Carry no property beside one this resource declares itself`() = runTest {
         stubGenerated()
 
-        val resource = mapper.toResource(user, listOf(collected(published("address"), "12 Mill Lane")))
+        val resource = mapper.toResource(userId, listOf(collected(published("address"), "12 Mill Lane")))
 
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
     }
@@ -191,7 +187,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val claim = published("company_email", verifiedId = OpenIdConnectClaimId.EMAIL_VERIFIED)
-        val resource = mapper.toResource(user, listOf(collected(claim, "ada@example.com", true)))
+        val resource = mapper.toResource(userId, listOf(collected(claim, "ada@example.com", true)))
 
         assertEquals(mapOf("company_email" to "ada@example.com"), resource.additionalClaims)
     }
@@ -201,7 +197,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val claim = published("employee_id", verifiedId = "employee_id_verified")
-        val resource = mapper.toResource(user, listOf(collected(claim, null, true)))
+        val resource = mapper.toResource(userId, listOf(collected(claim, null, true)))
 
         assertEquals(emptyMap<String, Any>(), resource.additionalClaims)
     }
@@ -211,7 +207,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val resource = mapper.toResource(
-            user,
+            userId,
             listOf(
                 collected(addressClaim(OpenIdConnectClaimId.STREET_ADDRESS, STRING), "5 Rue Ada"),
                 collected(addressClaim(OpenIdConnectClaimId.LOCALITY, STRING), "Brussels"),
@@ -229,7 +225,7 @@ class UserInfoResourceMapperTest {
         stubGenerated()
 
         val resource = mapper.toResource(
-            user,
+            userId,
             listOf(collected(addressClaim(OpenIdConnectClaimId.LOCALITY, STRING), null))
         )
 
@@ -238,7 +234,7 @@ class UserInfoResourceMapperTest {
 
     private fun stubGenerated() {
         every { generatedClaimsManager.computeSubject(userId) } returns userId.toString()
-        coEvery { generatedClaimsManager.computeUpdatedAt(user) } returns null
+        coEvery { generatedClaimsManager.computeUpdatedAt(userId) } returns null
     }
 
     private fun collected(claim: EnabledClaim, value: Any?, verified: Boolean? = null) = CollectedClaim(

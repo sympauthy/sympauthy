@@ -107,7 +107,9 @@ open class InteractiveFlowSessionLinkProviderManager(
         initiatingClientId: String?,
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
-        userManager.checkPromoted(user)
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
         val session = sessionManager.newSession(
             purposes = listOf(
                 InteractiveFlowPurpose.CONFIRM,

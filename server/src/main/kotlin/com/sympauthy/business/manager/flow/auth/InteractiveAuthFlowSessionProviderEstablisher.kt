@@ -61,8 +61,9 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = false)
         val result = createOrAssociateUserWithProviderUserInfo(session.id, provider, rawUserInfo)
-        val invitation = oauth2.invitationId?.let { invitationManager.findById(it) }
-        invitationManager.applyInvitationClaims(invitation, result.user)
+        oauth2.invitationId?.let {
+            invitationManager.applyInvitationClaims(invitationManager.findById(it), result.user)
+        }
         // `created` is false when the provider was merged into an existing account (sign-in, not sign-up).
         return ProviderUserEstablishment(userId = result.user.id, signedUp = result.created)
     }

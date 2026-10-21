@@ -7,7 +7,6 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -17,16 +16,15 @@ import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.ObjectLockRepository
 import io.mockk.coEvery
+import io.mockk.coJustRun
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import io.mockk.justRun
 import io.mockk.mockk
 import io.mockk.slot
-import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -68,7 +66,6 @@ class ConsentManagerTest {
         sessionId = null
     )
     private val audience = Audience(id = audienceId, tokenAudience = audienceId)
-    private val client by lazy { mockk<Client> { every { id } returns clientId } }
     private val scopes = listOf("read", "write")
     private val consentId = UUID.randomUUID()
     private val adminId = UUID.randomUUID()
@@ -77,23 +74,23 @@ class ConsentManagerTest {
     fun `saveConsent - Creates new consent when none exists`() = runTest {
         val consent = mockk<Consent>()
 
-        justRun { userManager.checkPromoted(user) }
+        coJustRun { userManager.checkPromoted(user.id) }
         coEvery { consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId) } returns null
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
-        val result = consentManager.saveConsent(user, audience, client, scopes)
+        val result = consentManager.saveConsent(user, audience, clientId, scopes)
 
         assertSame(consent, result)
         coVerify(exactly = 0) {
             consentRepository.updateRevokedAt(any(), any(), any(), any())
         }
-        verify { userManager.checkPromoted(user) }
+        coVerify { userManager.checkPromoted(user.id) }
     }
 
     @Test
     fun `saveConsent - Revokes existing consent and merges scopes`() = runTest {
-        justRun { userManager.checkPromoted(user) }
+        coJustRun { userManager.checkPromoted(user.id) }
         val existingId = UUID.randomUUID()
         val existingEntity = mockk<ConsentEntity> {
             every { id } returns existingId
@@ -113,7 +110,7 @@ class ConsentManagerTest {
         coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
         every { consentMapper.toConsent(any()) } returns consent
 
-        val result = consentManager.saveConsent(user, audience, client, scopes)
+        val result = consentManager.saveConsent(user, audience, clientId, scopes)
 
         assertSame(consent, result)
         coVerify(exactly = 1) {

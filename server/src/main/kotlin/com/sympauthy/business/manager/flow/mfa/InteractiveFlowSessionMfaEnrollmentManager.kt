@@ -120,8 +120,10 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
         cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
         // The user arrives from a client's access token or an administrator's path parameter, neither of
-        // which is the session that would be entitled to an account still being signed up.
-        userManager.checkPromoted(user)
+        // which is the session that would be entitled to an account still being signed up. By id though
+        // [user] is in hand: promotion is the record's state, not its identity, so it is read again inside
+        // this transaction rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
         val session = sessionManager.newSession(
             purposes = listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT),
             initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
