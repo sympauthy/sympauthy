@@ -12,6 +12,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.RequestedClaims
@@ -166,18 +167,24 @@ open class GrantManager(
 
     /**
      * Open the grant a token exchange (RFC 8693) issues its act-as token under: the person [userId] acted
-     * as by the client holding [actorGrant], for the audience identified by [audienceId] the exchange named.
+     * as by the client holding [actorToken], for the audience identified by [audienceId] the exchange named.
      *
      * It holds no scope, since an act-as rule grants none, and no authentication date, since nobody proved
-     * a credential of the person here. It records [actorGrant], which revoking revokes this grant too.
+     * a credential of the person here. It records the grant of [actorToken], which revoking revokes this
+     * grant too.
+     *
+     * It expires no later than [actorToken]: a `client_credentials` request opens a grant of its own, so that
+     * token is the last of its grant, and the act-as grant is refused once it has expired. Lasting no longer
+     * caps the `exp` of every token under the act-as grant, which is what a resource server that is not this
+     * one stops honouring it by.
      */
     suspend fun createTokenExchangeGrant(
         userId: UUID,
         audienceId: String,
-        actorGrant: Grant
+        actorToken: AuthenticationToken
     ): Grant = createGrant(
         userId = userId,
-        clientId = actorGrant.clientId,
+        clientId = actorToken.grant.clientId,
         audienceId = audienceId,
         grantType = GrantType.TOKEN_EXCHANGE,
         grantedScopes = emptyList(),
@@ -190,11 +197,13 @@ open class GrantManager(
         authenticationDate = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
-        actorGrantId = actorGrant.id
+        actorGrantId = actorToken.grant.id,
+        latestExpirationDate = actorToken.expirationDate
     )
 
     /**
-     * Write a new grant, opened now, and give it the lifetime `auth.grant.expiration` configures.
+     * Write a new grant, opened now, and give it the lifetime `auth.grant.expiration` configures, ending no
+     * later than [latestExpirationDate] where one is passed.
      *
      * Throws `user.not_found` or `user.not_promoted` where [userId] names no account this server has finished
      * creating, as [UserManager.checkPromoted] does: a grant outlives the session that may still be signing
@@ -216,7 +225,8 @@ open class GrantManager(
         authenticationDate: LocalDateTime?,
         requestedClaims: RequestedClaims,
         sessionId: UUID?,
-        actorGrantId: UUID?
+        actorGrantId: UUID?,
+        latestExpirationDate: LocalDateTime? = null
     ): Grant {
         userId?.let { userManager.checkPromoted(it) }
         val authConfig = uncheckedAuthConfig.orThrow()
@@ -239,7 +249,10 @@ open class GrantManager(
             sessionId = sessionId,
             actorGrantId = actorGrantId,
             creationDate = creationDate,
-            expirationDate = authConfig.grant.expiration?.let(creationDate::plus)
+            expirationDate = listOfNotNull(
+                authConfig.grant.expiration?.let(creationDate::plus),
+                latestExpirationDate
+            ).minOrNull()
         )
         return grantMapper.toGrant(grantRepository.save(entity))
     }

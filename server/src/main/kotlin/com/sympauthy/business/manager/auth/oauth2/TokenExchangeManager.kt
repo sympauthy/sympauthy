@@ -57,7 +57,8 @@ open class TokenExchangeManager(
      * JWK thumbprint, and leaving it null issues a bearer token.
      *
      * The token is issued under a grant the exchange opens, which records the grant of [subjectToken]: revoking
-     * that grant revokes this one, and a token of this one is refused once that grant is no longer live.
+     * that grant revokes this one, and a token of this one is refused once that grant is no longer live. It
+     * expires no later than [subjectToken] does.
      */
     @Transactional
     open suspend fun exchangeForActAsToken(
@@ -96,7 +97,7 @@ open class TokenExchangeManager(
         val grant = grantManager.createTokenExchangeGrant(
             userId = targetUser,
             audienceId = targetAudience.id,
-            actorGrant = actorToken.grant
+            actorToken = actorToken
         )
         return accessTokenGenerator.generateAccessToken(
             grant = grant,

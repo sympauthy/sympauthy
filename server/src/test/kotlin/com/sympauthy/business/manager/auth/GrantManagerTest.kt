@@ -15,6 +15,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.user.User
@@ -93,6 +94,15 @@ class GrantManagerTest {
             saved.captured.apply { id = UUID.randomUUID() }
         }
         return saved
+    }
+
+    /** A `client_credentials` token of the acting client, under the grant identified by [grantId]. */
+    private fun mockActorToken(grantId: UUID, expirationDate: LocalDateTime?): AuthenticationToken = mockk {
+        every { grant } returns mockk {
+            every { id } returns grantId
+            every { clientId } returns "acting-client"
+        }
+        every { this@mockk.expirationDate } returns expirationDate
     }
 
     private fun session(sessionId: UUID): InteractiveFlowSession = mockk { every { id } returns sessionId }
@@ -201,13 +211,10 @@ class GrantManagerTest {
         runTest {
             val userId = UUID.randomUUID()
             val actorGrantId = UUID.randomUUID()
-            val actorGrant = mockk<Grant> {
-                every { id } returns actorGrantId
-                every { clientId } returns "acting-client"
-            }
+            val actorToken = mockActorToken(actorGrantId, expirationDate = null)
             captureSave()
 
-            val grant = grantManager().createTokenExchangeGrant(userId, "audience", actorGrant)
+            val grant = grantManager().createTokenExchangeGrant(userId, "audience", actorToken)
 
             assertEquals(userId, grant.userId)
             assertEquals("acting-client", grant.clientId)
@@ -218,16 +225,38 @@ class GrantManagerTest {
         }
 
     @Test
+    fun `createTokenExchangeGrant - Expires the grant with the token exchanged where it expires first`() =
+        runTest {
+            val actorExpirationDate = LocalDateTime.now().plusMinutes(5)
+            captureSave()
+
+            val grant = grantManager(grantExpiration = Duration.ofHours(1)).createTokenExchangeGrant(
+                UUID.randomUUID(), "audience", mockActorToken(UUID.randomUUID(), actorExpirationDate)
+            )
+
+            assertEquals(actorExpirationDate, grant.expirationDate)
+        }
+
+    @Test
+    fun `createTokenExchangeGrant - Keeps the configured lifetime where it ends before the token exchanged`() =
+        runTest {
+            captureSave()
+
+            val grant = grantManager(grantExpiration = Duration.ofMinutes(5)).createTokenExchangeGrant(
+                UUID.randomUUID(), "audience", mockActorToken(UUID.randomUUID(), LocalDateTime.now().plusHours(1))
+            )
+
+            assertEquals(grant.creationDate.plusMinutes(5), grant.expirationDate)
+        }
+
+    @Test
     fun `createGrant - Refuses an account a sign-up has not finished, before writing anything`() = runTest {
         val userId = UUID.randomUUID()
-        val actorGrant = mockk<Grant> {
-            every { id } returns UUID.randomUUID()
-            every { clientId } returns "acting-client"
-        }
+        val actorToken = mockActorToken(UUID.randomUUID(), expirationDate = null)
         coEvery { userManager.checkPromoted(userId) } throws businessExceptionOf("user.not_promoted")
 
         val exception = assertThrows<BusinessException> {
-            grantManager().createTokenExchangeGrant(userId, "audience", actorGrant)
+            grantManager().createTokenExchangeGrant(userId, "audience", actorToken)
         }
 
         assertEquals("user.not_promoted", exception.detailsId)
