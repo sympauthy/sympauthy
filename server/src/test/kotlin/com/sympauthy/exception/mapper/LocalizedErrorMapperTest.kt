@@ -8,6 +8,9 @@ import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.context.StaticMessageSource
 import io.micronaut.http.HttpStatus.BAD_REQUEST
+import io.micronaut.http.HttpStatus.CONFLICT
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
+import io.micronaut.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -169,5 +172,28 @@ class LocalizedErrorMapperTest {
 
         assertTrue(error.properties.isEmpty())
         assertEquals("user.not_found", error.errorCode)
+    }
+
+    @Test
+    fun `toHttpStatus - Answer with the status the failure names`() {
+        assertEquals(
+            UNSUPPORTED_MEDIA_TYPE,
+            mapper.toHttpStatus(
+                LocalizedHttpException(status = UNSUPPORTED_MEDIA_TYPE, recoverable = true, detailsId = "code")
+            )
+        )
+        assertEquals(
+            CONFLICT,
+            mapper.toHttpStatus(BusinessException(recoverable = true, detailsId = "code", recommendedStatus = CONFLICT))
+        )
+    }
+
+    @Test
+    fun `toHttpStatus - Answer a failure naming no status with 400 when recoverable and 500 otherwise`() {
+        assertEquals(BAD_REQUEST, mapper.toHttpStatus(BusinessException(recoverable = true, detailsId = "code")))
+        assertEquals(
+            INTERNAL_SERVER_ERROR,
+            mapper.toHttpStatus(BusinessException(recoverable = false, detailsId = "code"))
+        )
     }
 }

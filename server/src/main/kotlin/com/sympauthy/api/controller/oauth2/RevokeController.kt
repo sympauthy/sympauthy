@@ -4,10 +4,10 @@ import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REV
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.controller.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import io.micronaut.http.HttpRequest
@@ -54,7 +54,7 @@ class RevokeController(
                 description = "- `invalid_client`: the client credentials sent with HTTP Basic authentication do " +
                     "not authenticate a client. The `WWW-Authenticate` header names the `Basic` scheme."
             ),
-            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
+            ApiResponse(responseCode = "413", description = INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION)
         ],
         externalDocs = ExternalDocumentation(
             description = "RFC 7009",

@@ -36,16 +36,7 @@ class LocalizedErrorMapper(
         locale: Locale,
         alwaysPrintDetails: Boolean = false
     ): LocalizedError {
-        val exceptionStatus = when (exception) {
-            is LocalizedHttpException -> exception.status
-            is BusinessException -> exception.recommendedStatus
-            else -> null
-        }
-        val status = when {
-            exceptionStatus != null -> exceptionStatus
-            exception.recoverable -> HttpStatus.BAD_REQUEST
-            else -> HttpStatus.INTERNAL_SERVER_ERROR
-        }
+        val status = toHttpStatus(exception)
         val descriptionId = when {
             exception.descriptionId != null -> exception.descriptionId
             exception.recoverable -> "description.bad_request"
@@ -69,6 +60,23 @@ class LocalizedErrorMapper(
                     toLocalizedPropertyError(path, propertyException, locale, printDetails)
                 }
         )
+    }
+
+    /**
+     * The status [exception] is answered with: the one it names, where it names one, and otherwise a
+     * `400` for a failure the caller can recover from and a `500` for one it cannot.
+     */
+    fun toHttpStatus(exception: LocalizedException): HttpStatus {
+        val exceptionStatus = when (exception) {
+            is LocalizedHttpException -> exception.status
+            is BusinessException -> exception.recommendedStatus
+            else -> null
+        }
+        return when {
+            exceptionStatus != null -> exceptionStatus
+            exception.recoverable -> HttpStatus.BAD_REQUEST
+            else -> HttpStatus.INTERNAL_SERVER_ERROR
+        }
     }
 
     /**

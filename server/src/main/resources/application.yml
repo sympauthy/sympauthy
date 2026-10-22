@@ -24,6 +24,17 @@ micronaut:
         http-method: GET
         access:
           - isAnonymous()
+      # Every method, so that a request none of their routes matches reaches the router and is refused
+      # with the 405 or the 415 it is due, rather than turned away as unauthenticated.
+      - pattern: /api/oauth2/token
+        access:
+          - isAnonymous()
+      - pattern: /api/oauth2/introspect
+        access:
+          - isAnonymous()
+      - pattern: /api/oauth2/revoke
+        access:
+          - isAnonymous()
 
   serde:
     serialization:

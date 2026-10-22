@@ -505,6 +505,20 @@ abstract class AbstractSympauthyIT {
             HttpResponse.BodyHandlers.ofString(),
         )
 
+    protected fun httpPost(
+        url: String,
+        contentType: String,
+        body: String,
+    ): HttpResponse<String> =
+        client().send(
+            HttpRequest.newBuilder(URI.create(url))
+                .header("Content-Type", contentType)
+                .header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+
     protected fun httpPostForm(
         url: String,
         form: Map<String, String>,
@@ -710,9 +724,9 @@ abstract class AbstractSympauthyIT {
 
     /**
      * Asserts [response] refused with HTTP [status] in the ordinary error body, and that its
-     * `error_code` is exactly [errorCode], reporting [message] when it did not. A refusal naming one of
-     * this server's own codes is answered in that body, whatever surface answers it; a code RFC 6749
-     * names is [assertOAuthError]'s.
+     * `error_code` is exactly [errorCode], reporting [message] when it did not. A refusal on the token,
+     * the introspection or the revocation endpoint is answered in the body RFC 6749 defines whatever
+     * refused it, and is [assertOAuthError]'s.
      */
     protected fun assertError(
         response: HttpResponse<String>,

@@ -4,10 +4,10 @@ import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKE
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.controller.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
-import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
@@ -103,7 +103,7 @@ class TokenController(
                     "- `access_denied`: on the token exchange grant, the `rules.act-as` rules do not " +
                     "let the client act for `requested_subject`."
             ),
-            ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
+            ApiResponse(responseCode = "413", description = INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION)
         ],
         externalDocs = ExternalDocumentation(
             description = "OAuth 2.1, §3.2",
