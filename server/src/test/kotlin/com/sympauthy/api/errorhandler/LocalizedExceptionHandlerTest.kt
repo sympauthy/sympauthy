@@ -1,12 +1,21 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
+import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
+import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.exception.InsufficientUserAuthenticationException
+import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.api.mapper.ErrorResourceMapper
+import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
+import com.sympauthy.api.resource.error.OAuth2ErrorResource
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.SecurityRule.HAS_STATE
@@ -22,8 +31,10 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.slot
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.Duration
@@ -34,6 +45,9 @@ class LocalizedExceptionHandlerTest {
 
     @MockK
     lateinit var errorResourceMapper: ErrorResourceMapper
+
+    @MockK
+    lateinit var oAuth2ErrorResourceMapper: OAuth2ErrorResourceMapper
 
     @InjectMockKs
     lateinit var handler: LocalizedExceptionHandler
@@ -98,18 +112,93 @@ class LocalizedExceptionHandlerTest {
         assertNull(response.header(HttpHeaders.WWW_AUTHENTICATE))
     }
 
-    private fun stubResource(status: HttpStatus) {
-        every { errorResourceMapper.toResource(any<LocalizedException>(), any()) } returns ErrorResource(
+    @Test
+    fun `handle - Answer a refusal on the token endpoint with invalid_request in the RFC 6749 body`() {
+        stubResource(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+        val oAuth2Exception = slot<OAuth2Exception>()
+        val oAuth2Resource = OAuth2ErrorResource(errorCode = "invalid_request")
+        every { oAuth2ErrorResourceMapper.toResource(capture(oAuth2Exception), any()) } returns oAuth2Resource
+
+        val response = handler.handle(
+            request(OAUTH2_TOKEN_ENDPOINT),
+            recoverableHttpExceptionOf(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE, "content_type.unsupported", "description.content_type.unsupported",
+                "contentType" to "application/json"
+            )
+        )
+
+        assertEquals(HttpStatus.UNSUPPORTED_MEDIA_TYPE, response.status)
+        assertSame(oAuth2Resource, response.body())
+        assertEquals(INVALID_REQUEST, oAuth2Exception.captured.errorCode)
+        assertEquals("content_type.unsupported", oAuth2Exception.captured.detailsId)
+        assertEquals("description.content_type.unsupported", oAuth2Exception.captured.descriptionId)
+        assertEquals(mapOf("contentType" to "application/json"), oAuth2Exception.captured.values)
+    }
+
+    @Test
+    fun `handle - Answer a refused method on the revocation endpoint with the Allow header and the RFC 6749 body`() {
+        stubResource(HttpStatus.METHOD_NOT_ALLOWED)
+        val oAuth2Resource = OAuth2ErrorResource(errorCode = "invalid_request")
+        every { oAuth2ErrorResourceMapper.toResource(any(), any()) } returns oAuth2Resource
+
+        val response = handler.handle(
+            request(OAUTH2_REVOKE_ENDPOINT),
+            UnsupportedMethodException("GET", listOf("POST"))
+        )
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.status)
+        assertEquals("POST", response.header(HttpHeaders.ALLOW))
+        assertSame(oAuth2Resource, response.body())
+    }
+
+    @Test
+    fun `handle - Answer a server failure on the introspection endpoint with server_error in the RFC 6749 body`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+        val oAuth2Exception = slot<OAuth2Exception>()
+        val oAuth2Resource = OAuth2ErrorResource(errorCode = "server_error")
+        every { oAuth2ErrorResourceMapper.toResource(capture(oAuth2Exception), any()) } returns oAuth2Resource
+
+        val response = handler.handle(
+            request(OAUTH2_INTROSPECTION_ENDPOINT),
+            httpExceptionOf(
+                HttpStatus.INTERNAL_SERVER_ERROR, "internal_server_error", "description.internal_server_error"
+            )
+        )
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.status)
+        assertSame(oAuth2Resource, response.body())
+        assertEquals(SERVER_ERROR, oAuth2Exception.captured.errorCode)
+    }
+
+    @Test
+    fun `handle - Answer a refusal on any other endpoint with the ordinary error body`() {
+        val resource = stubResource(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+
+        val response = handler.handle(
+            request("/api/v1/flow/sign-in"),
+            recoverableHttpExceptionOf(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE, "content_type.unsupported", "description.content_type.unsupported"
+            )
+        )
+
+        assertSame(resource, response.body())
+    }
+
+    private fun stubResource(status: HttpStatus): ErrorResource {
+        val resource = ErrorResource(
             status = status.code,
             errorCode = "code",
             description = null,
             details = null,
             properties = null
         )
+        every { errorResourceMapper.toResource(any<LocalizedException>(), any()) } returns resource
+        return resource
     }
 
-    private fun request() = mockk<HttpRequest<*>> {
+    private fun request(path: String = "/api/v1/admin/users") = mockk<HttpRequest<*>> {
         every { locale } returns Optional.of(Locale.ENGLISH)
+        every { this@mockk.path } returns path
     }
 
     private fun requestToRouteSecuredBy(vararg roles: String): HttpRequest<*> {

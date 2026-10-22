@@ -41,7 +41,9 @@ import java.net.URISyntaxException
 
 /**
  * Routes every failure answering a request through the [ExceptionNormalizer] and the
- * [ThrowableExceptionHandler], so each one reaches the caller in the same body, with an `error_code`.
+ * [ThrowableExceptionHandler], so each one reaches the caller in the body its surface answers with: the
+ * one RFC 6749 defines on the protocol endpoints that answer with it, and the ordinary one, with an
+ * `error_code`, everywhere else.
  *
  * The handler for [Throwable] is not enough on its own: the framework answers a failure with the
  * handler whose type is closest to it, so a handler a framework registers for a narrower type wins

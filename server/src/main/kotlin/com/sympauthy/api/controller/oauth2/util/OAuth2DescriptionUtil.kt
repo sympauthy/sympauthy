@@ -32,3 +32,10 @@ const val INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION = "- `invalid_client`: no clie
  * resolved. An endpoint that also answers a refused client `400` appends that.
  */
 const val TOKEN_BAD_REQUEST_DESCRIPTION = "- `invalid_request`: `token` is missing."
+
+/**
+ * What the published specification says about the `413` of an endpoint answering its errors in the body
+ * RFC 6749 §5.2 defines, which names the refusal `invalid_request`.
+ */
+const val INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION = "- `invalid_request`: the body is larger than this " +
+    "server accepts."
