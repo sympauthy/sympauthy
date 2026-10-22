@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
+import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_SENT_TWICE_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.controller.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
@@ -68,11 +69,11 @@ class TokenController(
             ),
             ApiResponse(
                 responseCode = "400",
-                description = "- `invalid_request`: `grant_type` is missing; `code` is missing on the " +
-                    "`authorization_code` grant, or `refresh_token` on the `refresh_token` grant; on the token " +
-                    "exchange grant, `subject_token`, `subject_token_type` or `requested_subject` is missing, " +
-                    "or `subject_token_type` or `requested_token_type` names something other than an access " +
-                    "token.\n" +
+                description = "- `invalid_request`: $CLIENT_SECRET_SENT_TWICE_DESCRIPTION; `grant_type` is " +
+                    "missing; `code` is missing on the `authorization_code` grant, or `refresh_token` on the " +
+                    "`refresh_token` grant; on the token exchange grant, `subject_token`, `subject_token_type` " +
+                    "or `requested_subject` is missing, or `subject_token_type` or `requested_token_type` names " +
+                    "something other than an access token.\n" +
                     "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired or issued to another " +

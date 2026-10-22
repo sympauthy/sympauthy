@@ -5,6 +5,7 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.BAD_REQUEST
@@ -58,6 +59,13 @@ class ClientAuthenticationUtilTest {
         assertEquals(INVALID_CLIENT, exception.errorCode)
         assertEquals(BAD_REQUEST, exception.status)
         assertNull(exception.challenge)
+    }
+
+    private fun assertMultipleMethods(exception: OAuth2Exception) {
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        assertEquals(BAD_REQUEST, exception.status)
+        assertNull(exception.challenge)
+        assertEquals("authentication.multiple_methods", exception.detailsId)
     }
 
     @Test
@@ -140,6 +148,35 @@ class ClientAuthenticationUtilTest {
             assertChallenged(exception)
             assertEquals("authentication.wrong", exception.detailsId)
         }
+
+    @Test
+    fun `resolveClient - Throws invalid_request when a secret is sent both ways`() = runTest {
+        // No stub answers for either client: the request is refused before any credential is checked.
+        val exception = assertThrows<OAuth2Exception> {
+            util.resolveClient(mockRequestWithBasicAuth("client1", "secret1"), "client2", "wrong")
+        }
+        assertMultipleMethods(exception)
+    }
+
+    @Test
+    fun `resolveClient - Authenticates with Basic Auth when the body carries client_id alone`() = runTest {
+        val client = mockk<Client>()
+        coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
+
+        val result = util.resolveClient(mockRequestWithBasicAuth("client1", "secret1"), "client1", null)
+
+        assertEquals(client, result)
+    }
+
+    @Test
+    fun `resolveClient - Authenticates with Basic Auth when the body carries an empty client_secret`() = runTest {
+        val client = mockk<Client>()
+        coEvery { clientManager.authenticateClientOrNull("client1", "secret1") } returns client
+
+        val result = util.resolveClient(mockRequestWithBasicAuth("client1", "secret1"), null, "")
+
+        assertEquals(client, result)
+    }
 
     @Test
     fun `resolveClientAllowingPublic - Authenticates confidential client`() = runTest {
@@ -226,6 +263,14 @@ class ClientAuthenticationUtilTest {
         )
 
         assertEquals(client, result)
+    }
+
+    @Test
+    fun `resolveClientAllowingPublic - Throws invalid_request when a secret is sent both ways`() = runTest {
+        val exception = assertThrows<OAuth2Exception> {
+            util.resolveClientAllowingPublic(mockRequestWithBasicAuth("client1", "secret1"), "client1", "secret1")
+        }
+        assertMultipleMethods(exception)
     }
 
     @Test

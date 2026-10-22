@@ -4,6 +4,7 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import io.micronaut.http.HttpRequest
 import io.micronaut.security.authentication.BasicAuthUtils
 import jakarta.inject.Inject
@@ -19,7 +20,10 @@ import java.nio.charset.StandardCharsets.UTF_8
  *   secret each form-encoded, RFC 6749 §2.3.1
  * - Form body parameters (`client_id` / `client_secret`)
  *
- * Every refusal is `invalid_client`, RFC 6749 §5.2. It carries [BASIC_CHALLENGE], and so answers `401`, wherever
+ * A request sending a secret both ways is refused with `invalid_request`, which RFC 6749 §5.2 names for one that
+ * *"utilizes more than one mechanism for authenticating the client"*, before either credential is checked.
+ *
+ * Every other refusal is `invalid_client`, RFC 6749 §5.2. It carries [BASIC_CHALLENGE], and so answers `401`, wherever
  * no public client can be the one refused: on credentials sent in the header, and on every refusal of a client
  * that must be confidential. `docs/design/security.md` says why the rest are answered `400`.
  *
@@ -47,7 +51,7 @@ class ClientAuthenticationUtil(
         clientId: String?,
         clientSecret: String?
     ): Client {
-        authenticateWithHeaderOrNull(request)?.let { return it }
+        authenticateWithHeaderOrNull(request, clientSecret)?.let { return it }
         if (clientId == null) {
             throw missingCredentialsException(challenged = true)
         }
@@ -67,7 +71,7 @@ class ClientAuthenticationUtil(
         clientId: String?,
         clientSecret: String?
     ): Client {
-        authenticateWithHeaderOrNull(request)?.let { return it }
+        authenticateWithHeaderOrNull(request, clientSecret)?.let { return it }
         if (clientId == null) {
             throw missingCredentialsException(challenged = false)
         }
@@ -83,6 +87,10 @@ class ClientAuthenticationUtil(
      * The client the `Authorization` header authenticates, or null where it does not use the `Basic` scheme, in
      * which case the body is read instead.
      *
+     * A [clientSecret] sent in the body alongside the header is refused with `invalid_request`, and an empty one is
+     * no secret, RFC 6749 §3.1. A `client_id` alone is not refused: it identifies the client without authenticating
+     * it, RFC 6749 §3.2.1.
+     *
      * Credentials that do not decode, or do not authenticate, are refused with [BASIC_CHALLENGE].
      *
      * The scheme is matched regardless of case, and the credentials may follow it after more than one space, as
@@ -93,11 +101,14 @@ class ClientAuthenticationUtil(
      * and to the secret is undone here, on each half once the parser has split them: a `:` inside either arrives
      * escaped, so the first one left is the separator.
      */
-    private suspend fun authenticateWithHeaderOrNull(request: HttpRequest<*>): Client? {
+    private suspend fun authenticateWithHeaderOrNull(request: HttpRequest<*>, clientSecret: String?): Client? {
         val authorization = request.headers.authorization
             .orElse(null)
             ?.takeIf { it.startsWith(BASIC_SCHEME_PREFIX, ignoreCase = true) }
             ?: return null
+        if (!clientSecret.isNullOrEmpty()) {
+            throw multipleMethodsException()
+        }
         val credentials = BasicAuthUtils
             .parseCredentials(BASIC_SCHEME_PREFIX + authorization.substring(BASIC_SCHEME_PREFIX.length).trimStart(' '))
             .orElse(null)
@@ -126,6 +137,12 @@ class ClientAuthenticationUtil(
         detailsId = "authentication.wrong",
         descriptionId = "description.authentication.wrong",
         challenge = if (challenged) BASIC_CHALLENGE else null
+    )
+
+    private fun multipleMethodsException() = OAuth2Exception(
+        errorCode = INVALID_REQUEST,
+        detailsId = "authentication.multiple_methods",
+        descriptionId = "description.authentication.multiple_methods"
     )
 
     private fun missingCredentialsException(challenged: Boolean) = OAuth2Exception(
