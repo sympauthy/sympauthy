@@ -8,12 +8,17 @@ import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
+import com.sympauthy.business.manager.flow.VerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
-import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.interactiveFlowSessionAlreadyCompletedExceptionOf
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.User
 import io.micronaut.http.HttpStatus
@@ -46,24 +51,30 @@ class InteractiveAuthFlowSessionControllerUtil(
 ) {
 
     /**
-     * Resolve the current [com.sympauthy.business.model.flow.InteractiveFlowStep] of the [session] (running
-     * any completion transition), then map it to the [URI] where the end-user must be redirected within the
-     * [flow].
-     *
-     * A [BusinessException] moving the flow forward is handled as one thrown by the work before it, because
-     * completing the session is the last part of that work: a promotion finding an identifier taken fails the
-     * session, and a completion that lost to a concurrent request is routed by the session that request left.
+     * Resolve the current [InteractiveFlowStep] of the [session] (running any completion transition), then map
+     * it to the [URI] where the end-user must be redirected within the [flow].
      */
     private suspend fun redirectToCurrentStep(
         session: InteractiveFlowSession,
         flow: InteractiveFlow
     ): URI {
-        val (steppedSession, step) = try {
+        val (steppedSession, step) = advance(session)
+        return stepUriMapper.toRedirectUri(steppedSession, flow, step)
+    }
+
+    /**
+     * Resolve the current [InteractiveFlowStep] of the [session], running any completion transition.
+     *
+     * A [BusinessException] moving the flow forward is handled as one thrown by the work before it, because
+     * completing the session is the last part of that work: a promotion finding an identifier taken fails the
+     * session, and a completion that lost to a concurrent request is routed by the session that request left.
+     */
+    private suspend fun advance(session: InteractiveFlowSession): InteractiveFlowStepResult {
+        return try {
             engine.advance(session)
         } catch (e: BusinessException) {
             engine.advance(handleException(session, e))
         }
-        return stepUriMapper.toRedirectUri(steppedSession, flow, step)
     }
 
     /**
@@ -345,6 +356,84 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
+     * Resolve the session associated to the [state] for the error page, and return the result of:
+     * - [mapFailureToResource] with the failure it ended on, where it is over and its step leads to the error
+     *   page.
+     * - [mapRedirectUriToResource] with where the end-user must be redirected instead, where it does not.
+     *
+     * **The error page is the one handler that answers a failure rather than redirecting to it**, so this is
+     * where it differs from the other entry points, and only there: a [state] that verifies to no session is
+     * answered rather than thrown, and a step leading to the error page is answered with its failure rather
+     * than a redirect back to the page asking. A session that has not failed is otherwise resolved as anywhere
+     * else — where the request came from is recorded, and a failure moving it forward fails it.
+     *
+     * So is a flow no longer configured. The other entry points send its session to the default flow's error
+     * page, which is this one: here it fails the session, so the failure is the session's to say from then on.
+     */
+    suspend fun <FlowResource> fetchSessionThenAnswerFailureOrRedirect(
+        state: String?,
+        observedRequest: ObservedRequest,
+        mapFailureToResource: suspend (BusinessException) -> FlowResource,
+        mapRedirectUriToResource: suspend (URI) -> FlowResource,
+    ): FlowResource {
+        val session = when (val verifyResult = verifyStateAndObserveRequest(state, observedRequest)) {
+            is SuccessVerifyEncodedStateResult -> verifyResult.session
+            is FailedVerifyEncodedStateResult -> return mapFailureToResource(
+                failureOf(verifyResult.detailsId, verifyResult.descriptionId, verifyResult.values)
+            )
+        }
+
+        // An ongoing session's flow is resolved before the engine is asked, since asking may complete it. One
+        // that is over is told so without it, so a flow no longer configured stops only its redirect.
+        var resolvedSession = session
+        val flow = if (session is OnGoingInteractiveFlowSession) {
+            try {
+                interactiveAuthFlowSessionManager.findById(session.flowId)
+            } catch (e: BusinessException) {
+                resolvedSession = handleException(session, e)
+                null
+            }
+        } else null
+
+        val (steppedSession, step) = advance(resolvedSession)
+        return when {
+            step == InteractiveFlowStep.AlreadyCompleted ->
+                mapFailureToResource(interactiveFlowSessionAlreadyCompletedExceptionOf())
+
+            steppedSession is FailedInteractiveFlowSession -> mapFailureToResource(
+                failureOf(
+                    detailsId = steppedSession.errorDetailsId,
+                    descriptionId = steppedSession.errorDescriptionId,
+                    values = steppedSession.errorValues.orEmpty()
+                )
+            )
+
+            else -> {
+                val redirectFlow = flow ?: interactiveAuthFlowSessionManager.findById(steppedSession.flowId)
+                mapRedirectUriToResource(stepUriMapper.toRedirectUri(steppedSession, redirectFlow, step))
+            }
+        }
+    }
+
+    /**
+     * The non-recoverable failure named by [detailsId] and [descriptionId], carrying the [values] both of its
+     * messages interpolate.
+     *
+     * Stated once rather than at every branch that reaches it: a failure carries the values its messages
+     * name, and a branch rebuilding the exception on its own is a branch that can be written without them.
+     */
+    private fun failureOf(
+        detailsId: String,
+        descriptionId: String?,
+        values: Map<String, String>
+    ) = BusinessException(
+        recoverable = false,
+        detailsId = detailsId,
+        descriptionId = descriptionId,
+        values = values
+    )
+
+    /**
      * Record that the just-created [session] was started from [observedRequest].
      *
      * **For the controller that created it, rather than for the manager that wrote it.** A session is
@@ -399,10 +488,8 @@ class InteractiveAuthFlowSessionControllerUtil(
         state: String?,
         observedRequest: ObservedRequest
     ): InteractiveFlowSession {
-        val verifyResult = sessionManager.verifyEncodedInternalState(state)
-        return when (verifyResult) {
+        return when (val verifyResult = verifyStateAndObserveRequest(state, observedRequest)) {
             is SuccessVerifyEncodedStateResult -> verifyResult.session
-                .also { observeIfStillDrivable(it, observedRequest) }
             is FailedVerifyEncodedStateResult -> {
                 // We cannot redirect the user to a proper error page, we throw to let the error handler still
                 // respond with an error but without a redirect uri.
@@ -413,6 +500,21 @@ class InteractiveAuthFlowSessionControllerUtil(
                     descriptionId = verifyResult.descriptionId,
                     values = verifyResult.values,
                 )
+            }
+        }
+    }
+
+    /**
+     * Verify the [state], and record that the session it names was driven from [observedRequest] — after it
+     * has verified, so a request naming no session writes nothing.
+     */
+    private suspend fun verifyStateAndObserveRequest(
+        state: String?,
+        observedRequest: ObservedRequest
+    ): VerifyEncodedStateResult {
+        return sessionManager.verifyEncodedInternalState(state).also {
+            if (it is SuccessVerifyEncodedStateResult) {
+                observeIfStillDrivable(it.session, observedRequest)
             }
         }
     }
