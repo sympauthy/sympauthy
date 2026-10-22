@@ -287,6 +287,7 @@ class ProvisionalAccountManagerTest {
         manager.promote(session)
 
         coVerify { userRepository.clearSessionId(userId, sessionId) }
+        coVerify { objectLockRepository.lock(LockKey.User(userId).stripe) }
         coVerifyOrder {
             objectLockRepository.lock(LockKey.IdentifierValue("free@example.com").stripe)
             userManager.findTakenIdentifierOrNull(any(), any(), any())
