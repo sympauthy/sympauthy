@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **an authorization code is exchanged once: an exchange replaying everything the
+ * Compliance scenario — **an authorization code is exchanged once: an exchange replaying everything the
  * first one sent is refused, and revokes the grant the code was issued under.**
  *
  * Risk: per RFC 6749 §10.5 and OAuth 2.1 §4.1.3 an authorization code must be usable at most once. If a
@@ -30,7 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * [RFC 6749 §4.1.2](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2)
  * and [OAuth 2.1 §4.1.3](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-4.1.3).
  */
-@Tag("security")
+@Tag("compliance")
 class AuthorizationCodeReplayIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a used authorization code cannot be replayed on {0}")

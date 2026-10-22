@@ -1,4 +1,4 @@
-package com.sympauthy.it.feature
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Feature scenario — **the token, introspection and revocation endpoints answer a request the server
+ * Compliance scenario — **the token, introspection and revocation endpoints answer a request the server
  * refuses before reading it in the body RFC 6749 defines, with `invalid_request`.**
  *
  * A client library reads `error` off every failure of these endpoints, so a refusal answered in this
@@ -20,8 +20,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * [RFC 7662 §2.3](https://datatracker.ietf.org/doc/html/rfc7662#section-2.3),
  * [RFC 7009 §2.2.1](https://datatracker.ietf.org/doc/html/rfc7009#section-2.2.1).
  */
-@Tag("feature")
-class ProtocolEndpointErrorBodyFeatureIT : AbstractSympauthyIT() {
+@Tag("compliance")
+class ProtocolEndpointErrorBodyIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a request refused before an endpoint reads it is an OAuth2 error on {0}")
     @EnumSource(Database::class)

@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **the revocation endpoint must answer `200 OK` for an authenticated client even
+ * Compliance scenario — **the revocation endpoint must answer `200 OK` for an authenticated client even
  * when the submitted token is unknown, malformed, or already revoked.**
  *
  * Risk: RFC 7009 §2.2 mandates a `200` regardless of token validity so that a client cannot use the
@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [RFC 7009 §2.2 (Revocation Response)](https://datatracker.ietf.org/doc/html/rfc7009#section-2.2).
  */
-@Tag("security")
+@Tag("compliance")
 class RevokeAlwaysReturns200IT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "revocation of an unknown token still returns 200 on {0}")

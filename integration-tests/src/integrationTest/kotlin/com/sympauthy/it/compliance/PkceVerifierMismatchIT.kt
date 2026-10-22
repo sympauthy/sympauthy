@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **the token endpoint must reject a `code_verifier` that does not match the
+ * Compliance scenario — **the token endpoint must reject a `code_verifier` that does not match the
  * `code_challenge` bound to the authorization code, with `invalid_grant` (HTTP 400).**
  *
  * Risk: PKCE is what protects a public client's authorization code from being redeemed by an attacker
@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [RFC 7636 §4.6 (Server verifies code_verifier)](https://datatracker.ietf.org/doc/html/rfc7636#section-4.6).
  */
-@Tag("security")
+@Tag("compliance")
 class PkceVerifierMismatchIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "token endpoint rejects a mismatched code_verifier with invalid_grant on {0}")

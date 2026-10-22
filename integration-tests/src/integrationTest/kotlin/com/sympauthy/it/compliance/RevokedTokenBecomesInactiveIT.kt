@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **revocation actually takes effect: a token that introspects as active must
+ * Compliance scenario — **revocation actually takes effect: a token that introspects as active must
  * introspect as inactive once revoked.**
  *
  * Risk: RFC 7009 is only meaningful if revocation is enforced. If a revoked token kept working, a
@@ -19,10 +19,10 @@ import org.junit.jupiter.params.provider.EnumSource
  * A confidential client obtains an access token via `client_credentials`, introspects it (active),
  * revokes it, then introspects again (inactive), on each supported database.
  *
- * Source: [RFC 7009 (Token Revocation)](https://datatracker.ietf.org/doc/html/rfc7009) and
- * [RFC 7662 (Token Introspection)](https://datatracker.ietf.org/doc/html/rfc7662).
+ * Source: [RFC 7009 §2 (Token Revocation)](https://datatracker.ietf.org/doc/html/rfc7009#section-2) and
+ * [RFC 7662 §2.2 (Introspection Response)](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2).
  */
-@Tag("security")
+@Tag("compliance")
 class RevokedTokenBecomesInactiveIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a revoked token introspects as inactive on {0}")

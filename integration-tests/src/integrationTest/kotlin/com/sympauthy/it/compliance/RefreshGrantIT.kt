@@ -1,4 +1,4 @@
-package com.sympauthy.it.feature
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Feature scenario — **the refresh grant reissues the identity, not only the access token.**
+ * Compliance scenario — **the refresh grant reissues the identity, not only the access token.**
  *
  * A confidential client signs a user up, exchanges the code, then presents the refresh token at the
  * token endpoint. The response must carry a new `id_token` beside the new `access_token`: the same
@@ -19,10 +19,10 @@ import org.junit.jupiter.params.provider.EnumSource
  * safe to accept — a stale `at_hash` would let the substitution mitigation of §3.1.3.6 pass on a token
  * pair it was never computed over.
  *
- * Reference: [OpenID Connect Core 1.0 §12.2 (Successful Refresh Response)](https://openid.net/specs/openid-connect-core-1_0.html#RefreshingAccessToken).
+ * Source: [OpenID Connect Core 1.0 §12.2 (Successful Refresh Response)](https://openid.net/specs/openid-connect-core-1_0.html#RefreshingAccessToken).
  */
-@Tag("feature")
-class RefreshGrantFeatureIT : AbstractSympauthyIT() {
+@Tag("compliance")
+class RefreshGrantIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "the refresh grant issues an id_token bound to the new access token on {0}")
     @EnumSource(Database::class)

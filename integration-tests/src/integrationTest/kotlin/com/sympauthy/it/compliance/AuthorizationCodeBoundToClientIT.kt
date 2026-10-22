@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **an authorization code issued to one client must not be redeemable by a
+ * Compliance scenario — **an authorization code issued to one client must not be redeemable by a
  * different client, even a validly registered one; the token endpoint answers `invalid_grant`
  * (HTTP 400).**
  *
@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * Source: [RFC 6749 §4.1.3](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3) and
  * [§10.5](https://datatracker.ietf.org/doc/html/rfc6749#section-10.5).
  */
-@Tag("security")
+@Tag("compliance")
 class AuthorizationCodeBoundToClientIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a code issued to one client cannot be redeemed by another on {0}")

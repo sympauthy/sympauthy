@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **the issued `id_token` must name the access token issued in the same response,
+ * Compliance scenario — **the issued `id_token` must name the access token issued in the same response,
  * as its `at_hash` claim.**
  *
  * Risk: `at_hash` is what lets a client detect an access token substituted for the one the
@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [OpenID Connect Core 1.0 §3.1.3.6 (ID Token)](https://openid.net/specs/openid-connect-core-1_0.html#CodeIDToken).
  */
-@Tag("security")
+@Tag("compliance")
 class IdTokenBindsAccessTokenIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "id_token at_hash names the access token issued with it on {0}")

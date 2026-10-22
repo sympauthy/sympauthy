@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **the UserInfo endpoint must reject a request that carries no bearer token, an
+ * Compliance scenario — **the UserInfo endpoint must reject a request that carries no bearer token, an
  * invalid one, or one that does not give access, never returning claims, and must challenge each.**
  *
  * Risk: UserInfo exposes the subject's OpenID claims and is protected solely by the access token
@@ -30,7 +30,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * and issues [#533](https://github.com/sympauthy/sympauthy/issues/533) and
  * [#598](https://github.com/sympauthy/sympauthy/issues/598).
  */
-@Tag("security")
+@Tag("compliance")
 class UserInfoRejectsInvalidBearerIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "userinfo rejects a missing/invalid bearer with 401 on {0}")

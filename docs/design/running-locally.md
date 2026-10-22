@@ -221,7 +221,7 @@ One scenario:
 
 ```sh
 ./gradlew :integration-tests:integrationTest -Dsympauthy.image=server:latest \
-  --tests '*AuthorizationCodeFeatureIT'
+  --tests '*AuthorizationCodeGrantIT'
 ```
 
 **A JVM image is not the image CI runs.** It exercises the code but none of the closed-world

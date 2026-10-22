@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **a public client can revoke the refresh token it was issued, sending its
+ * Compliance scenario — **a public client can revoke the refresh token it was issued, sending its
  * `client_id` alone.**
  *
  * Risk: RFC 7009 §2.1 validates client credentials only "in case of a confidential client", and §5 lets a
@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [RFC 7009 §2.1 (Revocation Request)](https://datatracker.ietf.org/doc/html/rfc7009#section-2.1).
  */
-@Tag("security")
+@Tag("compliance")
 class PublicClientRevokesItsRefreshTokenIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a public client revokes its refresh token on {0}")

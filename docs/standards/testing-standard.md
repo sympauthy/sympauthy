@@ -126,12 +126,37 @@ this table gives to a rule holding two files to each other.
 swallows the `{0}` naming the database. Every case then prints the same name, and a failing run does
 not say which dialect it failed on.
 
-**One class per feature or per risk, with the happy path and the rejections together.** Add a new
-class for a genuinely distinct feature or risk, and a new method for one more rejection of an
-endpoint already covered.
+**One class per requirement, feature or risk, with the happy path and the rejections together.**
+Add a new class for a genuinely distinct requirement, feature or risk, and a new method for one more
+rejection of an endpoint already covered.
 
 **A class says what it is protecting, and cites it.** Name the RFC section or the issue in its own
 documentation.
+
+**A scenario sits in one of three categories, by what requires the behaviour it asserts.**
+
+| Category     | What requires the behaviour                          |
+|--------------|------------------------------------------------------|
+| `compliance` | a section of a specification                         |
+| `security`   | a rule this server sets itself                       |
+| `feature`    | nothing beyond this server offering it               |
+
+**A behaviour a specification requires is `compliance`, whatever failing it would cost.** A code
+redeemed twice, a PKCE verifier left unchecked and a token introspected by another client are each a
+requirement before they are a risk, and a reader asking what this server conforms to reads for them.
+
+**The specification has to require the thing tested, not an analogous one.** A replayed flow state
+cites RFC 6749 §10.5 by analogy, and what it replays is this server's signed state, which no
+specification defines, so it is `security`.
+
+**A class is sorted by the claim its documentation opens with.** A claim that is half a
+specification's and half this server's is two classes.
+
+**A class lives in the package its category names, and carries that name as its one JUnit tag.** Its
+documentation opens with *Compliance scenario —*, *Security scenario —* or *Feature scenario —*.
+
+**A `compliance` scenario's source names the section requiring what it asserts.** That section is
+why the scenario is in the category; a `security` or `feature` one may cite an issue instead.
 
 **Drive the server through the generated client.** A call through it proves the published document
 describes the request as the endpoint reads it, which a request built by hand never does. Keep raw
@@ -187,6 +212,13 @@ one is a change to it before it is a change to any test.
 
 **Fuzzing and property-based testing.** The parsers here are the obvious candidates and none has
 one.
+
+**Selecting a category in a run.** The integration task selects no tag, and no property filters
+by one until a run needs it.
+
+**An external conformance suite.** Running the OpenID Foundation's certification tests against this
+server is a different check from a scenario this repository writes, and `compliance` covers only
+the requirements a scenario here asserts.
 
 **Contract testing against real clients.** The generated client proves this server matches its own
 document.

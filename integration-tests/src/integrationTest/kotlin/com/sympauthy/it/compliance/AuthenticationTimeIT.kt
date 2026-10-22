@@ -1,4 +1,4 @@
-package com.sympauthy.it.feature
+package com.sympauthy.it.compliance
 
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.client.model.IntrospectionResource
@@ -15,7 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Feature scenario — **every token issued for a person says when that person proved a credential,
+ * Compliance scenario — **every token issued for a person says when that person proved a credential,
  * and a refresh reissues that moment unchanged.**
  *
  * A confidential client signs a person up and exchanges the code. The id token and the access token
@@ -28,12 +28,12 @@ import org.junit.jupiter.params.provider.EnumSource
  * anything behind it, and a resource server deciding recency off a date there would be reading the
  * moment a backend asked.
  *
- * Reference: [OpenID Connect Core 1.0 §2 (`auth_time`)](https://openid.net/specs/openid-connect-core-1_0.html#IDToken),
+ * Source: [OpenID Connect Core 1.0 §2 (`auth_time`)](https://openid.net/specs/openid-connect-core-1_0.html#IDToken),
  * [RFC 9068 §2.2.1 (`auth_time` in a JWT access token)](https://www.rfc-editor.org/rfc/rfc9068#section-2.2.1)
  * and [RFC 9470 §6.2 (`auth_time` in introspection)](https://www.rfc-editor.org/rfc/rfc9470#section-6.2).
  */
-@Tag("feature")
-class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
+@Tag("compliance")
+class AuthenticationTimeIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "every token of an authorization states the moment it authenticated on {0}")
     @EnumSource(Database::class)
@@ -116,7 +116,7 @@ class AuthenticationTimeFeatureIT : AbstractSympauthyIT() {
     /**
      * The claims [token] carries, read without verifying its signature: what these scenarios assert is
      * which claims an access token states, and that it is genuinely signed is
-     * [another scenario's][com.sympauthy.it.security.UserInfoRejectsInvalidBearerIT] subject.
+     * [another scenario's][UserInfoRejectsInvalidBearerIT] subject.
      */
     private fun claimsOf(token: String) = SignedJWT.parse(token).jwtClaimsSet
 

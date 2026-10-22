@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **when the authorization code was issued against a `code_challenge`, the token
+ * Compliance scenario — **when the authorization code was issued against a `code_challenge`, the token
  * endpoint must reject an exchange that omits `code_verifier`, with `invalid_grant` (HTTP 400).**
  *
  * Risk: this is the PKCE-downgrade attack. An attacker who steals an authorization code could try to
@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [RFC 7636 §4.6 (Server verifies code_verifier)](https://datatracker.ietf.org/doc/html/rfc7636#section-4.6).
  */
-@Tag("security")
+@Tag("compliance")
 class PkceDowngradeMissingVerifierIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "token endpoint rejects a missing code_verifier with invalid_grant on {0}")

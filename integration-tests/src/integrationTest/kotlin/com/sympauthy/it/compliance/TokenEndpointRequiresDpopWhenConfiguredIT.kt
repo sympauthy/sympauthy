@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -7,7 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **when DPoP is required by configuration, the token endpoint must refuse a token
+ * Compliance scenario — **when DPoP is required by configuration, the token endpoint must refuse a token
  * request that carries no DPoP proof, with `invalid_dpop_proof` (HTTP 400).**
  *
  * Risk: DPoP (RFC 9449) sender-constrains tokens to the client's key, so a stolen bearer token cannot
@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [RFC 9449 §5 (Token Request) / §7](https://datatracker.ietf.org/doc/html/rfc9449#section-7).
  */
-@Tag("security")
+@Tag("compliance")
 class TokenEndpointRequiresDpopWhenConfiguredIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "token request without DPoP is refused when dpop-required on {0}")
