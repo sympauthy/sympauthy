@@ -13,7 +13,6 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
@@ -90,8 +89,9 @@ open class TokenExchangeManager(
         val targetAudience = resolveTargetAudience(actingClient, audience)
         val targetClaims = collectedClaimManager.findByUserIdAndAudience(targetUser, targetAudience.id)
 
+        // RFC 8693 §2.2.2 answers a subject unacceptable by policy with `invalid_request`.
         if (!actAsRuleManager.isActAsAllowed(actingClient, targetClaims)) {
-            throw oauth2ExceptionOf(ACCESS_DENIED, "token_exchange.not_allowed")
+            throw oauth2ExceptionOf(INVALID_REQUEST, "token_exchange.not_allowed")
         }
 
         val grant = grantManager.createTokenExchangeGrant(

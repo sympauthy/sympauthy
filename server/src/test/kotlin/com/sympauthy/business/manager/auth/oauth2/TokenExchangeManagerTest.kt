@@ -16,7 +16,6 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
@@ -224,7 +223,7 @@ class TokenExchangeManagerTest {
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
         }
-        assertEquals(ACCESS_DENIED, ex.errorCode)
+        assertEquals(INVALID_REQUEST, ex.errorCode)
     }
 
     @Test
