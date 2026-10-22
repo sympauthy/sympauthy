@@ -11,7 +11,7 @@ const val CLIENT_ID_PARAMETER_DESCRIPTION = "Identifier of the client, when it s
  * @see CLIENT_ID_PARAMETER_DESCRIPTION
  */
 const val CLIENT_SECRET_PARAMETER_DESCRIPTION = "Secret of the client, when it sends its credentials in the " +
-    "body rather than with HTTP Basic authentication."
+    "body rather than with HTTP Basic authentication. A request sending both is refused."
 
 /**
  * What the published specification says about `token_type_hint`, on the introspection and the revocation
@@ -28,10 +28,17 @@ const val INVALID_CLIENT_UNAUTHORIZED_DESCRIPTION = "- `invalid_client`: no clie
     "or the ones sent do not authenticate a client. The `WWW-Authenticate` header names the `Basic` scheme."
 
 /**
- * What the published specification says about the `400` of an endpoint reading `token` once the client is
- * resolved. An endpoint that also answers a refused client `400` appends that.
+ * What the published specification says about the `invalid_request` of an endpoint authenticating a client, which
+ * refuses a request sending a secret both ways.
  */
-const val TOKEN_BAD_REQUEST_DESCRIPTION = "- `invalid_request`: `token` is missing."
+const val CLIENT_SECRET_SENT_TWICE_DESCRIPTION = "`client_secret` is sent together with HTTP Basic authentication"
+
+/**
+ * What the published specification says about the `400` of an endpoint authenticating a client and then reading
+ * `token`. An endpoint that also answers a refused client `400` appends that.
+ */
+const val TOKEN_BAD_REQUEST_DESCRIPTION = "- `invalid_request`: $CLIENT_SECRET_SENT_TWICE_DESCRIPTION, or `token` " +
+    "is missing."
 
 /**
  * What the published specification says about the `413` of an endpoint answering its errors in the body
