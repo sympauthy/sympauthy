@@ -73,7 +73,8 @@ class TokenController(
                     "missing; `code` is missing on the `authorization_code` grant, or `refresh_token` on the " +
                     "`refresh_token` grant; on the token exchange grant, `subject_token`, `subject_token_type` " +
                     "or `requested_subject` is missing, or `subject_token_type` or `requested_token_type` names " +
-                    "something other than an access token.\n" +
+                    "something other than an access token; or the `rules.act-as` rules do not let the client " +
+                    "act for `requested_subject`.\n" +
                     "- `invalid_client`: on the `authorization_code` and `refresh_token` grants, no client " +
                     "credentials are sent, or the ones sent in the body do not authenticate a client.\n" +
                     "- `invalid_grant`: `code` or `refresh_token` is unknown, expired or issued to another " +
@@ -100,9 +101,7 @@ class TokenController(
                 description = "- `invalid_client`: the client credentials sent with HTTP Basic authentication " +
                     "do not authenticate a client, or, on the `client_credentials` and token exchange grants, " +
                     "none are sent or the ones sent in the body do not. The `WWW-Authenticate` header names " +
-                    "the `Basic` scheme.\n" +
-                    "- `access_denied`: on the token exchange grant, the `rules.act-as` rules do not " +
-                    "let the client act for `requested_subject`."
+                    "the `Basic` scheme."
             ),
             ApiResponse(responseCode = "413", description = INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION)
         ],
