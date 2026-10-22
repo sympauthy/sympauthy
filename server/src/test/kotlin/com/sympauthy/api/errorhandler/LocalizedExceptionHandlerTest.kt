@@ -13,10 +13,12 @@ import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.exception.LocalizedException
+import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.SecurityRule.IS_USER
@@ -42,6 +44,9 @@ import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class LocalizedExceptionHandlerTest {
+
+    @MockK
+    lateinit var localizedErrorMapper: LocalizedErrorMapper
 
     @MockK
     lateinit var errorResourceMapper: ErrorResourceMapper
@@ -114,7 +119,7 @@ class LocalizedExceptionHandlerTest {
 
     @Test
     fun `handle - Answer a refusal on the token endpoint with invalid_request in the RFC 6749 body`() {
-        stubResource(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+        stubStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
         val oAuth2Exception = slot<OAuth2Exception>()
         val oAuth2Resource = OAuth2ErrorResource(errorCode = "invalid_request")
         every { oAuth2ErrorResourceMapper.toResource(capture(oAuth2Exception), any()) } returns oAuth2Resource
@@ -136,8 +141,40 @@ class LocalizedExceptionHandlerTest {
     }
 
     @Test
+    fun `handle - Answer a refusal on the token endpoint addressed with a trailing slash in the RFC 6749 body`() {
+        stubStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+        val oAuth2Resource = OAuth2ErrorResource(errorCode = "invalid_request")
+        every { oAuth2ErrorResourceMapper.toResource(any(), any()) } returns oAuth2Resource
+
+        val response = handler.handle(
+            request("$OAUTH2_TOKEN_ENDPOINT/"),
+            recoverableHttpExceptionOf(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE, "content_type.unsupported", "description.content_type.unsupported"
+            )
+        )
+
+        assertSame(oAuth2Resource, response.body())
+    }
+
+    @Test
+    fun `handle - Answer an unauthenticated client on the token endpoint with invalid_client in the RFC 6749 body`() {
+        stubStatus(HttpStatus.UNAUTHORIZED)
+        val oAuth2Exception = slot<OAuth2Exception>()
+        val oAuth2Resource = OAuth2ErrorResource(errorCode = "invalid_client")
+        every { oAuth2ErrorResourceMapper.toResource(capture(oAuth2Exception), any()) } returns oAuth2Resource
+
+        val response = handler.handle(
+            request(OAUTH2_TOKEN_ENDPOINT),
+            httpExceptionOf(HttpStatus.UNAUTHORIZED, "unauthorized", "description.unauthorized")
+        )
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.status)
+        assertEquals(INVALID_CLIENT, oAuth2Exception.captured.errorCode)
+    }
+
+    @Test
     fun `handle - Answer a refused method on the revocation endpoint with the Allow header and the RFC 6749 body`() {
-        stubResource(HttpStatus.METHOD_NOT_ALLOWED)
+        stubStatus(HttpStatus.METHOD_NOT_ALLOWED)
         val oAuth2Resource = OAuth2ErrorResource(errorCode = "invalid_request")
         every { oAuth2ErrorResourceMapper.toResource(any(), any()) } returns oAuth2Resource
 
@@ -153,7 +190,7 @@ class LocalizedExceptionHandlerTest {
 
     @Test
     fun `handle - Answer a server failure on the introspection endpoint with server_error in the RFC 6749 body`() {
-        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+        stubStatus(HttpStatus.INTERNAL_SERVER_ERROR)
         val oAuth2Exception = slot<OAuth2Exception>()
         val oAuth2Resource = OAuth2ErrorResource(errorCode = "server_error")
         every { oAuth2ErrorResourceMapper.toResource(capture(oAuth2Exception), any()) } returns oAuth2Resource
@@ -184,7 +221,12 @@ class LocalizedExceptionHandlerTest {
         assertSame(resource, response.body())
     }
 
+    private fun stubStatus(status: HttpStatus) {
+        every { localizedErrorMapper.toHttpStatus(any()) } returns status
+    }
+
     private fun stubResource(status: HttpStatus): ErrorResource {
+        stubStatus(status)
         val resource = ErrorResource(
             status = status.code,
             errorCode = "code",
