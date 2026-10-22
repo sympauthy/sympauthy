@@ -251,6 +251,28 @@ class ConsentRepositoryTest {
         assertNull(consents.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId))
     }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateRevokedAt - Leaves a consent already revoked as its first revocation recorded it`(
+        database: Database
+    ) = withFixture(database) {
+        val consents = repository<ConsentRepository>()
+        val userId = newUser()
+        val firstRevokedById = newUser()
+        val secondRevokedById = newUser()
+        val id = saveConsent(userId, BASE_DATE)
+        val firstRevokedAt = BASE_DATE.plusDays(1)
+        consents.updateRevokedAt(id, firstRevokedAt, "ADMIN", firstRevokedById)
+
+        val updated = consents.updateRevokedAt(id, BASE_DATE.plusDays(2), "USER", secondRevokedById)
+
+        val stored = consents.findById(id)
+        assertEquals(0, updated)
+        assertEquals(firstRevokedAt, stored?.revokedAt)
+        assertEquals("ADMIN", stored?.revokedBy)
+        assertEquals(firstRevokedById, stored?.revokedById)
+    }
+
     /**
      * Five users, of which the first has no provider link at all, the next two are linked to [providerId]
      * under distinct subjects, and the fourth is linked to another provider. Their consents are ordered by

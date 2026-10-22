@@ -50,7 +50,8 @@ open class ConsentManager(
      * for this user+audience pair, so that previously consented scopes are preserved.
      *
      * If an active consent already exists, it is revoked and replaced by a new consent containing
-     * the union of existing and new scopes.
+     * the union of existing and new scopes. One revoked by someone else between the read and the revocation
+     * keeps that revocation, and lends the new consent none of its scopes: they are the ones just revoked.
      */
     @Transactional
     open suspend fun saveConsent(
@@ -63,13 +64,13 @@ open class ConsentManager(
         // again inside this transaction rather than taken from a copy the caller may have read earlier.
         userManager.checkPromoted(user.id)
         val existingConsent = consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(user.id, audience.id)
-        val mergedScopes = if (existingConsent != null) {
-            consentRepository.updateRevokedAt(
-                id = existingConsent.id!!,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = ConsentRevokedBy.USER.name,
-                revokedById = user.id
-            )
+        val revokedExisting = existingConsent != null && consentRepository.updateRevokedAt(
+            id = existingConsent.id!!,
+            revokedAt = LocalDateTime.now(),
+            revokedBy = ConsentRevokedBy.USER.name,
+            revokedById = user.id
+        ) > 0
+        val mergedScopes = if (existingConsent != null && revokedExisting) {
             (existingConsent.scopes.toList() + scopes).distinct()
         } else {
             scopes
@@ -179,6 +180,9 @@ open class ConsentManager(
      *
      * Both are written holding the lock over the account a refresh of those grants takes, so a refresh
      * racing this either reads the consent revoked or has the grant it issued under revoked with the rest.
+     *
+     * A consent revoked since the caller read it is left as its first revocation recorded it, and its grants
+     * to the revocation that took it out of service.
      */
     @Transactional
     open suspend fun revokeConsent(
