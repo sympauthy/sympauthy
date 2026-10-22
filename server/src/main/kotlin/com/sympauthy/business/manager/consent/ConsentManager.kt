@@ -50,10 +50,12 @@ open class ConsentManager(
      * for this user+audience pair, so that previously consented scopes are preserved.
      *
      * If an active consent already exists, it is revoked and replaced by a new consent containing
-     * the union of existing and new scopes. One the revocation finds already revoked keeps that revocation, and
-     * lends the new consent none of its scopes: they are the ones just revoked.
+     * the union of existing and new scopes.
      *
-     * The read and both writes are made under [lockConsentForUser].
+     * The promotion check, the read and both writes are made under [lockConsentForUser], so no revocation lands
+     * between the read and the write. The revocation still compares the consent's state rather than trusting
+     * the read, as a backstop for a writer that forgot the lock: a consent it finds already revoked keeps that
+     * revocation, and lends the new consent none of its scopes.
      */
     @Transactional
     open suspend fun saveConsent(
@@ -62,10 +64,10 @@ open class ConsentManager(
         clientId: String,
         scopes: List<String>
     ): Consent {
-        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
-        // again inside this transaction rather than taken from a copy the caller may have read earlier.
-        userManager.checkPromoted(user.id)
         return lockConsentForUser(user.id) {
+            // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+            // again under the lock rather than taken from a copy the caller may have read earlier.
+            userManager.checkPromoted(user.id)
             val existingConsent = consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(user.id, audience.id)
             val revokedExisting = existingConsent != null && consentRepository.updateRevokedAt(
                 id = existingConsent.id!!,
@@ -228,9 +230,9 @@ open class ConsentManager(
      * - Revoking a consent also revokes the grants resting on it, and a refresh, a code exchange and a revocation
      *   of grants are ordered against each other by the account's key. A consent key would have to be named
      *   beside that one in the same call.
-     * - Saving a consent runs in the completion transaction, after a sign-up's promotion has taken its locks, and
-     *   a transaction takes one set of keys. The promotion names the account it promotes, so the consent is
-     *   covered without the promotion having to know the audience the consent is for.
+     * - Saving a consent runs in the completion transaction, after a sign-up's promotion may have taken its
+     *   locks, and a transaction takes one set of keys. A promotion taking any names the account it promotes,
+     *   so the consent is covered without the promotion having to know the audience the consent is for.
      * - Keys hash into a fixed number of stripes and already share rows, so the narrower key would mostly
      *   spare a person's own operations from waiting on each other for a few milliseconds.
      *

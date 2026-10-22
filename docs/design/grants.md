@@ -166,9 +166,9 @@ grant](design-faq.md#why-is-the-record-a-token-is-issued-under-called-a-grant) i
 **`OAuth2AuthorizeInteractiveFlowPurposeHandler` opens an authorization's grant in its terminal
 effect**, after the scopes are granted and the consent recorded and before
 `AuthorizationCodeManager` generates the code naming it. It takes no lock of its own: the completion
-transaction already holds the locks its promotion named, and a unique index over the session a
-grant came from is what settles two completions racing: the one refused there never reaches its
-code.
+transaction already holds the lock over the account, which the consent saved before it takes, or
+the promotion of a sign-up named beside its identities. A unique index over the session a grant came
+from is what settles two completions racing: the one refused there never reaches its code.
 
 **`GrantManager` opens a grant, checks one presented to it and revokes one**, and is where every
 revocation above is written: whether a grant is live, and whether it was opened for the client and

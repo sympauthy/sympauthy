@@ -69,9 +69,12 @@ open class ProvisionalAccountManager(
      * every write here re-asserts the session id, and the completion write finds no session to mark. They
      * are named in one call because a second one in that transaction is refused.
      *
-     * The account itself is named beside them. The promotion writes five of the tables it owns, which is
-     * what [LockKey.User] is for, and naming it here leaves the rest of the caller's transaction free to
-     * write under that key, where a set without it would refuse that as a second lock.
+     * The account itself is named beside them whenever there are any. The promotion writes five of the
+     * tables it owns, which is what [LockKey.User] is for, and naming it here leaves the rest of the caller's
+     * transaction free to write under that key, where a set without it would refuse that as a second lock.
+     * An account holding no identity takes nothing, and leaves the rest of the transaction to take the
+     * account's key itself: every stripe taken here is held until that transaction ends, whatever the caller
+     * does in the meantime.
      *
      * The whole of it — the checks and the five writes — belongs to the caller's transaction, so an account
      * either becomes real in full or stays provisional and is collected, and the locks are held until that
@@ -120,18 +123,19 @@ open class ProvisionalAccountManager(
     }
 
     /**
-     * The account [userId] and the identities this promotion is about to make committed, as the keys every
-     * other writer of them names. An account holding no identity — no identifier claim configured, no
-     * provider linked — still takes its own key, and races over nothing else.
+     * The identities this promotion is about to make committed, as the keys every other writer of them
+     * names, and the account [userId] beside them. An account holding none — no identifier claim configured,
+     * no provider linked — takes nothing, and there is nothing for it to race over.
      */
     private fun keysOver(
         userId: UUID,
         identifierValues: List<String>,
         links: List<ProvisionalLink>
-    ): List<LockKey> =
-        listOf(LockKey.User(userId)) +
-            identifierValues.map(LockKey::IdentifierValue) +
+    ): List<LockKey> {
+        val identityKeys = identifierValues.map(LockKey::IdentifierValue) +
             links.map { LockKey.ProviderSubject(it.providerId, it.subject) }
+        return if (identityKeys.isEmpty()) emptyList() else identityKeys + LockKey.User(userId)
+    }
 
     /**
      * Delete the accounts left behind by a sign-up that never completed, and answer how many there were.
