@@ -119,6 +119,25 @@ class ConsentManagerTest {
     }
 
     @Test
+    fun `saveConsent - Takes no scope from a consent revoked since it was read`() = runTest {
+        coJustRun { userManager.checkPromoted(user.id) }
+        val existingId = UUID.randomUUID()
+        val existingEntity = mockk<ConsentEntity> { every { id } returns existingId }
+        val saved = slot<ConsentEntity>()
+
+        coEvery {
+            consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId)
+        } returns existingEntity
+        coEvery { consentRepository.updateRevokedAt(existingId, any(), "USER", userId) } returns 0
+        coEvery { consentRepository.save(capture(saved)) } answers { firstArg() }
+        every { consentMapper.toConsent(any()) } returns mockk()
+
+        consentManager.saveConsent(user, audience, clientId, scopes)
+
+        assertEquals(scopes, saved.captured.scopes.toList())
+    }
+
+    @Test
     fun `findActiveConsentsByUser - Returns mapped consents`() = runTest {
         val entity1 = mockk<ConsentEntity>()
         val entity2 = mockk<ConsentEntity>()

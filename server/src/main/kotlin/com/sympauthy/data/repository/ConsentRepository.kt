@@ -1,7 +1,6 @@
 package com.sympauthy.data.repository
 
 import com.sympauthy.data.model.ConsentEntity
-import io.micronaut.data.annotation.Id
 import io.micronaut.data.annotation.Query
 import io.micronaut.data.repository.kotlin.CoroutineCrudRepository
 import java.time.LocalDateTime
@@ -82,8 +81,24 @@ interface ConsentRepository : CoroutineCrudRepository<ConsentEntity, UUID> {
         subject: String?
     ): Long
 
+    /**
+     * Revoke the consent [id] **iff it is still active**, and answer 1 when it was and 0 when it had already
+     * been revoked.
+     *
+     * A compare-and-swap rather than a write by identifier alone, because every caller reads the consent active
+     * before writing it and nothing holds that read until the write: a second revocation landing after the first
+     * would otherwise replace who revoked the consent, and when, with its own, and the row is the only record
+     * of either.
+     */
+    @Query(
+        """
+        UPDATE consents
+        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
+        WHERE id = :id AND revoked_at IS NULL
+        """
+    )
     suspend fun updateRevokedAt(
-        @Id id: UUID,
+        id: UUID,
         revokedAt: LocalDateTime,
         revokedBy: String,
         revokedById: UUID
