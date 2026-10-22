@@ -16,6 +16,7 @@ import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -27,13 +28,16 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.fail
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -190,6 +194,142 @@ class InteractiveAuthFlowSessionControllerUtilTest {
             assertEquals(errorUri, result)
             coVerify(exactly = 0) { sessionManager.markAsFailedIfNotRecoverable(any(), any()) }
         }
+
+    @Test
+    fun `fetchSessionThenAnswerFailureOrRedirect - Answers a failed session with the values of its failure`() =
+        runTest {
+            val session = failedSession(errorValues = mapOf("expirationDate" to "2026-08-31T10:00"))
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                SuccessVerifyEncodedStateResult(session)
+            coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
+
+            val result = answerErrorPage()
+
+            assertEquals("auth.interactive_flow_session.validate.expired", result.detailsId)
+            assertEquals("description.oauth2.expired", result.descriptionId)
+            assertEquals(mapOf("expirationDate" to "2026-08-31T10:00"), result.values)
+        }
+
+    @Test
+    fun `fetchSessionThenAnswerFailureOrRedirect - Answers a state that verifies to no session with its refusal`() =
+        runTest {
+            val sessionId = UUID.randomUUID().toString()
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                FailedVerifyEncodedStateResult(
+                    detailsId = "auth.interactive_flow_session.validate.missing_session",
+                    descriptionId = "description.oauth2.expired",
+                    values = mapOf("sessionId" to sessionId)
+                )
+
+            val result = answerErrorPage()
+
+            assertEquals("auth.interactive_flow_session.validate.missing_session", result.detailsId)
+            assertEquals(mapOf("sessionId" to sessionId), result.values)
+            coVerify(exactly = 0) { userSecurityContextManager.observe(any(), any()) }
+        }
+
+    /** The step leads to the error page, so a redirect would send the browser back to the page asking. */
+    @Test
+    fun `fetchSessionThenAnswerFailureOrRedirect - Answers a session already handed off with that failure`() =
+        runTest {
+            val session = mockk<CompletedInteractiveFlowSession>()
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                SuccessVerifyEncodedStateResult(session)
+            coEvery { engine.advance(session) } returns
+                InteractiveFlowStepResult(session, InteractiveFlowStep.AlreadyCompleted)
+
+            val result = answerErrorPage()
+
+            assertEquals("auth.interactive_flow_session.already_completed", result.detailsId)
+            assertEquals("description.auth.interactive_flow_session.already_completed", result.descriptionId)
+            coVerify(exactly = 0) { stepUriMapper.toRedirectUri(any(), any(), any()) }
+            // Telling a session it is over needs no flow, so one no longer configured does not stop it.
+            verify(exactly = 0) { interactiveAuthFlowSessionManager.findById(any()) }
+        }
+
+    @Test
+    fun `fetchSessionThenAnswerFailureOrRedirect - Records and redirects an ongoing session`() =
+        runTest {
+            val redirectUri = URI.create("https://flow.example.com/sign-in?state=encoded-state")
+            val sessionId = UUID.randomUUID()
+            val session = ongoingInFlow(sessionId)
+            val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+            val flow = mockk<InteractiveFlow>()
+            stubFlowOf(session, flow)
+            coEvery { engine.advance(session) } returns
+                InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.SignIn)
+            coEvery { stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.SignIn) } returns
+                redirectUri
+
+            val result = util.fetchSessionThenAnswerFailureOrRedirect(
+                state = "encoded-state",
+                observedRequest = observed,
+                mapFailureToResource = { fail("Answered a failure: ${it.detailsId}") },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(redirectUri, result)
+            coVerify { userSecurityContextManager.observe(sessionId, observed) }
+        }
+
+    /** The other entry points send such a session to the default flow's error page, which is this one. */
+    @Test
+    fun `fetchSessionThenAnswerFailureOrRedirect - Fails a session whose flow is no longer configured`() = runTest {
+        val session = ongoingInFlow(UUID.randomUUID())
+        val invalidFlow = businessExceptionOf("flow.web.invalid_flow")
+        val failed = failedSession(errorDetailsId = "flow.web.invalid_flow", errorDescriptionId = null)
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            SuccessVerifyEncodedStateResult(session)
+        every { interactiveAuthFlowSessionManager.findById("flow-id") } throws invalidFlow
+        coEvery { sessionManager.markAsFailedIfNotRecoverable(session, invalidFlow) } returns failed
+        coEvery { engine.advance(failed) } returns InteractiveFlowStepResult(failed, InteractiveFlowStep.Error)
+
+        val result = answerErrorPage()
+
+        assertEquals("flow.web.invalid_flow", result.detailsId)
+        coVerify(exactly = 0) { engine.advance(session) }
+    }
+
+    @Test
+    fun `fetchSessionThenAnswerFailureOrRedirect - Fails the session where completing it is refused`() = runTest {
+        val session = ongoingInFlow(UUID.randomUUID())
+        val refusal = businessExceptionOf("user.promote.identifier_taken")
+        val failed = failedSession(errorDetailsId = "user.promote.identifier_taken", errorDescriptionId = null)
+        stubFlowOf(session, mockk())
+        coEvery { engine.advance(session) } throws refusal
+        coEvery { sessionManager.markAsFailedIfNotRecoverable(session, refusal) } returns failed
+        coEvery { engine.advance(failed) } returns InteractiveFlowStepResult(failed, InteractiveFlowStep.Error)
+
+        val result = answerErrorPage()
+
+        assertEquals("user.promote.identifier_taken", result.detailsId)
+        coVerify(exactly = 0) { stepUriMapper.toRedirectUri(any(), any(), any()) }
+    }
+
+    /** Ask for the error page of the session `encoded-state` names, failing on a redirect. */
+    private suspend fun answerErrorPage(): BusinessException = util.fetchSessionThenAnswerFailureOrRedirect(
+        state = "encoded-state",
+        observedRequest = observed,
+        mapFailureToResource = { it },
+        mapRedirectUriToResource = { fail("Redirected to $it") }
+    )
+
+    private fun failedSession(
+        errorDetailsId: String = "auth.interactive_flow_session.validate.expired",
+        errorDescriptionId: String? = "description.oauth2.expired",
+        errorValues: Map<String, String>? = null
+    ) = FailedInteractiveFlowSession(
+        id = UUID.randomUUID(),
+        purposes = listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE),
+        initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+        initiatingClientId = null,
+        flowId = "flow-id",
+        expirationDate = LocalDateTime.of(2026, 8, 31, 10, 0),
+        errorDetailsId = errorDetailsId,
+        errorDescriptionId = errorDescriptionId,
+        errorValues = errorValues,
+        errorDate = LocalDateTime.of(2026, 8, 31, 10, 0),
+    )
 
     private fun ongoingInFlow(sessionId: UUID) = mockk<OnGoingInteractiveFlowSession> {
         every { id } returns sessionId
