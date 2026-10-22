@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **introspecting a token owned by a different client must return
+ * Compliance scenario — **introspecting a token owned by a different client must return
  * `{"active": false}` with no metadata; a client must not learn anything about another client's
  * tokens.**
  *
@@ -24,7 +24,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * Source: [RFC 7662 §2.2 (Introspection Response)](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2).
  */
-@Tag("security")
+@Tag("compliance")
 class IntrospectionActiveFalseForOtherClientsTokenIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a client cannot introspect a token issued to another on {0}")

@@ -1,4 +1,4 @@
-package com.sympauthy.it.feature
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -13,7 +13,7 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 
 /**
- * Feature scenario — **OAuth 2.1 authorization-code grant with PKCE, from sign-up to signed tokens.**
+ * Compliance scenario — **OAuth 2.1 authorization-code grant with PKCE, from sign-up to signed tokens.**
  *
  * A user signs up through the mock interactive frontend, the captured authorization code is exchanged
  * at the token endpoint, and the returned id_token is verified against the key set the server
@@ -24,11 +24,12 @@ import org.junit.jupiter.params.provider.MethodSource
  * with PKCE alone, and a **confidential** client that additionally presents its secret at the token
  * endpoint. Both must reach the same signed tokens, so the grant is proven independent of client type.
  *
- * Reference: [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and
+ * Source: [OAuth 2.1 §4.1 (Authorization Code Grant)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-4.1),
+ * [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and
  * [OpenID Connect Core 1.0, ID Token](https://openid.net/specs/openid-connect-core-1_0.html#IDToken).
  */
-@Tag("feature")
-class AuthorizationCodeFeatureIT : AbstractSympauthyIT() {
+@Tag("compliance")
+class AuthorizationCodeGrantIT : AbstractSympauthyIT() {
 
     /**
      * The two client types SympAuthy issues authorization-code tokens to. Both drive the flow with PKCE;

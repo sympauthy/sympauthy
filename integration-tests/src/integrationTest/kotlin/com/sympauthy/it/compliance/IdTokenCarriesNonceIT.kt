@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -8,7 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **the issued `id_token` must carry the `nonce` from the authorization request,
+ * Compliance scenario — **the issued `id_token` must carry the `nonce` from the authorization request,
  * unchanged.**
  *
  * Risk: the `nonce` binds an ID token to the specific authentication request a client initiated
@@ -22,7 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * Source: [OpenID Connect Core 1.0 §3.1.3.7 (ID Token Validation)](https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation)
  * and [§15.5.2 (Nonce Implementation Notes)](https://openid.net/specs/openid-connect-core-1_0.html#NonceNotes).
  */
-@Tag("security")
+@Tag("compliance")
 class IdTokenCarriesNonceIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "id_token echoes the request nonce on {0}")

@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.nimbusds.jose.JOSEObjectType
 import com.nimbusds.jose.JWSAlgorithm
@@ -25,7 +25,7 @@ import java.util.Date
 import java.util.UUID
 
 /**
- * Security scenario — **an access token bound to a DPoP key is served only under the `DPoP` scheme with
+ * Compliance scenario — **an access token bound to a DPoP key is served only under the `DPoP` scheme with
  * a proof signed by that key, and is refused as a bearer token.**
  *
  * Risk: binding a token to the client's key is what makes a stolen token useless on its own. If a
@@ -40,7 +40,7 @@ import java.util.UUID
  * Source: [RFC 9449 §7.1 and §7.2](https://datatracker.ietf.org/doc/html/rfc9449#section-7), and
  * [sympauthy#529](https://github.com/sympauthy/sympauthy/issues/529).
  */
-@Tag("security")
+@Tag("compliance")
 class DpopBoundAccessTokenRefusedAsBearerIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a DPoP-bound access token is refused as a bearer token on {0}")

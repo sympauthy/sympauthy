@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.api.client.api.FlowApi
 import com.sympauthy.it.AbstractSympauthyIT
@@ -11,7 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **cancelling an OAuth2 authorization returns the `access_denied` error to the
+ * Compliance scenario — **cancelling an OAuth2 authorization returns the `access_denied` error to the
  * client, and never mints an authorization code.**
  *
  * Risk: when the end-user declines an authorization request, OAuth2 requires the server to hand the
@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * Source: [RFC 6749 §4.1.2.1 (Authorization Code Grant — Error Response)](
  * https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1).
  */
-@Tag("security")
+@Tag("compliance")
 class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "cancelling an authorization returns access_denied with no code on {0}")

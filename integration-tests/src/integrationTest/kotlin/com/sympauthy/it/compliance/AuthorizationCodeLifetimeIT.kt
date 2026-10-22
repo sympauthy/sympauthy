@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -9,7 +9,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **an authorization code is exchangeable for a lifetime of its own, counted from when
+ * Compliance scenario — **an authorization code is exchangeable for a lifetime of its own, counted from when
  * it was issued, and not for whatever is left of the interactive flow session that issued it.**
  *
  * Risk: a code is what leaks — into a log, a browser's history, a `Referer` — so how long it can be
@@ -27,10 +27,10 @@ import org.junit.jupiter.params.provider.EnumSource
  * past its lifetime is refused as expired, and revokes nothing as a replay inside it would. Each runs on
  * every supported database.
  *
- * Source: [sympauthy#590](https://github.com/sympauthy/sympauthy/issues/590), and
- * [RFC 6749 §4.1.2](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2).
+ * Source: [RFC 6749 §4.1.2](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2), and
+ * [sympauthy#590](https://github.com/sympauthy/sympauthy/issues/590).
  */
-@Tag("security")
+@Tag("compliance")
 class AuthorizationCodeLifetimeIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a code is refused once its lifetime has passed on {0}")

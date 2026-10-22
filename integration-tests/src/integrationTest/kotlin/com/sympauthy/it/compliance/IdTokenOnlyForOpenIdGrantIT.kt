@@ -1,4 +1,4 @@
-package com.sympauthy.it.security
+package com.sympauthy.it.compliance
 
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -11,7 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Security scenario — **a grant that never requested `openid` receives no `id_token`, at the code
+ * Compliance scenario — **a grant that never requested `openid` receives no `id_token`, at the code
  * exchange nor at the refresh.**
  *
  * Risk: an id token is the only thing this server signs that says who a person is. OpenID Connect
@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * Source: [OpenID Connect Core 1.0 §3.1.2.1 (Authentication Request)](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest)
  * and [RFC 6749 §5.1 (Successful Response)](https://datatracker.ietf.org/doc/html/rfc6749#section-5.1).
  */
-@Tag("security")
+@Tag("compliance")
 class IdTokenOnlyForOpenIdGrantIT : AbstractSympauthyIT() {
 
     @ParameterizedTest(name = "a grant without openid receives no id_token, at the exchange or the refresh, on {0}")
