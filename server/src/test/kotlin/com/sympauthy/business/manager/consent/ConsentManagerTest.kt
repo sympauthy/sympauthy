@@ -138,6 +138,22 @@ class ConsentManagerTest {
     }
 
     @Test
+    fun `saveConsent - Reads the active consent under the lock revokeConsent takes`() = runTest {
+        coJustRun { userManager.checkPromoted(user.id) }
+        coEvery { consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId) } returns null
+        coEvery { consentRepository.save(any<ConsentEntity>()) } answers { firstArg() }
+        every { consentMapper.toConsent(any()) } returns mockk()
+
+        consentManager.saveConsent(user, audience, clientId, scopes)
+
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            consentRepository.findByUserIdAndAudienceIdAndRevokedAtIsNull(userId, audienceId)
+            consentRepository.save(any<ConsentEntity>())
+        }
+    }
+
+    @Test
     fun `findActiveConsentsByUser - Returns mapped consents`() = runTest {
         val entity1 = mockk<ConsentEntity>()
         val entity2 = mockk<ConsentEntity>()

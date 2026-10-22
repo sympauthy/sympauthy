@@ -295,7 +295,7 @@ class ProvisionalAccountManagerTest {
     }
 
     @Test
-    fun `promote - Takes no lock for an account holding no identity to take`() = runTest {
+    fun `promote - Takes only the account's lock for an account holding no identity to take`() = runTest {
         provisionalUser()
         noIdentifierClaim()
         coEvery { providerUserInfoRepository.findByUserId(userId) } returns emptyList()
@@ -307,7 +307,11 @@ class ProvisionalAccountManagerTest {
 
         manager.promote(session)
 
-        coVerify(exactly = 0) { objectLockRepository.lock(any()) }
+        coVerify(exactly = 1) { objectLockRepository.lock(any()) }
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            passwordRepository.clearSessionId(userId, sessionId)
+        }
     }
 
     private fun identifierClaims(vararg ids: String) {
