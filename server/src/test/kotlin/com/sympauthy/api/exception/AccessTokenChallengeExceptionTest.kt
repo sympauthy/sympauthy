@@ -64,6 +64,17 @@ class AccessTokenChallengeExceptionTest {
     }
 
     @Test
+    fun `headers - Escape a quote and a backslash in a scope the configuration named`() {
+        val exception = challengeOf(BEARER, listOf(InsufficientScope(listOf("""a"b\c"""))))
+
+        assertEquals(
+            """Bearer realm="sympauthy", error="insufficient_scope", scope="a\"b\\c", """ +
+                """DPoP realm="sympauthy", algs="$ALGS"""",
+            exception.headers[WWW_AUTHENTICATE]
+        )
+    }
+
+    @Test
     fun `headers - Name no scope where the insufficient_scope does not know it`() {
         val exception = challengeOf(BEARER, listOf(InsufficientScope(emptyList())))
 

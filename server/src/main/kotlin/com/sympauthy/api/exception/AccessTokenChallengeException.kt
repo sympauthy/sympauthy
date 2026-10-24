@@ -75,8 +75,9 @@ class AccessTokenChallengeException(
      * them, or one carrying no error where it carries none. Every challenge names the [REALM], and the `DPoP`
      * one the [ALGS].
      *
-     * Every value is written as a quoted-string, and none of them holds a quote or a backslash, which is what
-     * keeps it valid without anything having to escape it.
+     * Every value is written as a quoted-string, with a quote or a backslash in it escaped as RFC 9110 §5.6.4
+     * escapes one: the scopes an [InsufficientScope] names are the configuration's, and nothing refuses either
+     * character in a scope's name.
      */
     override val headers: Map<String, String>
         get() {
@@ -103,9 +104,12 @@ class AccessTokenChallengeException(
             }
         }
         return parameters.joinToString(", ", prefix = "${challengedScheme.scheme} ") { (name, value) ->
-            "$name=\"$value\""
+            "$name=\"${quotedStringContentOf(value)}\""
         }
     }
+
+    private fun quotedStringContentOf(value: String): String =
+        value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     /**
      * This refusal with the status, the codes and the values it holds, and no challenge.
