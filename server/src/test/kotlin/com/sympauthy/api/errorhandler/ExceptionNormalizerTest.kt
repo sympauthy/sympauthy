@@ -2,7 +2,8 @@ package com.sympauthy.api.errorhandler
 
 import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.UnsupportedMethodException
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.ClientAuthentication
 import com.sympauthy.security.StateAuthentication
@@ -222,7 +223,7 @@ class ExceptionNormalizerTest {
         assertEquals("unauthorized", exception.detailsId)
         val challenge = assertInstanceOf(AccessTokenChallengeException::class.java, exception)
         assertNull(challenge.scheme)
-        assertNull(challenge.error)
+        assertEquals(emptyList<WwwAuthenticateChallenge>(), challenge.challenges)
     }
 
     @Test
@@ -237,7 +238,7 @@ class ExceptionNormalizerTest {
         assertEquals("forbidden", exception.detailsId)
         val challenge = assertInstanceOf(AccessTokenChallengeException::class.java, exception)
         assertEquals(AccessTokenScheme.DPOP, challenge.scheme)
-        assertEquals(INSUFFICIENT_SCOPE, challenge.error)
+        assertEquals(listOf(InsufficientScope(scopes = emptyList())), challenge.challenges)
     }
 
     @Test

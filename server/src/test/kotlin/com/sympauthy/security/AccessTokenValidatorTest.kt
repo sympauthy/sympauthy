@@ -16,6 +16,8 @@ import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
@@ -89,7 +91,7 @@ class AccessTokenValidatorTest {
             assertEquals("grant.client_disabled", exception.detailsId)
             assertEquals(CLIENT_ID, exception.values["clientId"])
             assertEquals(BEARER, exception.scheme)
-            assertEquals(INVALID_TOKEN, exception.error)
+            assertEquals(listOf(InvalidToken), exception.challenges)
         }
 
     @Test
@@ -103,7 +105,7 @@ class AccessTokenValidatorTest {
         assertEquals(UNAUTHORIZED, exception.status)
         assertEquals("jwt.expired", exception.detailsId)
         assertEquals(BEARER, exception.scheme)
-        assertEquals(INVALID_TOKEN, exception.error)
+        assertEquals(listOf(InvalidToken), exception.challenges)
     }
 
     @Test
@@ -195,7 +197,7 @@ class AccessTokenValidatorTest {
         assertEquals(UNAUTHORIZED, exception.status)
         assertEquals("dpop.bound_token_as_bearer", exception.detailsId)
         assertEquals(BEARER, exception.scheme)
-        assertEquals(INVALID_TOKEN, exception.error)
+        assertEquals(listOf(InvalidToken), exception.challenges)
     }
 
     @Test
@@ -221,7 +223,7 @@ class AccessTokenValidatorTest {
         assertEquals(UNAUTHORIZED, exception.status)
         assertEquals("dpop.invalid_htu", exception.detailsId)
         assertEquals(DPOP, exception.scheme)
-        assertEquals(INVALID_DPOP_PROOF, exception.error)
+        assertEquals(listOf(InvalidDpopProof), exception.challenges)
     }
 
     @Test
@@ -237,7 +239,7 @@ class AccessTokenValidatorTest {
 
         assertEquals("grant.revoked", exception.detailsId)
         assertEquals(BEARER, exception.scheme)
-        assertEquals(INVALID_TOKEN, exception.error)
+        assertEquals(listOf(InvalidToken), exception.challenges)
     }
 
     @Test

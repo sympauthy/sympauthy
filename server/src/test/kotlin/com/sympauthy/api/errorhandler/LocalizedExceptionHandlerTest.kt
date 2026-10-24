@@ -3,20 +3,21 @@ package com.sympauthy.api.errorhandler
 import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
 import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
-import com.sympauthy.api.exception.InsufficientUserAuthenticationException
+import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.UnsupportedMethodException
+import com.sympauthy.api.exception.accessTokenChallengeExceptionOf
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientUserAuthentication
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.security.AccessTokenScheme
@@ -63,7 +64,10 @@ class LocalizedExceptionHandlerTest {
 
         val response = handler.handle(
             requestToRouteSecuredBy(IS_USER),
-            InsufficientUserAuthenticationException(AccessTokenScheme.BEARER, Duration.ofMinutes(5))
+            accessTokenChallengeExceptionOf(
+                AccessTokenScheme.BEARER,
+                listOf(InsufficientUserAuthentication(Duration.ofMinutes(5)))
+            )
         )
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.status)
@@ -254,7 +258,11 @@ class LocalizedExceptionHandlerTest {
         return request
     }
 
-    private fun refusedTokenChallenge() = httpExceptionOf(
-        HttpStatus.UNAUTHORIZED, "jwt.malformed", "description.unauthorized"
-    ).toAccessTokenChallengeException(AccessTokenScheme.BEARER, INVALID_TOKEN)
+    private fun refusedTokenChallenge() = AccessTokenChallengeException(
+        recoverable = false,
+        detailsId = "jwt.malformed",
+        descriptionId = "description.unauthorized",
+        scheme = AccessTokenScheme.BEARER,
+        challenges = listOf(InvalidToken)
+    )
 }
