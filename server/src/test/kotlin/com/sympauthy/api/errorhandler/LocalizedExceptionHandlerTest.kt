@@ -3,12 +3,12 @@ package com.sympauthy.api.errorhandler
 import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
 import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
+import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.accessTokenChallengeExceptionOf
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
@@ -258,7 +258,11 @@ class LocalizedExceptionHandlerTest {
         return request
     }
 
-    private fun refusedTokenChallenge() = httpExceptionOf(
-        HttpStatus.UNAUTHORIZED, "jwt.malformed", "description.unauthorized"
-    ).toAccessTokenChallengeException(AccessTokenScheme.BEARER, listOf(InvalidToken))
+    private fun refusedTokenChallenge() = AccessTokenChallengeException(
+        recoverable = false,
+        detailsId = "jwt.malformed",
+        descriptionId = "description.unauthorized",
+        scheme = AccessTokenScheme.BEARER,
+        challenges = listOf(InvalidToken)
+    )
 }

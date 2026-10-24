@@ -1,10 +1,10 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
@@ -89,7 +89,13 @@ class ExceptionNormalizer {
     private fun toException(exception: AuthorizationException): LocalizedHttpException {
         val authentication = exception.authentication
         if (authentication == null || !exception.isForbidden) {
-            return unauthorized().toAccessTokenChallengeException(scheme = null, challenges = emptyList())
+            return AccessTokenChallengeException(
+                recoverable = true,
+                detailsId = "unauthorized",
+                descriptionId = "description.unauthorized",
+                scheme = null,
+                challenges = emptyList()
+            )
         }
         val forbidden = httpExceptionOf(
             status = FORBIDDEN,
@@ -97,7 +103,13 @@ class ExceptionNormalizer {
             descriptionId = "description.forbidden"
         )
         val scheme = authentication.accessTokenSchemeOrNull ?: return forbidden
-        return forbidden.toAccessTokenChallengeException(scheme, listOf(InsufficientScope(scopes = emptyList())))
+        return AccessTokenChallengeException(
+            recoverable = false,
+            detailsId = "forbidden",
+            descriptionId = "description.forbidden",
+            scheme = scheme,
+            challenges = listOf(InsufficientScope(scopes = emptyList()))
+        )
     }
 
     private fun unauthorized() = recoverableHttpExceptionOf(

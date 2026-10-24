@@ -26,13 +26,17 @@ sealed class WwwAuthenticateChallenge {
     data object InvalidDpopProof : WwwAuthenticateChallenge()
 
     /**
-     * The token does not carry [scopes], which RFC 6750 §3.1 answers with `insufficient_scope` naming them in
-     * its `scope`.
+     * The operation needs [scopes] and the token was not issued with them, which RFC 6750 §3.1 answers with
+     * `insufficient_scope` naming them in its `scope`.
+     *
+     * A refusal that knows which scopes the token lacks challenges only the ones a client obtains by
+     * re-authorizing, which the person consents to. A scope only a rule grants is refused by name instead,
+     * since no authorization the client asks for can bring it.
      */
     data class InsufficientScope(
         /**
-         * The scopes the operation needs and the token does not carry, empty where the refusal is not told
-         * which: the framework turning a request away on a route's gate is not told which rule it failed.
+         * The scopes the person has to consent to, empty where the refusal is not told which: the framework
+         * turning a request away on a route's gate is not told which rule it failed.
          */
         val scopes: List<String>
     ) : WwwAuthenticateChallenge()

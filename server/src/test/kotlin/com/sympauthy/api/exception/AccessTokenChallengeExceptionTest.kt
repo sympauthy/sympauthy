@@ -1,5 +1,6 @@
 package com.sympauthy.api.exception
 
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientUserAuthentication
@@ -147,25 +148,39 @@ class AccessTokenChallengeExceptionTest {
     }
 
     @Test
-    fun `toAccessTokenChallengeException - Keep the code, the description and the values`() {
-        val exception = httpExceptionOf(FORBIDDEN, "forbidden", "description.forbidden", "scope" to "openid")
-            .toAccessTokenChallengeException(BEARER, listOf(InsufficientScope(emptyList())))
-
-        assertEquals(FORBIDDEN, exception.status)
-        assertEquals("forbidden", exception.detailsId)
-        assertEquals("description.forbidden", exception.descriptionId)
-        assertEquals(mapOf("scope" to "openid"), exception.values)
-        assertEquals(BEARER, exception.scheme)
-        assertEquals(listOf(InsufficientScope(emptyList())), exception.challenges)
+    fun `Refuse a token that does not validate beside another challenge`() {
+        assertThrows<IllegalArgumentException> {
+            challengeOf(BEARER, listOf(InvalidToken, InsufficientScope(listOf("profile:write"))))
+        }
+        assertThrows<IllegalArgumentException> { challengeOf(DPOP, listOf(InvalidDpopProof, InvalidToken)) }
     }
 
     @Test
-    fun `accessTokenChallengeExceptionOf - Name the scope in the body where it comes first`() {
-        val challenges = listOf(InsufficientUserAuthentication(Duration.ofMinutes(5)), InsufficientScope(listOf("a")))
+    fun `Refuse an unbound token presented under the DPoP scheme`() {
+        assertThrows<IllegalArgumentException> { challengeOf(DPOP, listOf(UnboundToken)) }
+    }
+
+    @Test
+    fun `toAccessTokenChallengeException - Keep the codes, and take the status of the challenges`() {
+        val exception = recoverableBusinessExceptionOf("jwt.expired", "description.unauthorized", "kid" to "k1")
+            .toAccessTokenChallengeException(BEARER, listOf(InvalidToken))
+
+        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals("jwt.expired", exception.detailsId)
+        assertEquals("description.unauthorized", exception.descriptionId)
+        assertEquals(mapOf("kid" to "k1"), exception.values)
+        assertTrue(exception.recoverable)
+        assertEquals(BEARER, exception.scheme)
+        assertEquals(listOf(InvalidToken), exception.challenges)
+    }
+
+    @Test
+    fun `accessTokenChallengeExceptionOf - Name the scope in the body where it is the only challenge`() {
+        val challenges = listOf(InsufficientScope(listOf("profile:write")))
 
         val exception = accessTokenChallengeExceptionOf(BEARER, challenges)
 
-        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals(FORBIDDEN, exception.status)
         assertEquals("forbidden", exception.detailsId)
         assertEquals("description.forbidden", exception.descriptionId)
         assertTrue(exception.recoverable)
@@ -173,10 +188,21 @@ class AccessTokenChallengeExceptionTest {
     }
 
     @Test
+    fun `accessTokenChallengeExceptionOf - Name the first challenge answered with the status, not the scope`() {
+        val challenges = listOf(InsufficientScope(listOf("profile:write")), UnboundToken)
+
+        val exception = accessTokenChallengeExceptionOf(BEARER, challenges)
+
+        assertEquals(UNAUTHORIZED, exception.status)
+        assertEquals("authentication.unbound_token", exception.detailsId)
+        assertEquals(challenges, exception.challenges)
+    }
+
+    @Test
     fun `accessTokenChallengeExceptionOf - Name the age in the body with the seconds it demands`() {
         val exception = accessTokenChallengeExceptionOf(
-            DPOP,
-            listOf(UnboundToken, InsufficientUserAuthentication(Duration.ofMinutes(5)))
+            BEARER,
+            listOf(UnboundToken, InsufficientScope(listOf("a")), InsufficientUserAuthentication(Duration.ofMinutes(5)))
         )
 
         assertEquals("authentication.insufficient_user_authentication", exception.detailsId)

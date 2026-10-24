@@ -11,7 +11,7 @@ import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.Insufficient
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.UnboundToken
-import com.sympauthy.exception.LocalizedException
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpHeaders.WWW_AUTHENTICATE
@@ -36,13 +36,15 @@ class AccessTokenChallengeException(
     descriptionId: String?,
     values: Map<String, String> = emptyMap(),
     /**
-     * The scheme the refused token was presented under, whose challenge carries the [challenges]. Null where
-     * the request presented no token.
+     * The scheme the refused token was presented under, whose challenge carries the [challenges] — all but an
+     * [UnboundToken], which is met under [DPOP] alone. Null where the request presented no token.
      */
     val scheme: AccessTokenScheme?,
     /**
      * What a token presented next has to be for the request to be accepted, empty exactly where [scheme] is
-     * null: a request that presented no token is told of no error, RFC 6750 §3.1.
+     * null: a request that presented no token is told of no error, RFC 6750 §3.1. An [InvalidToken] or an
+     * [InvalidDpopProof] comes alone, since a token that does not validate is refused for that and nothing
+     * else, and an [UnboundToken] never comes under [DPOP], which only a bound token is accepted under.
      */
     val challenges: List<WwwAuthenticateChallenge>,
     throwable: Throwable? = null
@@ -59,38 +61,36 @@ class AccessTokenChallengeException(
         require((scheme == null) == challenges.isEmpty()) {
             "A challenge names an error exactly where it names the scheme the refused token came under."
         }
+        require(challenges.size == 1 || challenges.none { it is InvalidToken || it is InvalidDpopProof }) {
+            "A token that does not validate is refused for that alone."
+        }
+        require(scheme != DPOP || UnboundToken !in challenges) {
+            "A token presented under the DPoP scheme is bound to a key."
+        }
     }
 
     /**
      * The `WWW-Authenticate` challenges this refusal answers with: for each [AccessTokenScheme], in the order
-     * it declares them, a challenge per error that scheme carries, or one carrying no error where it carries
-     * none. Every challenge names the [REALM], and the `DPoP` one the [ALGS].
+     * it declares them, a challenge per error that scheme carries, in the order [orderedChallenges] gives
+     * them, or one carrying no error where it carries none. Every challenge names the [REALM], and the `DPoP`
+     * one the [ALGS].
      *
-     * The errors come in the order [rankOf] gives them. Every value is written as a quoted-string, and none of
-     * them holds a quote or a backslash, which is what keeps it valid without anything having to escape it.
+     * Every value is written as a quoted-string, and none of them holds a quote or a backslash, which is what
+     * keeps it valid without anything having to escape it.
      */
     override val headers: Map<String, String>
         get() {
-            val ordered = challenges.sortedBy(::rankOf)
+            val ordered = orderedChallenges(scheme, challenges)
             val rendered = AccessTokenScheme.entries.flatMap { challengedScheme ->
-                val carried = ordered.filter { schemeCarrying(it) == challengedScheme }
+                val carried = ordered.filter { (carrying, _) -> carrying == challengedScheme }
                 if (carried.isEmpty()) {
                     listOf(render(challengedScheme, null))
                 } else {
-                    carried.map { render(challengedScheme, it) }
+                    carried.map { (_, challenge) -> render(challengedScheme, challenge) }
                 }
             }
             return mapOf(WWW_AUTHENTICATE to rendered.joinToString(", "))
         }
-
-    /**
-     * The scheme whose challenge carries [challenge]: the one the token came under, except for
-     * [UnboundToken], which is met under [DPOP] alone.
-     */
-    private fun schemeCarrying(challenge: WwwAuthenticateChallenge): AccessTokenScheme? = when (challenge) {
-        UnboundToken -> DPOP
-        else -> scheme
-    }
 
     private fun render(challengedScheme: AccessTokenScheme, challenge: WwwAuthenticateChallenge?): String {
         val parameters = buildList {
@@ -149,18 +149,6 @@ class AccessTokenChallengeException(
         private val ALGS = SUPPORTED_ALGORITHMS.joinToString(" ")
 
         /**
-         * `403` where every one of [challenges] is an [InsufficientScope], and `401` otherwise — including where
-         * there are none, since a request that presented no token is asked for one.
-         */
-        private fun statusOf(challenges: List<WwwAuthenticateChallenge>): HttpStatus {
-            return if (challenges.isNotEmpty() && challenges.all { it is InsufficientScope }) {
-                FORBIDDEN
-            } else {
-                UNAUTHORIZED
-            }
-        }
-
-        /**
          * The `error` [challenge] is written with, and the parameters that follow it.
          *
          * An [InsufficientUserAuthentication] names `max_age` in whole seconds, the unit it is written in
@@ -194,9 +182,47 @@ class AccessTokenChallengeException(
 }
 
 /**
- * The position of [challenge] among the errors of one refusal: the scope, then the age, then the binding, so a
- * client reading only the first challenge of a scheme is told the condition the person has to be asked about.
+ * The status [challenge] is answered with on its own: `403` for an [InsufficientScope], RFC 6750 §3.1, and
+ * `401` for every other, which a different token would be accepted in place of.
  */
+private fun statusOf(challenge: WwwAuthenticateChallenge): HttpStatus = when (challenge) {
+    is InsufficientScope -> FORBIDDEN
+    InvalidToken, InvalidDpopProof, is InsufficientUserAuthentication, UnboundToken -> UNAUTHORIZED
+}
+
+/**
+ * The status a refusal carrying [challenges] is answered with: `403` where every one of them is answered with
+ * it, and `401` otherwise — including where there are none, since a request that presented no token is asked
+ * for one.
+ */
+private fun statusOf(challenges: List<WwwAuthenticateChallenge>): HttpStatus {
+    return if (challenges.isNotEmpty() && challenges.all { statusOf(it) == FORBIDDEN }) FORBIDDEN else UNAUTHORIZED
+}
+
+/**
+ * The scheme whose challenge carries [challenge] for a token presented under [scheme]: that one, except for
+ * an [UnboundToken], which is met under [DPOP] alone.
+ */
+private fun schemeCarrying(scheme: AccessTokenScheme?, challenge: WwwAuthenticateChallenge): AccessTokenScheme? =
+    when (challenge) {
+        UnboundToken -> DPOP
+        else -> scheme
+    }
+
+/**
+ * Each of [challenges] with the scheme carrying it, in the order the header writes them: by scheme, in the
+ * order [AccessTokenScheme] declares them, then the scope, the age and the binding, so a client reading only
+ * the first challenge of a scheme is told the condition the person has to be asked about.
+ */
+private fun orderedChallenges(
+    scheme: AccessTokenScheme?,
+    challenges: List<WwwAuthenticateChallenge>
+): List<Pair<AccessTokenScheme, WwwAuthenticateChallenge>> {
+    return challenges
+        .mapNotNull { challenge -> schemeCarrying(scheme, challenge)?.let { it to challenge } }
+        .sortedWith(compareBy({ (carrying, _) -> carrying.ordinal }, { (_, challenge) -> rankOf(challenge) }))
+}
+
 private fun rankOf(challenge: WwwAuthenticateChallenge): Int = when (challenge) {
     InvalidToken -> 0
     InvalidDpopProof -> 1
@@ -209,10 +235,11 @@ private fun rankOf(challenge: WwwAuthenticateChallenge): Int = when (challenge) 
  * The refusal of an operation that the token presented under [scheme] was not allowed, and that a token
  * meeting every one of [challenges] would be, challenging it with all of them.
  *
- * Its body names the first of [challenges] in the order the header writes them: `forbidden` for an
- * [InsufficientScope], `authentication.insufficient_user_authentication` for an
- * [InsufficientUserAuthentication], and `authentication.unbound_token` for an [UnboundToken]. It is
- * recoverable, since the client retries with the token it is issued after re-authorizing.
+ * Its body names the first of [challenges], in the order the header writes them, that is answered with the
+ * status of the whole refusal: `forbidden` for an [InsufficientScope] standing alone,
+ * `authentication.insufficient_user_authentication` for an [InsufficientUserAuthentication], and
+ * `authentication.unbound_token` for an [UnboundToken]. It is recoverable, since the client retries with the
+ * token it is issued after re-authorizing.
  *
  * [challenges] must not be empty, and must not hold an [InvalidToken] or an [InvalidDpopProof]: a token that
  * does not validate is refused by the code its validation failed with, which only the validator holds.
@@ -231,13 +258,17 @@ fun accessTokenChallengeExceptionOf(
             challenges = challenges
         )
 
-    return when (val first = challenges.minByOrNull(::rankOf)) {
+    val status = statusOf(challenges)
+    val named = orderedChallenges(scheme, challenges)
+        .map { (_, challenge) -> challenge }
+        .firstOrNull { statusOf(it) == status }
+    return when (named) {
         null -> throw IllegalArgumentException("A refusal to challenge names at least one challenge.")
         is InsufficientScope -> refusal(detailsId = "forbidden", descriptionId = "description.forbidden")
         is InsufficientUserAuthentication -> refusal(
             detailsId = "authentication.insufficient_user_authentication",
             descriptionId = "description.authentication.insufficient_user_authentication",
-            values = mapOf("maxAge" to first.maxAge.seconds.toString())
+            values = mapOf("maxAge" to named.maxAge.seconds.toString())
         )
 
         UnboundToken -> refusal(
@@ -254,8 +285,10 @@ fun accessTokenChallengeExceptionOf(
 /**
  * This failure as an [AccessTokenChallengeException] challenging the token presented under [scheme] with
  * [challenges], carrying the code, the description, the values and the recoverability it already holds.
+ *
+ * The status it recommends gives way to the one [challenges] decide.
  */
-fun LocalizedException.toAccessTokenChallengeException(
+fun BusinessException.toAccessTokenChallengeException(
     scheme: AccessTokenScheme?,
     challenges: List<WwwAuthenticateChallenge>
 ) = AccessTokenChallengeException(

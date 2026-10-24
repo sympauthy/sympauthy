@@ -284,7 +284,9 @@ present that token with](#a-token-bound-to-a-key). The `DPoP` challenge lists th
 may be signed with, which are the ones the discovery document publishes.
 
 **The error is carried by the challenge of the scheme the token came under**, as RFC 9449 §7.2
-recommends, and a request that presented no token is told of no error at all, as RFC 6750 §3.1 asks:
+recommends, and a request that presented no token is told of no error at all, as RFC 6750 §3.1 asks.
+The one exception is a token that should have been bound, whose error [rides the `DPoP`
+challenge](#a-refusal-carrying-several-challenges) whatever scheme it came under:
 
 | The request presented | Status | `error` |
 | --- | --- | --- |
@@ -292,6 +294,7 @@ recommends, and a request that presented no token is told of no error at all, as
 | a token that does not validate | `401` | `invalid_token` |
 | a token whose DPoP proof does not validate | `401` | `invalid_dpop_proof`, on the `DPoP` challenge |
 | a valid token, without the role or the scope the route is gated on | `403` | `insufficient_scope` |
+| a valid token refused for more than a scope | `401` | one per condition, as below |
 
 **What refuses the proof is what RFC 9449 §4.3 checks**, which includes the `ath` naming the token
 and the key matching the one the token is bound to. A bound token presented as a bearer token, and
@@ -356,12 +359,13 @@ with `401`. A refusal any other challenge is owed is one the same request succee
 different token, which is what `401` says, and it carries the challenge RFC 9110 §15.5.2 requires
 of a `401`.
 
-**The body names the first challenge.** The [API standard's
-body](../standards/api-standard.md#errors) carries one code, so a refusal owing several names the
-first in the order above — `forbidden` for a scope,
+**The body names the first challenge answered with the response's status.** The [API standard's
+body](../standards/api-standard.md#errors) carries one code, so a refusal owing several names one:
+the first in the order above that its status belongs to — `forbidden` for a scope standing alone,
 `authentication.insufficient_user_authentication` for an age, `authentication.unbound_token` for a
-binding — and a client reading bodies learns the step it would read first in the header. [The
-design
+binding. A `401` refused for a scope and an age therefore names the age, while its header leads
+with the scope, and `forbidden` is only ever read beside the `403` the [API
+standard](../standards/api-standard.md#verbs-and-status-codes) gives a missing scope. [The design
 FAQ](design-faq.md#is-a-refusal-owing-several-challenges-answered-with-one-or-with-all-of-them)
 argues the single challenge that lost.
 
