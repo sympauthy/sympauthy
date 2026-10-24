@@ -1,5 +1,6 @@
 package com.sympauthy.expression
 
+import com.ezylang.evalex.EvaluationException
 import com.ezylang.evalex.Expression
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.ezylang.evalex.data.EvaluationValue.DataType.BOOLEAN
@@ -23,8 +24,9 @@ class InvalidRuleExpressionException(
      * Code reported when the expression is refused while a request is being served.
      */
     val businessErrorDetailsId: String,
-    parseError: String? = null
-) : Exception(formatMessage(expressionString, parseError)) {
+    parseError: String? = null,
+    cause: Throwable? = null
+) : Exception(formatMessage(expressionString, parseError), cause) {
 
     /**
      * The expression and what was wrong with it, as the message each of the two codes names
@@ -55,9 +57,9 @@ internal fun defaultExpressionConfiguration(): ExpressionConfiguration =
 /**
  * Evaluate [expressionString] against [configuration] and return what it answers.
  *
- * An expression that does not parse throws an [InvalidRuleExpressionException] carrying
- * `config.expression.invalid`, and one that parses but answers something other than a boolean
- * throws the same exception carrying `config.expression.invalid_return`.
+ * An expression that does not parse, or that calls a function refusing what it was given, throws an
+ * [InvalidRuleExpressionException] carrying `config.expression.invalid`, and one that parses but answers
+ * something other than a boolean throws the same exception carrying `config.expression.invalid_return`.
  */
 fun evaluateRuleExpression(
     expressionString: String,
@@ -71,6 +73,14 @@ fun evaluateRuleExpression(
             configMessageId = "config.expression.invalid",
             businessErrorDetailsId = "expression.evaluate.failed",
             parseError = e.message,
+        )
+    } catch (e: EvaluationException) {
+        throw InvalidRuleExpressionException(
+            expressionString = expressionString,
+            configMessageId = "config.expression.invalid",
+            businessErrorDetailsId = "expression.evaluate.failed",
+            parseError = e.message,
+            cause = e,
         )
     }
     if (value.dataType != BOOLEAN) {

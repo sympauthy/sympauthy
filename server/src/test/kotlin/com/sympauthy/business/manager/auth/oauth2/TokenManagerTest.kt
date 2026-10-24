@@ -243,14 +243,20 @@ class TokenManagerTest {
         stubExchangeableCode(code, userId, grant)
         coEvery { authorizationCodeManager.markExchanged(code) } returns true
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.AUTHORIZATION_CODE, null)
         } returns accessToken
         coEvery {
             refreshTokenGenerator.generateRefreshToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
         } returns refreshToken
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, GrantType.AUTHORIZATION_CODE, "nonce"
+                grant,
+                client,
+                match { it.id == "test-audience" },
+                accessToken,
+                null,
+                GrantType.AUTHORIZATION_CODE,
+                "nonce"
             )
         } returns idToken
 
@@ -263,7 +269,7 @@ class TokenManagerTest {
             objectLockRepository.lock(LockKey.User(userId).stripe)
             authorizationCodeManager.fetchGrant(code)
             authorizationCodeManager.markExchanged(code)
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.AUTHORIZATION_CODE, null)
         }
     }
 
@@ -321,7 +327,7 @@ class TokenManagerTest {
             coVerify(exactly = 1) {
                 grantManager.revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, null)
             }
-            coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any(), any()) }
             coVerify(exactly = 0) { refreshTokenGenerator.generateRefreshToken(any(), any(), any(), any()) }
         }
 
@@ -338,7 +344,7 @@ class TokenManagerTest {
 
         assertEquals(INVALID_GRANT, exception.errorCode)
         assertEquals("grant.revoked", exception.detailsId)
-        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any(), any()) }
         coVerify(exactly = 0) { grantManager.revokeGrant(any(), any(), any()) }
     }
 
@@ -355,7 +361,7 @@ class TokenManagerTest {
 
         assertEquals("grant.expired", exception.detailsId)
         assertEquals("description.grant.expired", exception.descriptionId)
-        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -371,7 +377,7 @@ class TokenManagerTest {
             grantManager.createClientCredentialsGrant("client", "audience", listOf("scope"))
         } returns grant
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.CLIENT_CREDENTIALS, "jkt")
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.CLIENT_CREDENTIALS, "jkt")
         } returns accessToken
 
         assertSame(accessToken, tokenManager.generateAccessTokenForClient(client, listOf("scope"), "jkt"))
@@ -457,7 +463,7 @@ class TokenManagerTest {
             ),
             exception.values
         )
-        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -499,7 +505,7 @@ class TokenManagerTest {
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
         coEvery {
@@ -507,7 +513,7 @@ class TokenManagerTest {
         } returns refreshedRefreshToken
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -532,12 +538,12 @@ class TokenManagerTest {
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -560,12 +566,12 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.REFRESH_TOKEN, "jkt")
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, "jkt")
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+                grant, client, match { it.id == "test-audience" }, accessToken, "jkt", GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -591,7 +597,7 @@ class TokenManagerTest {
             tokenManager.refreshToken(client, "token")
         }
         assertEquals("grant.consent_revoked", exception.detailsId)
-        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -606,12 +612,12 @@ class TokenManagerTest {
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -637,12 +643,12 @@ class TokenManagerTest {
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, GrantType.REFRESH_TOKEN
+                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
             )
         } returns idToken
 

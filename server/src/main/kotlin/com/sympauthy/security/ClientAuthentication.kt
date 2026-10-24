@@ -5,6 +5,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.isClientScope
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.micronaut.http.HttpStatus.FORBIDDEN
 import io.micronaut.security.authentication.Authentication
@@ -29,6 +30,21 @@ class ClientAuthentication(
 ) : Authentication {
 
     val clientId: String get() = authenticationToken.grant.clientId
+
+    /**
+     * The context this client's token is evaluated in at a door of a claim's ACL, acting on a person who
+     * consented to [consentedScopes] for the client's audience.
+     *
+     * The scopes a rule granted are the client's own, and no person authenticated behind the token: it was
+     * issued by the `client_credentials` grant.
+     */
+    fun claimAclContext(consentedScopes: List<String>) = ClaimAclContext(
+        client = client,
+        consentedScopes = consentedScopes,
+        grantedScopes = scopes.map { it.scope },
+        authenticationDate = null,
+        bound = authenticationToken.dpopJkt != null
+    )
 
     override fun getName(): String = authenticationToken.grant.clientId
 

@@ -12,6 +12,7 @@ import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
@@ -35,6 +36,7 @@ class ClientUserClaimController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val generatedClaimsManager: GeneratedClaimsManager,
     @Inject private val consentManager: ConsentManager,
+    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
     @Inject private val claimMapper: ClientUserClaimResourceMapper
@@ -66,11 +68,10 @@ class ClientUserClaimController(
         val clientAuth = authentication.clientAuthentication
         val client = clientAuth.client
         val audienceId = client.audience.id
-        val clientScopeIds = clientAuth.scopes.map { it.scope }
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, audienceId, consent.scopes, clientScopeIds
+            userId, audienceId, clientAuth.claimAclContext(consent.scopes)
         )
         val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user)
         return claimMapper.toResource(userId, claims, generatedClaimValues)
@@ -118,7 +119,6 @@ class ClientUserClaimController(
         val clientAuth = authentication.clientAuthentication
         val client = clientAuth.client
         val audienceId = client.audience.id
-        val clientScopeIds = clientAuth.scopes.map { it.scope }
 
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
@@ -142,11 +142,13 @@ class ClientUserClaimController(
         // Validate all keys are claims of this audience and writable by the client. A claim of another
         // audience is refused rather than ignored, the same as one the client may not write: the caller named
         // it, and a silent success would read as the value having been stored.
+        val context = clientAuth.claimAclContext(consent.scopes)
+        val doors = claimAclManager.getTokenDoors(context)
         val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
             claim == null ||
                     !claim.belongsToAudience(audienceId) ||
-                    !claim.canBeWrittenByClient(consent.scopes, clientScopeIds)
+                    !doors.canBeWrittenByClient(claim)
         }
         if (invalidClaim != null) {
             throw recoverableBusinessExceptionOf(
@@ -158,12 +160,12 @@ class ClientUserClaimController(
 
         val updates = collectedClaimUpdateMapper.toUpdates(body)
         consentAwareCollectedClaimManager.updateByClient(
-            clientUser.user, client.audience, updates, consent.scopes, clientScopeIds
+            clientUser.user, client.audience, updates, context
         )
 
         // Return the full claim set after update
         val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, audienceId, consent.scopes, clientScopeIds
+            userId, audienceId, context
         )
         val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user)
         return claimMapper.toResource(userId, allClaims, generatedClaimValues)

@@ -16,6 +16,7 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -104,6 +105,14 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     lateinit var userManager: UserManager
 
     private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
+
+    private val testClient = Client(
+        id = "test-client",
+        secret = null,
+        audience = testAudience,
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null
+    )
     private val testUser = mockk<User>()
     private val clientManagerProvider: Provider<ClientManager> = Provider { clientManager }
 
@@ -421,15 +430,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             val oauth2 = oauth2Of(consentedScopes = consentedScopes)
             val collectedInFlow = listOf(mockk<CollectedClaim>())
 
-            coEvery { oauth2Manager.getAudience(oauth2) } returns testAudience
+            coEvery { oauth2Manager.getClient(oauth2) } returns testClient
             coEvery {
                 consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
-                    userId, testAudience.id, consentedScopes
+                    userId, testClient, consentedScopes
                 )
             } returns collectedInFlow
             every {
                 consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
-                    collectedInFlow, testAudience, consentedScopes
+                    collectedInFlow, testClient, consentedScopes
                 )
             } returns true
             every {
@@ -587,15 +596,15 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     ): InteractiveFlowSessionOAuth2 {
         val consentedScopes = listOf("openid", "profile")
         val oauth2 = oauth2Of(consentedScopes = consentedScopes)
-        coEvery { oauth2Manager.getAudience(oauth2) } returns testAudience
+        coEvery { oauth2Manager.getClient(oauth2) } returns testClient
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
-                userId, testAudience.id, consentedScopes
+                userId, testClient, consentedScopes
             )
         } returns emptyList()
         every {
             consentAwareCollectedClaimManager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
-                any(), testAudience, consentedScopes
+                any(), testClient, consentedScopes
             )
         } returns allRequiredCollected
         every { claimValidationManager.getReasonsToSendValidationCode(any(), any()) } returns reasons

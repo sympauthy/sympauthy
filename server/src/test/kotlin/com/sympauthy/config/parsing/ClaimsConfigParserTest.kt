@@ -1,5 +1,6 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
@@ -13,7 +14,6 @@ import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.USERINFO
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClaimTemplate
-import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.properties.ClaimConfigurationProperties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -23,7 +23,7 @@ class ClaimsConfigParserTest {
 
     private val configParser = ConfigParser()
 
-    private val parser = ClaimsConfigParser(configParser, ClaimAclParser(configParser))
+    private val parser = ClaimsConfigParser(configParser, ClaimAclParser())
 
     private fun claimTemplate(
         id: String = APPLICATION,
@@ -41,7 +41,7 @@ class ClaimsConfigParserTest {
         allowedValues = allowedValues,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
-        acl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
+        acl = ClaimAcl.SHUT
     )
 
     private fun claimProperties(

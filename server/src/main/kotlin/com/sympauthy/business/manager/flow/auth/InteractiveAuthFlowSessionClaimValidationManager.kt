@@ -134,10 +134,11 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         media: ValidationCodeMedia
     ): ValidationCode? {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
-        val audience = oauth2Manager.getAudience(oauth2)
+        val client = oauth2Manager.getClient(oauth2)
+        val audience = client.audience
         val collectedClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = user.id,
-            audienceId = audience.id,
+            client = client,
             consentedScopes = oauth2.consentedScopes ?: emptyList()
         )
 
@@ -195,10 +196,11 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         }
 
         val oauth2 = oauth2Manager.fetchOAuth2(session)
-        val audience = oauth2Manager.getAudience(oauth2)
+        val client = oauth2Manager.getClient(oauth2)
+        val audience = client.audience
         val collectedClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = user.id,
-            audienceId = audience.id,
+            client = client,
             consentedScopes = oauth2.consentedScopes ?: emptyList()
         )
         val hasReasonForMedia = getReasonsToSendValidationCode(audience, collectedClaims)

@@ -13,8 +13,9 @@ import com.sympauthy.api.resource.oauth2.IntrospectionResource
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.publishedMembers
 import com.sympauthy.config.model.AuthConfig
@@ -108,14 +109,14 @@ class IntrospectionController(
             aud = client.audience.tokenAudience,
             iss = authConfig.issuer,
             jti = authenticationToken.id.toString(),
-            additionalClaims = publishedClaimMembers(grant, client)
+            additionalClaims = publishedClaimMembers(authenticationToken, client)
         )
     }
 
     /**
-     * The claims of the person the [grant] of the token was opened for that this response carries: the ones
-     * the [client] may read and the deployment publishes in the introspection response, as the members they
-     * travel as.
+     * The claims of the person the grant of the [authenticationToken] was opened for that this response
+     * carries: the ones the [client] it was issued to may read presenting it, and the deployment publishes in
+     * the introspection response, as the members they travel as.
      *
      * A member [IntrospectionResource] declares itself is left out rather than written twice, so a claim a
      * deployment named after one of RFC 7662's own members never displaces it.
@@ -124,16 +125,16 @@ class IntrospectionController(
      * anybody to answer.
      */
     private suspend fun publishedClaimMembers(
-        grant: Grant,
+        authenticationToken: AuthenticationToken,
         client: Client
     ): Map<String, Any> {
+        val grant = authenticationToken.grant
         val userId = grant.userId ?: return emptyMap()
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
             userId = userId,
             audienceId = client.audience.id,
             place = ClaimPublicationPlace.INTROSPECTION,
-            consentedScopes = grant.consentedScopes,
-            clientScopes = grant.clientScopes
+            context = ClaimAclContext.of(grant, client, authenticationToken.dpopJkt)
         )
         return claims.publishedMembers(reserved = IntrospectionResource.DECLARED_MEMBERS)
     }

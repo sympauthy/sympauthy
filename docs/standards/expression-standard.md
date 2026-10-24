@@ -78,6 +78,17 @@ its kind of rule.** A parse failure is reported as `config.expression.invalid` a
 but a boolean as `config.expression.invalid_return`, naming the key the expression was written
 under.
 
+**A function whose argument the configuration is checked against takes a string literal.** A
+scope an argument names is held to the scopes a deployment declares, and a duration is read the way
+every duration key is, both when the file is read; any other argument is refused as
+`config.expression.invalid`. Read such arguments off the parsed tree rather than off an evaluation:
+`&&` and `||` stop at the operand that decides them, so a call no evaluation reaches would go
+unread.
+
+**A function refuses an argument it cannot read by throwing EvalEx's `EvaluationException`, before
+it answers anything.** The validating entry point evaluates it with nothing bound, so reading the
+argument first is what refuses it at startup rather than answering `false` at every request.
+
 **A failure is thrown as `InvalidRuleExpressionException`, carrying both of its codes.** The
 validator reports the configuration code; a manager evaluating an expression that passed validation
 and then failed reports the business one, `expression.evaluate.failed` or
@@ -92,13 +103,14 @@ the row it adds to the table of which kinds of rule offer it.
 
 ## What this standard does not cover
 
-**An argument naming nothing, and this is accepted.** `CLAIM("nmae")` and `CLIENT("adience")`
-answer `NULL` at every request rather than being refused at startup, because an argument may be any
-expression and not only a literal, so what it names is known only once it is evaluated.
+**An unchecked argument naming nothing, and this is accepted.** `CLAIM("nmae")` and
+`CLIENT("adience")` answer `NULL` at every request rather than being refused at startup, because
+their argument may be any expression and not only a literal, so what it names is known only once it
+is evaluated.
 
 **What a refused rule tells the caller.** Whether an expression a request fails is answered with a
-challenge naming what would satisfy it is the decision of the surface that evaluates it, and
-[#565](https://github.com/sympauthy/sympauthy/issues/565) settles it for a claim's ACL.
+challenge naming what would satisfy it is the decision of the surface that evaluates it, and [the
+claims](../design/claims.md#the-person) settle it for a claim's ACL.
 
 **The cost of an evaluation.** An expression is parsed every time it is evaluated, and nothing
 caches one.

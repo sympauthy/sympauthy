@@ -1,5 +1,7 @@
 package com.sympauthy.business.model.user.claim
 
+import com.sympauthy.expression.ScopeIsConsentedFunction
+
 /**
  * Generated OpenID Connect claims whose values are managed by the authorization server.
  *
@@ -93,28 +95,24 @@ enum class GeneratedOpenIdConnectClaim(
     );
 
     /**
-     * Who may read this claim, which is the same for every generated claim but the scope above.
+     * Who may read this claim, which is the same for every generated claim but the scope above: the person
+     * and a client, on consent to that scope where it names one and always where it names none.
      *
-     * It carries no unconditional client scope, and a file cannot give it one: every place that
-     * publishes a generated claim computes the value rather than reading it out of the claims
-     * collected from a person, so the list [UnconditionalAcl] would hold is consulted by nothing.
+     * It opens no door to a granted scope, and a file cannot open one: every place that publishes a
+     * generated claim computes the value rather than reading it out of the claims collected from a person,
+     * so such a door would be consulted by nothing.
      */
     val acl: ClaimAcl
-        get() = ClaimAcl(
-            consent = ConsentAcl(
-                scope = scope,
-                readableByPerson = true,
-                collectedInFlow = false,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
-        )
+        get() {
+            val read = scope?.let {
+                // A departure from the dependency rules, which forbid `business.model` to import `expression`:
+                // the function is named through its constant so that renaming it breaks the compile here,
+                // rather than shutting every generated claim's read doors at the first request.
+                val expression = "${ScopeIsConsentedFunction.FUNCTION_NAME}(\"$it\")"
+                ClaimAclExpression(expression = expression, consentedScopes = setOf(it))
+            } ?: ClaimAclExpression(expression = "true")
+            return ClaimAcl.SHUT.copy(readableByPerson = read, readableByClient = read)
+        }
 
     companion object {
 

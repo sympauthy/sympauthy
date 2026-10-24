@@ -106,19 +106,11 @@ class AdminClaimResourceMapperTest {
         kind: ClaimKind? = ClaimKind.PERSONAL
     ): EnabledClaim {
         val claimAcl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = false,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = null,
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
         )
         return when {
             kind == null -> GeneratedClaim(

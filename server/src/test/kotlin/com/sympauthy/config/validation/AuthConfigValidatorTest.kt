@@ -2,13 +2,12 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.DisabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.EnabledClaimsConfig
 import com.sympauthy.config.parsing.ParsedAuthConfig
@@ -49,19 +48,11 @@ class AuthConfigValidatorTest {
         }
 
     private val acl = ClaimAcl(
-        consent = ConsentAcl(
-            scope = null,
-            readableByPerson = true,
-            collectedInFlow = true,
-            writableByPerson = false,
-            readableByClient = true,
-            writableByClient = false,
-            writeMaxAuthenticationAge = null
-        ),
-        unconditional = UnconditionalAcl(
-            readableWithClientScopes = emptyList(),
-            writableWithClientScopes = emptyList()
-        )
+        collectedInFlow = ClaimAclExpression("true"),
+        readableByPerson = ClaimAclExpression("true"),
+        writableByPerson = null,
+        readableByClient = ClaimAclExpression("true"),
+        writableByClient = null
     )
 
     private fun parsedAuth(

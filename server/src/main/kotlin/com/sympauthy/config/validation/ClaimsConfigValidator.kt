@@ -227,9 +227,10 @@ class ClaimsConfigValidator(
      *
      * [acl] is the resolved ACL, and the audience and the kind are read resolved too, so a grant, a
      * restriction or a kind reaching the claim through a template is held to this like one written on the
-     * claim — which is what makes all three settable on a template at all. Each key that grants is named,
-     * so a deployment removing one of two is told about the other rather than refused twice over, and the
-     * key named is the claim's own, which is where an operator overrides what a template offers.
+     * claim — which is what makes all three settable on a template at all. A door is held to this when it
+     * resolved to anything but nothing or the literal `"false"`, whatever its expression asks, and each door
+     * refused is named, so a deployment shutting one of two is told about the other rather than refused twice
+     * over; the key named is the claim's own, which is where an operator overrides what a template offers.
      */
     private fun refuseAclTheKindCannotMean(
         ctx: ConfigParsingContext,
@@ -247,30 +248,24 @@ class ClaimsConfigValidator(
                 // that does not exist is refused for that, and reading the validated null here would
                 // refuse it a second time for being shared when its file says it is not.
                 if (parsed.audienceId != null) return
-                if (acl.consent.writableByClient) {
+                if (acl.writableByClient != null) {
                     refuse(
-                        "writable-by-client-when-consented",
-                        "config.claim.kind.shared_personal_claim_client_write"
-                    )
-                }
-                if (acl.unconditional.writableWithClientScopes.isNotEmpty()) {
-                    refuse(
-                        "writable-with-client-scopes-unconditionally",
+                        ClaimAclValidator.WRITABLE_BY_CLIENT_KEY,
                         "config.claim.kind.shared_personal_claim_client_write"
                     )
                 }
             }
 
             ClaimKind.APPLICATION -> {
-                if (acl.consent.collectedInFlow) {
+                if (acl.collectedInFlow != null) {
                     refuse(
-                        "collected-in-flow-when-consented",
+                        ClaimAclValidator.COLLECTED_IN_FLOW_KEY,
                         "config.claim.kind.application_claim_person_write"
                     )
                 }
-                if (acl.consent.writableByPerson) {
+                if (acl.writableByPerson != null) {
                     refuse(
-                        "writable-by-person-when-consented",
+                        ClaimAclValidator.WRITABLE_BY_PERSON_KEY,
                         "config.claim.kind.application_claim_person_write"
                     )
                 }

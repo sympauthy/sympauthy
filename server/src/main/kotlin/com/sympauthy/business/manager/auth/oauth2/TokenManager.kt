@@ -151,6 +151,7 @@ open class TokenManager(
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(
                 grant = grant,
+                client = client,
                 audience = client.audience,
                 dpopJkt = dpopJkt
             )
@@ -169,8 +170,10 @@ open class TokenManager(
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
                 grant = grant,
+                client = client,
                 audience = client.audience,
                 accessToken = accessToken,
+                dpopJkt = dpopJkt,
                 nonce = nonce
             )
         }
@@ -197,6 +200,7 @@ open class TokenManager(
         val grant = grantManager.createClientCredentialsGrant(client.id, client.audience.id, clientScopes)
         return accessTokenGenerator.generateAccessToken(
             grant = grant,
+            client = client,
             audience = client.audience,
             dpopJkt = dpopJkt
         )
@@ -280,6 +284,7 @@ open class TokenManager(
 
         val accessToken = accessTokenGenerator.generateAccessToken(
             grant = grant,
+            client = client,
             audience = client.audience,
             grantType = GrantType.REFRESH_TOKEN,
             dpopJkt = effectiveDpopJkt
@@ -298,8 +303,10 @@ open class TokenManager(
         // answer it differently.
         val idToken = idTokenGenerator.generateIdToken(
             grant = grant,
+            client = client,
             audience = client.audience,
             accessToken = accessToken,
+            dpopJkt = effectiveDpopJkt,
             grantType = GrantType.REFRESH_TOKEN
         )
 

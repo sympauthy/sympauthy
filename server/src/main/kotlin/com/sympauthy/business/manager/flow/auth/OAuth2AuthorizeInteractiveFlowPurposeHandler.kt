@@ -203,18 +203,19 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         oauth2: InteractiveFlowSessionOAuth2
     ): OAuth2AuthorizeInteractiveFlowStatus {
         // Nothing below this is answerable without a user, and a flow missing one is sent to sign in whatever
-        // the rest would have said — so the claims are neither read nor the audience resolved for it.
+        // the rest would have said — so the claims are neither read nor the client resolved for it.
         val userId = session.userId ?: return OAuth2AuthorizeInteractiveFlowStatus(missingUser = true)
 
         val consentedScopes = oauth2.consentedScopes ?: emptyList()
-        val audience = oauth2Manager.getAudience(oauth2)
+        val client = oauth2Manager.getClient(oauth2)
+        val audience = client.audience
         val collectedClaims = consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
             userId = userId,
-            audienceId = audience.id,
+            client = client,
             consentedScopes = consentedScopes
         )
         val missingRequiredClaims = !consentAwareCollectedClaimManager
-            .areAllIdentifierAndRequiredClaimsCollectedInFlow(collectedClaims, audience, consentedScopes)
+            .areAllIdentifierAndRequiredClaimsCollectedInFlow(collectedClaims, client, consentedScopes)
         val missingMediaForClaimValidation = claimValidationManager.getReasonsToSendValidationCode(
             audience = audience,
             collectedClaims = collectedClaims

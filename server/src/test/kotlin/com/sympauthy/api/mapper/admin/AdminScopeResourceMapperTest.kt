@@ -8,10 +8,10 @@ import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
+import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -32,16 +32,11 @@ class AdminScopeResourceMapperTest {
         publishedIn = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = "profile",
-                readableByPerson = true,
-                collectedInFlow = true,
-                writableByPerson = false,
-                readableByClient = false,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(emptyList(), emptyList())
+            collectedInFlow = CONSENTED_TO_PROFILE,
+            readableByPerson = CONSENTED_TO_PROFILE,
+            writableByPerson = null,
+            readableByClient = null,
+            writableByClient = null
         )
     )
 
@@ -80,5 +75,10 @@ class AdminScopeResourceMapperTest {
         assertEquals("client", resource.type)
         assertEquals("system", resource.origin)
         assertNull(resource.claims)
+    }
+
+    private companion object {
+        val CONSENTED_TO_PROFILE =
+            ClaimAclExpression("$SCOPE_IS_CONSENTED(\"profile\")", consentedScopes = setOf("profile"))
     }
 }

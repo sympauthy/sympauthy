@@ -1,10 +1,10 @@
 package com.sympauthy.config.model
 
+import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.exception.ConfigurationException
-import java.time.Duration
 
 sealed class ClaimTemplatesConfig(
     configurationErrors: List<ConfigurationException>? = null
@@ -44,22 +44,9 @@ data class ClaimTemplate(
     val allowedValues: List<Any>?,
     val publishedIn: Set<ClaimPublicationPlace>?,
     val publishedInWhenRequested: Set<ClaimPublicationPlace>?,
-    val acl: ClaimTemplateAcl
-)
-
-/**
- * Parsed ACL defaults from a claim template.
- *
- * All fields are nullable since a template only needs to define the defaults it wants to provide.
- */
-data class ClaimTemplateAcl(
-    val consentScope: String?,
-    val readableByPersonWhenConsented: Boolean?,
-    val collectedInFlowWhenConsented: Boolean?,
-    val writableByPersonWhenConsented: Boolean?,
-    val readableByClientWhenConsented: Boolean?,
-    val writableByClientWhenConsented: Boolean?,
-    val readableWithClientScopesUnconditionally: List<String>?,
-    val writableWithClientScopesUnconditionally: List<String>?,
-    val writeMaxAuthenticationAge: Duration?
+    /**
+     * The doors this template opens, validated under its own keys, which a claim taking it inherits for
+     * every door it writes nothing for.
+     */
+    val acl: ClaimAcl
 )

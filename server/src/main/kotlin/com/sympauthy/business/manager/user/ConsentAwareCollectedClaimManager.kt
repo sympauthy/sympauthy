@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
@@ -11,6 +12,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.micronaut.transaction.annotation.Transactional
@@ -22,62 +24,61 @@ import java.util.*
  * Manages access to collected claims with consent-based scope filtering.
  *
  * Unlike [CollectedClaimManager] which provides unrestricted access for admin and internal use, this
- * manager filters claims on the consented scopes and on the door the caller came through. There are three,
- * and each has a read of its own: the interactive flow, where the person is on this server's own pages
- * having just authenticated; the person's own access token; and a client acting on their behalf. A flag is
- * named for one door and read by none of the others — `docs/design/claims.md` is where they are told apart,
- * and [com.sympauthy.business.model.user.claim.ConsentAcl] is where each is a property.
+ * manager filters claims on the door a read or write came through and the context it was made in. There are
+ * three, and each has a read of its own: the interactive flow, where the person is on this server's own pages
+ * having just authenticated; the person's own access token; and a client acting on their behalf. A door is
+ * read by none of the others — `docs/design/claims.md` is where they are told apart,
+ * [com.sympauthy.business.model.user.claim.ClaimAcl] is where each is a property, and [ClaimAclManager] is
+ * what evaluates one.
  */
 @Singleton
 open class ConsentAwareCollectedClaimManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val consentAwareClaimManager: ConsentAwareClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val claimAclManager: ClaimAclManager
 ) {
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
-     * by the end-user according to the provided [consentedScopes].
+     * by the end-user through their own access token, in [context].
      *
      * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
-     * claim restricted to none is answered whatever the audience. It is not optional, because
-     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
-     * some audience's and the caller holding them knows which.
+     * claim restricted to none is answered whatever the audience. It is not optional, because the consented
+     * scopes of the [context] are not: consent is recorded per audience, so scopes a person consented to are
+     * always some audience's and the caller holding them knows which.
      *
      * Use this method when the caller is the end-user themselves and there is no client authentication.
      */
     suspend fun findByUserIdAndReadableByPerson(
         userId: UUID,
         audienceId: String,
-        consentedScopes: List<String>
+        context: ClaimAclContext
     ): List<CollectedClaim> {
+        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByPerson(consentedScopes)
+            it.claim.belongsToAudience(audienceId) && doors.canBeReadByPerson(it.claim)
         }
     }
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
-     * by a client according to the provided [consentedScopes] and [clientScopes].
+     * by a client in [context].
      *
      * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
-     * claim restricted to none is answered whatever the audience. It is not optional, because
-     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
-     * some audience's and the caller holding them knows which.
-     *
-     * The two scope lists are read from different places and a claim is readable when either of them allows it:
-     * [consentedScopes] are the scopes the end-user consented to, and [clientScopes] are the ones granted to the
-     * client itself.
+     * claim restricted to none is answered whatever the audience. It is not optional, because the consented
+     * scopes of the [context] are not: consent is recorded per audience, so scopes a person consented to are
+     * always some audience's and the caller holding them knows which.
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
         audienceId: String,
-        consentedScopes: List<String>,
-        clientScopes: List<String> = emptyList()
+        context: ClaimAclContext
     ): List<CollectedClaim> {
+        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.belongsToAudience(audienceId) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
+            it.claim.belongsToAudience(audienceId) && doors.canBeReadByClient(it.claim)
         }
     }
 
@@ -90,7 +91,7 @@ open class ConsentAwareCollectedClaimManager(
      * are carried there. So this only ever narrows what the ACL permitted, and a claim the ACL refuses
      * reaches [place] whatever its file says.
      *
-     * It is the client's half of the ACL that is asked, for every [place] that answers a client: an id
+     * It is the client's door of the ACL that is asked, for every [place] that answers a client: an id
      * token and an access token are issued to one, and an introspection response is answered to one.
      * `/userinfo` is not among them and reads [findByUserIdAndReadableByPerson] instead, because that
      * endpoint is not client-authenticated.
@@ -105,47 +106,44 @@ open class ConsentAwareCollectedClaimManager(
         userId: UUID,
         audienceId: String,
         place: ClaimPublicationPlace,
-        consentedScopes: List<String>,
-        clientScopes: List<String> = emptyList(),
+        context: ClaimAclContext,
         requestedClaims: RequestedClaims = RequestedClaims.NONE
     ): List<CollectedClaim> {
         return findByUserIdAndReadableByClient(
             userId = userId,
             audienceId = audienceId,
-            consentedScopes = consentedScopes,
-            clientScopes = clientScopes
+            context = context
         ).filter { it.claim.isPublishedIn(place, requestedClaims) }
     }
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] that the interactive
-     * flow collects, given the [consentedScopes].
+     * flow the [client] started collects, given the [consentedScopes].
      *
-     * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
-     * claim restricted to none is answered whatever the audience. It is not optional, because
-     * [consentedScopes] are not: consent is recorded per audience, so scopes a person consented to are always
-     * some audience's and the caller holding them knows which.
+     * The audience of the [client] is the audience the answer is for: a claim restricted to another one is
+     * left out, and a claim restricted to none is answered whatever the audience. Consent is recorded per
+     * audience, so [consentedScopes] are that audience's.
      *
      * The flow collects a claim at one of two steps, and this answers for both. An identifier claim is
      * collected by the sign-up, so it is answered whatever the ACL says — it is what the account signs in
      * with, and a flow that could not see one would hold a person to a claim it cannot read. Every other
-     * claim is collected at the claims step, which is the flow's own half of the ACL: the audience's, within
-     * the consented scopes, and marked collected in the flow.
+     * claim is collected at the claims step, which is the flow's own door of the ACL: the audience's, and opened
+     * to this flow.
      *
-     * No client scopes are taken, because no client is party to this: the person is on this server's own
-     * pages having just authenticated. A caller reading through a client's permission instead gets less than
-     * the flow offered, and a claim a deployment collects and discloses to no client reads back as never
-     * collected.
+     * No token is behind this: the person is on this server's own pages having just authenticated. A caller
+     * reading through a client's door instead gets less than the flow offered, and a claim a deployment
+     * collects and discloses to no client reads back as never collected.
      */
     suspend fun findByUserIdAndCollectedInFlow(
         userId: UUID,
-        audienceId: String,
+        client: Client,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        val doors = claimAclManager.getFlowDoors(client, consentedScopes)
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim in identifierClaims ||
-                    (it.claim.belongsToAudience(audienceId) && it.claim.isCollectedInFlow(consentedScopes))
+                    (it.claim.belongsToAudience(client.audience.id) && doors.isCollectedInFlow(it.claim))
         }
     }
 
@@ -153,7 +151,7 @@ open class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the end-user associated to the [session].
      *
      * The claims the flow collects, per [findByUserIdAndCollectedInFlow], within the consented scopes of the
-     * session's OAuth2 record and of the audience that authorization is for.
+     * session's OAuth2 record and for the client that started that authorization.
      */
     suspend fun findBySession(
         session: InteractiveFlowSession
@@ -166,7 +164,7 @@ open class ConsentAwareCollectedClaimManager(
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndCollectedInFlow(
                     userId = userId,
-                    audienceId = oauth2Manager.getAudience(oauth2).id,
+                    client = oauth2Manager.getClient(oauth2),
                     consentedScopes = consentedScopes
                 )
             }
@@ -176,7 +174,7 @@ open class ConsentAwareCollectedClaimManager(
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
                 findByUserIdAndCollectedInFlow(
                     userId = session.userId,
-                    audienceId = oauth2Manager.getAudience(oauth2).id,
+                    client = oauth2Manager.getClient(oauth2),
                     consentedScopes = consentedScopes
                 )
             }
@@ -184,8 +182,8 @@ open class ConsentAwareCollectedClaimManager(
     }
 
     /**
-     * Return true if every claim this flow holds the end-user to has been collected, for the [audience]
-     * and given the [consentedScopes]. There are two kinds of them, and each
+     * Return true if every claim this flow holds the end-user to has been collected, in a flow the [client]
+     * started and given the [consentedScopes]. There are two kinds of them, and each
      * arrives by a rule of its own.
      *
      * **An identifier claim is held to whatever its file says.** It is what the account signs in with, so it
@@ -195,9 +193,10 @@ open class ConsentAwareCollectedClaimManager(
      * consent scope is not either: an account holding no value for a claim it is identified by holds a row no
      * login matches, which is not something a client's consent decides.
      *
-     * **A required claim is one of three things at once**: it belongs to [audience], the end-user consented
-     * to the scope it sits under, and the flow collects it. Required claims outside the consented scopes are
-     * not considered, since the end-user has not consented to provide them in this authorization flow;
+     * **A required claim is one of two things at once**: it belongs to the audience of the [client], and the
+     * flow's door of it is open to this flow. Required claims that door shuts — on a scope the end-user did not
+     * consent to, say — are not considered, since the end-user has not agreed to provide them in this
+     * authorization flow;
      * required claims restricted to another audience are not either, because they are not this audience's
      * claims to ask for — an audience gets its own required set, and a person signing in to one is not held
      * to another's.
@@ -215,36 +214,37 @@ open class ConsentAwareCollectedClaimManager(
      */
     fun areAllIdentifierAndRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
-        audience: Audience,
+        client: Client,
         consentedScopes: List<String>
     ): Boolean {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        val doors = claimAclManager.getFlowDoors(client, consentedScopes)
         // The required half leaves identifier claims to the first term rather than answering them twice. It
-        // does not change the answer; it is what keeps the flow's own flag unasked of an identifier claim,
-        // which is the rule ConsentAcl.collectedInFlow states.
+        // does not change the answer; it is what keeps the flow's own door unasked of an identifier claim,
+        // which is the rule ClaimAcl.collectedInFlow states.
         val heldToClaims = identifierClaims + claimManager.listRequiredClaims()
             .filter { it !in identifierClaims }
-            .filter { it.belongsToAudience(audience.id) && it.isCollectedInFlow(consentedScopes) }
+            .filter { it.belongsToAudience(client.audience.id) && doors.isCollectedInFlow(it) }
         val claimsHoldingAValue = collectedClaims.filter { it.value != null }.map { it.claim }.toSet()
         return heldToClaims.all { it in claimsHoldingAValue }
     }
 
     /**
-     * Update the claims collected for the [user] during the authorization flow, for the [audience].
+     * Update the claims collected for the [user] during the authorization flow the [client] started.
      *
-     * Only updates targeting claims the flow collects (non-identifier, of that audience and within
-     * the [consentedScopes]) are applied. Other updates are silently ignored — a flow may only write what it
-     * was entitled to ask for.
+     * Only updates targeting claims the flow collects (non-identifier, of the client's audience and opened to
+     * this flow given the [consentedScopes]) are applied. Other updates are silently ignored — a flow may only
+     * write what it was entitled to ask for.
      */
     @Transactional
     open suspend fun updateInFlow(
         user: User,
-        audience: Audience,
+        client: Client,
         updates: List<CollectedClaimUpdate>,
         consentedScopes: List<String>
     ): List<CollectedClaim> {
         val collectableClaims = consentAwareClaimManager.listClaimsCollectedInFlowWithScopes(
-            audience = audience,
+            client = client,
             consentedScopes = consentedScopes
         )
         val applicableUpdates = updates.filter { it.claim in collectableClaims }
@@ -254,9 +254,9 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Update the claims collected for the [user] on behalf of a client of the [audience].
      *
-     * Only claims of that audience and writable by a client according to the [consentedScopes] and
-     * [clientScopes] are applied. Updates targeting any other claim are silently ignored.
-     * Returns all claims of that audience readable by the client for those scopes, which is not the same set:
+     * Only claims of that audience and writable by a client in [context] are applied. Updates
+     * targeting any other claim are silently ignored.
+     * Returns all claims of that audience readable by the client presenting it, which is not the same set:
      * a claim the client may write and may not read is applied and left out of the answer.
      *
      * A claim restricted to another audience is neither written nor answered. The restriction is not a read
@@ -268,27 +268,24 @@ open class ConsentAwareCollectedClaimManager(
      * so a client that could rewrite it could move an account's sign-in to an address it controls — and the
      * account would be none the wiser, since nothing in a claim write verifies the value it stores. The
      * surface says so rather than silently dropping it: see `ClientUserClaimController.updateUserClaims`.
-     *
-     * As on the read side, [consentedScopes] are the scopes the end-user consented to and [clientScopes] the
-     * ones granted to the client itself, and either of the two may be what permits a write.
      */
     @Transactional
     open suspend fun updateByClient(
         user: User,
         audience: Audience,
         updates: List<CollectedClaimUpdate>,
-        consentedScopes: List<String>,
-        clientScopes: List<String> = emptyList()
+        context: ClaimAclContext
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        val doors = claimAclManager.getTokenDoors(context)
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
                 it.claim.belongsToAudience(audience.id) &&
-                it.claim.canBeWrittenByClient(consentedScopes, clientScopes)
+                doors.canBeWrittenByClient(it.claim)
         }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
         return collectedClaims.filter {
-            it.claim.belongsToAudience(audience.id) && it.claim.canBeReadByClient(consentedScopes, clientScopes)
+            it.claim.belongsToAudience(audience.id) && doors.canBeReadByClient(it.claim)
         }
     }
 }

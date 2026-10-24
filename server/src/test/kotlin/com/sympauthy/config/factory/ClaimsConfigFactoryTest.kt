@@ -1,5 +1,7 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
@@ -40,7 +42,7 @@ class ClaimsConfigFactoryTest {
 
     lateinit var factory: ClaimsConfigFactory
 
-    private val emptyTemplateAcl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
+    private val emptyTemplateAcl = ClaimAcl.SHUT
 
     private fun applicationTemplate() = ClaimTemplate(
         id = APPLICATION,
@@ -69,7 +71,7 @@ class ClaimsConfigFactoryTest {
     )
 
     private fun factoryWithTemplate(template: ClaimTemplate) = ClaimsConfigFactory(
-        ClaimsConfigParser(parser, ClaimAclParser(parser)),
+        ClaimsConfigParser(parser, ClaimAclParser()),
         ClaimsConfigValidator(ClaimAclValidator()),
         authProperties,
         writtenConfigurationKeys,
@@ -84,7 +86,7 @@ class ClaimsConfigFactoryTest {
         every { authProperties.identifierClaims } returns null
         every { writtenConfigurationKeys.under(any()) } returns emptySet()
 
-        val claimAclParser = ClaimAclParser(parser)
+        val claimAclParser = ClaimAclParser()
         val claimAclValidator = ClaimAclValidator()
 
         val templates = mapOf(
@@ -113,7 +115,7 @@ class ClaimsConfigFactoryTest {
         verifiedId: String? = null,
         kind: String? = null,
         collectedInFlow: String? = null,
-        clientWriteScopes: List<String>? = null
+        writableByClient: String? = null
     ): ClaimConfigurationProperties {
         return ClaimConfigurationProperties(id).apply {
             this.type = type
@@ -121,17 +123,13 @@ class ClaimsConfigFactoryTest {
             this.group = group
             this.verifiedId = verifiedId
             this.kind = kind
-            this.acl = if (collectedInFlow == null && clientWriteScopes == null) null else {
+            this.acl = if (collectedInFlow == null && writableByClient == null) null else {
                 object : ClaimConfigurationProperties.AclConfig {
-                    override val consentScope = null
-                    override val readableByPersonWhenConsented = null
-                    override val collectedInFlowWhenConsented = collectedInFlow
-                    override val writableByPersonWhenConsented = null
-                    override val readableByClientWhenConsented = null
-                    override val writableByClientWhenConsented = null
-                    override val readableWithClientScopesUnconditionally = null
-                    override val writableWithClientScopesUnconditionally = clientWriteScopes
-                    override val writeMaxAuthenticationAge = null
+                    override val collectedInFlow = collectedInFlow
+                    override val readableByPerson = null
+                    override val writableByPerson = null
+                    override val readableByClient = null
+                    override val writableByClient = writableByClient
                 }
             }
         }.also {
@@ -223,7 +221,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - Refuse an application claim for the flow collection it takes from its template`() {
         val factoryCollectingInTheFlow = factoryWithTemplate(
-            personalTemplate().copy(acl = emptyTemplateAcl.copy(collectedInFlowWhenConsented = true))
+            personalTemplate().copy(acl = emptyTemplateAcl.copy(collectedInFlow = ClaimAclExpression("true")))
         )
         val properties = listOf(
             claimProperties(id = "credit_score", type = "number", template = PERSONAL, kind = "application")
@@ -239,7 +237,7 @@ class ClaimsConfigFactoryTest {
             errors.map { it.messageId }
         )
         assertEquals(
-            listOf("claims.credit_score.acl.collected-in-flow-when-consented"),
+            listOf("claims.credit_score.acl.collected-in-flow"),
             errors.map { it.key }
         )
     }
@@ -408,9 +406,7 @@ class ClaimsConfigFactoryTest {
     fun `provideClaims - Refuse a personal claim for the client write it takes from its template`() {
         val factoryGrantingTheClientWrite = factoryWithTemplate(
             applicationTemplate().copy(
-                acl = emptyTemplateAcl.copy(
-                    writableWithClientScopesUnconditionally = listOf("users:claims:write")
-                )
+                acl = emptyTemplateAcl.copy(writableByClient = ClaimAclExpression("true"))
             )
         )
         val properties = listOf(claimProperties(id = "discord_id", type = "string", kind = "personal"))
@@ -425,22 +421,20 @@ class ClaimsConfigFactoryTest {
             errors.map { it.messageId }
         )
         assertEquals(
-            listOf("claims.discord_id.acl.writable-with-client-scopes-unconditionally"),
+            listOf("claims.discord_id.acl.writable-by-client"),
             errors.map { it.key }
         )
     }
 
     @Test
-    fun `provideClaims - Accept a personal claim that answers the client write with an empty list`() {
+    fun `provideClaims - Accept a personal claim that shuts the client write with the literal false`() {
         val factoryGrantingTheClientWrite = factoryWithTemplate(
             applicationTemplate().copy(
-                acl = emptyTemplateAcl.copy(
-                    writableWithClientScopesUnconditionally = listOf("users:claims:write")
-                )
+                acl = emptyTemplateAcl.copy(writableByClient = ClaimAclExpression("true"))
             )
         )
         val properties = listOf(
-            claimProperties(id = "discord_id", type = "string", kind = "personal", clientWriteScopes = emptyList())
+            claimProperties(id = "discord_id", type = "string", kind = "personal", writableByClient = "false")
         )
 
         val result = factoryGrantingTheClientWrite.provideClaims(properties)
@@ -450,7 +444,7 @@ class ClaimsConfigFactoryTest {
             .filterIsInstance<EnabledClaim>()
             .first { it.id == "discord_id" }
         assertEquals(ClaimKind.PERSONAL, claim.kind)
-        assertEquals(emptyList<String>(), claim.acl.unconditional.writableWithClientScopes)
+        assertNull(claim.acl.writableByClient)
     }
 
     @Test
@@ -458,7 +452,7 @@ class ClaimsConfigFactoryTest {
         val writableFactory = factoryWithTemplate(
             applicationTemplate().copy(
                 kind = ClaimKind.PERSONAL,
-                acl = emptyTemplateAcl.copy(collectedInFlowWhenConsented = true)
+                acl = emptyTemplateAcl.copy(collectedInFlow = ClaimAclExpression("true"))
             )
         )
 

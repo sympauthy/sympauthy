@@ -372,10 +372,11 @@ to ask for. [The design
 FAQ](design-faq.md#is-a-stale-authentication-answered-with-a-challenge-or-with-a-re-authenticated-flow)
 argues the re-authenticated flow that lost to it.
 
-**Nothing emits that challenge yet.** The per-claim age a deployment marks is
-[the claims'](claims.md#the-person), and the surface that would read it — the person's own claim
-write through their access token — is designed and not yet built. A read is never challenged
-whenever it does arrive.
+**Nothing emits that challenge yet.** The age a deployment asks of an authentication is a term of
+[a claim's write door](claims.md#the-person), whose refusal carries this challenge beside the others
+the door's expression names, and the surface that would read it — the person's own claim write
+through their access token — is designed and not yet built. A read is never challenged whenever it
+does arrive.
 
 ### The id token
 

@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.util.coAssertThrowsBusinessException
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
@@ -175,10 +176,10 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         val validationCode = mockk<ValidationCode>()
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
+        coEvery { oauth2Manager.getClient(oauth2) } returns client
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
-                userId, AUDIENCE, consentedScopes
+                userId, client, consentedScopes
             )
         } returns collectedClaims
         every {
@@ -226,10 +227,10 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         }
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
+        coEvery { oauth2Manager.getClient(oauth2) } returns client
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
-                userId, AUDIENCE, consentedScopes
+                userId, client, consentedScopes
             )
         } returns collectedClaims
         every {
@@ -269,10 +270,10 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
         val reasons = listOf(PHONE_NUMBER_CLAIM)
 
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
+        coEvery { oauth2Manager.getClient(oauth2) } returns client
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(
-                userId, AUDIENCE, consentedScopes
+                userId, client, consentedScopes
             )
         } returns collectedClaims
         every {
@@ -312,9 +313,9 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             every { consentedScopes } returns emptyList()
         }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
+        coEvery { oauth2Manager.getClient(oauth2) } returns client
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, emptyList())
+            consentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow(userId, client, emptyList())
         } returns collectedClaims
         every { manager.getReasonsToSendValidationCode(audience, collectedClaims) } returns listOf(EMAIL_CLAIM)
         coEvery {
@@ -466,6 +467,14 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
     }
 
     private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
+
+    private val client = Client(
+        id = "test-client",
+        secret = null,
+        audience = audience,
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null
+    )
 
     private companion object {
         const val AUDIENCE = "test-audience"

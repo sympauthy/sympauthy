@@ -3,10 +3,9 @@ package com.sympauthy.business.mapper
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.data.model.CollectedClaimEntity
 import io.micronaut.serde.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -68,19 +67,11 @@ class CollectedClaimUpdateMapperTest {
         publishedIn = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = true,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = ClaimAclExpression("true"),
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
         )
     )
 }

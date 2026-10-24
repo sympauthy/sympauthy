@@ -56,13 +56,13 @@ class WrittenConfigurationKeysTest {
         val source = PropertySource.of(
             "test",
             mapOf(
-                "claims.sub.acl.readable-with-client-scopes-unconditionally[0]" to "users:claims:read",
-                "claims.sub.acl.readable-with-client-scopes-unconditionally[1]" to "users:claims:write"
+                "claims.sub.published-in[0]" to "id-token",
+                "claims.sub.published-in[1]" to "userinfo"
             )
         )
 
         assertEquals(
-            setOf("claims.sub.acl.readable-with-client-scopes-unconditionally"),
+            setOf("claims.sub.published-in"),
             keysUnder("claims.", source)
         )
     }
@@ -73,14 +73,13 @@ class WrittenConfigurationKeysTest {
             """
             claims:
               sub:
-                acl:
-                  readable-with-client-scopes-unconditionally:
-                    - users:claims:read
+                published-in:
+                  - id-token
             """
         )
 
         assertEquals(
-            setOf("claims.sub.acl.readable-with-client-scopes-unconditionally"),
+            setOf("claims.sub.published-in"),
             keysUnder("claims.", source)
         )
     }

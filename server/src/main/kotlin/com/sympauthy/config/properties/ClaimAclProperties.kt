@@ -12,21 +12,13 @@ import io.micronaut.core.annotation.Nullable
  */
 interface ClaimAclProperties {
     @get:Nullable
-    val consentScope: String?
+    val collectedInFlow: String?
     @get:Nullable
-    val readableByPersonWhenConsented: String?
+    val readableByPerson: String?
     @get:Nullable
-    val collectedInFlowWhenConsented: String?
+    val writableByPerson: String?
     @get:Nullable
-    val writableByPersonWhenConsented: String?
+    val readableByClient: String?
     @get:Nullable
-    val readableByClientWhenConsented: String?
-    @get:Nullable
-    val writableByClientWhenConsented: String?
-    @get:Nullable
-    val readableWithClientScopesUnconditionally: List<String>?
-    @get:Nullable
-    val writableWithClientScopesUnconditionally: List<String>?
-    @get:Nullable
-    val writeMaxAuthenticationAge: String?
+    val writableByClient: String?
 }

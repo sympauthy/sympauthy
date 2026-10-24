@@ -69,7 +69,7 @@ class ClaimTemplatesConfigParser(
             ctx, parser, properties.publishedInWhenRequested, "$configKeyPrefix.published-in-when-requested"
         )
 
-        val acl = claimAclParser.parseTemplateAcl(ctx, properties.acl, configKeyPrefix)
+        val acl = claimAclParser.parseTemplateAcl(properties.acl)
 
         return ParsedClaimTemplate(
             id = properties.id,

@@ -5,9 +5,7 @@ import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
-import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.security.SecurityRule.IS_USER
-import com.sympauthy.security.consentedScopes
 import com.sympauthy.security.userAuthentication
 import com.sympauthy.security.userId
 import io.micronaut.http.annotation.Controller
@@ -64,7 +62,7 @@ class OpenIdUserInfoController(
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = authentication.userId,
             audienceId = client.audience.id,
-            consentedScopes = authentication.consentedScopes.map(Scope::scope)
+            context = authentication.userAuthentication.claimAclContext()
         )
         // Off the grant rather than off a session: the authorization that carried the `claims` parameter
         // is long over, and every access token issued under its grant answers the request it made.

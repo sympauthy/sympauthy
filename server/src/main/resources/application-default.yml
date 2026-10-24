@@ -71,21 +71,14 @@ templates:
       # be: a claim named there travels on every request a resource server makes, which is a decision
       # no file shipped with the server takes on a deployment's behalf.
       published-in: [ id-token, userinfo, discovery ]
-      acl:
-        readable-by-person-when-consented: "true"
-        collected-in-flow-when-consented: "true"
-        readable-by-client-when-consented: "true"
-        # False because a claim of the person's restricted to no audience grants no client write at
-        # all, and this template restricts none: a deployment restricting one of its own claims to an
-        # audience turns this on there.
-        writable-by-client-when-consented: "false"
+      # No door, because a door opens on a scope and this template names none: each claim opens its
+      # own under the scope it belongs to. Nor a client write anywhere, since a claim of the person's
+      # restricted to no audience may not have one and this template restricts none.
     application:
       kind: application
       acl:
-        readable-with-client-scopes-unconditionally:
-          - "users:claims:read"
-        writable-with-client-scopes-unconditionally:
-          - "users:claims:write"
+        readable-by-client: SCOPE_IS_GRANTED("users:claims:read")
+        writable-by-client: SCOPE_IS_GRANTED("users:claims:write")
   clients:
     default:
       audience: default
@@ -98,8 +91,8 @@ templates:
         - client_credentials
 
 # Every claim OpenID Connect defines, each disabled: a deployment turns on the ones its applications
-# ask for rather than being served the whole set, and the consent scope the specification puts each
-# under is what a person agrees to before one is disclosed.
+# ask for rather than being served the whole set, and the scope the specification puts each under is
+# what a person agrees to before one is collected or disclosed.
 claims:
   name:
     template: personal
@@ -107,131 +100,171 @@ claims:
     type: string
     group: identity
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   given_name:
     template: personal
     enabled: "false"
     type: string
     group: identity
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   family_name:
     template: personal
     enabled: "false"
     type: string
     group: identity
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   middle_name:
     template: personal
     enabled: "false"
     type: string
     group: identity
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   nickname:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   preferred_username:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   profile:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   picture:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   website:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   email:
     template: personal
     enabled: "false"
     type: email
     verified-id: email_verified
     acl:
-      consent-scope: email
+      collected-in-flow: SCOPE_IS_CONSENTED("email")
+      readable-by-person: SCOPE_IS_CONSENTED("email")
+      readable-by-client: SCOPE_IS_CONSENTED("email")
   gender:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   birth_date:
     template: personal
     enabled: "false"
     type: date
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   zoneinfo:
     template: personal
     enabled: "false"
     type: timezone
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   locale:
     template: personal
     enabled: "false"
     type: string
     acl:
-      consent-scope: profile
+      collected-in-flow: SCOPE_IS_CONSENTED("profile")
+      readable-by-person: SCOPE_IS_CONSENTED("profile")
+      readable-by-client: SCOPE_IS_CONSENTED("profile")
   phone_number:
     template: personal
     enabled: "false"
     type: phone-number
     verified-id: phone_number_verified
     acl:
-      consent-scope: phone
+      collected-in-flow: SCOPE_IS_CONSENTED("phone")
+      readable-by-person: SCOPE_IS_CONSENTED("phone")
+      readable-by-client: SCOPE_IS_CONSENTED("phone")
   street_address:
     template: personal
     enabled: "false"
     type: string
     group: address
     acl:
-      consent-scope: address
+      collected-in-flow: SCOPE_IS_CONSENTED("address")
+      readable-by-person: SCOPE_IS_CONSENTED("address")
+      readable-by-client: SCOPE_IS_CONSENTED("address")
   locality:
     template: personal
     enabled: "false"
     type: string
     group: address
     acl:
-      consent-scope: address
+      collected-in-flow: SCOPE_IS_CONSENTED("address")
+      readable-by-person: SCOPE_IS_CONSENTED("address")
+      readable-by-client: SCOPE_IS_CONSENTED("address")
   region:
     template: personal
     enabled: "false"
     type: string
     group: address
     acl:
-      consent-scope: address
+      collected-in-flow: SCOPE_IS_CONSENTED("address")
+      readable-by-person: SCOPE_IS_CONSENTED("address")
+      readable-by-client: SCOPE_IS_CONSENTED("address")
   postal_code:
     template: personal
     enabled: "false"
     type: string
     group: address
     acl:
-      consent-scope: address
+      collected-in-flow: SCOPE_IS_CONSENTED("address")
+      readable-by-person: SCOPE_IS_CONSENTED("address")
+      readable-by-client: SCOPE_IS_CONSENTED("address")
   country:
     template: personal
     enabled: "false"
     type: string
     group: address
     acl:
-      consent-scope: address
+      collected-in-flow: SCOPE_IS_CONSENTED("address")
+      readable-by-person: SCOPE_IS_CONSENTED("address")
+      readable-by-client: SCOPE_IS_CONSENTED("address")
 
 cors:
   allowed-headers:

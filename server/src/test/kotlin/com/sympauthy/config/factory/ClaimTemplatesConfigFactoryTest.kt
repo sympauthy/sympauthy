@@ -28,7 +28,7 @@ class ClaimTemplatesConfigFactoryTest {
     lateinit var factory: ClaimTemplatesConfigFactory
 
     private fun setUp() {
-        val claimAclParser = ClaimAclParser(parser)
+        val claimAclParser = ClaimAclParser()
         val claimAclValidator = ClaimAclValidator()
         factory = ClaimTemplatesConfigFactory(
             ClaimTemplatesConfigParser(parser, claimAclParser),

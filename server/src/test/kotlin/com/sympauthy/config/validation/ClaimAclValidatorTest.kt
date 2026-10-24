@@ -1,19 +1,19 @@
 package com.sympauthy.config.validation
 
+import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.parsing.ParsedClaimAcl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import java.time.Duration
 
@@ -22,273 +22,221 @@ class ClaimAclValidatorTest {
     private val validator = ClaimAclValidator()
 
     /**
-     * The consentable scopes a deployment that disabled none of them serves.
+     * The consentable scopes a deployment that disabled none of them serves, a grantable one a rule may grant,
+     * and the client scope a client holds.
      */
     private val scopesById: Map<String, Scope> = OpenIdConnectScope.entries
-        .associate { it.scope to ConsentableUserScope(scope = it.scope) }
+        .associate<OpenIdConnectScope, String, Scope> { it.scope to ConsentableUserScope(scope = it.scope) } +
+            mapOf(
+                "premium" to GrantableUserScope(scope = "premium", publishedIn = emptySet()),
+                "users:claims:read" to ClientScope(scope = "users:claims:read")
+            )
 
     private fun parsedAcl(
-        consentScope: String? = null,
-        readableByPerson: Boolean? = null,
-        collectedInFlow: Boolean? = null,
-        readableByClient: Boolean? = null,
-        writableByClient: Boolean? = null,
-        readableWithClientScopes: List<String>? = null,
-        writableWithClientScopes: List<String>? = null,
-        writableByPerson: Boolean? = null,
-        writeMaxAuthenticationAge: Duration? = null
-    ) = ParsedClaimAcl(
-        consentScope = consentScope,
-        readableByPerson = readableByPerson,
-        collectedInFlow = collectedInFlow,
-        writableByPerson = writableByPerson,
-        readableByClient = readableByClient,
-        writableByClient = writableByClient,
-        readableWithClientScopes = readableWithClientScopes,
-        writableWithClientScopes = writableWithClientScopes,
-        writeMaxAuthenticationAge = writeMaxAuthenticationAge
-    )
+        collectedInFlow: String? = null,
+        readableByPerson: String? = null,
+        writableByPerson: String? = null,
+        readableByClient: String? = null,
+        writableByClient: String? = null
+    ) = ParsedClaimAcl(collectedInFlow, readableByPerson, writableByPerson, readableByClient, writableByClient)
 
-    @Test
-    fun `validateTemplateAcl - Return all nulls when nothing was parsed`() {
+    private fun validate(parsed: ParsedClaimAcl, ctx: ConfigParsingContext = ConfigParsingContext()): ClaimAcl =
+        validator.validateAcl(ctx, parsed, "claims.test", scopesById)
+
+    private fun errorsOf(parsed: ParsedClaimAcl, scopes: Map<String, Scope> = scopesById): List<Pair<String, String>> {
         val ctx = ConfigParsingContext()
-
-        val result = validator.validateTemplateAcl(ctx, parsedAcl(), "templates.claims.test", scopesById)
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(ClaimTemplateAcl(null, null, null, null, null, null, null, null, null), result)
+        validator.validateAcl(ctx, parsed, "claims.test", scopes)
+        return ctx.errors.map { it.key to it.messageId }
     }
 
     @Test
-    fun `validateTemplateAcl - Keep every parsed value`() {
-        val ctx = ConfigParsingContext()
-        val parsed = parsedAcl(
-            consentScope = "profile",
-            readableByPerson = true,
-            collectedInFlow = false,
-            readableByClient = true,
-            writableByClient = false,
-            readableWithClientScopes = listOf("users:claims:read"),
-            writableWithClientScopes = listOf("users:claims:write")
-        )
-
-        val result = validator.validateTemplateAcl(ctx, parsed, "templates.claims.test", scopesById)
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(
-            ClaimTemplateAcl(
-                consentScope = "profile",
-                readableByPersonWhenConsented = true,
-                collectedInFlowWhenConsented = false,
-                writableByPersonWhenConsented = null,
-                readableByClientWhenConsented = true,
-                writableByClientWhenConsented = false,
-                readableWithClientScopesUnconditionally = listOf("users:claims:read"),
-                writableWithClientScopesUnconditionally = listOf("users:claims:write"),
-                writeMaxAuthenticationAge = null
-            ),
-            result
-        )
-    }
-
-    @Test
-    fun `validateTemplateAcl - Reject a consent scope no scope names`() {
+    fun `validateAcl - Build every door from the expression it was written with`() {
         val ctx = ConfigParsingContext()
 
-        validator.validateTemplateAcl(
-            ctx, parsedAcl(consentScope = "nonexistent"), "templates.claims.test", scopesById
-        )
-
-        assertEquals(listOf("config.claim.acl.not_consentable_scope"), ctx.errors.map { it.messageId })
-        assertEquals(listOf("templates.claims.test.acl.consent-scope"), ctx.errors.map { it.key })
-    }
-
-    @Test
-    fun `validateAcl - Build the model from the parsed values`() {
-        val ctx = ConfigParsingContext()
-        val parsed = parsedAcl(
-            consentScope = "profile",
-            readableByPerson = true,
-            collectedInFlow = false,
-            readableByClient = true,
-            writableByClient = false,
-            readableWithClientScopes = listOf("users:claims:read"),
-            writableWithClientScopes = listOf("users:claims:write")
-        )
-
-        val result = validator.validateAcl(ctx, parsed, "claims.test", scopesById)
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(
-            ClaimAcl(
-                consent = ConsentAcl(
-                    scope = "profile",
-                    readableByPerson = true,
-                    collectedInFlow = false,
-                    writableByPerson = false,
-                    readableByClient = true,
-                    writableByClient = false,
-                    writeMaxAuthenticationAge = null
-                ),
-                unconditional = UnconditionalAcl(
-                    readableWithClientScopes = listOf("users:claims:read"),
-                    writableWithClientScopes = listOf("users:claims:write")
-                )
-            ),
-            result
-        )
-    }
-
-    @Test
-    fun `validateAcl - Default to false and an empty list when nothing was parsed`() {
-        val ctx = ConfigParsingContext()
-
-        val result = validator.validateAcl(ctx, parsedAcl(), "claims.test", scopesById)
-
-        assertFalse(ctx.hasErrors)
-        assertEquals(
-            ClaimAcl(
-                consent = ConsentAcl(
-                    scope = null,
-                    readableByPerson = false,
-                    collectedInFlow = false,
-                    writableByPerson = false,
-                    readableByClient = false,
-                    writableByClient = false,
-                    writeMaxAuthenticationAge = null
-                ),
-                unconditional = UnconditionalAcl(emptyList(), emptyList())
-            ),
-            result
-        )
-    }
-
-    @Test
-    fun `validateAcl - Reject a consent scope no scope names`() {
-        val ctx = ConfigParsingContext()
-
-        validator.validateAcl(ctx, parsedAcl(consentScope = "nonexistent_scope"), "claims.test", scopesById)
-
-        assertEquals(listOf("config.claim.acl.not_consentable_scope"), ctx.errors.map { it.messageId })
-        assertEquals(listOf("claims.test.acl.consent-scope"), ctx.errors.map { it.key })
-    }
-
-    @Test
-    fun `validateAcl - Reject a consent scope the deployment disabled`() {
-        val ctx = ConfigParsingContext()
-        val disabledScope = OpenIdConnectScope.EMAIL.scope
-
-        validator.validateAcl(
-            ctx, parsedAcl(consentScope = disabledScope), "claims.test",
-            scopesById + (disabledScope to DisabledScope(disabledScope, ScopeType.CONSENTABLE))
-        )
-
-        assertEquals(listOf("config.claim.acl.disabled_consent_scope"), ctx.errors.map { it.messageId })
-    }
-
-    @Test
-    fun `validateAcl - Reject a custom consent scope the deployment disabled`() {
-        val ctx = ConfigParsingContext()
-
-        validator.validateAcl(
-            ctx, parsedAcl(consentScope = "my-scope"), "claims.test",
-            scopesById + ("my-scope" to DisabledScope("my-scope", ScopeType.CONSENTABLE))
-        )
-
-        assertEquals(listOf("config.claim.acl.disabled_consent_scope"), ctx.errors.map { it.messageId })
-    }
-
-    @Test
-    fun `validateAcl - Reject a consent scope that is not consentable, disabled or not`() {
-        val ctx = ConfigParsingContext()
-
-        validator.validateAcl(
-            ctx, parsedAcl(consentScope = "my-scope"), "claims.test",
-            scopesById + ("my-scope" to DisabledScope("my-scope", ScopeType.GRANTABLE))
-        )
-
-        assertEquals(listOf("config.claim.acl.not_consentable_scope"), ctx.errors.map { it.messageId })
-    }
-
-    @Test
-    fun `validateAcl - Reject a client scope no client scope names`() {
-        val ctx = ConfigParsingContext()
-
-        validator.validateAcl(
-            ctx, parsedAcl(readableWithClientScopes = listOf("nonexistent:scope")), "claims.test", scopesById
-        )
-
-        assertEquals(listOf("config.claim.acl.not_client_scope"), ctx.errors.map { it.messageId })
-        assertEquals(
-            listOf("claims.test.acl.readable-with-client-scopes-unconditionally[0]"),
-            ctx.errors.map { it.key }
-        )
-    }
-
-    @Test
-    fun `validateAcl - Keep a maximum authentication age beside the write it qualifies`() {
-        val ctx = ConfigParsingContext()
-
-        val result = validator.validateAcl(
-            ctx,
+        val result = validate(
             parsedAcl(
-                writableByPerson = true,
-                writeMaxAuthenticationAge = Duration.ofMinutes(5)
+                collectedInFlow = """SCOPE_IS_CONSENTED("profile")""",
+                readableByClient = """SCOPE_IS_CONSENTED("profile") || SCOPE_IS_GRANTED("users:claims:read")""",
+                writableByPerson = PHONE_WRITE
             ),
-            "claims.test",
-            scopesById
+            ctx
         )
 
         assertFalse(ctx.hasErrors)
-        assertTrue(result.consent.writableByPerson)
-        assertEquals(Duration.ofMinutes(5), result.consent.writeMaxAuthenticationAge)
+        assertEquals(
+            ClaimAcl(
+                collectedInFlow = ClaimAclExpression("""SCOPE_IS_CONSENTED("profile")""", setOf("profile")),
+                readableByPerson = null,
+                writableByPerson = ClaimAclExpression(
+                    PHONE_WRITE,
+                    consentedScopes = setOf("phone"),
+                    authenticationAges = setOf(Duration.ofMinutes(5)),
+                    asksForBoundToken = true
+                ),
+                readableByClient = ClaimAclExpression(
+                    """SCOPE_IS_CONSENTED("profile") || SCOPE_IS_GRANTED("users:claims:read")""",
+                    consentedScopes = setOf("profile")
+                ),
+                writableByClient = null
+            ),
+            result
+        )
     }
 
     @Test
-    fun `validateAcl - Reject a maximum authentication age on a claim no access token may write`() {
-        val ctx = ConfigParsingContext()
+    fun `validateAcl - Shut a door written as the literal false`() {
+        assertNull(validate(parsedAcl(writableByClient = "false")).writableByClient)
+    }
 
-        validator.validateAcl(
-            ctx,
-            parsedAcl(writeMaxAuthenticationAge = Duration.ofMinutes(5)),
-            "claims.test",
-            scopesById
+    @Test
+    fun `validateAcl - Refuse an expression that does not parse, naming its key`() {
+        assertEquals(
+            listOf("claims.test.acl.readable-by-client" to "config.expression.invalid"),
+            errorsOf(parsedAcl(readableByClient = """SCOPE_IS_CONSENTED("profile" ||"""))
         )
+    }
+
+    @Test
+    fun `validateAcl - Refuse an expression that is not a boolean`() {
+        assertEquals(
+            listOf("claims.test.acl.readable-by-person" to "config.expression.invalid_return"),
+            errorsOf(parsedAcl(readableByPerson = """CLIENT("id")"""))
+        )
+    }
+
+    @Test
+    fun `validateAcl - Refuse a function of the token on the flow's door, and accept it on a token's`() {
+        assertEquals(
+            listOf("claims.test.acl.collected-in-flow" to "config.expression.invalid"),
+            errorsOf(parsedAcl(collectedInFlow = "TOKEN_IS_BOUND()", writableByPerson = "TOKEN_IS_BOUND()"))
+        )
+    }
+
+    @Test
+    fun `validateAcl - Refuse a consented scope that is not consentable`() {
+        assertEquals(
+            listOf("claims.test.acl.readable-by-person" to "config.claim.acl.not_consentable_scope"),
+            errorsOf(parsedAcl(readableByPerson = """SCOPE_IS_CONSENTED("admin:users:read")"""))
+        )
+    }
+
+    @Test
+    fun `validateAcl - Refuse a consented scope the deployment turned off`() {
+        val scopes = scopesById + ("profile" to DisabledScope(scope = "profile", type = ScopeType.CONSENTABLE))
 
         assertEquals(
-            listOf("config.claim.acl.write_max_authentication_age.not_writable"),
-            ctx.errors.map { it.messageId }
+            listOf("claims.test.acl.readable-by-person" to "config.claim.acl.disabled_consent_scope"),
+            errorsOf(parsedAcl(readableByPerson = """SCOPE_IS_CONSENTED("profile")"""), scopes)
         )
-        assertEquals(listOf("claims.test.acl.write-max-authentication-age"), ctx.errors.map { it.key })
     }
 
     @Test
-    fun `validateAcl - Reject a maximum authentication age of zero`() {
-        val ctx = ConfigParsingContext()
-
-        validator.validateAcl(
-            ctx,
-            parsedAcl(writableByPerson = true, writeMaxAuthenticationAge = Duration.ZERO),
-            "claims.test",
-            scopesById
+    fun `validateAcl - Refuse a granted scope no rule grants`() {
+        assertEquals(
+            listOf("claims.test.acl.readable-by-client" to "config.claim.acl.not_grantable_scope"),
+            errorsOf(parsedAcl(readableByClient = """SCOPE_IS_GRANTED("profile")"""))
         )
-
-        assertEquals(listOf("config.lifetime.not_positive"), ctx.errors.map { it.messageId })
-        assertEquals(listOf("claims.test.acl.write-max-authentication-age"), ctx.errors.map { it.key })
     }
 
     @Test
-    fun `validateTemplateAcl - Keep a maximum authentication age the claim's own write opens`() {
+    fun `validateAcl - Accept a grantable scope and a client scope as granted`() {
+        assertEquals(
+            emptyList<Pair<String, String>>(),
+            errorsOf(
+                parsedAcl(
+                    writableByPerson = """SCOPE_IS_GRANTED("premium")""",
+                    readableByClient = """SCOPE_IS_GRANTED("users:claims:read")"""
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `validateAcl - Refuse an authentication age that is not positive`() {
+        assertEquals(
+            listOf("claims.test.acl.writable-by-person" to "config.claim.acl.authentication_age.not_positive"),
+            errorsOf(parsedAcl(writableByPerson = """AUTHENTICATION_IS_YOUNGER_THAN("0s")"""))
+        )
+    }
+
+    @Test
+    fun `validateAcl - Refuse an authentication age that is not a duration`() {
+        assertEquals(
+            listOf("claims.test.acl.writable-by-person" to "config.expression.invalid"),
+            errorsOf(parsedAcl(writableByPerson = """AUTHENTICATION_IS_YOUNGER_THAN("soon")"""))
+        )
+    }
+
+    @Test
+    fun `validateTemplateAcl - Build the template's doors and refuse one under the template's key`() {
         val ctx = ConfigParsingContext()
 
         val result = validator.validateTemplateAcl(
             ctx,
-            parsedAcl(writeMaxAuthenticationAge = Duration.ofMinutes(5)),
+            parsedAcl(
+                readableByClient = """SCOPE_IS_GRANTED("users:claims:read")""",
+                writableByClient = "TOKEN_IS_BOUND("
+            ),
             "templates.claims.test",
             scopesById
         )
 
+        assertEquals(
+            ClaimAcl.SHUT.copy(readableByClient = ClaimAclExpression("""SCOPE_IS_GRANTED("users:claims:read")""")),
+            result
+        )
+        assertEquals(
+            listOf("templates.claims.test.acl.writable-by-client" to "config.expression.invalid"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validateAcl - Inherit a template's door without validating it again under the claim's key`() {
+        val ctx = ConfigParsingContext()
+        // Validated once under the template's key; a scope no deployment declares would be refused again here
+        // were the claim reading the template's text rather than its result.
+        val inherited =
+            ClaimAclExpression("""SCOPE_IS_CONSENTED("undeclared")""", consentedScopes = setOf("undeclared"))
+
+        val result = validate(parsedAcl().copy(template = ClaimAcl.SHUT.copy(readableByClient = inherited)), ctx)
+
         assertFalse(ctx.hasErrors)
-        assertEquals(Duration.ofMinutes(5), result.writeMaxAuthenticationAge)
+        assertEquals(inherited, result.readableByClient)
+    }
+
+    @Test
+    fun `validateAcl - Shut a door the template opens where the claim writes the literal false`() {
+        val template = ClaimAcl.SHUT.copy(writableByClient = ClaimAclExpression("true"))
+
+        assertNull(validate(parsedAcl(writableByClient = "false").copy(template = template)).writableByClient)
+    }
+
+    @Test
+    fun `validateAcl - Hold only the conditions that can open the door`() {
+        val result = validate(
+            parsedAcl(
+                readableByClient = """SCOPE_IS_CONSENTED("profile") && !SCOPE_IS_CONSENTED("email") && """ +
+                        """!TOKEN_IS_BOUND()"""
+            )
+        )
+
+        assertEquals(setOf("profile"), result.readableByClient?.consentedScopes)
+        assertEquals(false, result.readableByClient?.asksForBoundToken)
+    }
+
+    @Test
+    fun `validateAcl - Refuse a granted scope the deployment turned off`() {
+        val scopes = scopesById + ("premium" to DisabledScope(scope = "premium", type = ScopeType.GRANTABLE))
+
+        assertEquals(
+            listOf("claims.test.acl.writable-by-person" to "config.claim.acl.disabled_granted_scope"),
+            errorsOf(parsedAcl(writableByPerson = """SCOPE_IS_GRANTED("premium")"""), scopes)
+        )
+    }
+
+    private companion object {
+        const val PHONE_WRITE =
+            """SCOPE_IS_CONSENTED("phone") && TOKEN_IS_BOUND() && AUTHENTICATION_IS_YOUNGER_THAN("5m")"""
     }
 }

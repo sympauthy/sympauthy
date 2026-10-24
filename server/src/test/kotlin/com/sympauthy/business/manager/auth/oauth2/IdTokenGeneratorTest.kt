@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
@@ -17,6 +18,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
@@ -28,8 +30,6 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.TokenConfig
@@ -87,6 +87,8 @@ class IdTokenGeneratorTest {
     private val savedEntity = slot<AuthenticationTokenEntity>()
 
     private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
+
+    private val client = mockk<Client>()
     private val readAudienceId = slot<String>()
 
     private val readRequestedClaims = slot<RequestedClaims>()
@@ -165,8 +167,10 @@ class IdTokenGeneratorTest {
 
         val idToken = generator.generateIdToken(
             grant = grant,
+            client = client,
             audience = audience,
             accessToken = mockk { every { token } returns ACCESS_TOKEN },
+            dpopJkt = null,
             grantType = GrantType.AUTHORIZATION_CODE
         )
 
@@ -177,8 +181,10 @@ class IdTokenGeneratorTest {
     fun `generateIdToken - Issue none where the grant does not carry openid`() = runTest {
         val idToken = generator.generateIdToken(
             grant = grant(grantedScopes = listOf(CONSENTED_SCOPE)),
+            client = client,
             audience = audience,
             accessToken = mockk(),
+            dpopJkt = null,
             grantType = GrantType.REFRESH_TOKEN
         )
 
@@ -189,8 +195,10 @@ class IdTokenGeneratorTest {
     fun `generateIdToken - Issue none where the grant names no person`() = runTest {
         val idToken = generator.generateIdToken(
             grant = grant(userId = null),
+            client = client,
             audience = audience,
             accessToken = mockk(),
+            dpopJkt = null,
             grantType = GrantType.CLIENT_CREDENTIALS
         )
 
@@ -300,19 +308,11 @@ class IdTokenGeneratorTest {
         publishedIn = publishedIn,
         publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = true,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = ClaimAclExpression("true"),
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
         )
     )
 
@@ -390,7 +390,7 @@ class IdTokenGeneratorTest {
             consentedScopes = grant.consentedScopes
         )
 
-        generator.generateIdToken(grant, audience, accessToken, grantType, nonce)
+        generator.generateIdToken(grant, client, audience, accessToken, dpopJkt = null, grantType, nonce)
 
         return builder.build()
     }
@@ -406,7 +406,10 @@ class IdTokenGeneratorTest {
         }
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, capture(readAudienceId), ClaimPublicationPlace.ID_TOKEN, consentedScopes, any(),
+                userId,
+                capture(readAudienceId),
+                ClaimPublicationPlace.ID_TOKEN,
+                match { it.consentedScopes == consentedScopes && it.client == client && !it.bound },
                 capture(readRequestedClaims)
             )
         } returns claims
@@ -431,8 +434,10 @@ class IdTokenGeneratorTest {
 
         generator.generateIdToken(
             grant = grant(userId = userId, consentedScopes = emptyList()),
+            client = client,
             audience = audience,
             accessToken = accessToken,
+            dpopJkt = null,
             grantType = GrantType.AUTHORIZATION_CODE
         )
 

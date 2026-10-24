@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
@@ -11,6 +12,8 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.*
+import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
+import com.sympauthy.expression.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -40,11 +43,33 @@ class ConsentAwareCollectedClaimManagerTest {
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
     @SpyK
+    var claimAclManager = ClaimAclManager()
+
+    @SpyK
     @InjectMockKs
     lateinit var manager: ConsentAwareCollectedClaimManager
 
     private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
     private val storefront = Audience(id = "storefront", tokenAudience = "storefront")
+    private val client = clientOf(audience)
+    private val storefrontClient = clientOf(storefront)
+
+    private fun clientOf(audience: Audience) = Client(
+        id = "client-of-${audience.id}",
+        secret = null,
+        audience = audience,
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null
+    )
+
+    /** What a token of the [client] carries, for a person who consented to [consentedScopes]. */
+    private fun context(consentedScopes: List<String>) = ClaimAclContext(
+        client = client,
+        consentedScopes = consentedScopes,
+        grantedScopes = emptyList(),
+        authenticationDate = null,
+        bound = false
+    )
 
     private companion object {
         const val AUDIENCE = "test-audience"
@@ -76,18 +101,15 @@ class ConsentAwareCollectedClaimManagerTest {
         audienceId = audienceId,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
-        acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = scope,
-                readableByPerson = true,
-                collectedInFlow = collectedInFlow,
-                writableByPerson = false,
-                readableByClient = readableByClient,
-                writableByClient = true,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(emptyList(), emptyList())
-        )
+        acl = ClaimAclExpression("$SCOPE_IS_CONSENTED(\"$scope\")", consentedScopes = setOf(scope)).let {
+            ClaimAcl(
+                collectedInFlow = it.takeIf { collectedInFlow },
+                readableByPerson = it,
+                writableByPerson = null,
+                readableByClient = it.takeIf { readableByClient },
+                writableByClient = it
+            )
+        }
     )
 
     private fun customClaimNotReadableByUser() = PersonalClaim(
@@ -100,19 +122,11 @@ class ConsentAwareCollectedClaimManagerTest {
         publishedIn = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = false,
-                collectedInFlow = false,
-                writableByPerson = false,
-                readableByClient = false,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = listOf("users:claims:read"),
-                writableWithClientScopes = listOf("users:claims:write")
-            )
+            collectedInFlow = null,
+            readableByPerson = null,
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("$SCOPE_IS_GRANTED(\"users:claims:read\")"),
+            writableByClient = ClaimAclExpression("$SCOPE_IS_GRANTED(\"users:claims:write\")")
         )
     )
 
@@ -134,7 +148,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, context(listOf(scope1)))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -157,7 +171,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedStandard, collectedCustom)
 
-        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, context(listOf(scope1)))
 
         assertEquals(1, result.count())
         assertSame(collectedStandard, result[0])
@@ -181,7 +195,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, AUDIENCE, listOf(scope1))
+        val result = manager.findByUserIdAndReadableByClient(userId, AUDIENCE, context(listOf(scope1)))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -204,7 +218,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
 
-        val result = manager.findByUserIdAndReadableByPerson(userId, "storefront", listOf(scope))
+        val result = manager.findByUserIdAndReadableByPerson(userId, "storefront", context(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
@@ -229,7 +243,7 @@ class ConsentAwareCollectedClaimManagerTest {
                     listOf(collectedCarried, collectedWithheld)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, listOf(scope)
+                userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, context(listOf(scope))
             )
 
             assertEquals(1, result.count())
@@ -248,7 +262,7 @@ class ConsentAwareCollectedClaimManagerTest {
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedRefused)
 
         val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-            userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, emptyList()
+            userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, context(emptyList())
         )
 
         assertTrue(result.isEmpty())
@@ -272,7 +286,7 @@ class ConsentAwareCollectedClaimManagerTest {
             coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, listOf(scope),
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, context(listOf(scope)),
                 requestedClaims = RequestedClaims(
                     idTokenClaimIds = setOf(onRequest.id),
                     userInfoClaimIds = emptySet()
@@ -300,7 +314,7 @@ class ConsentAwareCollectedClaimManagerTest {
             coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, emptyList(),
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, context(emptyList()),
                 requestedClaims = RequestedClaims(
                     idTokenClaimIds = setOf(onRequest.id),
                     userInfoClaimIds = emptySet()
@@ -329,7 +343,7 @@ class ConsentAwareCollectedClaimManagerTest {
             coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, listOf(scope),
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, context(listOf(scope)),
                 requestedClaims = RequestedClaims(
                     idTokenClaimIds = setOf(onRequest.id),
                     userInfoClaimIds = emptySet()
@@ -356,7 +370,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, "storefront", listOf(scope))
+        val result = manager.findByUserIdAndReadableByClient(userId, "storefront", context(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
@@ -374,7 +388,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedBilling)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, "billing", listOf(scope))
+        val result = manager.findByUserIdAndReadableByClient(userId, "billing", context(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedBilling, result[0])
@@ -392,7 +406,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
-        val result = manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf(scope))
+        val result = manager.findByUserIdAndCollectedInFlow(userId, client, listOf(scope))
 
         assertEquals(1, result.count())
         assertSame(collected, result[0])
@@ -409,7 +423,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns listOf(identifier)
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
-        val result = manager.findByUserIdAndCollectedInFlow(userId, "storefront", emptyList())
+        val result = manager.findByUserIdAndCollectedInFlow(userId, storefrontClient, emptyList())
 
         assertEquals(1, result.count())
         assertSame(collected, result[0])
@@ -426,7 +440,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
-        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf(scope)).isEmpty())
+        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, client, listOf(scope)).isEmpty())
     }
 
     @Test
@@ -439,7 +453,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
-        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, listOf("scope2")).isEmpty())
+        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, client, listOf("scope2")).isEmpty())
     }
 
     @Test
@@ -453,7 +467,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collected)
 
-        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, "storefront", listOf(scope)).isEmpty())
+        assertTrue(manager.findByUserIdAndCollectedInFlow(userId, storefrontClient, listOf(scope)).isEmpty())
     }
 
     @Test
@@ -487,10 +501,10 @@ class ConsentAwareCollectedClaimManagerTest {
         }
         val oauth2 = oauth2(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
+        coEvery { oauth2Manager.getClient(oauth2) } returns client
 
         coEvery {
-            manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, consentedScopes)
+            manager.findByUserIdAndCollectedInFlow(userId, client, consentedScopes)
         } returns listOf(collectedClaim1)
 
         val result = manager.findBySession(session)
@@ -523,10 +537,10 @@ class ConsentAwareCollectedClaimManagerTest {
         }
         val oauth2 = oauth2(consentedScopes = consentedScopes)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { oauth2Manager.getAudience(oauth2) } returns audience
+        coEvery { oauth2Manager.getClient(oauth2) } returns client
 
         coEvery {
-            manager.findByUserIdAndCollectedInFlow(userId, AUDIENCE, consentedScopes)
+            manager.findByUserIdAndCollectedInFlow(userId, client, consentedScopes)
         } returns listOf(collectedClaim1)
 
         val result = manager.findBySession(session)
@@ -545,7 +559,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listRequiredClaims() } returns listOf(required)
 
         assertFalse(
-            manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefront, listOf(scope))
+            manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefrontClient, listOf(scope))
         )
     }
 
@@ -570,10 +584,10 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.listRequiredClaims() } returns listOf(required)
 
-        val readBack = manager.findByUserIdAndCollectedInFlow(userId, "storefront", listOf(scope))
+        val readBack = manager.findByUserIdAndCollectedInFlow(userId, storefrontClient, listOf(scope))
 
         assertTrue(
-            manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(readBack, storefront, listOf(scope))
+            manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(readBack, storefrontClient, listOf(scope))
         )
     }
 
@@ -592,7 +606,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claimManager.listRequiredClaims() } returns emptyList()
 
             assertFalse(
-                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefront, emptyList())
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefrontClient, emptyList())
             )
         }
 
@@ -614,7 +628,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
             assertTrue(
                 manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
-                    listOf(collected), storefront, emptyList()
+                    listOf(collected), storefrontClient, emptyList()
                 )
             )
         }
@@ -639,7 +653,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
             assertFalse(
                 manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
-                    listOf(cleared, answered), storefront, listOf(scope)
+                    listOf(cleared, answered), storefrontClient, listOf(scope)
                 )
             )
         }
@@ -654,7 +668,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claimManager.listRequiredClaims() } returns listOf(required)
 
             assertTrue(
-                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefront, listOf(scope))
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefrontClient, listOf(scope))
             )
         }
 
@@ -668,7 +682,7 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claimManager.listRequiredClaims() } returns listOf(required)
 
             assertFalse(
-                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefront, listOf(scope))
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefrontClient, listOf(scope))
             )
         }
 
@@ -681,7 +695,9 @@ class ConsentAwareCollectedClaimManagerTest {
             every { claimManager.listRequiredClaims() } returns listOf(required)
 
             assertTrue(
-                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(emptyList(), storefront, listOf("scope2"))
+                manager.areAllIdentifierAndRequiredClaimsCollectedInFlow(
+                    emptyList(), storefrontClient, listOf("scope2")
+                )
             )
         }
 
@@ -703,11 +719,11 @@ class ConsentAwareCollectedClaimManagerTest {
         val collectedClaim1 = mockk<CollectedClaim>()
 
         every {
-            consentAwareClaimManager.listClaimsCollectedInFlowWithScopes(audience, consentedScopes)
+            consentAwareClaimManager.listClaimsCollectedInFlowWithScopes(client, consentedScopes)
         } returns listOf(claim1)
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
-        val result = manager.updateInFlow(user, audience, listOf(update1, update2), consentedScopes)
+        val result = manager.updateInFlow(user, client, listOf(update1, update2), consentedScopes)
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -737,7 +753,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
-        val result = manager.updateByClient(user, audience, listOf(update1, update2), consentedScopes)
+        val result = manager.updateByClient(user, audience, listOf(update1, update2), context(consentedScopes))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -758,7 +774,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
 
-        val result = manager.updateByClient(user, storefront, listOf(update), listOf(scope))
+        val result = manager.updateByClient(user, storefront, listOf(update), context(listOf(scope)))
 
         assertTrue(result.isEmpty())
     }
@@ -778,7 +794,7 @@ class ConsentAwareCollectedClaimManagerTest {
         // update never travelled to the write.
         coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
 
-        val result = manager.updateByClient(user, audience, listOf(update), listOf(scope))
+        val result = manager.updateByClient(user, audience, listOf(update), context(listOf(scope)))
 
         assertTrue(result.isEmpty())
     }
@@ -805,7 +821,7 @@ class ConsentAwareCollectedClaimManagerTest {
             collectedClaimManager.applyUpdates(user, listOf(update))
         } returns listOf(collectedShared, collectedBilling)
 
-        val result = manager.updateByClient(user, storefront, listOf(update), listOf(scope))
+        val result = manager.updateByClient(user, storefront, listOf(update), context(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
