@@ -68,7 +68,8 @@ data class ClaimAcl(
  *
  * What it names is known before any request: a scope or a duration is written as a literal, so the scopes
  * a door opens on are listed by the administration API, and a write the expression refuses is answered
- * with a challenge for each condition a different token would have met — see [ClaimAclChallenge].
+ * with a challenge for each condition a different token would have met — see
+ * [com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge].
  *
  * Each condition held here is one meeting which can open the door: a call nothing but `&&` and `||` stands
  * above in the expression. A call under `!`, a comparison or a function of its own is evaluated like any

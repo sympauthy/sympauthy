@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.user
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.user.claim.ClaimAclChallenge
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.EnabledClaim
@@ -118,7 +118,7 @@ class ClaimAclManager {
         claim: EnabledClaim,
         context: ClaimAclContext,
         now: LocalDateTime = LocalDateTime.now()
-    ): List<ClaimAclChallenge> {
+    ): List<WwwAuthenticateChallenge> {
         val door = claim.acl.writableByPerson ?: return emptyList()
         val authenticationAge = context.authenticationDate?.let { Duration.between(it, now) }
         val missingScopes = door.consentedScopes.filter { it !in context.consentedScopes }
@@ -126,9 +126,9 @@ class ClaimAclManager {
             .filter { authenticationAge == null || authenticationAge > it }
             .minOrNull()
         return listOfNotNull(
-            missingScopes.takeIf { it.isNotEmpty() }?.let { ClaimAclChallenge.InsufficientScope(it) },
-            refusedAge?.let { ClaimAclChallenge.InsufficientUserAuthentication(it) },
-            ClaimAclChallenge.UnboundToken.takeIf { door.asksForBoundToken && !context.bound }
+            missingScopes.takeIf { it.isNotEmpty() }?.let { WwwAuthenticateChallenge.InsufficientScope(it) },
+            refusedAge?.let { WwwAuthenticateChallenge.InsufficientUserAuthentication(it) },
+            WwwAuthenticateChallenge.UnboundToken.takeIf { door.asksForBoundToken && !context.bound }
         )
     }
 }

@@ -19,7 +19,7 @@ import java.time.Duration
  *
  * Whether an authentication is recent enough for a write is the claim's ACL question, and a caller refused
  * there raises this with the age
- * [the challenge][com.sympauthy.business.model.user.claim.ClaimAclChallenge.InsufficientUserAuthentication]
+ * [the challenge][com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientUserAuthentication]
  * of that refusal names.
  */
 class InsufficientUserAuthenticationException(

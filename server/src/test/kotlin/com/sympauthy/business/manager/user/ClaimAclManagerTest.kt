@@ -2,8 +2,8 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclChallenge
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
@@ -152,7 +152,7 @@ class ClaimAclManagerTest {
 
         val challenges = manager.getPersonWriteChallenges(claim, context(consentedScopes = listOf("profile")), NOW)
 
-        assertEquals(listOf(ClaimAclChallenge.InsufficientScope(listOf("profile:write"))), challenges)
+        assertEquals(listOf(WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write"))), challenges)
     }
 
     @Test
@@ -173,8 +173,8 @@ class ClaimAclManagerTest {
 
         assertEquals(
             listOf(
-                ClaimAclChallenge.InsufficientUserAuthentication(Duration.ofMinutes(5)),
-                ClaimAclChallenge.UnboundToken
+                WwwAuthenticateChallenge.InsufficientUserAuthentication(Duration.ofMinutes(5)),
+                WwwAuthenticateChallenge.UnboundToken
             ),
             challenges
         )
@@ -196,7 +196,7 @@ class ClaimAclManagerTest {
             claim, context(consentedScopes = listOf("profile"), bound = false), NOW
         )
 
-        assertEquals(listOf(ClaimAclChallenge.UnboundToken), challenges)
+        assertEquals(listOf(WwwAuthenticateChallenge.UnboundToken), challenges)
     }
 
     @Test
@@ -212,7 +212,7 @@ class ClaimAclManagerTest {
 
         val challenges = manager.getPersonWriteChallenges(claim, context(authenticationDate = null), NOW)
 
-        assertEquals(listOf(ClaimAclChallenge.InsufficientUserAuthentication(Duration.ofMinutes(5))), challenges)
+        assertEquals(listOf(WwwAuthenticateChallenge.InsufficientUserAuthentication(Duration.ofMinutes(5))), challenges)
     }
 
     @Test
