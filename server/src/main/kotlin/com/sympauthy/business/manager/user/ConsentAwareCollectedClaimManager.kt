@@ -56,8 +56,9 @@ open class ConsentAwareCollectedClaimManager(
         audienceId: String,
         context: ClaimAclContext
     ): List<CollectedClaim> {
+        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.belongsToAudience(audienceId) && claimAclManager.canBeReadByPerson(it.claim, context)
+            it.claim.belongsToAudience(audienceId) && doors.canBeReadByPerson(it.claim)
         }
     }
 
@@ -75,8 +76,9 @@ open class ConsentAwareCollectedClaimManager(
         audienceId: String,
         context: ClaimAclContext
     ): List<CollectedClaim> {
+        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
-            it.claim.belongsToAudience(audienceId) && claimAclManager.canBeReadByClient(it.claim, context)
+            it.claim.belongsToAudience(audienceId) && doors.canBeReadByClient(it.claim)
         }
     }
 
@@ -138,10 +140,10 @@ open class ConsentAwareCollectedClaimManager(
         consentedScopes: List<String>
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        val doors = claimAclManager.getFlowDoors(client, consentedScopes)
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim in identifierClaims ||
-                    (it.claim.belongsToAudience(client.audience.id) &&
-                            claimAclManager.isCollectedInFlow(it.claim, client, consentedScopes))
+                    (it.claim.belongsToAudience(client.audience.id) && doors.isCollectedInFlow(it.claim))
         }
     }
 
@@ -216,15 +218,13 @@ open class ConsentAwareCollectedClaimManager(
         consentedScopes: List<String>
     ): Boolean {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        val doors = claimAclManager.getFlowDoors(client, consentedScopes)
         // The required half leaves identifier claims to the first term rather than answering them twice. It
         // does not change the answer; it is what keeps the flow's own door unasked of an identifier claim,
         // which is the rule ClaimAcl.collectedInFlow states.
         val heldToClaims = identifierClaims + claimManager.listRequiredClaims()
             .filter { it !in identifierClaims }
-            .filter {
-                it.belongsToAudience(client.audience.id) &&
-                        claimAclManager.isCollectedInFlow(it, client, consentedScopes)
-            }
+            .filter { it.belongsToAudience(client.audience.id) && doors.isCollectedInFlow(it) }
         val claimsHoldingAValue = collectedClaims.filter { it.value != null }.map { it.claim }.toSet()
         return heldToClaims.all { it in claimsHoldingAValue }
     }
@@ -277,14 +277,15 @@ open class ConsentAwareCollectedClaimManager(
         context: ClaimAclContext
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
+        val doors = claimAclManager.getTokenDoors(context)
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
                 it.claim.belongsToAudience(audience.id) &&
-                claimAclManager.canBeWrittenByClient(it.claim, context)
+                doors.canBeWrittenByClient(it.claim)
         }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
         return collectedClaims.filter {
-            it.claim.belongsToAudience(audience.id) && claimAclManager.canBeReadByClient(it.claim, context)
+            it.claim.belongsToAudience(audience.id) && doors.canBeReadByClient(it.claim)
         }
     }
 }

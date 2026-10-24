@@ -64,11 +64,9 @@ class ConsentAwareClaimManager(
      */
     fun listClaimsCollectedInFlowWithScopes(client: Client, consentedScopes: List<String>): List<EnabledClaim> {
         val identifierClaims = claimManager.listIdentifierClaims()
+        val doors = claimAclManager.getFlowDoors(client, consentedScopes)
         return claimManager.listClaimsCollectedInFlow()
             .filter { it !in identifierClaims }
-            .filter {
-                it.belongsToAudience(client.audience.id) &&
-                        claimAclManager.isCollectedInFlow(it, client, consentedScopes)
-            }
+            .filter { it.belongsToAudience(client.audience.id) && doors.isCollectedInFlow(it) }
     }
 }

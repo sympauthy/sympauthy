@@ -33,68 +33,84 @@ import java.time.LocalDateTime
 class ClaimAclManager {
 
     /**
-     * Return true if the interactive flow the [client] started collects [claim] from a person who consented to
-     * [consentedScopes].
-     *
-     * An identifier claim answers from its door like any other, and the flow reaches this for none of what it
-     * does with one: [com.sympauthy.business.model.user.claim.ClaimAcl.collectedInFlow] says why.
+     * Return the doors the interactive flow the [client] started asks of a person who consented to
+     * [consentedScopes], to be asked of as many claims as one read needs.
      */
-    fun isCollectedInFlow(claim: EnabledClaim, client: Client, consentedScopes: List<String>): Boolean {
-        if (claim.generated) return false
-        val door = claim.acl.collectedInFlow ?: return false
-        return evaluate(door, ClaimAclExpressions.flowConfiguration(client, consentedScopes))
+    fun getFlowDoors(client: Client, consentedScopes: List<String>): FlowDoors =
+        FlowDoors(ClaimAclExpressions.flowConfiguration(client, consentedScopes))
+
+    /**
+     * Return the doors a token comes through, evaluated in [context] at [now], to be asked of as many claims
+     * as one read or write needs.
+     */
+    fun getTokenDoors(context: ClaimAclContext, now: LocalDateTime = LocalDateTime.now()): TokenDoors =
+        TokenDoors(ClaimAclExpressions.tokenConfiguration(context, now))
+
+    /**
+     * The flow's door of every claim, for one flow.
+     *
+     * It is built once per read and asked of each claim the read covers, so the functions are bound once
+     * rather than once per claim. It is never kept past that read: the next one binds another flow.
+     */
+    class FlowDoors internal constructor(private val configuration: ExpressionConfiguration) {
+
+        /**
+         * Return true if the flow collects [claim].
+         *
+         * An identifier claim answers from its door like any other, and the flow reaches this for none of what
+         * it does with one: [com.sympauthy.business.model.user.claim.ClaimAcl.collectedInFlow] says why.
+         */
+        fun isCollectedInFlow(claim: EnabledClaim): Boolean {
+            if (claim.generated) return false
+            return isOpen(claim.acl.collectedInFlow, configuration)
+        }
     }
 
     /**
-     * Return true if the person may read [claim] through their own access token, in [context].
-     */
-    fun canBeReadByPerson(
-        claim: EnabledClaim,
-        context: ClaimAclContext,
-        now: LocalDateTime = LocalDateTime.now()
-    ): Boolean = isOpen(claim.acl.readableByPerson, context, now)
-
-    /**
-     * Return true if the person may write [claim] through their own access token, in [context].
+     * The doors of every claim a token comes through, in one context.
      *
-     * A caller refused here owes the client the challenges [getPersonWriteChallenges] answers rather than a
-     * bare refusal.
+     * It is built once per read or write and asked of each claim it covers, for the reason
+     * [FlowDoors] gives.
      */
-    fun canBeWrittenByPerson(
-        claim: EnabledClaim,
-        context: ClaimAclContext,
-        now: LocalDateTime = LocalDateTime.now()
-    ): Boolean = isOpen(claim.acl.writableByPerson, context, now)
+    class TokenDoors internal constructor(private val configuration: ExpressionConfiguration) {
 
-    /**
-     * Return true if a client may read [claim], in [context].
-     */
-    fun canBeReadByClient(
-        claim: EnabledClaim,
-        context: ClaimAclContext,
-        now: LocalDateTime = LocalDateTime.now()
-    ): Boolean = isOpen(claim.acl.readableByClient, context, now)
+        /**
+         * Return true if the person may read [claim] through their own access token.
+         */
+        fun canBeReadByPerson(claim: EnabledClaim): Boolean = isOpen(claim.acl.readableByPerson, configuration)
 
-    /**
-     * Return true if a client may write [claim], in [context].
-     */
-    fun canBeWrittenByClient(
-        claim: EnabledClaim,
-        context: ClaimAclContext,
-        now: LocalDateTime = LocalDateTime.now()
-    ): Boolean = isOpen(claim.acl.writableByClient, context, now)
+        /**
+         * Return true if the person may write [claim] through their own access token.
+         *
+         * A caller refused here owes the client the challenges [ClaimAclManager.getPersonWriteChallenges]
+         * answers rather than a bare refusal.
+         */
+        fun canBeWrittenByPerson(claim: EnabledClaim): Boolean = isOpen(claim.acl.writableByPerson, configuration)
+
+        /**
+         * Return true if a client may read [claim].
+         */
+        fun canBeReadByClient(claim: EnabledClaim): Boolean = isOpen(claim.acl.readableByClient, configuration)
+
+        /**
+         * Return true if a client may write [claim].
+         */
+        fun canBeWrittenByClient(claim: EnabledClaim): Boolean = isOpen(claim.acl.writableByClient, configuration)
+    }
 
     /**
      * Return the challenges a write of [claim] through the person's own access token owes the client, where
-     * [canBeWrittenByPerson] refused it in [context]: one for every condition the door's expression names that
-     * a different token would have met and this one did not.
+     * [TokenDoors.canBeWrittenByPerson] refused it in [context]: one for every condition of the door's
+     * expression that a different token would have met and this one did not.
      *
-     * Every such condition is answered whichever operand of the expression it sits in, so an expression
-     * `A || B` refused on both is answered with both, and a client meeting either would have been let
-     * through. That over-reports, and is what hiding which term failed behind one boolean costs; the
-     * alternative is a refusal telling the client nothing to do. Empty where no condition bears — a door
-     * that is shut, or one refused on a granted scope, the client or a literal — and the caller then refuses
-     * by name, because there is nothing to re-authorize for.
+     * The conditions are the ones meeting which can open the door, as
+     * [com.sympauthy.business.model.user.claim.ClaimAclExpression] holds them, so a condition under `!` is
+     * never one a client is told to meet. Every such condition is answered whichever operand of the expression
+     * it sits in, so an expression `A || B` refused on both is answered with both, and a client meeting either
+     * would have been let through. That over-reports, and is what hiding which term failed behind one boolean
+     * costs; the alternative is a refusal telling the client nothing to do. Empty where no condition bears — a
+     * door that is shut, or one refused on a granted scope, the client or a literal — and the caller then
+     * refuses by name, because there is nothing to re-authorize for.
      *
      * The age demanded is the smallest refused one, which satisfies every one of them.
      */
@@ -115,21 +131,20 @@ class ClaimAclManager {
             ClaimAclChallenge.UnboundToken.takeIf { door.asksForBoundToken && !context.bound }
         )
     }
+}
 
-    private fun isOpen(door: ClaimAclExpression?, context: ClaimAclContext, now: LocalDateTime): Boolean {
-        door ?: return false
-        return evaluate(door, ClaimAclExpressions.tokenConfiguration(context, now))
-    }
-
-    private fun evaluate(door: ClaimAclExpression, configuration: ExpressionConfiguration): Boolean {
-        return try {
-            evaluateRuleExpression(door.expression, configuration)
-        } catch (e: InvalidRuleExpressionException) {
-            throw internalBusinessExceptionOf(
-                detailsId = e.businessErrorDetailsId,
-                throwable = e,
-                "message" to e.reason
-            )
-        }
+/**
+ * Return true if [door] is open under [configuration]: a door no expression opens is shut.
+ */
+private fun isOpen(door: ClaimAclExpression?, configuration: ExpressionConfiguration): Boolean {
+    door ?: return false
+    return try {
+        evaluateRuleExpression(door.expression, configuration)
+    } catch (e: InvalidRuleExpressionException) {
+        throw internalBusinessExceptionOf(
+            detailsId = e.businessErrorDetailsId,
+            throwable = e,
+            "message" to e.reason
+        )
     }
 }

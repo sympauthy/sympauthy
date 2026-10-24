@@ -9,7 +9,6 @@ import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
-import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.parsing.ParsedClaimAcl
 import com.sympauthy.expression.ClaimAclExpressionTerms
 import com.sympauthy.expression.ClaimAclExpressions
@@ -29,32 +28,24 @@ import java.time.Duration
 class ClaimAclValidator {
 
     /**
-     * Validate a template ACL, under the template's own keys.
+     * Validate a template ACL, under the template's own keys, and build the doors it opens.
      *
-     * The expressions are kept as the file wrote them, because a claim taking one is validated again on the
-     * resolved ACL — which is where the kind of the claim is read, and where a door the claim shuts is told
-     * apart from one it leaves to the template.
+     * A claim taking the template inherits them as built here rather than validating the template's text
+     * again under its own key, so a template expression that cannot mean anything is reported once, where it
+     * was written.
      */
     fun validateTemplateAcl(
         ctx: ConfigParsingContext,
         parsed: ParsedClaimAcl,
         configKeyPrefix: String,
         scopesById: Map<String, Scope>
-    ): ClaimTemplateAcl {
-        validateAcl(ctx, parsed, configKeyPrefix, scopesById)
-        return ClaimTemplateAcl(
-            collectedInFlow = parsed.collectedInFlow,
-            readableByPerson = parsed.readableByPerson,
-            writableByPerson = parsed.writableByPerson,
-            readableByClient = parsed.readableByClient,
-            writableByClient = parsed.writableByClient
-        )
-    }
+    ): ClaimAcl = validateAcl(ctx, parsed, configKeyPrefix, scopesById)
 
     /**
-     * Validate a full claim ACL and build the final [ClaimAcl].
+     * Validate a full claim ACL and build the final [ClaimAcl]: each door the claim wrote, validated under
+     * the claim's key, and the template's for each door it wrote nothing for.
      *
-     * A door resolved to the literal `"false"` is built shut, as one nothing opens is: it is how a claim
+     * A door written as the literal `"false"` is built shut, as one nothing opens is: it is how a claim
      * shuts a door its template opens, and the kind of the claim reads the two alike.
      */
     fun validateAcl(
@@ -63,32 +54,38 @@ class ClaimAclValidator {
         configKeyPrefix: String,
         scopesById: Map<String, Scope>
     ): ClaimAcl {
-        fun token(expression: String?, key: String) = validateDoor(
-            ctx, expression, "$configKeyPrefix.acl.$key", scopesById, ClaimAclExpressions::validateTokenExpression
-        )
+        fun door(
+            written: String?,
+            inherited: ClaimAclExpression?,
+            key: String,
+            read: (String) -> ClaimAclExpressionTerms = ClaimAclExpressions::validateTokenExpression
+        ) = if (written == null) {
+            inherited
+        } else {
+            validateDoor(ctx, written, "$configKeyPrefix.acl.$key", scopesById, read)
+        }
+        val template = parsed.template
         return ClaimAcl(
-            collectedInFlow = validateDoor(
-                ctx,
+            collectedInFlow = door(
                 parsed.collectedInFlow,
-                "$configKeyPrefix.acl.$COLLECTED_IN_FLOW_KEY",
-                scopesById,
+                template.collectedInFlow,
+                COLLECTED_IN_FLOW_KEY,
                 ClaimAclExpressions::validateFlowExpression
             ),
-            readableByPerson = token(parsed.readableByPerson, READABLE_BY_PERSON_KEY),
-            writableByPerson = token(parsed.writableByPerson, WRITABLE_BY_PERSON_KEY),
-            readableByClient = token(parsed.readableByClient, READABLE_BY_CLIENT_KEY),
-            writableByClient = token(parsed.writableByClient, WRITABLE_BY_CLIENT_KEY)
+            readableByPerson = door(parsed.readableByPerson, template.readableByPerson, READABLE_BY_PERSON_KEY),
+            writableByPerson = door(parsed.writableByPerson, template.writableByPerson, WRITABLE_BY_PERSON_KEY),
+            readableByClient = door(parsed.readableByClient, template.readableByClient, READABLE_BY_CLIENT_KEY),
+            writableByClient = door(parsed.writableByClient, template.writableByClient, WRITABLE_BY_CLIENT_KEY)
         )
     }
 
     private fun validateDoor(
         ctx: ConfigParsingContext,
-        expression: String?,
+        expression: String,
         configKey: String,
         scopesById: Map<String, Scope>,
         read: (String) -> ClaimAclExpressionTerms
     ): ClaimAclExpression? {
-        if (expression == null) return null
         val terms = try {
             read(expression)
         } catch (e: InvalidRuleExpressionException) {
@@ -104,9 +101,9 @@ class ClaimAclValidator {
         if (false in agesAccepted) return null
         return ClaimAclExpression(
             expression = expression,
-            consentedScopes = terms.consentedScopes,
-            authenticationAges = terms.authenticationAges,
-            asksForBoundToken = terms.asksForBoundToken
+            consentedScopes = terms.opening.consentedScopes,
+            authenticationAges = terms.opening.authenticationAges,
+            asksForBoundToken = terms.opening.asksForBoundToken
         )
     }
 
@@ -136,7 +133,14 @@ class ClaimAclValidator {
     ) {
         val namedScope = scopesById[scope]
         if (namedScope is GrantableUserScope || namedScope is ClientScope) return
-        ctx.addError(configExceptionOf(configKey, "config.claim.acl.not_grantable_scope", "scope" to scope))
+        // Told apart as a consented scope is: a disabled one is fixed by enabling it or dropping the
+        // condition, one that was never granted by correcting the name or asking for consent instead.
+        val detailsId = if (namedScope?.type == ScopeType.GRANTABLE || namedScope?.type == ScopeType.CLIENT) {
+            "config.claim.acl.disabled_granted_scope"
+        } else {
+            "config.claim.acl.not_grantable_scope"
+        }
+        ctx.addError(configExceptionOf(configKey, detailsId, "scope" to scope))
     }
 
     /**

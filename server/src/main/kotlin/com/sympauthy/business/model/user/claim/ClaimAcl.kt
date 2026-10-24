@@ -52,8 +52,8 @@ data class ClaimAcl(
      * Every scope a door of this claim opens on by consent, which is what the scope a person agrees to
      * unlocks of it.
      */
-    val consentedScopes: Set<String>
-        get() = listOfNotNull(collectedInFlow, readableByPerson, writableByPerson, readableByClient, writableByClient)
+    val consentedScopes: Set<String> =
+        listOfNotNull(collectedInFlow, readableByPerson, writableByPerson, readableByClient, writableByClient)
             .flatMapTo(mutableSetOf(), ClaimAclExpression::consentedScopes)
 
     companion object {
@@ -68,21 +68,24 @@ data class ClaimAcl(
  *
  * What it names is known before any request: a scope or a duration is written as a literal, so the scopes
  * a door opens on are listed by the administration API, and a write the expression refuses is answered
- * with a challenge for each condition a different credential would have met — see
- * [ClaimAclChallenge].
+ * with a challenge for each condition a different token would have met — see [ClaimAclChallenge].
+ *
+ * Each condition held here is one meeting which can open the door: a call nothing but `&&` and `||` stands
+ * above in the expression. A call under `!`, a comparison or a function of its own is evaluated like any
+ * other and held nowhere here, since meeting it may shut the door rather than open it.
  */
 data class ClaimAclExpression(
     val expression: String,
     /**
-     * The scopes the expression asks the person to have consented to.
+     * The scopes consent to which can open the door.
      */
     val consentedScopes: Set<String> = emptySet(),
     /**
-     * Each age the expression asks the person's authentication to be younger than.
+     * Each age an authentication younger than can open the door.
      */
     val authenticationAges: Set<Duration> = emptySet(),
     /**
-     * Whether the expression asks for the token to be bound to a key.
+     * Whether a token bound to a key can open the door.
      */
     val asksForBoundToken: Boolean = false
 )

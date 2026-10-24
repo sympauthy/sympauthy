@@ -63,7 +63,6 @@ class ConsentAwareClaimManagerTest {
     @Test
     fun `listClaimsCollectedInFlowWithScopes - Return claims writable by user within consented scopes`() {
         val scope1 = "scope1"
-        val scope2 = "scope2"
 
         val claim1 = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
@@ -71,11 +70,9 @@ class ConsentAwareClaimManagerTest {
         val claim2 = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
-        every { claimAclManager.isCollectedInFlow(claim1, client, any()) } answers {
-            thirdArg<List<String>>().contains(scope1)
-        }
-        every { claimAclManager.isCollectedInFlow(claim2, client, any()) } answers {
-            thirdArg<List<String>>().contains(scope2)
+        every { claimAclManager.getFlowDoors(client, listOf(scope1)) } returns mockk {
+            every { isCollectedInFlow(claim1) } returns true
+            every { isCollectedInFlow(claim2) } returns false
         }
 
         every { claimManager.listClaimsCollectedInFlow() } returns listOf(claim1, claim2)
@@ -97,7 +94,9 @@ class ConsentAwareClaimManagerTest {
         val regularClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
-        every { claimAclManager.isCollectedInFlow(regularClaim, client, any()) } returns true
+        every { claimAclManager.getFlowDoors(client, listOf(scope1)) } returns mockk {
+            every { isCollectedInFlow(regularClaim) } returns true
+        }
 
         every { claimManager.listClaimsCollectedInFlow() } returns listOf(identifierClaim, regularClaim)
         every { claimManager.listIdentifierClaims() } returns listOf(identifierClaim)
@@ -113,7 +112,9 @@ class ConsentAwareClaimManagerTest {
         val claim1 = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
-        every { claimAclManager.isCollectedInFlow(claim1, client, any()) } returns false
+        every { claimAclManager.getFlowDoors(client, listOf("unrelated_scope")) } returns mockk {
+            every { isCollectedInFlow(claim1) } returns false
+        }
 
         every { claimManager.listClaimsCollectedInFlow() } returns listOf(claim1)
         every { claimManager.listIdentifierClaims() } returns emptyList()

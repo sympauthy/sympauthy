@@ -1,7 +1,8 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.config.model.ClaimTemplate
-import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.properties.ClaimAclProperties
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -24,7 +25,7 @@ class ClaimAclParserTest {
         override val writableByClient = writableByClient
     }
 
-    private fun template(acl: ClaimTemplateAcl) = ClaimTemplate(
+    private fun template(acl: ClaimAcl) = ClaimTemplate(
         id = "test",
         enabled = null,
         required = null,
@@ -58,23 +59,22 @@ class ClaimAclParserTest {
     }
 
     @Test
-    fun `parseAcl - Fall back to the template door by door`() {
-        val result = parser.parseAcl(
-            aclProperties(readableByClient = "claim"),
-            template(ClaimTemplateAcl(null, null, null, "template", "template write"))
-        )
+    fun `parseAcl - Carry the claim's own doors beside the ones its template opens`() {
+        val templateAcl = ClaimAcl.SHUT.copy(writableByClient = ClaimAclExpression("true"))
 
-        assertEquals(ParsedClaimAcl(null, null, null, "claim", "template write"), result)
+        val result = parser.parseAcl(aclProperties(readableByClient = "claim"), template(templateAcl))
+
+        assertEquals(ParsedClaimAcl(null, null, null, "claim", null, template = templateAcl), result)
     }
 
     @Test
-    fun `parseAcl - Keep a door the claim shuts over the template's`() {
-        val result = parser.parseAcl(
-            aclProperties(writableByClient = "false"),
-            template(ClaimTemplateAcl(null, null, null, null, """SCOPE_IS_GRANTED("users:claims:write")"""))
-        )
+    fun `parseAcl - Keep a door the claim shuts beside the template's`() {
+        val templateAcl = ClaimAcl.SHUT.copy(writableByClient = ClaimAclExpression("true"))
+
+        val result = parser.parseAcl(aclProperties(writableByClient = "false"), template(templateAcl))
 
         assertEquals("false", result.writableByClient)
+        assertEquals(templateAcl, result.template)
     }
 
     @Test

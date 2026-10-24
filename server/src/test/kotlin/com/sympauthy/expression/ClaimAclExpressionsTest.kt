@@ -41,7 +41,21 @@ class ClaimAclExpressionsTest {
         assertEquals(setOf("profile"), terms.consentedScopes)
         assertEquals(setOf("users:claims:read"), terms.grantedScopes)
         assertEquals(setOf(Duration.ofMinutes(5)), terms.authenticationAges)
-        assertTrue(terms.asksForBoundToken)
+        assertTrue(terms.opening.asksForBoundToken)
+    }
+
+    @Test
+    fun `validateTokenExpression - Count as opening only a call nothing but && and || stand above`() {
+        val terms = ClaimAclExpressions.validateTokenExpression(
+            """SCOPE_IS_CONSENTED("profile") && !SCOPE_IS_CONSENTED("minor") && """ +
+                    """(SCOPE_IS_CONSENTED("email") = false || AUTHENTICATION_IS_YOUNGER_THAN("5m")) && """ +
+                    """!TOKEN_IS_BOUND()"""
+        )
+
+        assertEquals(setOf("profile", "minor", "email"), terms.consentedScopes)
+        assertEquals(setOf("profile"), terms.opening.consentedScopes)
+        assertEquals(setOf(Duration.ofMinutes(5)), terms.opening.authenticationAges)
+        assertFalse(terms.opening.asksForBoundToken)
     }
 
     @Test
@@ -59,7 +73,7 @@ class ClaimAclExpressionsTest {
         val terms = ClaimAclExpressions.validateTokenExpression("true")
 
         assertTrue(terms.consentedScopes.isEmpty())
-        assertFalse(terms.asksForBoundToken)
+        assertFalse(terms.opening.asksForBoundToken)
     }
 
     @Test

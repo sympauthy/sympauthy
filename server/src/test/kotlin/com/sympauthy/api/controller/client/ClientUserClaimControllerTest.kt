@@ -130,6 +130,7 @@ class ClientUserClaimControllerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.findByIdOrNull(UNKNOWN_CLAIM) } returns null
         every { consent.scopes } returns listOf(CONSENTED_SCOPE)
+        every { claimAclManager.getTokenDoors(context, any()) } returns mockk()
 
         val exception = assertThrows<BusinessException> {
             controller.updateUserClaims(authentication(bearerToken()), userId, mapOf(UNKNOWN_CLAIM to "whatever"))
@@ -144,7 +145,9 @@ class ClientUserClaimControllerTest {
         val regionClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
-        every { claimAclManager.canBeWrittenByClient(regionClaim, context, any()) } returns true
+        every { claimAclManager.getTokenDoors(context, any()) } returns mockk {
+            every { canBeWrittenByClient(regionClaim) } returns true
+        }
         val body = mapOf<String, Any?>(REGION_CLAIM to REGION)
         val updates = listOf(mockk<CollectedClaimUpdate>())
         val collectedClaims = listOf(mockk<CollectedClaim>())

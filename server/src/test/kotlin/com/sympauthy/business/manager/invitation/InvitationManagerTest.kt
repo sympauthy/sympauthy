@@ -244,7 +244,9 @@ class InvitationManagerTest {
         val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         val context = mockk<ClaimAclContext>()
-        every { claimAclManager.canBeWrittenByClient(claim, context, any()) } returns false
+        every { claimAclManager.getTokenDoors(context, any()) } returns mockk {
+            every { canBeWrittenByClient(claim) } returns false
+        }
 
         val exception = assertThrows<BusinessException> {
             manager.validateAndCleanClaims(
@@ -261,17 +263,20 @@ class InvitationManagerTest {
     fun `validateAndCleanClaims - Throws when the claim is restricted to another audience`() {
         val claim = createClaim(audienceId = OTHER_AUDIENCE)
         every { claimManager.findByIdOrNull("custom_tier") } returns claim
+        val context = mockk<ClaimAclContext>()
+        val doors = mockk<ClaimAclManager.TokenDoors>()
+        every { claimAclManager.getTokenDoors(context, any()) } returns doors
 
         val exception = assertThrows<BusinessException> {
             manager.validateAndCleanClaims(
                 mapOf("custom_tier" to "gold"),
                 AUDIENCE,
-                mockk()
+                context
             )
         }
         assertEquals("invitation.claim_of_another_audience", exception.detailsId)
         assertTrue(exception.recoverable)
-        verify(exactly = 0) { claimAclManager.canBeWrittenByClient(any(), any(), any()) }
+        verify(exactly = 0) { doors.canBeWrittenByClient(any()) }
     }
 
     @Test
@@ -305,7 +310,7 @@ class InvitationManagerTest {
         val result = manager.validateAndCleanClaims(mapOf("custom_role" to "admin"), AUDIENCE, null)
 
         assertEquals(mapOf("custom_role" to "admin"), result)
-        verify(exactly = 0) { claimAclManager.canBeWrittenByClient(any(), any(), any()) }
+        verify(exactly = 0) { claimAclManager.getTokenDoors(any(), any()) }
     }
 
     private fun mockTokenLookup(rawToken: String, invitation: Invitation) {

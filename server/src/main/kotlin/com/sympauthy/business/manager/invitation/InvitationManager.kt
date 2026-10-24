@@ -131,6 +131,7 @@ open class InvitationManager(
         context: ClaimAclContext?
     ): Map<String, String>? {
         if (claims.isNullOrEmpty()) return claims
+        val doors = context?.let(claimAclManager::getTokenDoors)
         return claims.mapValues { (claimId, value) ->
             val claim = claimManager.findByIdOrNull(claimId)
             if (claim == null) {
@@ -148,7 +149,7 @@ open class InvitationManager(
                     "audience" to audienceId
                 )
             }
-            if (context != null && !claimAclManager.canBeWrittenByClient(claim, context)) {
+            if (doors != null && !doors.canBeWrittenByClient(claim)) {
                 throw recoverableBusinessExceptionOf(
                     detailsId = "invitation.claim_not_writable",
                     descriptionId = "description.invitation.claim_not_writable",

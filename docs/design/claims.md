@@ -81,8 +81,13 @@ lost.
 **The scope a door opens on is the door's.** Consent to a scope is a term of the door's own
 expression, so a claim's doors may name different scopes or none: a client authorized for `profile`
 reads a name, and writes it only where the person also agreed to `profile:write`. The administration
-API lists a claim under every scope one of its doors names, which is known when the configuration is
-read and asks nothing of a request.
+API lists a claim under every scope consent to which can open one of its doors, which is known when
+the configuration is read and asks nothing of a request.
+
+**A condition opens a door only where nothing but `&&` and `||` stands above it.** Under `!` meeting
+it shuts the door, and under a comparison what meeting it does is the expression's to say, so such a
+condition is evaluated like any other and is neither a scope the claim is listed under nor one a
+refused client is told to meet.
 
 **A scope is asked by how it reached the credential.** A door may ask whether the person consented
 to a scope, or whether a rule granted one — a client's own scope on a `client_credentials` token, a
@@ -135,8 +140,8 @@ is in the id token the code exchange mints and absent from the one a refresh min
 [a refresh reissues `auth_time` unchanged](security.md#when-the-person-authenticated).
 
 **A write the person's door refuses carries the challenge that would have satisfied it.** Every
-condition of the door's expression that a different token would have met and this one did not
-is answered with its own challenge: a scope the person did not consent to with RFC 6750's
+condition that can open the door, that a different token would have met and this one did not, is
+answered with its own challenge: a scope the person did not consent to with RFC 6750's
 `insufficient_scope`, an authentication too old with RFC 9470's `insufficient_user_authentication`
 and `max_age`, an unbound token with RFC 9449's `DPoP` challenge. A client reads whichever it
 understands, re-authorizes, and retries. A refusal on which no challenge bears — a granted scope,

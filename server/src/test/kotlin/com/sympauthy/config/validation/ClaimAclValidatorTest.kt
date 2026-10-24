@@ -10,7 +10,6 @@ import com.sympauthy.business.model.user.OpenIdConnectScope
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.config.ConfigParsingContext
-import com.sympauthy.config.model.ClaimTemplateAcl
 import com.sympauthy.config.parsing.ParsedClaimAcl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -169,7 +168,7 @@ class ClaimAclValidatorTest {
     }
 
     @Test
-    fun `validateTemplateAcl - Keep the expressions as written and refuse one under the template's key`() {
+    fun `validateTemplateAcl - Build the template's doors and refuse one under the template's key`() {
         val ctx = ConfigParsingContext()
 
         val result = validator.validateTemplateAcl(
@@ -183,12 +182,56 @@ class ClaimAclValidatorTest {
         )
 
         assertEquals(
-            ClaimTemplateAcl(null, null, null, """SCOPE_IS_GRANTED("users:claims:read")""", "TOKEN_IS_BOUND("),
+            ClaimAcl.SHUT.copy(readableByClient = ClaimAclExpression("""SCOPE_IS_GRANTED("users:claims:read")""")),
             result
         )
         assertEquals(
             listOf("templates.claims.test.acl.writable-by-client" to "config.expression.invalid"),
             ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validateAcl - Inherit a template's door without validating it again under the claim's key`() {
+        val ctx = ConfigParsingContext()
+        // Validated once under the template's key; a scope no deployment declares would be refused again here
+        // were the claim reading the template's text rather than its result.
+        val inherited =
+            ClaimAclExpression("""SCOPE_IS_CONSENTED("undeclared")""", consentedScopes = setOf("undeclared"))
+
+        val result = validate(parsedAcl().copy(template = ClaimAcl.SHUT.copy(readableByClient = inherited)), ctx)
+
+        assertFalse(ctx.hasErrors)
+        assertEquals(inherited, result.readableByClient)
+    }
+
+    @Test
+    fun `validateAcl - Shut a door the template opens where the claim writes the literal false`() {
+        val template = ClaimAcl.SHUT.copy(writableByClient = ClaimAclExpression("true"))
+
+        assertNull(validate(parsedAcl(writableByClient = "false").copy(template = template)).writableByClient)
+    }
+
+    @Test
+    fun `validateAcl - Hold only the conditions that can open the door`() {
+        val result = validate(
+            parsedAcl(
+                readableByClient = """SCOPE_IS_CONSENTED("profile") && !SCOPE_IS_CONSENTED("email") && """ +
+                        """!TOKEN_IS_BOUND()"""
+            )
+        )
+
+        assertEquals(setOf("profile"), result.readableByClient?.consentedScopes)
+        assertEquals(false, result.readableByClient?.asksForBoundToken)
+    }
+
+    @Test
+    fun `validateAcl - Refuse a granted scope the deployment turned off`() {
+        val scopes = scopesById + ("premium" to DisabledScope(scope = "premium", type = ScopeType.GRANTABLE))
+
+        assertEquals(
+            listOf("claims.test.acl.writable-by-person" to "config.claim.acl.disabled_granted_scope"),
+            errorsOf(parsedAcl(writableByPerson = """SCOPE_IS_GRANTED("premium")"""), scopes)
         )
     }
 

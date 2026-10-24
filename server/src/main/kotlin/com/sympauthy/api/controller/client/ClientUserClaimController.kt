@@ -143,11 +143,12 @@ class ClientUserClaimController(
         // audience is refused rather than ignored, the same as one the client may not write: the caller named
         // it, and a silent success would read as the value having been stored.
         val context = clientAuth.claimAclContext(consent.scopes)
+        val doors = claimAclManager.getTokenDoors(context)
         val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
             claim == null ||
                     !claim.belongsToAudience(audienceId) ||
-                    !claimAclManager.canBeWrittenByClient(claim, context)
+                    !doors.canBeWrittenByClient(claim)
         }
         if (invalidClaim != null) {
             throw recoverableBusinessExceptionOf(

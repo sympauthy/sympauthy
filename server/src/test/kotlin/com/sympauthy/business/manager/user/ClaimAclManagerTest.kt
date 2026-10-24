@@ -62,16 +62,18 @@ class ClaimAclManagerTest {
             )
         )
 
-        assertTrue(manager.canBeReadByClient(claim, context(consentedScopes = listOf("profile")), NOW))
-        assertTrue(manager.canBeReadByClient(claim, context(grantedScopes = listOf("users:claims:read")), NOW))
-        assertFalse(manager.canBeReadByClient(claim, context(consentedScopes = listOf("email")), NOW))
+        assertTrue(manager.getTokenDoors(context(consentedScopes = listOf("profile")), NOW).canBeReadByClient(claim))
+        assertTrue(
+            manager.getTokenDoors(context(grantedScopes = listOf("users:claims:read")), NOW).canBeReadByClient(claim)
+        )
+        assertFalse(manager.getTokenDoors(context(consentedScopes = listOf("email")), NOW).canBeReadByClient(claim))
     }
 
     @Test
     fun `canBeReadByPerson - Keep a door shut that no expression opens`() {
         val claim = claim(ClaimAcl.SHUT.copy(readableByClient = ClaimAclExpression("true")))
 
-        assertFalse(manager.canBeReadByPerson(claim, context(), NOW))
+        assertFalse(manager.getTokenDoors(context(), NOW).canBeReadByPerson(claim))
     }
 
     @Test
@@ -84,9 +86,11 @@ class ClaimAclManagerTest {
         )
         val readOnly = context(consentedScopes = listOf("profile"))
 
-        assertTrue(manager.canBeReadByPerson(claim, readOnly, NOW))
-        assertFalse(manager.canBeWrittenByPerson(claim, readOnly, NOW))
-        assertTrue(manager.canBeWrittenByPerson(claim, context(consentedScopes = listOf("profile:write")), NOW))
+        assertTrue(manager.getTokenDoors(readOnly, NOW).canBeReadByPerson(claim))
+        assertFalse(manager.getTokenDoors(readOnly, NOW).canBeWrittenByPerson(claim))
+        assertTrue(
+            manager.getTokenDoors(context(consentedScopes = listOf("profile:write")), NOW).canBeWrittenByPerson(claim)
+        )
     }
 
     @Test
@@ -100,16 +104,20 @@ class ClaimAclManagerTest {
             )
         )
 
-        assertTrue(manager.canBeWrittenByPerson(claim, context(authenticationDate = NOW.minusMinutes(4)), NOW))
-        assertFalse(manager.canBeWrittenByPerson(claim, context(authenticationDate = NOW.minusMinutes(6)), NOW))
+        assertTrue(
+            manager.getTokenDoors(context(authenticationDate = NOW.minusMinutes(4)), NOW).canBeWrittenByPerson(claim)
+        )
+        assertFalse(
+            manager.getTokenDoors(context(authenticationDate = NOW.minusMinutes(6)), NOW).canBeWrittenByPerson(claim)
+        )
     }
 
     @Test
     fun `isCollectedInFlow - Answer from the consent the flow carries`() {
         val claim = claim(ClaimAcl.SHUT.copy(collectedInFlow = consentedTo("profile")))
 
-        assertTrue(manager.isCollectedInFlow(claim, client, listOf("profile")))
-        assertFalse(manager.isCollectedInFlow(claim, client, listOf("email")))
+        assertTrue(manager.getFlowDoors(client, listOf("profile")).isCollectedInFlow(claim))
+        assertFalse(manager.getFlowDoors(client, listOf("email")).isCollectedInFlow(claim))
     }
 
     @Test
@@ -123,14 +131,16 @@ class ClaimAclManagerTest {
             acl = ClaimAcl.SHUT.copy(collectedInFlow = ClaimAclExpression("true"))
         )
 
-        assertFalse(manager.isCollectedInFlow(claim, client, emptyList()))
+        assertFalse(manager.getFlowDoors(client, emptyList()).isCollectedInFlow(claim))
     }
 
     @Test
     fun `canBeReadByClient - Fail as the server's own failure where an accepted expression no longer evaluates`() {
         val claim = claim(ClaimAcl.SHUT.copy(readableByClient = ClaimAclExpression("1 + 1")))
 
-        val exception = assertThrows<BusinessException> { manager.canBeReadByClient(claim, context(), NOW) }
+        val exception = assertThrows<BusinessException> {
+            manager.getTokenDoors(context(), NOW).canBeReadByClient(claim)
+        }
 
         assertEquals("expression.evaluate.invalid_return", exception.detailsId)
         assertFalse(exception.recoverable)

@@ -1,5 +1,7 @@
 package com.sympauthy.config.factory
 
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
@@ -40,7 +42,7 @@ class ClaimsConfigFactoryTest {
 
     lateinit var factory: ClaimsConfigFactory
 
-    private val emptyTemplateAcl = ClaimTemplateAcl(null, null, null, null, null)
+    private val emptyTemplateAcl = ClaimAcl.SHUT
 
     private fun applicationTemplate() = ClaimTemplate(
         id = APPLICATION,
@@ -219,7 +221,7 @@ class ClaimsConfigFactoryTest {
     @Test
     fun `provideClaims - Refuse an application claim for the flow collection it takes from its template`() {
         val factoryCollectingInTheFlow = factoryWithTemplate(
-            personalTemplate().copy(acl = emptyTemplateAcl.copy(collectedInFlow = "true"))
+            personalTemplate().copy(acl = emptyTemplateAcl.copy(collectedInFlow = ClaimAclExpression("true")))
         )
         val properties = listOf(
             claimProperties(id = "credit_score", type = "number", template = PERSONAL, kind = "application")
@@ -404,7 +406,7 @@ class ClaimsConfigFactoryTest {
     fun `provideClaims - Refuse a personal claim for the client write it takes from its template`() {
         val factoryGrantingTheClientWrite = factoryWithTemplate(
             applicationTemplate().copy(
-                acl = emptyTemplateAcl.copy(writableByClient = "true")
+                acl = emptyTemplateAcl.copy(writableByClient = ClaimAclExpression("true"))
             )
         )
         val properties = listOf(claimProperties(id = "discord_id", type = "string", kind = "personal"))
@@ -428,7 +430,7 @@ class ClaimsConfigFactoryTest {
     fun `provideClaims - Accept a personal claim that shuts the client write with the literal false`() {
         val factoryGrantingTheClientWrite = factoryWithTemplate(
             applicationTemplate().copy(
-                acl = emptyTemplateAcl.copy(writableByClient = "true")
+                acl = emptyTemplateAcl.copy(writableByClient = ClaimAclExpression("true"))
             )
         )
         val properties = listOf(
@@ -450,7 +452,7 @@ class ClaimsConfigFactoryTest {
         val writableFactory = factoryWithTemplate(
             applicationTemplate().copy(
                 kind = ClaimKind.PERSONAL,
-                acl = emptyTemplateAcl.copy(collectedInFlow = "true")
+                acl = emptyTemplateAcl.copy(collectedInFlow = ClaimAclExpression("true"))
             )
         )
 
