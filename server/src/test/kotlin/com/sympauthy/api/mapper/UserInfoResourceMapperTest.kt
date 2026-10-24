@@ -5,6 +5,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
@@ -12,9 +13,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
-import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -285,19 +284,11 @@ class UserInfoResourceMapperTest {
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = true,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = ClaimAclExpression("true"),
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
         )
     )
 }

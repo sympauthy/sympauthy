@@ -12,10 +12,9 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.ConsentAcl
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.*
 import io.micronaut.http.HttpRequest
 import io.mockk.coEvery
@@ -85,7 +84,10 @@ class IntrospectionControllerTest {
     private fun stubPublishedClaims(userId: UUID, claims: List<CollectedClaim>) {
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.INTROSPECTION, listOf(CONSENTED_SCOPE), emptyList()
+                userId,
+                AUDIENCE,
+                ClaimPublicationPlace.INTROSPECTION,
+                match { it.consentedScopes == listOf(CONSENTED_SCOPE) && !it.bound }
             )
         } returns claims
     }
@@ -109,19 +111,11 @@ class IntrospectionControllerTest {
         publishedIn = setOf(ClaimPublicationPlace.INTROSPECTION),
         publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = false,
-                collectedInFlow = false,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = null,
+            readableByPerson = null,
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
         )
     )
 
@@ -174,6 +168,7 @@ class IntrospectionControllerTest {
             every { this@mockk.userId } returns userId
             every { allScopes } returns listOf("openid", CONSENTED_SCOPE)
             every { consentedScopes } returns listOf(CONSENTED_SCOPE)
+            every { grantedScopes } returns listOf("openid")
             every { clientScopes } returns emptyList()
             every { this@mockk.authenticationDate } returns authenticationDate
         }

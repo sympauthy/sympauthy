@@ -17,9 +17,10 @@ import java.time.Duration
  * The client's answer is to re-authorize with `max_age` and retry with the token it is issued. A public
  * client can do that — authorizing is a redirect, and nothing in the challenge needs a secret.
  *
- * Whether an authentication is recent enough is
- * [the claim's][com.sympauthy.business.model.user.claim.Claim.isAuthenticationRecentEnough]
- * question, and a caller refused there raises this with the age that claim declared.
+ * Whether an authentication is recent enough for a write is the claim's ACL question, and a caller refused
+ * there raises this with the age
+ * [the challenge][com.sympauthy.business.model.user.claim.ClaimAclChallenge.InsufficientUserAuthentication]
+ * of that refusal names.
  */
 class InsufficientUserAuthenticationException(
     scheme: AccessTokenScheme,

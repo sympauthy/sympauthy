@@ -99,7 +99,7 @@ The verb says what kind of work the method does:
 | Verb | Does |
 | --- | --- |
 | `find…` | looks a row up by criteria; may match nothing |
-| `fetch…` | reads a record attached to one the caller already holds |
+| `fetch…` | reads a row attached to one the caller already holds |
 | `list…` | reads many |
 | `count…` | reads how many, without reading them |
 | `get…` | derives, computes or reads configuration rather than querying |
@@ -110,6 +110,10 @@ The verb says what kind of work the method does:
 | `validate…`, `check…` | throws when a rule is broken, and returns nothing |
 | `is…`, `are…`, `can…` | answers a question as a `Boolean` |
 | `with…` | runs a block inside something it takes and gives back |
+
+**A record the configuration declares, resolved from a row the caller holds, is read with `get…`.**
+The client an OAuth2 record names is configuration rather than a row, so the method resolving it is
+no `fetch…`; looked up by its identifier, it is a `find…` like any other.
 
 **The `…OrNull` rule from [the general standard](general-code-standard.md#naming) applies on top of
 any of them.** The throwing twin delegates to the nullable one, so one error code covers every

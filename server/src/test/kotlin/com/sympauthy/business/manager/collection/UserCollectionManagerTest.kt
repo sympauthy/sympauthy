@@ -63,16 +63,11 @@ class UserCollectionManagerTest {
     lateinit var manager: UserCollectionManager
 
     private val acl = ClaimAcl(
-        consent = ConsentAcl(
-            scope = null,
-            readableByPerson = false,
-            collectedInFlow = false,
-            writableByPerson = false,
-            readableByClient = false,
-            writableByClient = false,
-            writeMaxAuthenticationAge = null
-        ),
-        unconditional = UnconditionalAcl(emptyList(), emptyList())
+        collectedInFlow = null,
+        readableByPerson = null,
+        writableByPerson = null,
+        readableByClient = null,
+        writableByClient = null
     )
 
     private fun claim(

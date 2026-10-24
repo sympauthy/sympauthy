@@ -28,10 +28,9 @@ class ClaimsConfigValidatorTest {
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
         kind: ClaimKind? = ClaimKind.PERSONAL,
-        collectedInFlow: Boolean? = true,
-        writableByPerson: Boolean? = null,
-        writableByClient: Boolean? = false,
-        writableWithClientScopes: List<String> = emptyList()
+        collectedInFlow: String? = "true",
+        writableByPerson: String? = null,
+        writableByClient: String? = "false"
     ) = ParsedClaim(
         id = id,
         enabled = true,
@@ -46,15 +45,11 @@ class ClaimsConfigValidatorTest {
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
         acl = ParsedClaimAcl(
-            consentScope = null,
-            readableByPerson = true,
             collectedInFlow = collectedInFlow,
+            readableByPerson = "true",
             writableByPerson = writableByPerson,
-            readableByClient = true,
-            writableByClient = writableByClient,
-            readableWithClientScopes = emptyList(),
-            writableWithClientScopes = writableWithClientScopes,
-            writeMaxAuthenticationAge = null
+            readableByClient = "true",
+            writableByClient = writableByClient
         )
     )
 
@@ -246,60 +241,34 @@ class ClaimsConfigValidatorTest {
 
     @Test
     fun `validate - Refuse a client write of a personal claim restricted to no audience`() {
-        val ctx = validate(listOf(parsedClaim("nickname", writableByClient = true)))
+        val ctx = validate(listOf(parsedClaim("nickname", writableByClient = "true")))
 
         assertEquals(
             listOf("config.claim.kind.shared_personal_claim_client_write"),
             ctx.errors.map { it.messageId }
         )
         assertEquals(
-            listOf("claims.nickname.acl.writable-by-client-when-consented"),
+            listOf("claims.nickname.acl.writable-by-client"),
             ctx.errors.map { it.key }
         )
         assertEquals(listOf("nickname"), ctx.errors.map { it.values["claim"] })
     }
 
     @Test
-    fun `validate - Refuse a client scope writing a personal claim restricted to no audience`() {
-        val ctx = validate(
-            listOf(parsedClaim("nickname", writableWithClientScopes = listOf("users:claims:write")))
-        )
+    fun `validate - Refuse any expression opening the client write of a personal claim restricted to no audience`() {
+        val ctx = validate(listOf(parsedClaim("nickname", writableByClient = """CLIENT("id") = "billing"""")))
 
         assertEquals(
             listOf("config.claim.kind.shared_personal_claim_client_write"),
             ctx.errors.map { it.messageId }
         )
-        assertEquals(
-            listOf("claims.nickname.acl.writable-with-client-scopes-unconditionally"),
-            ctx.errors.map { it.key }
-        )
-    }
-
-    @Test
-    fun `validate - Name each key granting a client the write of a shared personal claim`() {
-        val ctx = validate(
-            listOf(
-                parsedClaim(
-                    "nickname",
-                    writableByClient = true,
-                    writableWithClientScopes = listOf("users:claims:write")
-                )
-            )
-        )
-
-        assertEquals(
-            listOf(
-                "claims.nickname.acl.writable-by-client-when-consented",
-                "claims.nickname.acl.writable-with-client-scopes-unconditionally"
-            ),
-            ctx.errors.map { it.key }
-        )
+        assertEquals(listOf("claims.nickname.acl.writable-by-client"), ctx.errors.map { it.key })
     }
 
     @Test
     fun `validate - Accept a client write of a personal claim restricted to one audience`() {
         val ctx = validate(
-            listOf(parsedClaim("nickname", audienceId = "billing", writableByClient = true))
+            listOf(parsedClaim("nickname", audienceId = "billing", writableByClient = "true"))
         )
 
         assertFalse(ctx.hasErrors)
@@ -312,9 +281,8 @@ class ClaimsConfigValidatorTest {
                 parsedClaim(
                     "credit_score",
                     kind = ClaimKind.APPLICATION,
-                    collectedInFlow = false,
-                    writableByClient = true,
-                    writableWithClientScopes = listOf("users:claims:write")
+                    collectedInFlow = null,
+                    writableByClient = "true"
                 )
             )
         )
@@ -331,10 +299,17 @@ class ClaimsConfigValidatorTest {
             ctx.errors.map { it.messageId }
         )
         assertEquals(
-            listOf("claims.credit_score.acl.collected-in-flow-when-consented"),
+            listOf("claims.credit_score.acl.collected-in-flow"),
             ctx.errors.map { it.key }
         )
         assertEquals(listOf("credit_score"), ctx.errors.map { it.values["claim"] })
+    }
+
+    @Test
+    fun `validate - Accept an application claim shutting the flow's door with the literal false`() {
+        val ctx = validate(listOf(parsedClaim("credit_score", kind = ClaimKind.APPLICATION, collectedInFlow = "false")))
+
+        assertFalse(ctx.hasErrors)
     }
 
     @Test
@@ -344,8 +319,8 @@ class ClaimsConfigValidatorTest {
                 parsedClaim(
                     "credit_score",
                     kind = ClaimKind.APPLICATION,
-                    collectedInFlow = false,
-                    writableByPerson = true
+                    collectedInFlow = null,
+                    writableByPerson = "true"
                 )
             )
         )
@@ -355,7 +330,7 @@ class ClaimsConfigValidatorTest {
             ctx.errors.map { it.messageId }
         )
         assertEquals(
-            listOf("claims.credit_score.acl.writable-by-person-when-consented"),
+            listOf("claims.credit_score.acl.writable-by-person"),
             ctx.errors.map { it.key }
         )
     }
@@ -363,7 +338,7 @@ class ClaimsConfigValidatorTest {
     @Test
     fun `validate - Refuse an identifier claim declared an application's`() {
         val ctx = validate(
-            listOf(parsedClaim("email", kind = ClaimKind.APPLICATION, collectedInFlow = false)),
+            listOf(parsedClaim("email", kind = ClaimKind.APPLICATION, collectedInFlow = null)),
             identifierClaims = listOf("email")
         )
 
@@ -378,7 +353,7 @@ class ClaimsConfigValidatorTest {
     @Test
     fun `validate - Accept an application claim no deployment signs people in with`() {
         val ctx = validate(
-            listOf(parsedClaim("credit_score", kind = ClaimKind.APPLICATION, collectedInFlow = false)),
+            listOf(parsedClaim("credit_score", kind = ClaimKind.APPLICATION, collectedInFlow = null)),
             identifierClaims = listOf("email")
         )
 
@@ -424,7 +399,7 @@ class ClaimsConfigValidatorTest {
     fun `validate - Report every key written on a generated claim`() {
         val writtenKeys = setOf(
             "claims.sub.enabled",
-            "claims.sub.acl.consent-scope",
+            "claims.sub.acl.readable-by-client",
             "claims.updated_at.type",
             "claims.email.enabled"
         )
@@ -432,7 +407,7 @@ class ClaimsConfigValidatorTest {
         val ctx = validate(writtenKeys = writtenKeys)
 
         assertEquals(
-            listOf("claims.sub.acl.consent-scope", "claims.sub.enabled", "claims.updated_at.type"),
+            listOf("claims.sub.acl.readable-by-client", "claims.sub.enabled", "claims.updated_at.type"),
             ctx.errors.map { it.key }
         )
     }

@@ -101,6 +101,7 @@ open class TokenExchangeManager(
         )
         return accessTokenGenerator.generateAccessToken(
             grant = grant,
+            client = actingClient,
             audience = targetAudience,
             dpopJkt = dpopJkt
         )

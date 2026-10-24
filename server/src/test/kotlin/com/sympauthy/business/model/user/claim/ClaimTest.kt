@@ -1,9 +1,8 @@
 package com.sympauthy.business.model.user.claim
 
+import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import java.time.Duration
-import java.time.LocalDateTime
 
 class ClaimTest {
 
@@ -11,15 +10,7 @@ class ClaimTest {
         id: String = "test_claim",
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
-        consentScope: String? = null,
-        readableByPerson: Boolean = false,
-        collectedInFlow: Boolean = false,
-        readableByClient: Boolean = false,
-        writableByClient: Boolean = false,
-        readableWithClientScopes: List<String> = emptyList(),
-        writableWithClientScopes: List<String> = emptyList(),
-        writableByPerson: Boolean = false,
-        writeMaxAuthenticationAge: Duration? = null
+        acl: ClaimAcl = ClaimAcl.SHUT
     ) = PersonalClaim(
         id = id,
         verifiedId = null,
@@ -29,22 +20,11 @@ class ClaimTest {
         allowedValues = null,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
-        acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = consentScope,
-                readableByPerson = readableByPerson,
-                collectedInFlow = collectedInFlow,
-                writableByPerson = writableByPerson,
-                readableByClient = readableByClient,
-                writableByClient = writableByClient,
-                writeMaxAuthenticationAge = writeMaxAuthenticationAge
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = readableWithClientScopes,
-                writableWithClientScopes = writableWithClientScopes
-            )
-        )
+        acl = acl
     )
+
+    private fun consentedTo(scope: String) =
+        ClaimAclExpression("$SCOPE_IS_CONSENTED(\"$scope\")", consentedScopes = setOf(scope))
 
     private fun disabledClaim() = DisabledClaim(
         id = "test_claim",
@@ -55,16 +35,11 @@ class ClaimTest {
         required = false,
         allowedValues = null,
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = true,
-                writableByPerson = true,
-                readableByClient = true,
-                writableByClient = true,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(emptyList(), emptyList())
+            collectedInFlow = ClaimAclExpression("true"),
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = ClaimAclExpression("true"),
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = ClaimAclExpression("true")
         )
     )
 
@@ -167,196 +142,42 @@ class ClaimTest {
     }
 
     @Test
-    fun `belongsToScope - true when consent scope matches`() {
-        val claim = claim(consentScope = "profile")
+    fun `belongsToScope - true when a door opens on consent to the scope`() {
+        val claim = claim(acl = ClaimAcl.SHUT.copy(readableByClient = consentedTo("profile")))
         assertTrue(claim.belongsToScope("profile"))
     }
 
     @Test
-    fun `belongsToScope - false when consent scope does not match`() {
-        val claim = claim(consentScope = "profile")
+    fun `belongsToScope - true for each scope its doors open on`() {
+        val claim = claim(
+            acl = ClaimAcl.SHUT.copy(
+                readableByPerson = consentedTo("profile"),
+                writableByPerson = consentedTo("profile:write")
+            )
+        )
+        assertTrue(claim.belongsToScope("profile"))
+        assertTrue(claim.belongsToScope("profile:write"))
+    }
+
+    @Test
+    fun `belongsToScope - false when no door opens on consent to the scope`() {
+        val claim = claim(acl = ClaimAcl.SHUT.copy(readableByClient = consentedTo("profile")))
         assertFalse(claim.belongsToScope("email"))
     }
 
     @Test
-    fun `belongsToScope - false when no consent scope`() {
-        val claim = claim(consentScope = null)
+    fun `belongsToScope - false when no door opens on consent`() {
+        val claim = claim(acl = ClaimAcl.SHUT.copy(readableByClient = ClaimAclExpression("true")))
         assertFalse(claim.belongsToScope("profile"))
     }
 
     @Test
-    fun `canBeReadByPerson - true when readable and no scope required`() {
-        val claim = claim(readableByPerson = true, consentScope = null)
-        assertTrue(claim.canBeReadByPerson(emptyList()))
+    fun `collectedInFlow - true where the flow's door is opened by any expression`() {
+        assertTrue(claim(acl = ClaimAcl.SHUT.copy(collectedInFlow = consentedTo("profile"))).collectedInFlow)
     }
 
     @Test
-    fun `canBeReadByPerson - true when readable and scope consented`() {
-        val claim = claim(readableByPerson = true, consentScope = "profile")
-        assertTrue(claim.canBeReadByPerson(listOf("profile")))
-    }
-
-    @Test
-    fun `canBeReadByPerson - false when not readable`() {
-        val claim = claim(readableByPerson = false, consentScope = null)
-        assertFalse(claim.canBeReadByPerson(listOf("profile")))
-    }
-
-    @Test
-    fun `canBeReadByPerson - false when readable but scope not consented`() {
-        val claim = claim(readableByPerson = true, consentScope = "profile")
-        assertFalse(claim.canBeReadByPerson(listOf("email")))
-    }
-
-    @Test
-    fun `isCollectedInFlow - true when writable and no scope required`() {
-        val claim = claim(collectedInFlow = true, consentScope = null)
-        assertTrue(claim.isCollectedInFlow(emptyList()))
-    }
-
-    @Test
-    fun `isCollectedInFlow - true when writable and scope consented`() {
-        val claim = claim(collectedInFlow = true, consentScope = "profile")
-        assertTrue(claim.isCollectedInFlow(listOf("profile")))
-    }
-
-    @Test
-    fun `isCollectedInFlow - false when not writable`() {
-        val claim = claim(collectedInFlow = false, consentScope = null)
-        assertFalse(claim.isCollectedInFlow(listOf("profile")))
-    }
-
-    @Test
-    fun `isCollectedInFlow - false when writable but scope not consented`() {
-        val claim = claim(collectedInFlow = true, consentScope = "profile")
-        assertFalse(claim.isCollectedInFlow(listOf("email")))
-    }
-
-    @Test
-    fun `canBeReadByClient - true via consent path when readable and scope consented`() {
-        val claim = claim(readableByClient = true, consentScope = "profile")
-        assertTrue(claim.canBeReadByClient(listOf("profile"), emptyList()))
-    }
-
-    @Test
-    fun `canBeReadByClient - true via consent path when readable and no scope required`() {
-        val claim = claim(readableByClient = true, consentScope = null)
-        assertTrue(claim.canBeReadByClient(emptyList(), emptyList()))
-    }
-
-    @Test
-    fun `canBeReadByClient - true via unconditional path`() {
-        val claim = claim(readableWithClientScopes = listOf("users:claims:read"))
-        assertTrue(claim.canBeReadByClient(emptyList(), listOf("users:claims:read")))
-    }
-
-    @Test
-    fun `canBeReadByClient - true when both paths match`() {
-        val claim = claim(
-            readableByClient = true,
-            consentScope = "profile",
-            readableWithClientScopes = listOf("users:claims:read")
-        )
-        assertTrue(claim.canBeReadByClient(listOf("profile"), listOf("users:claims:read")))
-    }
-
-    @Test
-    fun `canBeReadByClient - false when neither path matches`() {
-        val claim = claim(readableByClient = false, readableWithClientScopes = listOf("users:claims:read"))
-        assertFalse(claim.canBeReadByClient(emptyList(), listOf("other:scope")))
-    }
-
-    @Test
-    fun `canBeReadByClient - false via consent when scope not consented`() {
-        val claim = claim(readableByClient = true, consentScope = "profile")
-        assertFalse(claim.canBeReadByClient(listOf("email"), emptyList()))
-    }
-
-    @Test
-    fun `canBeWrittenByClient - true via consent path when writable and scope consented`() {
-        val claim = claim(writableByClient = true, consentScope = "profile")
-        assertTrue(claim.canBeWrittenByClient(listOf("profile"), emptyList()))
-    }
-
-    @Test
-    fun `canBeWrittenByClient - true via unconditional path`() {
-        val claim = claim(writableWithClientScopes = listOf("users:claims:write"))
-        assertTrue(claim.canBeWrittenByClient(emptyList(), listOf("users:claims:write")))
-    }
-
-    @Test
-    fun `canBeWrittenByClient - false when neither path matches`() {
-        val claim = claim(writableByClient = false, writableWithClientScopes = listOf("users:claims:write"))
-        assertFalse(claim.canBeWrittenByClient(emptyList(), listOf("other:scope")))
-    }
-
-    @Test
-    fun `canBeWrittenByClient - unconditional does not use consentedScopes`() {
-        val claim = claim(writableWithClientScopes = listOf("users:claims:write"))
-        assertFalse(claim.canBeWrittenByClient(listOf("users:claims:write"), emptyList()))
-    }
-
-    @Test
-    fun `canBeWrittenByPerson - true when the flag is set and no scope gates it`() {
-        val claim = claim(writableByPerson = true)
-        assertTrue(claim.canBeWrittenByPerson(emptyList()))
-    }
-
-    @Test
-    fun `canBeWrittenByPerson - true when the consent scope was consented`() {
-        val claim = claim(consentScope = "profile", writableByPerson = true)
-        assertTrue(claim.canBeWrittenByPerson(listOf("profile")))
-    }
-
-    @Test
-    fun `canBeWrittenByPerson - false when the consent scope was not consented`() {
-        val claim = claim(consentScope = "profile", writableByPerson = true)
-        assertFalse(claim.canBeWrittenByPerson(listOf("email")))
-    }
-
-    @Test
-    fun `canBeWrittenByPerson - false where only the flow may write the claim`() {
-        val claim = claim(collectedInFlow = true, writableByPerson = false)
-        assertFalse(claim.canBeWrittenByPerson(emptyList()))
-    }
-
-    @Test
-    fun `isAuthenticationRecentEnough - true where the claim declares no maximum age`() {
-        val claim = claim(writableByPerson = true)
-        assertTrue(claim.isAuthenticationRecentEnough(NOW.minusDays(30), NOW))
-    }
-
-    @Test
-    fun `isAuthenticationRecentEnough - true where the claim declares none and nothing authenticated`() {
-        val claim = claim(writableByPerson = true)
-        assertTrue(claim.isAuthenticationRecentEnough(null, NOW))
-    }
-
-    @Test
-    fun `isAuthenticationRecentEnough - true within the age the claim declares`() {
-        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
-        assertTrue(claim.isAuthenticationRecentEnough(NOW.minusMinutes(4), NOW))
-    }
-
-    @Test
-    fun `isAuthenticationRecentEnough - true at exactly the age the claim declares`() {
-        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
-        assertTrue(claim.isAuthenticationRecentEnough(NOW.minusMinutes(5), NOW))
-    }
-
-    @Test
-    fun `isAuthenticationRecentEnough - false past the age the claim declares`() {
-        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
-        assertFalse(claim.isAuthenticationRecentEnough(NOW.minusMinutes(6), NOW))
-    }
-
-    @Test
-    fun `isAuthenticationRecentEnough - false where the token states no authentication at all`() {
-        val claim = claim(writableByPerson = true, writeMaxAuthenticationAge = Duration.ofMinutes(5))
-        assertFalse(claim.isAuthenticationRecentEnough(null, NOW))
-    }
-
-    private companion object {
-        val NOW: LocalDateTime = LocalDateTime.of(2025, 6, 1, 12, 0, 0)
+    fun `collectedInFlow - false where the flow's door is shut`() {
+        assertFalse(claim(acl = ClaimAcl.SHUT.copy(readableByPerson = consentedTo("profile"))).collectedInFlow)
     }
 }

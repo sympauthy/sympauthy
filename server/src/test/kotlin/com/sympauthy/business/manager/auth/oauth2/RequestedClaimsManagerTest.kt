@@ -6,11 +6,9 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.DisabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.RequestedClaims
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledClaimsConfig
 import io.micronaut.serde.ObjectMapper
@@ -149,19 +147,11 @@ class RequestedClaimsManagerTest {
 
     private companion object {
         val acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = false,
-                collectedInFlow = false,
-                writableByPerson = false,
-                readableByClient = false,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = null,
+            readableByPerson = null,
+            writableByPerson = null,
+            readableByClient = null,
+            writableByClient = null
         )
 
         fun claimOf(id: String, enabled: Boolean = true): Claim = if (enabled) {

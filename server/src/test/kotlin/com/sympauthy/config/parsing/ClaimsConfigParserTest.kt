@@ -23,7 +23,7 @@ class ClaimsConfigParserTest {
 
     private val configParser = ConfigParser()
 
-    private val parser = ClaimsConfigParser(configParser, ClaimAclParser(configParser))
+    private val parser = ClaimsConfigParser(configParser, ClaimAclParser())
 
     private fun claimTemplate(
         id: String = APPLICATION,
@@ -41,7 +41,7 @@ class ClaimsConfigParserTest {
         allowedValues = allowedValues,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
-        acl = ClaimTemplateAcl(null, null, null, null, null, null, null, null, null)
+        acl = ClaimTemplateAcl(null, null, null, null, null)
     )
 
     private fun claimProperties(

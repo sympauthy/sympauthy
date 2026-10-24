@@ -51,7 +51,7 @@ change to this table before it is a class.
 | `business` | `data`, `config`, `client` | `api` |
 | `data` | Micronaut Data and the JDK | `business`, `api` |
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
-| `expression` | `business.model`, the JDK | `business`, `config`, `data`, `api` |
+| `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
 
 **`business` may import `api` in exactly one case**: a manager in `business.manager.auth` throws the
 protocol's own error type, which lives in `api` because an OAuth2 error code is a wire format. [The

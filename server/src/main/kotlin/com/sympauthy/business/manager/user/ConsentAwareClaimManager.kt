@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.user
 
-import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
@@ -28,6 +28,7 @@ import jakarta.inject.Singleton
 class ConsentAwareClaimManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val claimAclManager: ClaimAclManager,
 ) {
 
     /**
@@ -46,25 +47,28 @@ class ConsentAwareClaimManager(
             is OnGoingInteractiveFlowSession, is CompletedInteractiveFlowSession -> {
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 val consentedScopes = oauth2.consentedScopes ?: return emptyList()
-                listClaimsCollectedInFlowWithScopes(oauth2Manager.getAudience(oauth2), consentedScopes)
+                listClaimsCollectedInFlowWithScopes(oauth2Manager.getClient(oauth2), consentedScopes)
             }
         }
     }
 
     /**
-     * Return the list of [Claim] that should be presented to the end-user for collection, for the [audience]
-     * and given the [consentedScopes].
+     * Return the list of [Claim] that should be presented to the end-user for collection, in a flow the
+     * [client] started and given the [consentedScopes].
      *
      * This excludes:
      * - Claims the flow does not collect (generated, or an application's to write).
      * - Identifier claims (e.g. email used for sign-in), which require separate validation.
      * - Claims outside the provided [consentedScopes].
-     * - Claims restricted to another audience, which this one has no business asking a person for.
+     * - Claims restricted to another audience than the [client]'s, which it has no business asking a person for.
      */
-    fun listClaimsCollectedInFlowWithScopes(audience: Audience, consentedScopes: List<String>): List<EnabledClaim> {
+    fun listClaimsCollectedInFlowWithScopes(client: Client, consentedScopes: List<String>): List<EnabledClaim> {
         val identifierClaims = claimManager.listIdentifierClaims()
         return claimManager.listClaimsCollectedInFlow()
             .filter { it !in identifierClaims }
-            .filter { it.belongsToAudience(audience.id) && it.isCollectedInFlow(consentedScopes) }
+            .filter {
+                it.belongsToAudience(client.audience.id) &&
+                        claimAclManager.isCollectedInFlow(it, client, consentedScopes)
+            }
     }
 }

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.invitation
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.audience.Audience
@@ -11,6 +12,7 @@ import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
@@ -36,6 +38,9 @@ class InvitationManagerTest {
 
     @MockK
     lateinit var claimManager: ClaimManager
+
+    @MockK
+    lateinit var claimAclManager: ClaimAclManager
 
     @MockK
     lateinit var claimValueValidator: ClaimValueValidator
@@ -238,13 +243,14 @@ class InvitationManagerTest {
     fun `validateAndCleanClaims - Throws when client does not have write access to claim`() {
         val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
-        every { claim.canBeWrittenByClient(emptyList(), listOf("invitations:write")) } returns false
+        val context = mockk<ClaimAclContext>()
+        every { claimAclManager.canBeWrittenByClient(claim, context, any()) } returns false
 
         val exception = assertThrows<BusinessException> {
             manager.validateAndCleanClaims(
                 mapOf("custom_role" to "admin"),
                 AUDIENCE,
-                listOf("invitations:write")
+                context
             )
         }
         assertEquals("invitation.claim_not_writable", exception.detailsId)
@@ -260,12 +266,12 @@ class InvitationManagerTest {
             manager.validateAndCleanClaims(
                 mapOf("custom_tier" to "gold"),
                 AUDIENCE,
-                listOf("users:claims:write")
+                mockk()
             )
         }
         assertEquals("invitation.claim_of_another_audience", exception.detailsId)
         assertTrue(exception.recoverable)
-        verify(exactly = 0) { claim.canBeWrittenByClient(any(), any()) }
+        verify(exactly = 0) { claimAclManager.canBeWrittenByClient(any(), any(), any()) }
     }
 
     @Test
@@ -291,7 +297,7 @@ class InvitationManagerTest {
     }
 
     @Test
-    fun `validateAndCleanClaims - Skips ACL check when clientScopeIds is null`() {
+    fun `validateAndCleanClaims - Skips ACL check when the context is null`() {
         val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "admin") } returns Optional.of("admin")
@@ -299,7 +305,7 @@ class InvitationManagerTest {
         val result = manager.validateAndCleanClaims(mapOf("custom_role" to "admin"), AUDIENCE, null)
 
         assertEquals(mapOf("custom_role" to "admin"), result)
-        verify(exactly = 0) { claim.canBeWrittenByClient(any(), any()) }
+        verify(exactly = 0) { claimAclManager.canBeWrittenByClient(any(), any(), any()) }
     }
 
     private fun mockTokenLookup(rawToken: String, invitation: Invitation) {

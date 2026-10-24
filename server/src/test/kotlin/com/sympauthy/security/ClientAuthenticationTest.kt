@@ -1,9 +1,11 @@
 package com.sympauthy.security
 
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
@@ -50,5 +52,27 @@ class ClientAuthenticationTest {
         assertTrue(roles.contains("SCOPE_${BuiltInClientScopeId.USERS_READ}"))
         assertTrue(roles.contains("SCOPE_${BuiltInClientScopeId.USERS_CLAIMS_READ}"))
         assertEquals(3, roles.size)
+    }
+
+    @Test
+    fun `claimAclContext - Carry the person's consent and the client's own scopes, and no authentication`() {
+        val client = mockk<Client>()
+        val token = mockk<AuthenticationToken> { every { dpopJkt } returns null }
+        val auth = ClientAuthentication(
+            authenticationToken = token,
+            client = client,
+            scopes = listOf(ClientScope(scope = BuiltInClientScopeId.USERS_CLAIMS_READ))
+        )
+
+        assertEquals(
+            ClaimAclContext(
+                client = client,
+                consentedScopes = listOf("profile"),
+                grantedScopes = listOf(BuiltInClientScopeId.USERS_CLAIMS_READ),
+                authenticationDate = null,
+                bound = false
+            ),
+            auth.claimAclContext(listOf("profile"))
+        )
     }
 }

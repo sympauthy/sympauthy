@@ -7,15 +7,18 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.user.ClientUser
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
@@ -48,6 +51,9 @@ class ClientUserClaimControllerTest {
     lateinit var consentManager: ConsentManager
 
     @MockK
+    lateinit var claimAclManager: ClaimAclManager
+
+    @MockK
     lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
 
     @MockK
@@ -68,6 +74,23 @@ class ClientUserClaimControllerTest {
     private val consent = mockk<Consent>()
 
     private val audience = mockk<Audience> { every { id } returns AUDIENCE }
+
+    private val client = Client(
+        id = "client",
+        secret = null,
+        audience = audience,
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null
+    )
+
+    /** What the client [authentication] carries presents, acting on a person who consented to [CONSENTED_SCOPE]. */
+    private val context = ClaimAclContext(
+        client = client,
+        consentedScopes = listOf(CONSENTED_SCOPE),
+        grantedScopes = emptyList(),
+        authenticationDate = null,
+        bound = false
+    )
 
     @Test
     fun `updateUserClaims - Refuse an identifier claim the client holds the write scope for`() = runTest {
@@ -106,9 +129,10 @@ class ClientUserClaimControllerTest {
         stubResolvedUser()
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.findByIdOrNull(UNKNOWN_CLAIM) } returns null
+        every { consent.scopes } returns listOf(CONSENTED_SCOPE)
 
         val exception = assertThrows<BusinessException> {
-            controller.updateUserClaims(authentication(), userId, mapOf(UNKNOWN_CLAIM to "whatever"))
+            controller.updateUserClaims(authentication(bearerToken()), userId, mapOf(UNKNOWN_CLAIM to "whatever"))
         }
 
         assertEquals("client.invalid_claim", exception.detailsId)
@@ -119,8 +143,8 @@ class ClientUserClaimControllerTest {
     fun `updateUserClaims - Write a claim that is not an identifier`() = runTest {
         val regionClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
-            every { canBeWrittenByClient(listOf(CONSENTED_SCOPE), emptyList()) } returns true
         }
+        every { claimAclManager.canBeWrittenByClient(regionClaim, context, any()) } returns true
         val body = mapOf<String, Any?>(REGION_CLAIM to REGION)
         val updates = listOf(mockk<CollectedClaimUpdate>())
         val collectedClaims = listOf(mockk<CollectedClaim>())
@@ -135,28 +159,30 @@ class ClientUserClaimControllerTest {
         every { collectedClaimUpdateMapper.toUpdates(body) } returns updates
         coEvery {
             consentAwareCollectedClaimManager.updateByClient(
-                user, audience, updates, listOf(CONSENTED_SCOPE), emptyList()
+                user, audience, updates, context
             )
         } returns collectedClaims
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId, AUDIENCE, listOf(CONSENTED_SCOPE), emptyList()
+                userId, AUDIENCE, context
             )
         } returns collectedClaims
         coEvery { generatedClaimsManager.computeValues(user) } returns generatedClaimValues
         every { claimMapper.toResource(userId, collectedClaims, generatedClaimValues) } returns resource
 
-        val result = controller.updateUserClaims(authentication(), userId, body)
+        val result = controller.updateUserClaims(authentication(bearerToken()), userId, body)
 
         assertSame(resource, result)
     }
 
-    private fun authentication(): ClientAuthentication {
-        val client = mockk<Client> {
-            every { audience } returns this@ClientUserClaimControllerTest.audience
-        }
-        return ClientAuthentication(mockk(), client, emptyList())
-    }
+    /**
+     * The client's authentication, presenting [token]: a test reaching the ACL passes [bearerToken], which is
+     * what the context reads the binding off.
+     */
+    private fun authentication(token: AuthenticationToken = mockk()): ClientAuthentication =
+        ClientAuthentication(token, client, emptyList())
+
+    private fun bearerToken(): AuthenticationToken = mockk { every { dpopJkt } returns null }
 
     private fun identifierClaim(): EnabledClaim = mockk {
         every { id } returns EMAIL_CLAIM

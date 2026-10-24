@@ -126,7 +126,7 @@ class ClaimsController(
                 val oauth2 = oauth2Manager.fetchOAuth2(session)
                 consentAwareCollectedClaimManager.updateInFlow(
                     user = user,
-                    audience = oauth2Manager.getAudience(oauth2),
+                    client = oauth2Manager.getClient(oauth2),
                     updates = collectedClaimUpdateMapper.toUpdates(inputResource.claims),
                     consentedScopes = oauth2.consentedScopes ?: emptyList()
                 )

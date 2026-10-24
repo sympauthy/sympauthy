@@ -10,6 +10,7 @@ import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
+import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.invitation.Invitation
@@ -18,6 +19,7 @@ import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.ClientScope
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
 import io.mockk.every
@@ -53,8 +55,11 @@ class ClientInvitationControllerTest {
 
     private val createdAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
 
-    private fun clientAuthentication(client: Client, vararg scopes: String): ClientAuthentication =
-        ClientAuthentication(mockk(), client, scopes.map(::ClientScope))
+    private fun clientAuthentication(
+        client: Client,
+        vararg scopes: String,
+        token: AuthenticationToken = mockk()
+    ): ClientAuthentication = ClientAuthentication(token, client, scopes.map(::ClientScope))
 
     private fun id(last: Int): UUID = UUID.fromString("00000000-0000-0000-0000-00000000000$last")
 
@@ -121,13 +126,21 @@ class ClientInvitationControllerTest {
                 expiresAt = null,
                 createdBy = InvitationCreatedBy.CLIENT,
                 createdById = "client",
-                clientScopeIds = listOf("invitations:write", "users:claims:write"),
+                context = ClaimAclContext(
+                    client = client,
+                    consentedScopes = emptyList(),
+                    grantedScopes = listOf("invitations:write", "users:claims:write"),
+                    authenticationDate = null,
+                    bound = false
+                ),
             )
         } returns (invitation to "raw-token")
         every { invitationMapper.toCreatedResource(invitation, "raw-token") } returns resource
 
         val result = controller.createInvitation(
-            clientAuthentication(client, "invitations:write", "users:claims:write"),
+            clientAuthentication(
+                client, "invitations:write", "users:claims:write", token = mockk { every { dpopJkt } returns null }
+            ),
             ClientCreateInvitationInputResource(expiresAt = null, claims = claims, note = "welcome"),
         )
 

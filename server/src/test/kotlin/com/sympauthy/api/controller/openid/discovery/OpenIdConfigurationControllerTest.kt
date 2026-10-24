@@ -10,11 +10,10 @@ import com.sympauthy.business.model.oauth2.ResponseType
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.ConsentAcl
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
-import com.sympauthy.business.model.user.claim.UnconditionalAcl
 import com.sympauthy.config.model.*
 import com.sympauthy.util.wireName
 import io.mockk.coEvery
@@ -222,19 +221,11 @@ class OpenIdConfigurationControllerTest {
         publishedIn = publishedIn,
         publishedInWhenRequested = emptySet(),
         acl = ClaimAcl(
-            consent = ConsentAcl(
-                scope = null,
-                readableByPerson = true,
-                collectedInFlow = false,
-                writableByPerson = false,
-                readableByClient = true,
-                writableByClient = false,
-                writeMaxAuthenticationAge = null
-            ),
-            unconditional = UnconditionalAcl(
-                readableWithClientScopes = emptyList(),
-                writableWithClientScopes = emptyList()
-            )
+            collectedInFlow = null,
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
         )
     )
 

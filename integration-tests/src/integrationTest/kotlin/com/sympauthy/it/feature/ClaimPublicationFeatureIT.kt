@@ -191,7 +191,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         put("required", true)
         put("type", "string")
         // The `personal` template, because the flow collects the value: it is what says the claim belongs
-        // to the person, and it carries the consent flags and the client read this scenario needs.
+        // to the person. It opens no door, so the claim opens the three this scenario needs.
         put("template", "personal")
         // Always written, so each claim is published in exactly the places the scenario names: the
         // template offers the two OpenID channels and the document, and an empty list withholds all three.
@@ -199,8 +199,9 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
         put(
             "acl",
             mapOf(
-                "consent-scope" to "profile",
-                "readable-by-client-when-consented" to readableByClient.toString(),
+                "collected-in-flow" to CONSENTED_TO_PROFILE,
+                "readable-by-person" to CONSENTED_TO_PROFILE,
+                "readable-by-client" to if (readableByClient) CONSENTED_TO_PROFILE else "false",
             ),
         )
     }
@@ -243,6 +244,7 @@ class ClaimPublicationFeatureIT : AbstractSympauthyIT() {
 
     private companion object {
 
+        const val CONSENTED_TO_PROFILE = """SCOPE_IS_CONSENTED("profile")"""
         const val EMAIL = "published-in@example.com"
         const val FULL_NAME = "Ada Lovelace"
         const val GOLD = "gold"

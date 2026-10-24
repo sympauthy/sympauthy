@@ -897,9 +897,9 @@ list of what a claim accepts, so a property added to a claim tomorrow is refused
 without anyone classifying it, which is exactly the step `published-in` skipped.
 
 Sparing the two keys the parser reads was the first shape of this, and it does not survive reading
-what becomes of them. `acl.readable-with-client-scopes-unconditionally` reaches
-`UnconditionalAcl.readableWithClientScopes`, whose only reader is `Claim.canBeReadByClient`, whose
-only callers filter the claims *collected* from a person — and a generated claim is never one of
+what becomes of them. `acl.readable-with-client-scopes-unconditionally` reached what is now the
+client's read door, whose only reader is `ClaimAclManager.canBeReadByClient`, whose only callers
+filter the claims *collected* from a person — and a generated claim is never one of
 those, because its value is computed. Every place that publishes one computes it instead: the id
 token through `IdTokenGenerator`, `/userinfo` and the client claims endpoint through
 `GeneratedClaimsManager`, the last of them gated by the scope on the endpoint rather than by
@@ -1039,11 +1039,79 @@ scope, and an application's may carry one where the person has to agree before a
 their score. So the kind is declared, a template carries the default, and the validator holds the
 ACL to it.
 
-**What it costs.** Every claim a deployment declared says whose its value is or names a template that
-does, which is one line per claim or one per template, and a claim of the person's that a client
-could write is refused until the deployment restricts it to an audience or drops the grant. And a
-person's name is one value: a deployment wanting a different display name per audience declares a
-personal claim restricted to each.
+**What it costs.** Every claim a deployment declared says whose its value is or names a template
+that does, which is one line per claim or one per template, and a claim of the person's that a
+client could write is refused until the deployment restricts it to an audience or drops the grant.
+And a person's name is one value: a deployment wanting a different display name per audience
+declares a personal claim restricted to each.
+
+### Is a claim's ACL a set of flags, or an expression per door?
+
+**Decision:** An expression per door. A claim keeps one key per party and direction —
+`collected-in-flow`, `readable-by-person`, `writable-by-person`, `readable-by-client`,
+`writable-by-client` — and each holds a rule expression in the language the scope granting and
+act-as rules use, combining consent to a scope the door names, a scope a rule granted, the client,
+the authentication's age and the token's binding. A write the person's door refuses is answered with
+a challenge for every condition of its expression the credential did not meet. [The
+claims](claims.md#who-may-read-and-write-a-claim) hold the rule.
+
+**Options considered:**
+
+- **Keep the booleans and add a key per condition** — what the ACL was: a consent flag per door, one
+  `consent-scope` for the claim, two lists of client scopes, and `write-max-authentication-age`
+  qualifying one door, with a validator rule saying which door it may be written on.
+-  **Make only the grant an expression, and keep the conditions that carry a challenge as keys** —
+  each key knows its challenge by construction.
+- **An expression per door, every condition a term of it** — what was chosen.
+- **Report only the first false term** of a refused write, rather than every one.
+- **Keep `consent-scope` on the claim**, read by a `SCOPE_IS_CONSENTED()` taking no argument, or
+  overridden by one that takes it.
+- **Name a client's scope by the client** — `CLIENT_HAS_SCOPE`.
+- **A shipped template per scope** — `profile`, `email`, `address`, `phone`, each opening the three
+  doors, so a claim stays at one line.
+- **Wall-clock functions**, so a claim is writable during business hours.
+- **One function set for every door**, the flow answering false to the token's functions.
+
+**Rationale:**
+
+The flags made every condition a key of its own, written once per direction, each with a rule about
+which doors it may sit on and which keys it may meet, and `A || B` could not be written at all. The
+one such rule already shipped was for the authentication's age, and a key binding or a particular
+client would each have been the next. One scope for the whole claim also meant every door a claim
+opened by consent opened on the same scope, so the only way to let a person write their name was to
+open it to every client already reading it — not something a person can be asked to agree to
+separately.
+
+Keeping the challenge-bearing conditions as keys solves the challenge by construction and keeps the
+key explosion for exactly the conditions a deployment most wants to combine. Deriving the challenge
+from the terms instead costs over-reporting under `||`: both operands refused are both challenged,
+and a client meeting either would have been answered. Reporting the first false term only
+under-reports the other way — a client holding an unbound token with a fresh authentication would be
+told to re-authenticate when binding its token would have done — and sending every challenge lets
+the client pick.
+
+A `consent-scope` the argument-less function reads is two spellings for one condition, and the
+template's `SCOPE_IS_CONSENTED()` silently binding to whatever scope the claim names is the
+one-scope-per-claim coupling a scope per door exists to remove; as a default the argument overrides,
+it means something different on each door it reaches. A function named for the client answers a
+`client_credentials` token alone and leaves a scope a rule granted a person with nothing to ask it,
+so the scope functions are named by how the scope reached the credential, which is the split
+[security](security.md#scopes) already draws. A template per scope cannot be had without repeating
+the kind and the places in each, since [a template takes no template](claims.md#templates), and a
+deployment adding a scope would add a template to carry it; three lines on the claim say the same
+where the claim is.
+
+A door answering differently at 17:01 is a rule that fires only sometimes, and there is no challenge
+to send a client refused by the clock. And one function set for every door would accept
+`TOKEN_IS_BOUND()` on the flow's door and shut it for every person forever, in silence — the flow's
+set is its own so that is a startup refusal.
+
+**What a deployment sees.** The keys a deployment wrote under `acl` before are refused at startup as
+keys nothing binds. Each flag set `"true"` becomes `SCOPE_IS_CONSENTED("<its consent-scope>")`, or
+`"true"` where it named no scope; each list of client scopes becomes `SCOPE_IS_GRANTED(...)` terms
+joined by `||` to the consent term; the age becomes `&& AUTHENTICATION_IS_YOUNGER_THAN(...)` on
+`writable-by-person`. The shipped `personal` template opens no door, so a deployment's own personal
+claim writes three lines where it wrote one.
 
 ---
 

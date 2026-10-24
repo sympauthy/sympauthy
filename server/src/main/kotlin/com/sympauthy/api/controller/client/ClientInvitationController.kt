@@ -110,7 +110,6 @@ class ClientInvitationController(
         val expiresAt = parseInvitationExpiresAt(input.expiresAt)
         val clientAuth = authentication.clientAuthentication
         val client = clientAuth.client
-        val clientScopeIds = clientAuth.scopes.map { it.scope }
         val (invitation, rawToken) = invitationManager.createInvitation(
             audience = client.audience,
             claims = input.claims,
@@ -118,7 +117,7 @@ class ClientInvitationController(
             expiresAt = expiresAt,
             createdBy = InvitationCreatedBy.CLIENT,
             createdById = client.id,
-            clientScopeIds = clientScopeIds,
+            context = clientAuth.claimAclContext(consentedScopes = emptyList()),
         )
         return invitationMapper.toCreatedResource(invitation, rawToken)
     }

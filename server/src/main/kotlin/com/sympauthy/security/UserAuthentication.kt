@@ -5,6 +5,7 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.isAdmin
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
 import io.micronaut.http.HttpStatus.FORBIDDEN
@@ -32,6 +33,18 @@ class UserAuthentication(
      */
     val grantedScopes: List<EnabledScope>
 ) : Authentication {
+
+    /**
+     * The context the person's token is evaluated in at a door of a claim's ACL: the scopes they consented
+     * to and the ones a rule granted, as this authentication resolved them, and when they authenticated.
+     */
+    fun claimAclContext() = ClaimAclContext(
+        client = client,
+        consentedScopes = consentedScopes.map { it.scope },
+        grantedScopes = grantedScopes.map { it.scope },
+        authenticationDate = authenticationToken.grant.authenticationDate,
+        bound = authenticationToken.dpopJkt != null
+    )
 
     override fun getName(): String = authenticationToken.grant.userId?.toString()
         ?: throw httpExceptionOf(FORBIDDEN, "authentication.no_user", "description.authentication.no_user")

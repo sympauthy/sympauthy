@@ -137,19 +137,27 @@ open class InteractiveFlowSessionOAuth2Manager(
     }
 
     /**
+     * Return the client that started the [oauth2] request, which the flow's door of a claim's ACL may ask
+     * about.
+     *
+     * Throws an unrecoverable [BusinessException] carrying ```client.invalid_client_id``` where the client the
+     * authorization named is no longer configured.
+     */
+    suspend fun getClient(oauth2: InteractiveFlowSessionOAuth2): Client {
+        return clientManager.findClientById(oauth2.clientId)
+    }
+
+    /**
      * Return the audience the [oauth2] request is for — the audience of the client that started it.
      *
      * Consent is recorded per audience, so this is the audience [InteractiveFlowSessionOAuth2.consentedScopes]
      * were consented for, and the one every consent-scoped read of that session's claims is made for.
      *
-     * Named `get…` rather than `fetch…`: the client it resolves against is configuration, not a row, unlike
-     * the OAuth2 record its neighbours read.
-     *
      * Throws an unrecoverable [BusinessException] carrying ```client.invalid_client_id``` where the client the
      * authorization named is no longer configured.
      */
     suspend fun getAudience(oauth2: InteractiveFlowSessionOAuth2): Audience {
-        return clientManager.findClientById(oauth2.clientId).audience
+        return getClient(oauth2).audience
     }
 
     /**

@@ -11,10 +11,11 @@ deployment identifies a person *by* is [the identifier claims](identifier-claims
 written by a sign-up that has not finished is [the provisional user](provisional-user.md); the
 authentications, scopes and gates every rule here is enforced through are [security](security.md).
 
-`Claim`, with the `ClaimAcl` it carries, is what a declaration is parsed into. Every rule below is a
-method of `EnabledClaim`, the half of it this server serves, whose KDoc is the authority on how the
-two halves of the ACL combine. A value collected for an account is a `CollectedClaim`, and
-`ConsentAwareCollectedClaimManager` is the read and the write that apply the ACL to one.
+`Claim`, with the `ClaimAcl` it carries, is what a declaration is parsed into, and `EnabledClaim` is
+the half of it this server serves. `ClaimAclManager` evaluates a door of the ACL in the
+`ClaimAclContext` of a read or a write, and its KDoc is the authority on what each door asks. A
+value collected for an account is a `CollectedClaim`, and `ConsentAwareCollectedClaimManager` is the
+read and the write that apply the ACL to one.
 
 ## Kinds
 
@@ -46,16 +47,16 @@ signs in with, and declaring one an application's is refused.
 ### An application claim
 
 **An application claim is an application's, attached to the person.** A credit score, a tier, a flag
-a backend computes: the person never types it, because a backend answers for the value. It may still
-carry a consent scope, where the person has to agree before a client is told their score — consent
-gates disclosure, and says nothing about whose the value is.
+a backend computes: the person never types it, because a backend answers for the value. A door of
+one may still open on consent to a scope, where the person has to agree before a client is told
+their score — consent gates disclosure, and says nothing about whose the value is.
 
 ### A generated claim
 
 **A generated claim is computed, not collected, and is neither kind.** `sub`, `updated_at` and
 `auth_time` are answered by this server rather than from a row, belong to every audience, and are
-written by nobody. A key written on one is refused at startup, and
-[the design FAQ](design-faq.md#why-is-a-key-written-on-a-generated-claim-refused-rather-than-applied-or-ignored)
+written by nobody. A key written on one is refused at startup, and [the design
+FAQ](design-faq.md#why-is-a-key-written-on-a-generated-claim-refused-rather-than-applied-or-ignored)
 says why refusing beat applying or ignoring it.
 
 **What they share is where the value comes from, not who it is about.** `sub` and `updated_at`
@@ -66,11 +67,28 @@ answering null for everybody.
 
 ## Who may read and write a claim
 
-**The ACL answers in two halves: what the person's consent unlocks, and what a client's own scopes
-unlock regardless of it.** The consent half names a scope and says, per party and per direction,
-whether agreeing to it opens the claim; the unconditional half names the client scopes that read or
-write the claim whatever the person agreed. `Claim` is where each question is a method, and nothing
-here restates a formula those methods already are.
+**A claim has one door per party and direction, and each is opened by a rule expression.** The flow
+collecting it, the person reading it, the person writing it, a client reading it and a client
+writing it are five doors, and the expression a deployment writes on one answers whether it is open
+to the caller in front of it. It is the language every other decision of its kind is written in —
+granting a scope, letting a client act as a person — so an ACL is not a vocabulary of its own, and a
+condition is a term of an expression rather than a key of its own: consent to a scope, a scope a
+rule granted, the client, how long ago the person authenticated, whether the token is bound to a
+key. A door no expression opens is shut, and [the design
+FAQ](design-faq.md#is-a-claims-acl-a-set-of-flags-or-an-expression-per-door) holds the options that
+lost.
+
+**The scope a door opens on is the door's.** Consent to a scope is a term of the door's own
+expression, so a claim's doors may name different scopes or none: a client authorized for `profile`
+reads a name, and writes it only where the person also agreed to `profile:write`. The administration
+API lists a claim under every scope one of its doors names, which is known when the configuration is
+read and asks nothing of a request.
+
+**A scope is asked by how it reached the credential.** A door may ask whether the person consented
+to a scope, or whether a rule granted one — a client's own scope on a `client_credentials` token, a
+grantable scope on a person's. Each reads its own half of [the scopes a credential
+carries](security.md#scopes), so a door opened to a granted scope is opened to what the deployment
+decided and never to what a client asked for.
 
 **The credential a party holds is half the question, and [the kind](#kinds) is the other half.** A
 door says what this caller was authorized to do; the kind says whether the value was ever theirs to
@@ -86,65 +104,71 @@ shipped configuration — and nothing at all about the person being there.
 
 #### A personal claim
 
-**Each door is named for itself, and no flag covers both.** The consent half says separately what
-the flow collects, what the person's token reads and what the person's token writes, so the word
-*person* on a flag always means the person holding their own access token and the flow is never
-one of them. It is the same distinction `ConsentAcl` draws in Kotlin, and the reason it is drawn
-at all: one flag spanning two doors is turned on for the near one and read by the far one.
+**Each door is named for itself, and none covers another.** What the flow collects, what the
+person's token reads and what the person's token writes are three doors, so the word *person* on a
+door always means the person holding their own access token and the flow is never one of them.
+`ClaimAcl` draws the same distinction in Kotlin, and the reason it is drawn at all: one permission
+spanning two doors is opened for the near one and read by the far one.
 
-**The flow collects what the consent half marks collected in the flow, and `/userinfo` answers what
-it marks readable by the person.** The read is consent alone, because that endpoint is not
-client-authenticated.
+**The flow collects what its door lets through, and `/userinfo` answers what the person's read door
+does.** The flow has no token behind it, so its door asks about consent and the client and nothing
+else: a function of the token written there would shut the door for every person forever, and is
+refused at startup instead. The rules grant their scopes at the end of the flow, after the claims
+step has collected, so a granted scope is outside the flow's door too.
 
-**The flow reads a person's claims back through the same flag it collects them through.** One door
+**The flow reads a person's claims back through the same door it collects them through.** One door
 is one permission in both directions, so the claims the flow offers, the values it shows back, the
 required ones it holds a person to and the address it sends a confirmation code to are all one
-read. A flow reading them through a client's permission instead would hold a person to a required
-set drawn from one flag and look for it collected under another: a claim a deployment collects and
+read. A flow reading them through a client's door instead would hold a person to a required set
+drawn from one door and look for it collected under another: a claim a deployment collects and
 discloses to no client would be asked for again on every pass, and the sign-in would never
 complete.
 
-**The person's own token writes through a permission of its own.** A claim it may write is marked
-separately from the one the flow collects and is off unless a deployment marks it; the surface that
-honours it is the user surface, which is designed and not yet built. Honouring the flow's flag
-instead would have made every profile claim writable through an API on the day of the upgrade, with
-nobody asked.
+**The person's own token writes through a door of its own.** It is shut unless a deployment opens
+it; the surface that honours it is the user surface, which is designed and not yet built. Honouring
+the flow's door instead would have made every profile claim writable through an API on the day of
+the upgrade, with nobody asked.
 
-**A write through that door may ask how recently the person authenticated.** A deployment marks a
-claim with the age an authentication may have behind a write, and a surface presented with an older
-one refuses with the challenge RFC 9470 defines, telling the client to re-authorize with `max_age`.
-A read is never challenged, and the flow's own write is presence by definition and is never
-challenged either. What a token says about when the person authenticated, and what the challenge
-carries, are [security's](security.md#when-the-person-authenticated).
+**A read narrows, and is never challenged.** A read is answered with the claims whose door is open
+and nothing about the others, so a claim whose door asks for an authentication younger than an hour
+is in the id token the code exchange mints and absent from the one a refresh mints a day later —
+[a refresh reissues `auth_time` unchanged](security.md#when-the-person-authenticated).
 
-**The age is refused where no access token may write the claim.** It qualifies that one permission
-and nothing else, so on a claim that door is shut for it would never be asked — and a key that
-cannot mean anything is refused at startup rather than accepted in silence, like every other one
-here.
+**A write the person's door refuses carries the challenge that would have satisfied it.** Every
+condition of the door's expression that a different token would have met and this one did not
+is answered with its own challenge: a scope the person did not consent to with RFC 6750's
+`insufficient_scope`, an authentication too old with RFC 9470's `insufficient_user_authentication`
+and `max_age`, an unbound token with RFC 9449's `DPoP` challenge. A client reads whichever it
+understands, re-authorizes, and retries. A refusal on which no challenge bears — a granted scope,
+the client, a literal — is refused by name, because there is nothing to re-authorize for. Under `||`
+both operands refused are both challenged, which over-reports; what the challenge carries is
+[security's](security.md#when-the-person-authenticated), and
+`ClaimAclManager.getPersonWriteChallenges` derives the set.
 
 #### An application claim
 
-**It is never the person's to write, through either door.** Neither the flag the flow reads nor the
-one the token reads may be set on it, so no flow ever asks somebody to type their credit score and
-no token ever sets one; a declaration doing so is refused at startup.
+**It is never the person's to write, through either door.** Neither the flow's door nor the person's
+write door may be opened on one, so no flow ever asks somebody to type their credit score and no
+token ever sets one; a declaration doing so is refused at startup. The literal `"false"` shuts a
+door a template opens, and is accepted for that.
 
 **The person reads one where the ACL says so.** Seeing one's own score is disclosure, and disclosure
-is the consent half's question whatever the value is.
+is the read door's question whatever the value is.
 
 ### A client
 
-**A client reads and writes by the person's consent or by its own scopes, and the two paths are the
-ACL's two halves.** The consent path answers a client the person agreed to disclose to; the
-unconditional path answers a client holding a scope of its own, `users:claims:read` or
-`users:claims:write`, whatever the person agreed. The shipped `application` template grants both
-unconditionally, which is what a claim a backend answers for needs; the shipped `personal` one
-grants the consent path alone and no client write.
+**A client reads and writes by the person's consent or by its own scopes, and the two are terms of
+one expression.** `SCOPE_IS_CONSENTED("profile") || SCOPE_IS_GRANTED("users:claims:read")` answers a
+client the person agreed to disclose to, and a client holding a scope of its own whatever the person
+agreed. The shipped `application` template opens both client doors to `users:claims:read` and
+`users:claims:write`, which is what a claim a backend answers for needs; the shipped `personal` one
+opens no door, since a door opens on a scope and the template names none, and each shipped claim
+opens its own.
 
-**The places a claim is published in do not gate alike.** `/userinfo` asks whether the person may
-read the claim, which is consent alone, because that endpoint is not client-authenticated; every
-other place asks whether the client may, which consent *or* the client's own unconditional scopes
-satisfy. A claim can therefore be permitted in one and refused in another before publication is
-asked at all — [which half each place asks](#where-a-claim-is-published) is its own.
+**The places a claim is published in do not ask the same door.** `/userinfo` asks the person's read
+door, because that endpoint is not client-authenticated; every other place asks the client's. A
+claim can therefore be permitted in one and refused in another before publication is asked at all —
+[which door each place asks](#where-a-claim-is-published) is its own.
 
 **Either way, a client write reaches no further than the deployment drew it.** For an application
 claim the deployment drew it wherever it put the claim; for a personal claim it is the client's own
@@ -152,20 +176,23 @@ audience, which is the isolation a deployment with several audiences wants, obta
 second population of accounts. Which of its audience's claims a client may name at all is [writing a
 claim](#writing-a-claim).
 
+**A client write refused is refused by name.** A client refused a claim it holds no scope for has
+nothing to retry with, so the client API carries no challenge.
+
 #### A personal claim
 
 **A client writes one only where it is restricted to the client's own audience.** A client of one
 audience setting `name` would be choosing what every other audience is told a person is called, over
 the person's head and with the person never asked; restricted to one audience, the value leaves this
 server to that audience alone, and the clients of an audience already trust each other with what it
-owns. A shared personal claim granting a client write is refused at startup, naming the claim and
-the key.
+owns. A shared personal claim whose client write door is opened by anything but the literal
+`"false"` is refused at startup, naming the claim and the key.
 
 **A claim is refused for a write it takes from its template as readily as for one it wrote.** The
 ACL the rule reads is the resolved one, so a deployment declaring `kind: personal` over the
-`application` template is told about the client scopes that came with it. The answer is the
-`personal` template, an empty list under the claim's own key, or an audience — and the refusal names
-the key each of those is written at.
+`application` template is told about the client write that came with it. The answer is the
+`personal` template, `"false"` under the claim's own key, or an audience — and the refusal names the
+key each of those is written at.
 
 **Reading one is the ordinary ACL question.** A client is told a personal claim of its audience by
 consent or by its own scopes like any other, so the restriction above is about the write alone.
@@ -289,14 +316,21 @@ deployment is told in the file it owns rather than by a client's error log once 
 come back. The two authorities on which refusals there are: `ClaimsConfigParser` holds the keys it
 cannot read or resolve, and `ClaimsConfigValidator` the values the rest of the claim contradicts.
 
+**An ACL expression is read when the configuration is, and what it names is held to the
+configuration beside it.** A scope or a duration is written as a literal, so the scope consent is
+asked for must be an enabled consentable one, the scope a rule is asked to have granted a grantable
+or a client one, and the age of an authentication more than zero; `ClaimAclValidator` holds each
+refusal, naming the key the expression was written under. Each door is held to it on the resolved
+ACL — a claim's own key over its template's — which is also where [the kind](#kinds) reads it.
+
 **A claim the deployment turned off is a shape of its own, not an absence.** It is a
 `DisabledClaim`: a claim this server knows about and does not serve, exactly as a disabled scope is
 in [security](security.md). Everything that collects, writes, reads or publishes a value takes an
-`EnabledClaim`, and `ClaimManager` hands out no other kind except to the one caller listing them all,
-so a claim that is off cannot reach any of those paths — the compiler refuses it, rather than each
-path remembering to filter it out. A path that once forgot is how a client came to write a claim
-the deployment had turned off, and how a value stored before a claim was turned off kept travelling
-in tokens afterwards.
+`EnabledClaim`, and `ClaimManager` hands out no other kind except to the one caller listing them
+all, so a claim that is off cannot reach any of those paths — the compiler refuses it, rather than
+each path remembering to filter it out. A path that once forgot is how a client came to write a
+claim the deployment had turned off, and how a value stored before a claim was turned off kept
+travelling in tokens afterwards.
 
 **A value stored for a claim that is now off is kept and not read.** The row is not deleted, because
 turning the claim back on is a configuration change and should not cost every account its value;
@@ -329,16 +363,18 @@ the type belongs to the claim, so the same line admits `42` under a `number` cla
 a `string` one — which is also why the values are converted once per type rather than once per
 claim.
 
-**The server ships one template per kind, named for it.** `personal` declares `kind: personal` and
-carries the consent flags a profile claim wants, the two OpenID channels and the discovery document;
-it grants no client write, because a claim of the person's restricted to no audience may not have
-one and this template names no audience. `application` declares `kind: application` and grants the
+**The server ships one template per kind, named for it.** `personal` declares `kind: personal`, the
+two OpenID channels and the discovery document, and opens no door: a door opens on a scope and the
+template names none, so each claim taking it opens its own under the scope it belongs to — three
+lines where a claim used to write one, paid on the claim because the claim is where a reader looks
+for who may know it. `application` declares `kind: application` and opens both client doors to the
 client scopes that read and write a claim whatever the person consented to, which is what a value a
 backend answers for needs and all it needs.
 
 **Every claim the specification defines names `personal`, and ships disabled.** A deployment turns
 on the ones its applications ask for rather than being served the whole set, so the `enabled` each
-of them carries is a value a deployment overrides one claim at a time.
+of them carries is a value a deployment overrides one claim at a time. Each opens the flow's door
+and both read doors on consent to the scope the specification groups it in.
 
 ## A value, and what is known about it
 
@@ -373,7 +409,7 @@ against [what the flow collects](#the-person), so a claim outside that set holds
 is what the account signs in with, so an account holding no value for one holds a row no login
 matches — which is not something a `required` key or a client's consent decides. The flow holds a
 person to it beside the required claims and never offers it at the claims step, so neither the set
-it offers nor the set it holds them to asks the flow's own flag about one. How a sign-up collects
+it offers nor the set it holds them to asks the flow's own door about one. How a sign-up collects
 them is [the identifier claims](identifier-claims.md#collecting-them-at-sign-up), and what is still
 open about an account that predates one being added to the set is
 [what that document does not settle](identifier-claims.md#what-this-document-does-not-settle).
@@ -398,12 +434,12 @@ each.
 **The four that carry a value each filter what they were handed, and the client, admin and user APIs
 are gated by the ACL alone** — so a claim naming no place is still read through those.
 
-**Which half of the ACL is asked is the place's question, and for three of the four it is the
-client's.** An id token and an access token are issued to a client and an introspection response is
-answered to one, so each asks whether the client may read the claim, which consent *or* the client's
-own unconditional scopes satisfy. `/userinfo` asks whether the person may, which is consent alone,
-because that endpoint is not client-authenticated. A claim can therefore be permitted in one and
-refused in another before publication is asked at all, and
+**Which door of the ACL is asked is the place's question, and for three of the four it is the
+client's read door.** An id token and an access token are issued to a client and an introspection
+response is answered to one, so each asks whether the client may read the claim. `/userinfo` asks
+whether the person may, because that endpoint is not client-authenticated. An id token is bound to
+nothing itself, so its door is asked about the access token issued beside it. A claim can therefore
+be permitted in one and refused in another before publication is asked at all, and
 `ConsentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn` is the read the
 first three make.
 
