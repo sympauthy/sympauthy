@@ -305,13 +305,65 @@ space it is good in, and the realm names the server. The `Basic` challenge of [a
 to authenticate](#the-protocol-surfaces) names its surface, because client credentials are accepted
 on that one and nowhere else.
 
-**The `403` names no scope.** RFC 6750 §3.1 allows `insufficient_scope` to say which scope the route
-requires, and the refusal is the framework's, raised from a `@Secured` annotation: what answers it
-is not told which rule of the route the token failed. The operation's published `403` names it.
+**`insufficient_scope` names the scope where the refusal knows it.** RFC 6750 §3.1 lets it say
+which scope the request requires, space-separated in a `scope` parameter. The framework's `403`
+names none: it is raised from a `@Secured` annotation, and what answers it is not told which rule of
+the route the token failed, so the operation's published `403` names the scope instead. A refusal
+this server decides itself knows the scope, and names it.
+
+**One description of a challenge, and one rendering of it.** What a refusal asks of the client is
+decided where the refusal is decided, as a list of challenges — each an error and its parameters —
+and written into the header in one place, together with the realm, both schemes and the `algs`. A
+refused token, the framework's `403` and a refused claim write are therefore never written two ways
+for one error, and a challenge added later is written once.
 
 **A page in a browser is told what a server-side client is told.** A response to another origin
 shows a page only the headers it lists, so every surface challenging a token lists
 `WWW-Authenticate` among the ones [it exposes](../standards/api-standard.md#cors).
+
+#### A refusal carrying several challenges
+
+**Every condition the token did not meet is a challenge of its own, under the scheme the token came
+under.** RFC 6750 §3 gives a challenge one `error`, and RFC 9110 §11.6.1 lets a response carry more
+than one challenge, so a refusal owing several errors repeats the scheme once for each. A bearer
+token refused [a claim write](claims.md#the-person) for a scope the person did not consent to and
+for an authentication too old is answered:
+
+```http
+WWW-Authenticate: Bearer realm="sympauthy", error="insufficient_scope", scope="profile:write",
+  Bearer realm="sympauthy", error="insufficient_user_authentication",
+  error_description="A more recent authentication is required", max_age="300",
+  DPoP realm="sympauthy", algs="…"
+```
+
+**The challenges come in a fixed order: the scope, the age, the binding.** A client reading every
+challenge re-authorizes once for all of them — a redirect naming the scopes and `max_age`, with a
+DPoP key. The order is for a client reading only the first challenge of a scheme, which is then told
+the condition the person has to be asked about.
+
+**A token that is not bound to a key is challenged on the `DPoP` challenge, with `invalid_token`.**
+RFC 9449 defines no error for a token that should have been bound, and its §7.1 answers a token
+whose binding does not hold with `invalid_token` on the `DPoP` challenge; that is the challenge a
+client answers with a bound token. It carries `error_description="A token bound to a key is
+required"`, so a client tells it from a token that does not validate. It is the one error not
+carried by the scheme the token came under: the condition is met under the other scheme alone, and
+an unbound token never arrives under `DPoP`, since it is [refused there
+already](#a-token-bound-to-a-key).
+
+**The status is `403` where `insufficient_scope` is the only challenge, and `401` otherwise.** RFC
+6750 §3.1 answers `insufficient_scope` with `403`, and RFC 9470 §3 and RFC 9449 §7.1 answer theirs
+with `401`. A refusal any other challenge is owed is one the same request succeeds at with a
+different token, which is what `401` says, and it carries the challenge RFC 9110 §15.5.2 requires
+of a `401`.
+
+**The body names the first challenge.** The [API standard's
+body](../standards/api-standard.md#errors) carries one code, so a refusal owing several names the
+first in the order above — `forbidden` for a scope,
+`authentication.insufficient_user_authentication` for an age, `authentication.unbound_token` for a
+binding — and a client reading bodies learns the step it would read first in the header. [The
+design
+FAQ](design-faq.md#is-a-refusal-owing-several-challenges-answered-with-one-or-with-all-of-them)
+argues the single challenge that lost.
 
 ### When the person authenticated
 

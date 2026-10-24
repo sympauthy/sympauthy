@@ -13,7 +13,8 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
@@ -66,7 +67,7 @@ class AccessTokenValidator(
         val decodedToken = try {
             jwtManager.decodeAndVerify(ACCESS_KEY, token)
         } catch (e: InvalidJwtException) {
-            throw e.toAccessTokenChallengeException(UNAUTHORIZED, scheme, INVALID_TOKEN)
+            throw e.toAccessTokenChallengeException(scheme, listOf(InvalidToken))
         }
 
         val authenticationToken = try {
@@ -85,8 +86,8 @@ class AccessTokenValidator(
         } catch (e: OAuth2Exception) {
             // The managers name a refusal as the token endpoint answers it — `invalid_grant` for a revoked grant —
             // and a resource answers every one of them but a refused proof with `invalid_token`.
-            val error = if (e.errorCode == INVALID_DPOP_PROOF) INVALID_DPOP_PROOF else INVALID_TOKEN
-            throw e.toAccessTokenChallengeException(UNAUTHORIZED, scheme, error)
+            val challenge = if (e.errorCode == INVALID_DPOP_PROOF) InvalidDpopProof else InvalidToken
+            throw e.toAccessTokenChallengeException(scheme, listOf(challenge))
         }
 
         // A grant does not outlive its client, and is refused rather than revoked. See `docs/design/grants.md`.
@@ -97,7 +98,7 @@ class AccessTokenValidator(
                 "grant.client_disabled",
                 "description.grant.client_disabled",
                 "clientId" to grant.clientId
-            ).toAccessTokenChallengeException(scheme, INVALID_TOKEN)
+            ).toAccessTokenChallengeException(scheme, listOf(InvalidToken))
 
         val authentication = if (grant.userId != null) {
             val consentedScopes = grant.consentedScopes.mapNotNull {

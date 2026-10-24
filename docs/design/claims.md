@@ -143,11 +143,12 @@ is in the id token the code exchange mints and absent from the one a refresh min
 condition that can open the door, that a different token would have met and this one did not, is
 answered with its own challenge: a scope the person did not consent to with RFC 6750's
 `insufficient_scope`, an authentication too old with RFC 9470's `insufficient_user_authentication`
-and `max_age`, an unbound token with RFC 9449's `DPoP` challenge. A client reads whichever it
-understands, re-authorizes, and retries. A refusal on which no challenge bears — a granted scope,
-the client, a literal — is refused by name, because there is nothing to re-authorize for. Under `||`
-both operands refused are both challenged, which over-reports; what the challenge carries is
-[security's](security.md#when-the-person-authenticated), and
+and `max_age`, an unbound token with `invalid_token` on RFC 9449's `DPoP` challenge. A client reads
+whichever it understands, re-authorizes, and retries. A refusal on which no challenge bears — a
+granted scope, the client, a literal — is refused by name, because there is nothing to re-authorize
+for. Under `||` both operands refused are both challenged, which over-reports; how the challenges
+are written into one response is
+[security's](security.md#a-refusal-carrying-several-challenges), and
 `ClaimAclManager.getPersonWriteChallenges` derives the set.
 
 #### An application claim

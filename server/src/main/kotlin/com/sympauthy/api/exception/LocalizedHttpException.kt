@@ -49,8 +49,8 @@ open class LocalizedHttpException(
      * `Allow` list of the methods a route answers.
      *
      * They are a property of the failure rather than something the handler assembles, because what a
-     * header says is particular to the rule that refused: the age [InsufficientUserAuthenticationException]
-     * demands is read off the claim being written, and no handler holds it.
+     * header says is particular to the rule that refused: the age an [AccessTokenChallengeException] demands
+     * is read off the claim being written, and no handler holds it.
      */
     open val headers: Map<String, String> get() = emptyMap()
 }

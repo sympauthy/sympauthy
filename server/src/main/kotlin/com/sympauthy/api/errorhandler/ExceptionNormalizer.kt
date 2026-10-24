@@ -7,7 +7,7 @@ import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.api.exception.toHttpException
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
+import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.security.accessTokenSchemeOrNull
 import io.micronaut.core.bind.annotation.Bindable
@@ -89,7 +89,7 @@ class ExceptionNormalizer {
     private fun toException(exception: AuthorizationException): LocalizedHttpException {
         val authentication = exception.authentication
         if (authentication == null || !exception.isForbidden) {
-            return unauthorized().toAccessTokenChallengeException(scheme = null, error = null)
+            return unauthorized().toAccessTokenChallengeException(scheme = null, challenges = emptyList())
         }
         val forbidden = httpExceptionOf(
             status = FORBIDDEN,
@@ -97,7 +97,7 @@ class ExceptionNormalizer {
             descriptionId = "description.forbidden"
         )
         val scheme = authentication.accessTokenSchemeOrNull ?: return forbidden
-        return forbidden.toAccessTokenChallengeException(scheme, INSUFFICIENT_SCOPE)
+        return forbidden.toAccessTokenChallengeException(scheme, listOf(InsufficientScope(scopes = emptyList())))
     }
 
     private fun unauthorized() = recoverableHttpExceptionOf(

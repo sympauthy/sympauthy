@@ -255,6 +255,37 @@ and by its second factor where one is enrolled.
 
 ---
 
+### Is a refusal owing several challenges answered with one, or with all of them?
+
+**Decision:** With all of them, one challenge per error, repeated under the scheme the token came
+under, in a fixed order — the scope, the age, the binding.
+[Security](security.md#a-refusal-carrying-several-challenges) holds the rule.
+
+**Options considered:**
+
+- **Every challenge, the scheme repeated for each.**
+- **One challenge, the first in a fixed priority**, the others left for the retry to discover.
+- **One challenge per scheme carrying every error**, as a list in `error`.
+
+**Rationale:**
+
+The third is not available: RFC 6750 §3 gives `error` a single code, and a client parsing it as one
+would match none of them.
+
+The second is what a client reading only the first challenge of a scheme gets from the first anyway,
+and it costs every other client a round trip per condition: told to re-authenticate, it comes back
+with a fresh authentication, is refused for the binding, and goes through the redirect a second time
+for what one redirect would have obtained. It is also the under-reporting [the ACL's
+expression](#is-a-claims-acl-a-set-of-flags-or-an-expression-per-door) rejected when it chose to
+report every term that failed; writing one challenge would throw away at the header what the manager
+was built to derive.
+
+Repeating a scheme is allowed by RFC 9110 §11.6.1 and is rare in practice, so a client library may
+read the first `Bearer` challenge and ignore the next. The fixed order is what makes that client
+correct as far as it goes.
+
+---
+
 ### Should a configuration that makes a large token be refused?
 
 **Decision:** No. What an audience publishes is what the token carries, for an id token and for an
