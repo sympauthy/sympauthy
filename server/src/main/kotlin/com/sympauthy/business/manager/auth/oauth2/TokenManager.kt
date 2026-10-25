@@ -9,6 +9,7 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.auth.ActorGrantValidator
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -26,6 +27,7 @@ import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -41,6 +43,7 @@ open class TokenManager(
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
+    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val consentManager: ConsentManager,
     @Inject private val userManager: UserManager,
     @Inject private val actorGrantValidator: ActorGrantValidator,
@@ -148,11 +151,13 @@ open class TokenManager(
         client: Client,
         dpopJkt: String?
     ): GenerateTokenResult = coroutineScope {
+        // Built once for the response: the id token is told what the access token beside it may be told.
+        val doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, client, dpopJkt))
         val deferredAccessToken = async {
             accessTokenGenerator.generateAccessToken(
                 grant = grant,
-                client = client,
                 audience = client.audience,
+                doors = doors,
                 dpopJkt = dpopJkt
             )
         }
@@ -170,10 +175,9 @@ open class TokenManager(
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
                 grant = grant,
-                client = client,
                 audience = client.audience,
                 accessToken = accessToken,
-                dpopJkt = dpopJkt,
+                doors = doors,
                 nonce = nonce
             )
         }
@@ -200,8 +204,8 @@ open class TokenManager(
         val grant = grantManager.createClientCredentialsGrant(client.id, client.audience.id, clientScopes)
         return accessTokenGenerator.generateAccessToken(
             grant = grant,
-            client = client,
             audience = client.audience,
+            doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, client, dpopJkt)),
             dpopJkt = dpopJkt
         )
     }
@@ -281,11 +285,12 @@ open class TokenManager(
 
         // Use the DPoP jkt from the proof, or carry forward the existing binding
         val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
+        val doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, client, effectiveDpopJkt))
 
         val accessToken = accessTokenGenerator.generateAccessToken(
             grant = grant,
-            client = client,
             audience = client.audience,
+            doors = doors,
             grantType = GrantType.REFRESH_TOKEN,
             dpopJkt = effectiveDpopJkt
         )
@@ -303,10 +308,9 @@ open class TokenManager(
         // answer it differently.
         val idToken = idTokenGenerator.generateIdToken(
             grant = grant,
-            client = client,
             audience = client.audience,
             accessToken = accessToken,
-            dpopJkt = effectiveDpopJkt,
+            doors = doors,
             grantType = GrantType.REFRESH_TOKEN
         )
 

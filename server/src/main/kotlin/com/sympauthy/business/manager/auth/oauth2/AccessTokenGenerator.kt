@@ -4,13 +4,13 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.publishedMembers
@@ -48,8 +48,9 @@ class AccessTokenGenerator(
      * opened the [grant], unless a refresh issues it.
      *
      * [audience] is the one the token is issued for: it names the token's own `aud`, and a claim
-     * restricted to another audience is left out. [client] is the one the token is issued to, which a claim's
-     * ACL may ask about; it is not always of [audience].
+     * restricted to another audience is left out. [doors] are the ones this token comes through: built in
+     * [ClaimAclContext.of] the [grant], the client the token is issued to — which is not always of [audience] —
+     * and [dpopJkt], and a claim is carried where the client's read door of it is open.
      *
      * The token states everything about its authorization off the [grant]: the subject — the person, or the
      * client where the grant has none — the scopes, the `auth_time` of the person's authentication, and,
@@ -64,15 +65,15 @@ class AccessTokenGenerator(
      */
     suspend fun generateAccessToken(
         grant: Grant,
-        client: Client,
         audience: Audience,
+        doors: ClaimAclTokenDoors,
         grantType: GrantType = grant.grantType,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
         val authConfig = uncheckedAuthConfig.orThrow()
         val tokenAudience = audience.tokenAudience
 
-        val publishedClaims = publishedClaimsOf(grant, client, audience.id, dpopJkt)
+        val publishedClaims = publishedClaimsOf(grant, audience.id, doors)
 
         val issueDate = LocalDateTime.now()
         val expirationDate = grant.getTokenExpirationDate(issueDate.plus(authConfig.token.accessExpiration))
@@ -117,24 +118,23 @@ class AccessTokenGenerator(
 
     /**
      * The claims of the person the [grant] was opened for that a token under it carries: the ones a client
-     * presenting the token being issued to [client], bound where [dpopJkt] is set, may read, of the audience
-     * identified by [audienceId], that the deployment publishes in the access token.
+     * may read through [doors], of the audience identified by [audienceId], that the deployment publishes in
+     * the access token.
      *
      * Empty for a grant no person is behind, and therefore one with no claims to read for anybody — a
      * `client_credentials` grant is the case.
      */
     private suspend fun publishedClaimsOf(
         grant: Grant,
-        client: Client,
         audienceId: String,
-        dpopJkt: String?
+        doors: ClaimAclTokenDoors
     ): List<CollectedClaim> {
         val userId = grant.userId ?: return emptyList()
         return consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
             userId = userId,
             audienceId = audienceId,
             place = ClaimPublicationPlace.ACCESS_TOKEN,
-            context = ClaimAclContext.of(grant, client, dpopJkt)
+            doors = doors
         )
     }
 }

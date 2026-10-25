@@ -11,6 +11,7 @@ import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRI
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.resource.oauth2.IntrospectionResource
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
@@ -37,6 +38,7 @@ import java.time.ZoneOffset
 @Controller(OAUTH2_INTROSPECTION_ENDPOINT)
 class IntrospectionController(
     @Inject private val tokenManager: TokenManager,
+    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
     @Inject private val uncheckedAuthConfig: AuthConfig
@@ -134,7 +136,7 @@ class IntrospectionController(
             userId = userId,
             audienceId = client.audience.id,
             place = ClaimPublicationPlace.INTROSPECTION,
-            context = ClaimAclContext.of(grant, client, authenticationToken.dpopJkt)
+            doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, client, authenticationToken.dpopJkt))
         )
         return claims.publishedMembers(reserved = IntrospectionResource.DECLARED_MEMBERS)
     }

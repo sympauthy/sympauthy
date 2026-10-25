@@ -143,7 +143,7 @@ class AdminInvitationControllerTest {
                 expiresAt = LocalDateTime.of(2026, 12, 1, 0, 0),
                 createdBy = InvitationCreatedBy.ADMIN,
                 createdById = null,
-                context = null
+                doors = null
             )
         } returns (invitation to "raw-token")
         every { invitationMapper.toCreatedResource(invitation, "raw-token") } returns resource

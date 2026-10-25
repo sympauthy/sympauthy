@@ -24,6 +24,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.parseInvitationExpiresAt
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_READ
@@ -48,6 +49,7 @@ import java.util.*
 @Controller("/api/v1/client/invitations")
 class ClientInvitationController(
     @Inject private val invitationManager: InvitationManager,
+    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val invitationCollectionManager: InvitationCollectionManager,
     @Inject private val invitationMapper: ClientInvitationResourceMapper,
     @Inject private val paginationUtil: PaginationUtil
@@ -117,7 +119,7 @@ class ClientInvitationController(
             expiresAt = expiresAt,
             createdBy = InvitationCreatedBy.CLIENT,
             createdById = client.id,
-            context = clientAuth.claimAclContext(consentedScopes = emptyList()),
+            doors = claimAclManager.getTokenDoors(clientAuth.claimAclContext(consentedScopes = emptyList())),
         )
         return invitationMapper.toCreatedResource(invitation, rawToken)
     }

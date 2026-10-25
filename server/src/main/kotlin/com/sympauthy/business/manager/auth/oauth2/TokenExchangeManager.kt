@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
@@ -16,6 +17,7 @@ import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
+import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.config.model.AudiencesConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.transaction.annotation.Transactional
@@ -37,6 +39,7 @@ open class TokenExchangeManager(
     @Inject private val tokenManager: TokenManager,
     @Inject private val grantManager: GrantManager,
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
+    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val userManager: UserManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val actAsRuleManager: ActAsRuleManager,
@@ -101,8 +104,8 @@ open class TokenExchangeManager(
         )
         return accessTokenGenerator.generateAccessToken(
             grant = grant,
-            client = actingClient,
             audience = targetAudience,
+            doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, actingClient, dpopJkt)),
             dpopJkt = dpopJkt
         )
     }

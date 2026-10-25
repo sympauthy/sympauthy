@@ -5,15 +5,14 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
@@ -63,6 +62,9 @@ class AccessTokenGeneratorTest {
     lateinit var generator: AccessTokenGenerator
 
     private val readAudienceId = slot<String>()
+
+    /** The doors the token being issued comes through. */
+    private val doors = mockk<ClaimAclTokenDoors>()
 
     @Test
     fun `generateAccessToken - EnabledClaim the values the deployment publishes in the access token`() = runTest {
@@ -120,9 +122,9 @@ class AccessTokenGeneratorTest {
         val builder = stubGeneration()
 
         generator.generateAccessToken(
-            client = CLIENT,
             grant = grant(userId = null, grantType = GrantType.CLIENT_CREDENTIALS, clientScopes = listOf("users:read")),
             audience = audience(),
+            doors = doors,
             grantType = GrantType.CLIENT_CREDENTIALS
         )
 
@@ -139,9 +141,9 @@ class AccessTokenGeneratorTest {
         val builder = stubGeneration()
 
         generator.generateAccessToken(
-            client = CLIENT,
             grant = grant(userId = null, grantType = GrantType.TOKEN_EXCHANGE, actorGrantId = UUID.randomUUID()),
             audience = audience(),
+            doors = doors,
             grantType = GrantType.TOKEN_EXCHANGE
         )
 
@@ -155,9 +157,9 @@ class AccessTokenGeneratorTest {
         val builder = stubGeneration(saved = saved)
 
         generator.generateAccessToken(
-            client = CLIENT,
             grant = grant(userId = null, expirationDate = grantExpirationDate),
             audience = audience(),
+            doors = doors,
             grantType = GrantType.REFRESH_TOKEN
         )
 
@@ -209,9 +211,9 @@ class AccessTokenGeneratorTest {
         val builder = stubGeneration(userId, claims.toList())
 
         generator.generateAccessToken(
-            client = CLIENT,
             grant = grant(userId = userId, consentedScopes = listOf(CONSENTED_SCOPE)),
             audience = audience(),
+            doors = doors,
             grantType = GrantType.AUTHORIZATION_CODE
         )
 
@@ -262,13 +264,7 @@ class AccessTokenGeneratorTest {
             coEvery {
                 consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
                     it, capture(readAudienceId), ClaimPublicationPlace.ACCESS_TOKEN,
-                    ClaimAclContext(
-                        client = CLIENT,
-                        consentedScopes = listOf(CONSENTED_SCOPE),
-                        grantedScopes = emptyList(),
-                        authenticationDate = null,
-                        bound = false
-                    )
+                    doors
                 )
             } returns claims
         }
@@ -288,8 +284,5 @@ class AccessTokenGeneratorTest {
         const val AUDIENCE_ID = "storefront"
         const val TOKEN_AUDIENCE = "https://api.example.com"
         const val CONSENTED_SCOPE = "profile"
-
-        /** The client every token here is issued to, which nothing but the ACL reads. */
-        val CLIENT = mockk<Client>()
     }
 }

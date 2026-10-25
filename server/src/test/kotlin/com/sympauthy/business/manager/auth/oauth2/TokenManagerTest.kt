@@ -7,6 +7,7 @@ import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.auth.ActorGrantValidator
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.consent.ConsentManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
@@ -29,6 +30,8 @@ import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
@@ -44,6 +47,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -69,6 +73,9 @@ class TokenManagerTest {
 
     @MockK
     lateinit var idTokenGenerator: IdTokenGenerator
+
+    @MockK
+    lateinit var claimAclManager: ClaimAclManager
 
     @MockK
     lateinit var consentManager: ConsentManager
@@ -203,6 +210,22 @@ class TokenManagerTest {
         coEvery { authorizationCodeManager.fetchGrant(code) } returns grant
     }
 
+    /** The doors every token of one response comes through. */
+    private val doors = mockk<ClaimAclTokenDoors>()
+
+    /**
+     * Stubs the doors of a token issued under [grant] to [client], bound where [dpopJkt] is set, as [doors]: a
+     * generator handed any other set was handed doors the response did not build for it.
+     */
+    private fun stubDoors(grant: Grant, client: Client, dpopJkt: String?) {
+        every { grant.consentedScopes } returns emptyList()
+        every { grant.grantedScopes } returns emptyList()
+        every { grant.clientScopes } returns emptyList()
+        every { grant.authenticationDate } returns null
+        val context = ClaimAclContext.of(grant, client, dpopJkt)
+        every { claimAclManager.getTokenDoors(context, any()) } returns doors
+    }
+
     private fun mockGrant(
         revoked: Boolean = false,
         expired: Boolean = false,
@@ -242,8 +265,9 @@ class TokenManagerTest {
 
         stubExchangeableCode(code, userId, grant)
         coEvery { authorizationCodeManager.markExchanged(code) } returns true
+        stubDoors(grant, client, null)
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.AUTHORIZATION_CODE, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.AUTHORIZATION_CODE, null)
         } returns accessToken
         coEvery {
             refreshTokenGenerator.generateRefreshToken(grant, audience, GrantType.AUTHORIZATION_CODE, null)
@@ -251,10 +275,9 @@ class TokenManagerTest {
         coEvery {
             idTokenGenerator.generateIdToken(
                 grant,
-                client,
                 match { it.id == "test-audience" },
                 accessToken,
-                null,
+                doors,
                 GrantType.AUTHORIZATION_CODE,
                 "nonce"
             )
@@ -265,11 +288,12 @@ class TokenManagerTest {
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)
         assertSame(idToken, result.idToken)
+        verify(exactly = 1) { claimAclManager.getTokenDoors(any(), any()) }
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
             authorizationCodeManager.fetchGrant(code)
             authorizationCodeManager.markExchanged(code)
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.AUTHORIZATION_CODE, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.AUTHORIZATION_CODE, null)
         }
     }
 
@@ -376,8 +400,9 @@ class TokenManagerTest {
         coEvery {
             grantManager.createClientCredentialsGrant("client", "audience", listOf("scope"))
         } returns grant
+        stubDoors(grant, client, "jkt")
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.CLIENT_CREDENTIALS, "jkt")
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.CLIENT_CREDENTIALS, "jkt")
         } returns accessToken
 
         assertSame(accessToken, tokenManager.generateAccessTokenForClient(client, listOf("scope"), "jkt"))
@@ -504,8 +529,9 @@ class TokenManagerTest {
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
+        stubDoors(grant, client, null)
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns true
         coEvery {
@@ -513,7 +539,7 @@ class TokenManagerTest {
         } returns refreshedRefreshToken
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -537,13 +563,14 @@ class TokenManagerTest {
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
+        stubDoors(grant, client, null)
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -565,13 +592,14 @@ class TokenManagerTest {
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        stubDoors(grant, client, "jkt")
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, "jkt")
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, "jkt")
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, client, match { it.id == "test-audience" }, accessToken, "jkt", GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -611,13 +639,14 @@ class TokenManagerTest {
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        stubDoors(grant, client, null)
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -642,13 +671,14 @@ class TokenManagerTest {
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coJustRun { userManager.checkPromoted(userId) }
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
+        stubDoors(grant, client, null)
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, client, audience, GrantType.REFRESH_TOKEN, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, null)
         } returns accessToken
         every { tokenManager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, client, match { it.id == "test-audience" }, accessToken, null, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
             )
         } returns idToken
 

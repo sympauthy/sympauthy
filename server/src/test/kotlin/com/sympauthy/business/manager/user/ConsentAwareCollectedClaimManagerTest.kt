@@ -151,7 +151,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, context(listOf(scope1)))
+        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, doors(listOf(scope1)))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -174,7 +174,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedStandard, collectedCustom)
 
-        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, context(listOf(scope1)))
+        val result = manager.findByUserIdAndReadableByPerson(userId, AUDIENCE, doors(listOf(scope1)))
 
         assertEquals(1, result.count())
         assertSame(collectedStandard, result[0])
@@ -221,7 +221,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
 
-        val result = manager.findByUserIdAndReadableByPerson(userId, "storefront", context(listOf(scope)))
+        val result = manager.findByUserIdAndReadableByPerson(userId, "storefront", doors(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
@@ -246,7 +246,7 @@ class ConsentAwareCollectedClaimManagerTest {
                     listOf(collectedCarried, collectedWithheld)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, context(listOf(scope))
+                userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, doors(listOf(scope))
             )
 
             assertEquals(1, result.count())
@@ -265,7 +265,7 @@ class ConsentAwareCollectedClaimManagerTest {
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedRefused)
 
         val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-            userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, context(emptyList())
+            userId, AUDIENCE, ClaimPublicationPlace.ACCESS_TOKEN, doors(emptyList())
         )
 
         assertTrue(result.isEmpty())
@@ -289,7 +289,7 @@ class ConsentAwareCollectedClaimManagerTest {
             coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, context(listOf(scope)),
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, doors(listOf(scope)),
                 requestedClaims = RequestedClaims(
                     idTokenClaimIds = setOf(onRequest.id),
                     userInfoClaimIds = emptySet()
@@ -317,7 +317,7 @@ class ConsentAwareCollectedClaimManagerTest {
             coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, context(emptyList()),
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, doors(emptyList()),
                 requestedClaims = RequestedClaims(
                     idTokenClaimIds = setOf(onRequest.id),
                     userInfoClaimIds = emptySet()
@@ -346,7 +346,7 @@ class ConsentAwareCollectedClaimManagerTest {
             coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedOnRequest)
 
             val result = manager.findByUserIdAndReadableByClientAndPublishedIn(
-                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, context(listOf(scope)),
+                userId, AUDIENCE, ClaimPublicationPlace.ID_TOKEN, doors(listOf(scope)),
                 requestedClaims = RequestedClaims(
                     idTokenClaimIds = setOf(onRequest.id),
                     userInfoClaimIds = emptySet()
