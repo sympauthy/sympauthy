@@ -40,7 +40,7 @@ class ClaimAclManager {
      */
     fun getFlowDoors(client: Client, consentedScopes: List<String>): ClaimAclFlowDoors {
         val configuration = ClaimAclExpressions.flowConfiguration(client, consentedScopes)
-        return ClaimAclFlowDoors { door -> isOpen(door, configuration) }
+        return ClaimAclFlowDoors { door -> evaluate(door, configuration) }
     }
 
     /**
@@ -49,7 +49,7 @@ class ClaimAclManager {
      */
     fun getTokenDoors(context: ClaimAclContext, now: LocalDateTime = LocalDateTime.now()): ClaimAclTokenDoors {
         val configuration = ClaimAclExpressions.tokenConfiguration(context, now)
-        return ClaimAclTokenDoors { door -> isOpen(door, configuration) }
+        return ClaimAclTokenDoors { door -> evaluate(door, configuration) }
     }
 
     /**
@@ -88,10 +88,9 @@ class ClaimAclManager {
 }
 
 /**
- * Return true if [door] is open under [configuration]: a door no expression opens is shut.
+ * Return true if [door] opens under [configuration].
  */
-private fun isOpen(door: ClaimAclExpression?, configuration: ExpressionConfiguration): Boolean {
-    door ?: return false
+private fun evaluate(door: ClaimAclExpression, configuration: ExpressionConfiguration): Boolean {
     return try {
         evaluateRuleExpression(door.expression, configuration)
     } catch (e: InvalidRuleExpressionException) {

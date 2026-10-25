@@ -13,7 +13,8 @@ authentications, scopes and gates every rule here is enforced through are [secur
 
 `Claim`, with the `ClaimAcl` it carries, is what a declaration is parsed into, and `EnabledClaim` is
 the half of it this server serves. `ClaimAclManager` evaluates a door of the ACL in the
-`ClaimAclContext` of a read or a write, and its KDoc is the authority on what each door asks. A
+`ClaimAclContext` of a read or a write, into the `ClaimAclTokenDoors` a token comes through or the
+`ClaimAclFlowDoors` of a flow, and the KDoc of those two is the authority on what each door asks. A
 value collected for an account is a `CollectedClaim`, and `ConsentAwareCollectedClaimManager` is the
 read and the write that apply the ACL to one.
 
