@@ -2,7 +2,6 @@ package com.sympauthy.business.manager
 
 import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -24,9 +23,6 @@ class GeneratedClaimsManagerTest {
     lateinit var claimManager: ClaimManager
 
     @MockK
-    lateinit var claimAclManager: ClaimAclManager
-
-    @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository
 
     @InjectMockKs
@@ -36,20 +32,18 @@ class GeneratedClaimsManagerTest {
 
     private val user = mockk<User> { every { id } returns userId }
 
-    private val context = mockk<ClaimAclContext>()
-
     @Test
     fun `computeValuesReadableByClient - Leave out a generated claim whose client read door is shut`() = runTest {
         val subject = generatedClaim(OpenIdConnectClaimId.SUB)
         val updatedAt = generatedClaim(OpenIdConnectClaimId.UPDATED_AT)
         every { claimManager.listEnabledClaims() } returns listOf(subject, updatedAt)
-        every { claimAclManager.getTokenDoors(context, any()) } returns mockk {
+        val doors = mockk<ClaimAclManager.TokenDoors> {
             every { canBeReadByClient(subject) } returns true
             every { canBeReadByClient(updatedAt) } returns false
         }
 
         // The repository is left unstubbed: reaching the assertion is proof `updated_at` was not computed.
-        val result = manager.computeValuesReadableByClient(user, context)
+        val result = manager.computeValuesReadableByClient(user, doors)
 
         assertEquals(mapOf<String, Any?>(OpenIdConnectClaimId.SUB to userId.toString()), result)
     }

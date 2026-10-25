@@ -64,19 +64,21 @@ open class ConsentAwareCollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
-     * by a client in [context].
+     * by a client through [doors].
      *
      * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
      * claim restricted to none is answered whatever the audience. It is not optional, because the consented
-     * scopes of the [context] are not: consent is recorded per audience, so scopes a person consented to are
-     * always some audience's and the caller holding them knows which.
+     * scopes the [doors] were built in are not: consent is recorded per audience, so scopes a person consented
+     * to are always some audience's and the caller holding them knows which.
+     *
+     * [doors] are the ones the whole read is answered through, so a caller answering more than this list
+     * builds them once and passes the same ones to every part of the answer.
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
         audienceId: String,
-        context: ClaimAclContext
+        doors: ClaimAclManager.TokenDoors
     ): List<CollectedClaim> {
-        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim.belongsToAudience(audienceId) && doors.canBeReadByClient(it.claim)
         }
@@ -112,7 +114,7 @@ open class ConsentAwareCollectedClaimManager(
         return findByUserIdAndReadableByClient(
             userId = userId,
             audienceId = audienceId,
-            context = context
+            doors = claimAclManager.getTokenDoors(context)
         ).filter { it.claim.isPublishedIn(place, requestedClaims) }
     }
 
@@ -254,10 +256,13 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Update the claims collected for the [user] on behalf of a client of the [audience].
      *
-     * Only claims of that audience and writable by a client in [context] are applied. Updates
+     * Only claims of that audience and writable by a client through [doors] are applied. Updates
      * targeting any other claim are silently ignored.
      * Returns all claims of that audience readable by the client presenting it, which is not the same set:
      * a claim the client may write and may not read is applied and left out of the answer.
+     *
+     * [doors] are the ones the whole write is answered through, so a caller refusing a claim on them before
+     * writing, or answering more than this list, passes the same ones it asked.
      *
      * A claim restricted to another audience is neither written nor answered. The restriction is not a read
      * rule that a write may step around: a client told nothing about a claim must not be able to set it
@@ -274,10 +279,9 @@ open class ConsentAwareCollectedClaimManager(
         user: User,
         audience: Audience,
         updates: List<CollectedClaimUpdate>,
-        context: ClaimAclContext
+        doors: ClaimAclManager.TokenDoors
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
-        val doors = claimAclManager.getTokenDoors(context)
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
                 it.claim.belongsToAudience(audience.id) &&

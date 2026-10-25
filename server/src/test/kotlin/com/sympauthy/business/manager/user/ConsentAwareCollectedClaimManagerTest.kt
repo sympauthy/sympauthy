@@ -71,6 +71,9 @@ class ConsentAwareCollectedClaimManagerTest {
         bound = false
     )
 
+    /** The doors a token of the [client] comes through, for a person who consented to [consentedScopes]. */
+    private fun doors(consentedScopes: List<String>) = claimAclManager.getTokenDoors(context(consentedScopes))
+
     private companion object {
         const val AUDIENCE = "test-audience"
     }
@@ -195,7 +198,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedClaim1, collectedClaim2)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, AUDIENCE, context(listOf(scope1)))
+        val result = manager.findByUserIdAndReadableByClient(userId, AUDIENCE, doors(listOf(scope1)))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -370,7 +373,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedShared, collectedBilling)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, "storefront", context(listOf(scope)))
+        val result = manager.findByUserIdAndReadableByClient(userId, "storefront", doors(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
@@ -388,7 +391,7 @@ class ConsentAwareCollectedClaimManagerTest {
 
         coEvery { collectedClaimManager.findByUserId(userId) } returns listOf(collectedBilling)
 
-        val result = manager.findByUserIdAndReadableByClient(userId, "billing", context(listOf(scope)))
+        val result = manager.findByUserIdAndReadableByClient(userId, "billing", doors(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedBilling, result[0])
@@ -753,7 +756,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update1)) } returns listOf(collectedClaim1)
 
-        val result = manager.updateByClient(user, audience, listOf(update1, update2), context(consentedScopes))
+        val result = manager.updateByClient(user, audience, listOf(update1, update2), doors(consentedScopes))
 
         assertEquals(1, result.count())
         assertSame(collectedClaim1, result[0])
@@ -774,7 +777,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
 
-        val result = manager.updateByClient(user, storefront, listOf(update), context(listOf(scope)))
+        val result = manager.updateByClient(user, storefront, listOf(update), doors(listOf(scope)))
 
         assertTrue(result.isEmpty())
     }
@@ -794,7 +797,7 @@ class ConsentAwareCollectedClaimManagerTest {
         // update never travelled to the write.
         coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
 
-        val result = manager.updateByClient(user, audience, listOf(update), context(listOf(scope)))
+        val result = manager.updateByClient(user, audience, listOf(update), doors(listOf(scope)))
 
         assertTrue(result.isEmpty())
     }
@@ -821,7 +824,7 @@ class ConsentAwareCollectedClaimManagerTest {
             collectedClaimManager.applyUpdates(user, listOf(update))
         } returns listOf(collectedShared, collectedBilling)
 
-        val result = manager.updateByClient(user, storefront, listOf(update), context(listOf(scope)))
+        val result = manager.updateByClient(user, storefront, listOf(update), doors(listOf(scope)))
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
