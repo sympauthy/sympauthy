@@ -15,10 +15,8 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClientUserManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
-import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_READ
-import com.sympauthy.security.SecurityRule.CLIENT_USERS_CLAIMS_WRITE
+import com.sympauthy.security.SecurityRule.IS_CLIENT
 import com.sympauthy.security.clientAuthentication
 import io.micronaut.http.annotation.*
 import io.micronaut.security.annotation.Secured
@@ -31,6 +29,8 @@ import jakarta.inject.Inject
 import java.util.*
 
 @Controller("/api/v1/client/users/{userId}/claims")
+@Secured(IS_CLIENT)
+@SecurityRequirement(name = "client")
 class ClientUserClaimController(
     @Inject private val clientUserManager: ClientUserManager,
     @Inject private val claimManager: ClaimManager,
@@ -51,16 +51,11 @@ class ClientUserClaimController(
             ApiResponse(responseCode = "200", description = "The claims of the user this client may read."),
             ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
-            ApiResponse(
-                responseCode = "403",
-                description = "- `forbidden`: the access token does not carry the scope `users:claims:read`."
-            ),
+            ApiResponse(responseCode = "403", description = NOT_A_CLIENT_TOKEN_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION)
         ]
     )
     @Get
-    @Secured(CLIENT_USERS_CLAIMS_READ)
-    @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_READ])
     suspend fun getUserClaims(
         authentication: Authentication,
         @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID
@@ -70,10 +65,9 @@ class ClientUserClaimController(
         val audienceId = client.audience.id
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, audienceId, clientAuth.claimAclContext(consent.scopes)
-        )
-        val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user)
+        val context = clientAuth.claimAclContext(consent.scopes)
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, audienceId, context)
+        val generatedClaimValues = generatedClaimsManager.computeValuesReadableByClient(clientUser.user, context)
         return claimMapper.toResource(userId, claims, generatedClaimValues)
     }
 
@@ -100,17 +94,12 @@ class ClientUserClaimController(
                     BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
-            ApiResponse(
-                responseCode = "403",
-                description = "- `forbidden`: the access token does not carry the scope `users:claims:write`."
-            ),
+            ApiResponse(responseCode = "403", description = NOT_A_CLIENT_TOKEN_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
     @Patch
-    @Secured(CLIENT_USERS_CLAIMS_WRITE)
-    @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_CLAIMS_WRITE])
     suspend fun updateUserClaims(
         authentication: Authentication,
         @PathVariable @Parameter(description = "Identifier of the user.") userId: UUID,
@@ -126,7 +115,8 @@ class ClientUserClaimController(
         // Asked before the ACL below, because no answer the ACL could give would change this one: an
         // identifier is what the account signs in with, nothing in a claim write verifies the value it
         // stores, and a client able to set one could move an account's sign-in to an address it holds. A
-        // deployment that granted the write scope over it is told that, rather than told it lacks a scope.
+        // deployment whose ACL opens the client write over it is told that, rather than told the client may
+        // not write it.
         // Nothing here changes an identifier either: proving the new value and the person asking is a flow,
         // and `docs/design/security.md` records that the server does not serve one.
         val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
@@ -167,7 +157,10 @@ class ClientUserClaimController(
         val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
             userId, audienceId, context
         )
-        val generatedClaimValues = generatedClaimsManager.computeValues(clientUser.user)
+        val generatedClaimValues = generatedClaimsManager.computeValuesReadableByClient(clientUser.user, context)
         return claimMapper.toResource(userId, allClaims, generatedClaimValues)
     }
 }
+
+private const val NOT_A_CLIENT_TOKEN_RESPONSE_DESCRIPTION =
+    "- `forbidden`: the access token was not obtained by a client with the `client_credentials` grant."

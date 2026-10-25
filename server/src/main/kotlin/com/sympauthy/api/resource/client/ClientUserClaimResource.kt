@@ -14,7 +14,7 @@ data class ClientUserClaimResource(
     @get:JsonProperty("user_id")
     val userId: UUID,
     @get:Schema(
-        description = "Values of the claims this client may read, and of the claims this server generates such " +
+        description = "Values of the claims this client may read, including those this server generates such " +
             "as `sub`, keyed by claim identifier."
     )
     val claims: Map<String, Any?>

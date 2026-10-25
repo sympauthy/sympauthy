@@ -77,8 +77,9 @@ clone.
 - **`security`** — the authentications and the token validator.
 
 **Every API surface is gated differently**: `/api/oauth2` and `/api/openid` by the protocol's own
-rules, `/api/v1/flow` by `ROLE_STATE`, `/api/v1/client` by a client scope, `/api/v1/admin` by an
-admin scope. A surface carries a version only where the contract is ours to break — the protocol
+rules, `/api/v1/flow` by `ROLE_STATE`, `/api/v1/client` by a client scope — except its claim
+routes, which any client token reaches and each claim's ACL decides — `/api/v1/admin` by an admin
+scope. A surface carries a version only where the contract is ours to break — the protocol
 prefixes are named by their specifications and are not versioned.
 
 **A model per layer, translated at every boundary.** A manager never returns an entity.

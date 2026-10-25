@@ -1,6 +1,8 @@
 package com.sympauthy.business.model.user.claim
 
+import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.expression.ScopeIsConsentedFunction
+import com.sympauthy.expression.ScopeIsGrantedFunction
 
 /**
  * Generated OpenID Connect claims whose values are managed by the authorization server.
@@ -96,22 +98,31 @@ enum class GeneratedOpenIdConnectClaim(
 
     /**
      * Who may read this claim, which is the same for every generated claim but the scope above: the person
-     * and a client, on consent to that scope where it names one and always where it names none.
+     * on consent to that scope, and a client on that consent or on `users:claims:read`. Where the claim
+     * names no scope, both doors are open to everybody.
      *
-     * It opens no door to a granted scope, and a file cannot open one: every place that publishes a
-     * generated claim computes the value rather than reading it out of the claims collected from a person,
-     * so such a door would be consulted by nothing.
+     * The client's door opens on `users:claims:read` because that is the scope a backend reads a person's
+     * claims under whatever they agreed to, which is the door the shipped `application` template opens. A
+     * file cannot open either door further, since no key of `claims.<id>` is accepted for a generated claim.
      */
     val acl: ClaimAcl
         get() {
-            val read = scope?.let {
-                // A departure from the dependency rules, which forbid `business.model` to import `expression`:
-                // the function is named through its constant so that renaming it breaks the compile here,
-                // rather than shutting every generated claim's read doors at the first request.
-                val expression = "${ScopeIsConsentedFunction.FUNCTION_NAME}(\"$it\")"
-                ClaimAclExpression(expression = expression, consentedScopes = setOf(it))
-            } ?: ClaimAclExpression(expression = "true")
-            return ClaimAcl.SHUT.copy(readableByPerson = read, readableByClient = read)
+            val consentScope = scope ?: return ClaimAcl.SHUT.copy(
+                readableByPerson = ClaimAclExpression(expression = "true"),
+                readableByClient = ClaimAclExpression(expression = "true")
+            )
+            // A departure from the dependency rules, which forbid `business.model` to import `expression`: the
+            // functions are named through their constants so that renaming one breaks the compile here, rather
+            // than shutting every generated claim's read doors at the first request.
+            val consented = "${ScopeIsConsentedFunction.FUNCTION_NAME}(\"$consentScope\")"
+            val granted = "${ScopeIsGrantedFunction.FUNCTION_NAME}(\"${BuiltInClientScopeId.USERS_CLAIMS_READ}\")"
+            return ClaimAcl.SHUT.copy(
+                readableByPerson = ClaimAclExpression(expression = consented, consentedScopes = setOf(consentScope)),
+                readableByClient = ClaimAclExpression(
+                    expression = "$consented || $granted",
+                    consentedScopes = setOf(consentScope)
+                )
+            )
         }
 
     companion object {

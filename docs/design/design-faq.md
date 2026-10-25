@@ -929,14 +929,14 @@ without anyone classifying it, which is exactly the step `published-in` skipped.
 
 Sparing the two keys the parser reads was the first shape of this, and it does not survive reading
 what becomes of them. `acl.readable-with-client-scopes-unconditionally` reached what is now the
-client's read door, whose only reader is `ClaimAclManager.canBeReadByClient`, whose only callers
-filter the claims *collected* from a person — and a generated claim is never one of
-those, because its value is computed. Every place that publishes one computes it instead: the id
-token through `IdTokenGenerator`, `/userinfo` and the client claims endpoint through
-`GeneratedClaimsManager`, the last of them gated by the scope on the endpoint rather than by
-anything in the file. `template` was then read for that same list and nothing else, so it decided
-nothing either. Keeping a key whose only effect is that a misspelt scope under it takes readiness
-down is the defect this entry is about, not an exception to it.
+client's read door, and a generated claim's door is the one its own declaration opens rather than
+one a file writes, because its value is computed rather than collected from a person. Every place
+that publishes one computes it instead: the id token through `IdTokenGenerator`, `/userinfo` and the
+client claims endpoint through `GeneratedClaimsManager`, the last of them through the client read
+door the generated claim declares rather than anything in the file. `template` was then read for
+that same list and nothing else, so it decided nothing either. Keeping a key whose only effect is
+that a misspelt scope under it takes readiness down is the defect this entry is about, not an
+exception to it.
 
 Making the properties apply is a feature per property rather than one change, and most of them are
 incoherent on their face: OpenID Connect Core §2 requires `sub` in every id token, and a `type` on a

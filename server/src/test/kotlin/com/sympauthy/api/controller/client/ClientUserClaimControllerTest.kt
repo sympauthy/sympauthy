@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.client.ClientUserClaimResourceMapper
 import com.sympauthy.api.resource.client.ClientUserClaimResource
@@ -21,6 +22,7 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.security.ClientAuthentication
+import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -93,7 +95,51 @@ class ClientUserClaimControllerTest {
     )
 
     @Test
-    fun `updateUserClaims - Refuse an identifier claim the client holds the write scope for`() = runTest {
+    fun `getUserClaims - Return the claims the client may read`() = runTest {
+        val collectedClaims = listOf(mockk<CollectedClaim>())
+        val generatedClaimValues = mapOf<String, Any?>("sub" to userId.toString())
+        val resource = mockk<ClientUserClaimResource>()
+
+        stubResolvedUser()
+        every { clientUser.user } returns user
+        every { consent.scopes } returns listOf(CONSENTED_SCOPE)
+        coEvery {
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, AUDIENCE, context)
+        } returns collectedClaims
+        coEvery { generatedClaimsManager.computeValuesReadableByClient(user, context) } returns generatedClaimValues
+        every { claimMapper.toResource(userId, collectedClaims, generatedClaimValues) } returns resource
+
+        val result = controller.getUserClaims(authentication(bearerToken()), userId)
+
+        assertSame(resource, result)
+    }
+
+    @Test
+    fun `getUserClaims - Throw 404 when the user is not of the client audience`() = runTest {
+        coEvery { clientUserManager.findUserForAudienceOrNull(AUDIENCE, userId) } returns null
+
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.getUserClaims(authentication(), userId)
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+    }
+
+    @Test
+    fun `getUserClaims - Throw 404 when the user has not consented to the client audience`() = runTest {
+        coEvery { clientUserManager.findUserForAudienceOrNull(AUDIENCE, userId) } returns clientUser
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, AUDIENCE) } returns null
+
+        // The claim reads are left unstubbed: reaching the assertion is proof nothing was read without a consent.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.getUserClaims(authentication(), userId)
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+    }
+
+    @Test
+    fun `updateUserClaims - Refuse an identifier claim whatever its ACL opens to the client`() = runTest {
         stubResolvedUser()
         every { claimManager.listIdentifierClaims() } returns listOf(identifierClaim())
 
@@ -170,7 +216,7 @@ class ClientUserClaimControllerTest {
                 userId, AUDIENCE, context
             )
         } returns collectedClaims
-        coEvery { generatedClaimsManager.computeValues(user) } returns generatedClaimValues
+        coEvery { generatedClaimsManager.computeValuesReadableByClient(user, context) } returns generatedClaimValues
         every { claimMapper.toResource(userId, collectedClaims, generatedClaimValues) } returns resource
 
         val result = controller.updateUserClaims(authentication(bearerToken()), userId, body)
