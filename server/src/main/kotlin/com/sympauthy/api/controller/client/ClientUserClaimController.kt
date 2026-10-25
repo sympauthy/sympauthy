@@ -51,6 +51,7 @@ class ClientUserClaimController(
             ApiResponse(responseCode = "200", description = "The claims of the user this client may read."),
             ApiResponse(responseCode = "400", description = PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = NOT_A_CLIENT_TOKEN_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION)
         ]
     )
@@ -93,6 +94,7 @@ class ClientUserClaimController(
                     BODY_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "403", description = NOT_A_CLIENT_TOKEN_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "404", description = CLIENT_USER_NOT_FOUND_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
@@ -159,3 +161,6 @@ class ClientUserClaimController(
         return claimMapper.toResource(userId, allClaims, generatedClaimValues)
     }
 }
+
+private const val NOT_A_CLIENT_TOKEN_RESPONSE_DESCRIPTION =
+    "- `forbidden`: the access token was not obtained by a client with the `client_credentials` grant."
