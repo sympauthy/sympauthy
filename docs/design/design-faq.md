@@ -933,8 +933,8 @@ client's read door, whose only reader is `ClaimAclManager.canBeReadByClient`, wh
 filter the claims *collected* from a person — and a generated claim is never one of
 those, because its value is computed. Every place that publishes one computes it instead: the id
 token through `IdTokenGenerator`, `/userinfo` and the client claims endpoint through
-`GeneratedClaimsManager`, the last of them gated by the scope on the endpoint rather than by
-anything in the file. `template` was then read for that same list and nothing else, so it decided
+`GeneratedClaimsManager`, the last of them through the client read door the generated claim
+declares rather than anything in the file. `template` was then read for that same list and nothing else, so it decided
 nothing either. Keeping a key whose only effect is that a misspelt scope under it takes readiness
 down is the defect this entry is about, not an exception to it.
 

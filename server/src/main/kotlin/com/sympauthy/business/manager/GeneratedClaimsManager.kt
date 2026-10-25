@@ -1,6 +1,9 @@
 package com.sympauthy.business.manager
 
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -20,14 +23,24 @@ import java.util.*
 @Singleton
 class GeneratedClaimsManager(
     private val claimManager: ClaimManager,
+    private val claimAclManager: ClaimAclManager,
     private val collectedClaimRepository: CollectedClaimRepository
 ) {
 
     /**
      * Compute values for all enabled generated claims for the given [user].
      */
-    suspend fun computeValues(user: User): Map<String, Any?> = computeValues(user.id) {
+    suspend fun computeValues(user: User): Map<String, Any?> = computeValues(user.id, { true }) {
         computeUpdatedAt(user.id)
+    }
+
+    /**
+     * Compute values for the enabled generated claims of the [user] that a client may read in [context]:
+     * those whose client read door is open, which is the door every claim a client reads is asked of.
+     */
+    suspend fun computeValuesReadableByClient(user: User, context: ClaimAclContext): Map<String, Any?> {
+        val doors = claimAclManager.getTokenDoors(context)
+        return computeValues(user.id, doors::canBeReadByClient) { computeUpdatedAt(user.id) }
     }
 
     /**
@@ -40,13 +53,17 @@ class GeneratedClaimsManager(
      * this server publishes elsewhere from the full table would then disagree with it.
      */
     suspend fun computeValues(user: User, latestCollectionDate: LocalDateTime?): Map<String, Any?> =
-        computeValues(user.id) { latestCollectionDate?.epochSecond }
+        computeValues(user.id, { true }) { latestCollectionDate?.epochSecond }
 
-    private suspend fun computeValues(userId: UUID, updatedAt: suspend () -> Long?): Map<String, Any?> {
+    private suspend fun computeValues(
+        userId: UUID,
+        readable: (EnabledClaim) -> Boolean,
+        updatedAt: suspend () -> Long?
+    ): Map<String, Any?> {
         // A generated claim this server computes per authorization rather than per account — `auth_time`
         // — has no value to answer here, and answering null for it would publish it against everybody.
         val generatedClaims = claimManager.listEnabledClaims()
-            .filter { it.id in GeneratedOpenIdConnectClaim.idsComputedPerAccount }
+            .filter { it.id in GeneratedOpenIdConnectClaim.idsComputedPerAccount && readable(it) }
         return generatedClaims.associate { claim ->
             claim.id to when (claim.id) {
                 OpenIdConnectClaimId.SUB -> computeSubject(userId)

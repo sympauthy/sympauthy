@@ -64,8 +64,8 @@ the server-to-server and back-office prefixes under `/api/v1/client` and `/api/v
 **A gate is never one check.** The protocol endpoints are guarded by the protocol itself — client
 authentication, PKCE, a signed `state` — rather than by a role; discovery is public by
 specification; the flow prefix is gated on a signed session token that is emphatically not a user's
-access token; and the application prefixes are gated on scope. [Security](security.md) is where each
-is spelled out.
+access token; and the application prefixes are gated on scope, but for the client's claim routes,
+which a claim's ACL decides. [Security](security.md) is where each is spelled out.
 
 **The prefix is a security boundary, not only a routing convention.** It is what lets a whole
 surface be gated once, in the security configuration, instead of one annotation at a time. What each

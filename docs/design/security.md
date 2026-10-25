@@ -55,6 +55,11 @@ surface is gated in one place. Anything narrower than the surface — this admin
 this row — is a check inside the manager, because nothing has been loaded at the moment the
 annotation runs.
 
+**The client's claim routes are gated on a client token alone, and each claim's ACL decides the
+rest.** [A client reads and writes by the person's consent or by its own
+scopes](claims.md#a-client), so a scope required on the route would turn away the client the person
+consented to before its door was asked.
+
 ## Scopes
 
 `Scope` is a sealed hierarchy, and **the split is about where a scope comes from** rather than what
