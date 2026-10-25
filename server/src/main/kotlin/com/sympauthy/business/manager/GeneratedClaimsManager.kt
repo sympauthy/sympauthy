@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -36,7 +36,7 @@ class GeneratedClaimsManager(
      * Compute values for the enabled generated claims of the [user] that a client may read through [doors]:
      * those whose client read door is open, which is the door every claim a client reads is asked of.
      */
-    suspend fun computeValuesReadableByClient(user: User, doors: ClaimAclManager.TokenDoors): Map<String, Any?> =
+    suspend fun computeValuesReadableByClient(user: User, doors: ClaimAclTokenDoors): Map<String, Any?> =
         computeValues(user.id, doors::canBeReadByClient) { computeUpdatedAt(user.id) }
 
     /**

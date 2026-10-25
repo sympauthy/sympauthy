@@ -13,6 +13,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
@@ -264,7 +265,7 @@ class InvitationManagerTest {
         val claim = createClaim(audienceId = OTHER_AUDIENCE)
         every { claimManager.findByIdOrNull("custom_tier") } returns claim
         val context = mockk<ClaimAclContext>()
-        val doors = mockk<ClaimAclManager.TokenDoors>()
+        val doors = mockk<ClaimAclTokenDoors>()
         every { claimAclManager.getTokenDoors(context, any()) } returns doors
 
         val exception = assertThrows<BusinessException> {

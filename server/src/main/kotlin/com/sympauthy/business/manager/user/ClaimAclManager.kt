@@ -6,6 +6,8 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.model.user.claim.ClaimAclFlowDoors
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.expression.ClaimAclExpressions
 import com.sympauthy.expression.InvalidRuleExpressionException
@@ -36,71 +38,23 @@ class ClaimAclManager {
      * Return the doors the interactive flow the [client] started asks of a person who consented to
      * [consentedScopes], to be asked of as many claims as one read needs.
      */
-    fun getFlowDoors(client: Client, consentedScopes: List<String>): FlowDoors =
-        FlowDoors(ClaimAclExpressions.flowConfiguration(client, consentedScopes))
+    fun getFlowDoors(client: Client, consentedScopes: List<String>): ClaimAclFlowDoors {
+        val configuration = ClaimAclExpressions.flowConfiguration(client, consentedScopes)
+        return ClaimAclFlowDoors { door -> isOpen(door, configuration) }
+    }
 
     /**
      * Return the doors a token comes through, evaluated in [context] at [now], to be asked of as many claims
      * as one read or write needs.
      */
-    fun getTokenDoors(context: ClaimAclContext, now: LocalDateTime = LocalDateTime.now()): TokenDoors =
-        TokenDoors(ClaimAclExpressions.tokenConfiguration(context, now))
-
-    /**
-     * The flow's door of every claim, for one flow.
-     *
-     * It is built once per read and asked of each claim the read covers, so the functions are bound once
-     * rather than once per claim. It is never kept past that read: the next one binds another flow.
-     */
-    class FlowDoors internal constructor(private val configuration: ExpressionConfiguration) {
-
-        /**
-         * Return true if the flow collects [claim].
-         *
-         * An identifier claim answers from its door like any other, and the flow reaches this for none of what
-         * it does with one: [com.sympauthy.business.model.user.claim.ClaimAcl.collectedInFlow] says why.
-         */
-        fun isCollectedInFlow(claim: EnabledClaim): Boolean {
-            if (claim.generated) return false
-            return isOpen(claim.acl.collectedInFlow, configuration)
-        }
-    }
-
-    /**
-     * The doors of every claim a token comes through, in one context.
-     *
-     * It is built once per read or write and asked of each claim it covers, for the reason
-     * [FlowDoors] gives.
-     */
-    class TokenDoors internal constructor(private val configuration: ExpressionConfiguration) {
-
-        /**
-         * Return true if the person may read [claim] through their own access token.
-         */
-        fun canBeReadByPerson(claim: EnabledClaim): Boolean = isOpen(claim.acl.readableByPerson, configuration)
-
-        /**
-         * Return true if the person may write [claim] through their own access token.
-         *
-         * A caller refused here owes the client the challenges [ClaimAclManager.getPersonWriteChallenges]
-         * answers rather than a bare refusal.
-         */
-        fun canBeWrittenByPerson(claim: EnabledClaim): Boolean = isOpen(claim.acl.writableByPerson, configuration)
-
-        /**
-         * Return true if a client may read [claim].
-         */
-        fun canBeReadByClient(claim: EnabledClaim): Boolean = isOpen(claim.acl.readableByClient, configuration)
-
-        /**
-         * Return true if a client may write [claim].
-         */
-        fun canBeWrittenByClient(claim: EnabledClaim): Boolean = isOpen(claim.acl.writableByClient, configuration)
+    fun getTokenDoors(context: ClaimAclContext, now: LocalDateTime = LocalDateTime.now()): ClaimAclTokenDoors {
+        val configuration = ClaimAclExpressions.tokenConfiguration(context, now)
+        return ClaimAclTokenDoors { door -> isOpen(door, configuration) }
     }
 
     /**
      * Return the challenges a write of [claim] through the person's own access token owes the client, where
-     * [TokenDoors.canBeWrittenByPerson] refused it in [context]: one for every condition of the door's
+     * [ClaimAclTokenDoors.canBeWrittenByPerson] refused it in [context]: one for every condition of the door's
      * expression that a different token would have met and this one did not.
      *
      * The conditions are the ones meeting which can open the door, as

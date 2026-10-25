@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
@@ -37,7 +37,7 @@ class GeneratedClaimsManagerTest {
         val subject = generatedClaim(OpenIdConnectClaimId.SUB)
         val updatedAt = generatedClaim(OpenIdConnectClaimId.UPDATED_AT)
         every { claimManager.listEnabledClaims() } returns listOf(subject, updatedAt)
-        val doors = mockk<ClaimAclManager.TokenDoors> {
+        val doors = mockk<ClaimAclTokenDoors> {
             every { canBeReadByClient(subject) } returns true
             every { canBeReadByClient(updatedAt) } returns false
         }

@@ -13,6 +13,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.micronaut.transaction.annotation.Transactional
@@ -77,7 +78,7 @@ open class ConsentAwareCollectedClaimManager(
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
         audienceId: String,
-        doors: ClaimAclManager.TokenDoors
+        doors: ClaimAclTokenDoors
     ): List<CollectedClaim> {
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim.belongsToAudience(audienceId) && doors.canBeReadByClient(it.claim)
@@ -279,7 +280,7 @@ open class ConsentAwareCollectedClaimManager(
         user: User,
         audience: Audience,
         updates: List<CollectedClaimUpdate>,
-        doors: ClaimAclManager.TokenDoors
+        doors: ClaimAclTokenDoors
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         val applicableUpdates = updates.filter {

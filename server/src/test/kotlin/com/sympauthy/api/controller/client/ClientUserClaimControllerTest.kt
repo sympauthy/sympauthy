@@ -20,6 +20,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.security.ClientAuthentication
 import io.micronaut.http.HttpStatus
@@ -97,7 +98,7 @@ class ClientUserClaimControllerTest {
 
     @Test
     fun `getUserClaims - Return the claims the client may read`() = runTest {
-        val doors = mockk<ClaimAclManager.TokenDoors>()
+        val doors = mockk<ClaimAclTokenDoors>()
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val generatedClaimValues = mapOf<String, Any?>("sub" to userId.toString())
         val resource = mockk<ClientUserClaimResource>()
@@ -195,7 +196,7 @@ class ClientUserClaimControllerTest {
         val regionClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
-        val doors = mockk<ClaimAclManager.TokenDoors> {
+        val doors = mockk<ClaimAclTokenDoors> {
             every { canBeWrittenByClient(regionClaim) } returns true
         }
         every { claimAclManager.getTokenDoors(context, any()) } returns doors
