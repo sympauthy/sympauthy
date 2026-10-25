@@ -95,7 +95,7 @@ class BootstrapInvitationManagerTest {
                 expiresAt = null,
                 createdBy = InvitationCreatedBy.BOOTSTRAP,
                 createdById = "first-admin",
-                context = any()
+                doors = any()
             )
         }
     }

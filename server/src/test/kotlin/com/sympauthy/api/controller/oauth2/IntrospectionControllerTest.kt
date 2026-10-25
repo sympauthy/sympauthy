@@ -4,6 +4,7 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AuthenticationToken
@@ -13,6 +14,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.model.*
@@ -37,6 +39,9 @@ class IntrospectionControllerTest {
 
     @MockK
     lateinit var tokenManager: TokenManager
+
+    @MockK
+    lateinit var claimAclManager: ClaimAclManager
 
     @MockK
     lateinit var consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager
@@ -82,12 +87,16 @@ class IntrospectionControllerTest {
     }
 
     private fun stubPublishedClaims(userId: UUID, claims: List<CollectedClaim>) {
+        val doors = mockk<ClaimAclTokenDoors>()
+        every {
+            claimAclManager.getTokenDoors(match { it.consentedScopes == listOf(CONSENTED_SCOPE) && !it.bound }, any())
+        } returns doors
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
                 userId,
                 AUDIENCE,
                 ClaimPublicationPlace.INTROSPECTION,
-                match { it.consentedScopes == listOf(CONSENTED_SCOPE) && !it.bound }
+                doors
             )
         } returns claims
     }

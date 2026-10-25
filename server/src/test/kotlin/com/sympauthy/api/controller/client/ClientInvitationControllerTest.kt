@@ -10,6 +10,7 @@ import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -20,6 +21,7 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
 import io.mockk.every
@@ -40,6 +42,9 @@ class ClientInvitationControllerTest {
 
     @MockK
     lateinit var invitationManager: InvitationManager
+
+    @MockK
+    lateinit var claimAclManager: ClaimAclManager
 
     @MockK
     lateinit var invitationCollectionManager: InvitationCollectionManager
@@ -118,6 +123,19 @@ class ClientInvitationControllerTest {
             every { id } returns "client"
             every { audience } returns clientAudience
         }
+        val doors = mockk<ClaimAclTokenDoors>()
+        every {
+            claimAclManager.getTokenDoors(
+                ClaimAclContext(
+                    client = client,
+                    consentedScopes = emptyList(),
+                    grantedScopes = listOf("invitations:write", "users:claims:write"),
+                    authenticationDate = null,
+                    bound = false
+                ),
+                any()
+            )
+        } returns doors
         coEvery {
             invitationManager.createInvitation(
                 audience = clientAudience,
@@ -126,13 +144,7 @@ class ClientInvitationControllerTest {
                 expiresAt = null,
                 createdBy = InvitationCreatedBy.CLIENT,
                 createdById = "client",
-                context = ClaimAclContext(
-                    client = client,
-                    consentedScopes = emptyList(),
-                    grantedScopes = listOf("invitations:write", "users:claims:write"),
-                    authenticationDate = null,
-                    bound = false
-                ),
+                doors = doors,
             )
         } returns (invitation to "raw-token")
         every { invitationMapper.toCreatedResource(invitation, "raw-token") } returns resource

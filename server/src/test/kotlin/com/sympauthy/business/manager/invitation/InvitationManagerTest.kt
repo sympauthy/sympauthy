@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.invitation
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.audience.Audience
@@ -12,7 +11,7 @@ import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
@@ -38,9 +37,6 @@ class InvitationManagerTest {
 
     @MockK
     lateinit var claimManager: ClaimManager
-
-    @MockK
-    lateinit var claimAclManager: ClaimAclManager
 
     @MockK
     lateinit var claimValueValidator: ClaimValueValidator
@@ -243,8 +239,7 @@ class InvitationManagerTest {
     fun `validateAndCleanClaims - Throws when client does not have write access to claim`() {
         val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
-        val context = mockk<ClaimAclContext>()
-        every { claimAclManager.getTokenDoors(context, any()) } returns mockk {
+        val doors = mockk<ClaimAclTokenDoors> {
             every { canBeWrittenByClient(claim) } returns false
         }
 
@@ -252,7 +247,7 @@ class InvitationManagerTest {
             manager.validateAndCleanClaims(
                 mapOf("custom_role" to "admin"),
                 AUDIENCE,
-                context
+                doors
             )
         }
         assertEquals("invitation.claim_not_writable", exception.detailsId)
@@ -263,15 +258,13 @@ class InvitationManagerTest {
     fun `validateAndCleanClaims - Throws when the claim is restricted to another audience`() {
         val claim = createClaim(audienceId = OTHER_AUDIENCE)
         every { claimManager.findByIdOrNull("custom_tier") } returns claim
-        val context = mockk<ClaimAclContext>()
-        val doors = mockk<ClaimAclManager.TokenDoors>()
-        every { claimAclManager.getTokenDoors(context, any()) } returns doors
+        val doors = mockk<ClaimAclTokenDoors>()
 
         val exception = assertThrows<BusinessException> {
             manager.validateAndCleanClaims(
                 mapOf("custom_tier" to "gold"),
                 AUDIENCE,
-                context
+                doors
             )
         }
         assertEquals("invitation.claim_of_another_audience", exception.detailsId)
@@ -302,7 +295,7 @@ class InvitationManagerTest {
     }
 
     @Test
-    fun `validateAndCleanClaims - Skips ACL check when the context is null`() {
+    fun `validateAndCleanClaims - Skips ACL check when the doors are null`() {
         val claim = createClaim()
         every { claimManager.findByIdOrNull("custom_role") } returns claim
         every { claimValueValidator.validateAndCleanValueForClaim(claim, "admin") } returns Optional.of("admin")
@@ -310,7 +303,6 @@ class InvitationManagerTest {
         val result = manager.validateAndCleanClaims(mapOf("custom_role" to "admin"), AUDIENCE, null)
 
         assertEquals(mapOf("custom_role" to "admin"), result)
-        verify(exactly = 0) { claimAclManager.getTokenDoors(any(), any()) }
     }
 
     private fun mockTokenLookup(rawToken: String, invitation: Invitation) {

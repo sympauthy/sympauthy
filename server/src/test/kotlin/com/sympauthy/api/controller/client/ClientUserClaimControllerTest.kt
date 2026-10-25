@@ -20,6 +20,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.security.ClientAuthentication
 import io.micronaut.http.HttpStatus
@@ -29,6 +30,7 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -96,6 +98,7 @@ class ClientUserClaimControllerTest {
 
     @Test
     fun `getUserClaims - Return the claims the client may read`() = runTest {
+        val doors = mockk<ClaimAclTokenDoors>()
         val collectedClaims = listOf(mockk<CollectedClaim>())
         val generatedClaimValues = mapOf<String, Any?>("sub" to userId.toString())
         val resource = mockk<ClientUserClaimResource>()
@@ -103,15 +106,17 @@ class ClientUserClaimControllerTest {
         stubResolvedUser()
         every { clientUser.user } returns user
         every { consent.scopes } returns listOf(CONSENTED_SCOPE)
+        every { claimAclManager.getTokenDoors(context, any()) } returns doors
         coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, AUDIENCE, context)
+            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, AUDIENCE, doors)
         } returns collectedClaims
-        coEvery { generatedClaimsManager.computeValuesReadableByClient(user, context) } returns generatedClaimValues
+        coEvery { generatedClaimsManager.computeValuesReadableByClient(user, doors) } returns generatedClaimValues
         every { claimMapper.toResource(userId, collectedClaims, generatedClaimValues) } returns resource
 
         val result = controller.getUserClaims(authentication(bearerToken()), userId)
 
         assertSame(resource, result)
+        verify(exactly = 1) { claimAclManager.getTokenDoors(any(), any()) }
     }
 
     @Test
@@ -191,9 +196,10 @@ class ClientUserClaimControllerTest {
         val regionClaim = mockk<EnabledClaim> {
             every { belongsToAudience(AUDIENCE) } returns true
         }
-        every { claimAclManager.getTokenDoors(context, any()) } returns mockk {
+        val doors = mockk<ClaimAclTokenDoors> {
             every { canBeWrittenByClient(regionClaim) } returns true
         }
+        every { claimAclManager.getTokenDoors(context, any()) } returns doors
         val body = mapOf<String, Any?>(REGION_CLAIM to REGION)
         val updates = listOf(mockk<CollectedClaimUpdate>())
         val collectedClaims = listOf(mockk<CollectedClaim>())
@@ -206,22 +212,17 @@ class ClientUserClaimControllerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.findByIdOrNull(REGION_CLAIM) } returns regionClaim
         every { collectedClaimUpdateMapper.toUpdates(body) } returns updates
+        // The read is left unstubbed: reaching the assertion is proof the answer is the one the write returned.
         coEvery {
-            consentAwareCollectedClaimManager.updateByClient(
-                user, audience, updates, context
-            )
+            consentAwareCollectedClaimManager.updateByClient(user, audience, updates, doors)
         } returns collectedClaims
-        coEvery {
-            consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-                userId, AUDIENCE, context
-            )
-        } returns collectedClaims
-        coEvery { generatedClaimsManager.computeValuesReadableByClient(user, context) } returns generatedClaimValues
+        coEvery { generatedClaimsManager.computeValuesReadableByClient(user, doors) } returns generatedClaimValues
         every { claimMapper.toResource(userId, collectedClaims, generatedClaimValues) } returns resource
 
         val result = controller.updateUserClaims(authentication(bearerToken()), userId, body)
 
         assertSame(resource, result)
+        verify(exactly = 1) { claimAclManager.getTokenDoors(any(), any()) }
     }
 
     /**

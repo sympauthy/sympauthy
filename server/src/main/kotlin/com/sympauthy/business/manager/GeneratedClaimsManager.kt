@@ -1,8 +1,7 @@
 package com.sympauthy.business.manager
 
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
@@ -23,7 +22,6 @@ import java.util.*
 @Singleton
 class GeneratedClaimsManager(
     private val claimManager: ClaimManager,
-    private val claimAclManager: ClaimAclManager,
     private val collectedClaimRepository: CollectedClaimRepository
 ) {
 
@@ -35,13 +33,11 @@ class GeneratedClaimsManager(
     }
 
     /**
-     * Compute values for the enabled generated claims of the [user] that a client may read in [context]:
+     * Compute values for the enabled generated claims of the [user] that a client may read through [doors]:
      * those whose client read door is open, which is the door every claim a client reads is asked of.
      */
-    suspend fun computeValuesReadableByClient(user: User, context: ClaimAclContext): Map<String, Any?> {
-        val doors = claimAclManager.getTokenDoors(context)
-        return computeValues(user.id, doors::canBeReadByClient) { computeUpdatedAt(user.id) }
-    }
+    suspend fun computeValuesReadableByClient(user: User, doors: ClaimAclTokenDoors): Map<String, Any?> =
+        computeValues(user.id, doors::canBeReadByClient) { computeUpdatedAt(user.id) }
 
     /**
      * Compute values for all enabled generated claims of the [user], reading `updated_at`

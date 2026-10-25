@@ -8,7 +8,6 @@ import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
@@ -19,6 +18,7 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
@@ -88,7 +88,9 @@ class IdTokenGeneratorTest {
 
     private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
 
-    private val client = mockk<Client>()
+    /** The doors the access token issued beside the id token comes through. */
+    private val doors = mockk<ClaimAclTokenDoors>()
+
     private val readAudienceId = slot<String>()
 
     private val readRequestedClaims = slot<RequestedClaims>()
@@ -163,14 +165,13 @@ class IdTokenGeneratorTest {
     @Test
     fun `generateIdToken - Issue one where the grant carries openid`() = runTest {
         val grant = grant()
-        stubGeneration(checkNotNull(grant.userId), grant.consentedScopes)
+        stubGeneration(checkNotNull(grant.userId))
 
         val idToken = generator.generateIdToken(
             grant = grant,
-            client = client,
             audience = audience,
             accessToken = mockk { every { token } returns ACCESS_TOKEN },
-            dpopJkt = null,
+            doors = doors,
             grantType = GrantType.AUTHORIZATION_CODE
         )
 
@@ -181,10 +182,9 @@ class IdTokenGeneratorTest {
     fun `generateIdToken - Issue none where the grant does not carry openid`() = runTest {
         val idToken = generator.generateIdToken(
             grant = grant(grantedScopes = listOf(CONSENTED_SCOPE)),
-            client = client,
             audience = audience,
             accessToken = mockk(),
-            dpopJkt = null,
+            doors = doors,
             grantType = GrantType.REFRESH_TOKEN
         )
 
@@ -195,10 +195,9 @@ class IdTokenGeneratorTest {
     fun `generateIdToken - Issue none where the grant names no person`() = runTest {
         val idToken = generator.generateIdToken(
             grant = grant(userId = null),
-            client = client,
             audience = audience,
             accessToken = mockk(),
-            dpopJkt = null,
+            doors = doors,
             grantType = GrantType.CLIENT_CREDENTIALS
         )
 
@@ -385,19 +384,15 @@ class IdTokenGeneratorTest {
         val accessToken = mockk<EncodedAuthenticationToken> {
             every { token } returns ACCESS_TOKEN
         }
-        val builder = stubGeneration(
-            userId = checkNotNull(grant.userId),
-            consentedScopes = grant.consentedScopes
-        )
+        val builder = stubGeneration(userId = checkNotNull(grant.userId))
 
-        generator.generateIdToken(grant, client, audience, accessToken, dpopJkt = null, grantType, nonce)
+        generator.generateIdToken(grant, audience, accessToken, doors, grantType, nonce)
 
         return builder.build()
     }
 
     private fun stubGeneration(
         userId: UUID,
-        consentedScopes: List<String> = emptyList(),
         claims: List<CollectedClaim> = emptyList()
     ): JWTClaimsSet.Builder {
         every { uncheckedAdvancedConfig.publicJwtAlgorithm } returns JwtAlgorithm.RS256
@@ -409,7 +404,7 @@ class IdTokenGeneratorTest {
                 userId,
                 capture(readAudienceId),
                 ClaimPublicationPlace.ID_TOKEN,
-                match { it.consentedScopes == consentedScopes && it.client == client && !it.bound },
+                doors,
                 capture(readRequestedClaims)
             )
         } returns claims
@@ -434,10 +429,9 @@ class IdTokenGeneratorTest {
 
         generator.generateIdToken(
             grant = grant(userId = userId, consentedScopes = emptyList()),
-            client = client,
             audience = audience,
             accessToken = accessToken,
-            dpopJkt = null,
+            doors = doors,
             grantType = GrantType.AUTHORIZATION_CODE
         )
 

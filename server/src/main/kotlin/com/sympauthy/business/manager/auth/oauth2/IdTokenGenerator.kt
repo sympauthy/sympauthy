@@ -5,13 +5,12 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.publishedMembers
@@ -48,12 +47,9 @@ class IdTokenGenerator(
      * [audience] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
      *
-     * [client] is the one the token is issued to, which a claim's ACL may ask about.
-     *
-     * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it. It is the
-     * token a claim's ACL is asked about, bound to the key whose thumbprint is [dpopJkt] or a bearer token
-     * where that is null: an id token is bound to nothing itself, and is told only what the access token issued
-     * beside it may be told.
+     * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it. [doors]
+     * are the ones that access token comes through, the same ones it was issued through: an id token is bound
+     * to nothing itself, and is told only what the access token issued beside it may be told.
      *
      * The subject, the authentication time and the claims the request asked for are the [grant]'s, and only
      * the issue date, the expiry and the claim values are read again, which is what OpenID Connect Core §12.2
@@ -73,10 +69,9 @@ class IdTokenGenerator(
      */
     suspend fun generateIdToken(
         grant: Grant,
-        client: Client,
         audience: Audience,
         accessToken: EncodedAuthenticationToken,
-        dpopJkt: String?,
+        doors: ClaimAclTokenDoors,
         grantType: GrantType = grant.grantType,
         nonce: String? = null
     ): EncodedAuthenticationToken? {
@@ -96,7 +91,7 @@ class IdTokenGenerator(
             userId = userId,
             audienceId = audience.id,
             place = ClaimPublicationPlace.ID_TOKEN,
-            context = ClaimAclContext.of(grant, client, dpopJkt),
+            doors = doors,
             requestedClaims = grant.requestedClaims
         )
 

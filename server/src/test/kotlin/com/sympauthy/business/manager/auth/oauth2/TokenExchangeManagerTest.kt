@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.actas.ActAsRuleManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
@@ -20,6 +21,8 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.config.model.EnabledAudiencesConfig
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
@@ -42,6 +45,7 @@ class TokenExchangeManagerTest {
     private val tokenManager = mockk<TokenManager>()
     private val grantManager = mockk<GrantManager>()
     private val accessTokenGenerator = mockk<AccessTokenGenerator>()
+    private val claimAclManager = mockk<ClaimAclManager>()
     private val userManager = mockk<UserManager>()
     private val collectedClaimManager = mockk<CollectedClaimManager>()
     private val actAsRuleManager = mockk<ActAsRuleManager>()
@@ -60,6 +64,7 @@ class TokenExchangeManagerTest {
             tokenManager = tokenManager,
             grantManager = grantManager,
             accessTokenGenerator = accessTokenGenerator,
+            claimAclManager = claimAclManager,
             userManager = userManager,
             collectedClaimManager = collectedClaimManager,
             actAsRuleManager = actAsRuleManager,
@@ -77,16 +82,32 @@ class TokenExchangeManagerTest {
         every { this@mockk.grant } returns grant
     }
 
-    /** Stubs opening the act-as grant for [audience], and issuing [encoded] under it. */
+    /**
+     * Stubs opening the act-as grant for [audience], and issuing [encoded] under it through the doors of a bearer
+     * token issued to the acting client.
+     */
     private fun stubIssuance(
         actorToken: AuthenticationToken,
         audience: Audience,
         encoded: EncodedAuthenticationToken = mockk()
     ): Grant {
-        val grant = mockk<Grant> { every { grantType } returns GrantType.TOKEN_EXCHANGE }
+        val grant = mockk<Grant> {
+            every { grantType } returns GrantType.TOKEN_EXCHANGE
+            every { consentedScopes } returns emptyList()
+            every { grantedScopes } returns emptyList()
+            every { clientScopes } returns emptyList()
+            every { authenticationDate } returns null
+        }
+        val doors = mockk<ClaimAclTokenDoors>()
         coEvery { grantManager.createTokenExchangeGrant(userId, audience.id, actorToken) } returns grant
+        every {
+            claimAclManager.getTokenDoors(
+                ClaimAclContext(actingClient, emptyList(), emptyList(), authenticationDate = null, bound = false),
+                any()
+            )
+        } returns doors
         coEvery {
-            accessTokenGenerator.generateAccessToken(grant, actingClient, audience, GrantType.TOKEN_EXCHANGE, null)
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.TOKEN_EXCHANGE, null)
         } returns encoded
         return grant
     }

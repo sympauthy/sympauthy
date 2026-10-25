@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.invitation
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -14,7 +13,7 @@ import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.orThrow
@@ -38,7 +37,6 @@ import java.util.*
 @Singleton
 open class InvitationManager(
     @Inject private val claimManager: ClaimManager,
-    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val userManager: UserManager,
@@ -58,9 +56,9 @@ open class InvitationManager(
      * Create a new invitation. Returns the [Invitation] model and the raw base64url-encoded token.
      * The raw token is only available at creation time.
      *
-     * [context] is the one the client's token is evaluated in when the invitation comes from the client API,
-     * and is what the pre-assigned [claims] are checked against through the client's write door. The admin
-     * API and the bootstrap pass null, which means no ACL check at all rather than a client holding no scope.
+     * [doors] are the ones the client's token comes through when the invitation comes from the client API, and
+     * the pre-assigned [claims] are checked against their client write door. The admin API and the bootstrap
+     * pass null, which means no ACL check at all rather than a client holding no scope.
      *
      * [audience] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
      * is creating it — see [validateAndCleanClaims]. [expiresAt] is resolved by [resolveExpiresAt], which
@@ -74,9 +72,9 @@ open class InvitationManager(
         expiresAt: LocalDateTime?,
         createdBy: InvitationCreatedBy,
         createdById: String? = null,
-        context: ClaimAclContext? = null
+        doors: ClaimAclTokenDoors? = null
     ): Pair<Invitation, String> {
-        val validatedClaims = validateAndCleanClaims(claims, audience.id, context)
+        val validatedClaims = validateAndCleanClaims(claims, audience.id, doors)
 
         val config = invitationConfig
         // Truncated to what the column stores, so the invitation this answers is the one a later read answers.
@@ -113,25 +111,25 @@ open class InvitationManager(
      * Validate that all claim keys in the map correspond to existing enabled claims, that each is one
      * [audienceId] has, and that the values are valid for the claim type.
      *
-     * The audience is asked of every caller, and it is asked whatever [context] says. A claim restricted
+     * The audience is asked of every caller, and it is asked whatever [doors] say. A claim restricted
      * to another audience is not something a caller may or may not be permitted to write: an invitation is
      * consumed by a client of [audienceId] and by no other, so pre-assigning one is writing a value the flow
      * that applies it can never read back, chosen for an audience that was never asked. The admin API and the
      * bootstrap name the audience as deliberately as a client does, and neither is spared the question.
      *
-     * When [context] is provided (client API), additionally checks that the client's write door of each
-     * claim is open to it. No person consented to anything for an account not yet created, so the context
-     * carries no consented scope. When null (admin API, bootstrap), no ACL check is performed.
+     * When [doors] are provided (client API), additionally checks that the client's write door of each
+     * claim is open through them. No person consented to anything for an account not yet created, so the
+     * doors are built in a context carrying no consented scope. When null (admin API, bootstrap), no ACL check
+     * is performed.
      *
      * Returns a new map with cleaned values.
      */
     internal fun validateAndCleanClaims(
         claims: Map<String, String>?,
         audienceId: String,
-        context: ClaimAclContext?
+        doors: ClaimAclTokenDoors?
     ): Map<String, String>? {
         if (claims.isNullOrEmpty()) return claims
-        val doors = context?.let(claimAclManager::getTokenDoors)
         return claims.mapValues { (claimId, value) ->
             val claim = claimManager.findByIdOrNull(claimId)
             if (claim == null) {

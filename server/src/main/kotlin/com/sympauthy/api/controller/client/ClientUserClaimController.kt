@@ -65,9 +65,9 @@ class ClientUserClaimController(
         val audienceId = client.audience.id
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
-        val context = clientAuth.claimAclContext(consent.scopes)
-        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, audienceId, context)
-        val generatedClaimValues = generatedClaimsManager.computeValuesReadableByClient(clientUser.user, context)
+        val doors = claimAclManager.getTokenDoors(clientAuth.claimAclContext(consent.scopes))
+        val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(userId, audienceId, doors)
+        val generatedClaimValues = generatedClaimsManager.computeValuesReadableByClient(clientUser.user, doors)
         return claimMapper.toResource(userId, claims, generatedClaimValues)
     }
 
@@ -132,8 +132,7 @@ class ClientUserClaimController(
         // Validate all keys are claims of this audience and writable by the client. A claim of another
         // audience is refused rather than ignored, the same as one the client may not write: the caller named
         // it, and a silent success would read as the value having been stored.
-        val context = clientAuth.claimAclContext(consent.scopes)
-        val doors = claimAclManager.getTokenDoors(context)
+        val doors = claimAclManager.getTokenDoors(clientAuth.claimAclContext(consent.scopes))
         val invalidClaim = body.keys.firstOrNull { claimId ->
             val claim = claimManager.findByIdOrNull(claimId)
             claim == null ||
@@ -148,17 +147,13 @@ class ClientUserClaimController(
             )
         }
 
+        // The write answers every claim this client may read after it, which is the same set the read would.
         val updates = collectedClaimUpdateMapper.toUpdates(body)
-        consentAwareCollectedClaimManager.updateByClient(
-            clientUser.user, client.audience, updates, context
+        val claims = consentAwareCollectedClaimManager.updateByClient(
+            clientUser.user, client.audience, updates, doors
         )
-
-        // Return the full claim set after update
-        val allClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClient(
-            userId, audienceId, context
-        )
-        val generatedClaimValues = generatedClaimsManager.computeValuesReadableByClient(clientUser.user, context)
-        return claimMapper.toResource(userId, allClaims, generatedClaimValues)
+        val generatedClaimValues = generatedClaimsManager.computeValuesReadableByClient(clientUser.user, doors)
+        return claimMapper.toResource(userId, claims, generatedClaimValues)
     }
 }
 

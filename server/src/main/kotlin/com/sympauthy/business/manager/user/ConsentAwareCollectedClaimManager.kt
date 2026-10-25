@@ -12,7 +12,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.micronaut.transaction.annotation.Transactional
@@ -30,6 +30,10 @@ import java.util.*
  * read by none of the others — `docs/design/claims.md` is where they are told apart,
  * [com.sympauthy.business.model.user.claim.ClaimAcl] is where each is a property, and [ClaimAclManager] is
  * what evaluates one.
+ *
+ * A read or a write through a token takes the [ClaimAclTokenDoors] it is answered through, never the
+ * [com.sympauthy.business.model.user.claim.ClaimAclContext] they are built in, so a caller answering more than
+ * one of them from one token builds the doors once and passes the same ones to each.
  */
 @Singleton
 open class ConsentAwareCollectedClaimManager(
@@ -42,21 +46,20 @@ open class ConsentAwareCollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
-     * by the end-user through their own access token, in [context].
+     * by the end-user through their own access token, through [doors].
      *
      * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
      * claim restricted to none is answered whatever the audience. It is not optional, because the consented
-     * scopes of the [context] are not: consent is recorded per audience, so scopes a person consented to are
-     * always some audience's and the caller holding them knows which.
+     * scopes the [doors] were built in are not: consent is recorded per audience, so scopes a person consented
+     * to are always some audience's and the caller holding them knows which.
      *
      * Use this method when the caller is the end-user themselves and there is no client authentication.
      */
     suspend fun findByUserIdAndReadableByPerson(
         userId: UUID,
         audienceId: String,
-        context: ClaimAclContext
+        doors: ClaimAclTokenDoors
     ): List<CollectedClaim> {
-        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim.belongsToAudience(audienceId) && doors.canBeReadByPerson(it.claim)
         }
@@ -64,19 +67,18 @@ open class ConsentAwareCollectedClaimManager(
 
     /**
      * Return the list of [CollectedClaim] collected from the user identified by [userId] and readable
-     * by a client in [context].
+     * by a client through [doors].
      *
      * [audienceId] is the audience the answer is for: a claim restricted to another one is left out, and a
      * claim restricted to none is answered whatever the audience. It is not optional, because the consented
-     * scopes of the [context] are not: consent is recorded per audience, so scopes a person consented to are
-     * always some audience's and the caller holding them knows which.
+     * scopes the [doors] were built in are not: consent is recorded per audience, so scopes a person consented
+     * to are always some audience's and the caller holding them knows which.
      */
     suspend fun findByUserIdAndReadableByClient(
         userId: UUID,
         audienceId: String,
-        context: ClaimAclContext
+        doors: ClaimAclTokenDoors
     ): List<CollectedClaim> {
-        val doors = claimAclManager.getTokenDoors(context)
         return collectedClaimManager.findByUserId(userId).filter {
             it.claim.belongsToAudience(audienceId) && doors.canBeReadByClient(it.claim)
         }
@@ -106,13 +108,13 @@ open class ConsentAwareCollectedClaimManager(
         userId: UUID,
         audienceId: String,
         place: ClaimPublicationPlace,
-        context: ClaimAclContext,
+        doors: ClaimAclTokenDoors,
         requestedClaims: RequestedClaims = RequestedClaims.NONE
     ): List<CollectedClaim> {
         return findByUserIdAndReadableByClient(
             userId = userId,
             audienceId = audienceId,
-            context = context
+            doors = doors
         ).filter { it.claim.isPublishedIn(place, requestedClaims) }
     }
 
@@ -254,7 +256,7 @@ open class ConsentAwareCollectedClaimManager(
     /**
      * Update the claims collected for the [user] on behalf of a client of the [audience].
      *
-     * Only claims of that audience and writable by a client in [context] are applied. Updates
+     * Only claims of that audience and writable by a client through [doors] are applied. Updates
      * targeting any other claim are silently ignored.
      * Returns all claims of that audience readable by the client presenting it, which is not the same set:
      * a claim the client may write and may not read is applied and left out of the answer.
@@ -274,10 +276,9 @@ open class ConsentAwareCollectedClaimManager(
         user: User,
         audience: Audience,
         updates: List<CollectedClaimUpdate>,
-        context: ClaimAclContext
+        doors: ClaimAclTokenDoors
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
-        val doors = claimAclManager.getTokenDoors(context)
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
                 it.claim.belongsToAudience(audience.id) &&

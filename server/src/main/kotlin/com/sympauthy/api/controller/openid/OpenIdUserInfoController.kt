@@ -4,6 +4,7 @@ import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OP
 import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
+import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.security.SecurityRule.IS_USER
 import com.sympauthy.security.userAuthentication
@@ -20,6 +21,7 @@ import jakarta.inject.Inject
 @Controller(OPENID_USERINFO_ENDPOINT)
 @Secured(IS_USER)
 class OpenIdUserInfoController(
+    @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val userInfoMapper: UserInfoResourceMapper
 ) {
@@ -62,7 +64,7 @@ class OpenIdUserInfoController(
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = authentication.userId,
             audienceId = client.audience.id,
-            context = authentication.userAuthentication.claimAclContext()
+            doors = claimAclManager.getTokenDoors(authentication.userAuthentication.claimAclContext())
         )
         // Off the grant rather than off a session: the authorization that carried the `claims` parameter
         // is long over, and every access token issued under its grant answers the request it made.

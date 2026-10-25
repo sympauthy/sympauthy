@@ -25,6 +25,10 @@ then has to say what it does about the disabled case in order to compile.
 is a row of that manager's answer and nothing else assembles one, so the model package keeps what
 more than one caller shares.
 
+**A model another component takes as a parameter is in the model package, whoever builds it.** The
+ACL's doors are built by `ClaimAclManager` alone and handed on to the managers that read through
+them, and a signature naming one of them then names a model rather than another manager's insides.
+
 ## The mapper
 
 **The mapper is the only door into a model, and the only place a row is rejected.** A column outside
