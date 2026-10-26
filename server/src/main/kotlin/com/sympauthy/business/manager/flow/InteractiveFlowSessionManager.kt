@@ -328,9 +328,9 @@ open class InteractiveFlowSessionManager(
      * [CompletedInteractiveFlowSession].
      *
      * Call once every purpose the session carries has resolved (and been marked complete via
-     * [markPurposeAsCompleted]) and its terminal effect applied. The concern-specific completion invariants
-     * (e.g. consent / grant for an OAuth2 session) are enforced by the matching purpose's terminal effect,
-     * run before this transition.
+     * [markPurposeAsCompleted]), inside the transaction applying the terminal effects. The concern-specific
+     * completion invariants (e.g. consent / grant for an OAuth2 session) are enforced by the matching purpose's
+     * terminal effect, committed with this transition.
      */
     suspend fun markAsCompleted(
         session: OnGoingInteractiveFlowSession

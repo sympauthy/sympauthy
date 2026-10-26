@@ -84,13 +84,18 @@ failure each of them raises is written at the writer.
 ### What the completion transaction commits
 
 **Promotion is the first thing the completion transaction does, and its locks outlive it.** They are
-held until that transaction commits, terminal effects included, so a terminal effect doing I/O of
-its own is everybody's problem: the OAuth2 effect calls the client's authorization webhook where one
-is configured, and a flow whose identity hashes to the same stripe waits however long that client
-takes to answer. That is the server breaking
-[the rule against holding a lock across I/O](../standards/locking-standard.md), not an exception to
-it — and moving that call out is not a reordering, because the effects write consents and a consumed
-invitation against an account the promotion is what makes real.
+held until that transaction commits, terminal effects included, so no terminal effect may wait on
+anything outside the database while it is applied — a flow whose identity hashes to the same stripe
+would wait as long, under [the rule against holding a lock across
+I/O](../standards/locking-standard.md). What an effect has to ask elsewhere, it asks before the
+transaction opens: the OAuth2 effect decides its scopes there, the client's authorization webhook
+included.
+
+**Deciding needs nothing the promotion makes real; writing does.** The account keeps its id when it
+is promoted, and its claims are rows it owns, which a read by that id sees while it is still
+provisional — so the decision can be taken first. The consent and the consumed invitation attach to
+the account, so they are written after the promotion, inside. [The interactive
+flow](interactive-flow.md#the-engine) owns that split for every purpose.
 
 **An invitation is consumed at completion rather than at sign-up**, for the same reason the
 promotion is there. An invitation is spent on an account that comes to exist, so an abandoned
@@ -119,12 +124,6 @@ it, or named in the guard that skips an account something still refers to. That 
 the collection selects by, and it is where the rule is written.
 
 ## What this document does not settle
-
-**How the completion transaction stops holding a lock across I/O.** It names the breach and the
-reason the obvious fix is not one — a terminal effect's webhook cannot simply move ahead of the
-promotion, because the effects write against the account the promotion is what makes real — and
-stops there. What would settle it is a way to commit the identity before the effects run without
-giving up the re-check the lock is held for, and nothing here proposes one.
 
 **How long an abandoned account lives.** It is collected once its session is gone, so the session
 expiry decides it and no setting is its own. Whether a half-finished sign-up deserves a life of its

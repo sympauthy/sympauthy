@@ -25,7 +25,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.TerminalEffectResult
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
@@ -281,13 +281,14 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `applyTerminalEffect - Saves consent and proceeds when scopes are granted`() = runTest {
+    fun `prepareTerminalEffect - Decides without writing, then records the authorization when applied`() = runTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
         val grantedScopeObjects = listOf(mockk<EnabledScope>())
         val session = createOnGoingSession(userId = userId)
         val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
 
+        coEvery { userManager.findById(userId) } returns testUser
         val oauth2 = stubAudienceClaims(session, userId, emptyList())
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
             grantedScopeObjects
@@ -300,10 +301,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         } returns grant
         coEvery { authorizationCodeManager.generateCode(oauth2AfterGranted, grant) } returns mockk()
 
-        val result = handler.applyTerminalEffect(session)
+        val effect = assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
 
-        assertEquals(TerminalEffectResult.Proceed, result)
+        // Deciding runs outside the completion transaction, so it writes nothing of its own.
+        coVerify(exactly = 0) { oauth2Manager.setGrantedScopes(any(), any(), any()) }
+        coVerify(exactly = 0) { consentManager.saveConsent(any(), any(), any(), any()) }
+
+        effect.apply()
+
         coVerifyOrder {
+            scopeGrantingManager.grantScopes(session, oauth2, emptyList())
+            oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any())
             consentManager.saveConsent(testUser, testAudience, "client-id", any())
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
             authorizationCodeManager.generateCode(oauth2AfterGranted, grant)
@@ -311,7 +319,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
     }
 
     @Test
-    fun `applyTerminalEffect - Consumes the invitation that brought the end-user here`() = runTest {
+    fun `prepareTerminalEffect - Consumes the invitation that brought the end-user here`() = runTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
         val invitationId = UUID.randomUUID()
@@ -323,6 +331,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             invitationId = invitationId
         )
 
+        coEvery { userManager.findById(userId) } returns testUser
         val oauth2 = stubAudienceClaims(session, userId, emptyList())
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
             grantedScopeObjects
@@ -335,38 +344,33 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         stubCodeIssuance(session, userId)
 
-        val result = handler.applyTerminalEffect(session)
+        val effect = assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
+        effect.apply()
 
-        assertEquals(TerminalEffectResult.Proceed, result)
         coVerify { invitationManager.consumeInvitation(invitation, testUser) }
     }
 
     @Test
-    fun `applyTerminalEffect - Fails when no scope granted and access without scope is disallowed`() = runTest {
+    fun `prepareTerminalEffect - Fails when no scope granted and access without scope is disallowed`() = runTest {
         val userId = UUID.randomUUID()
         val session = createOnGoingSession(userId = userId)
-        val oauth2AfterGranted = oauth2Of(
-            clientId = "client-id",
-            grantedScopes = emptyList(),
-            consentedScopes = emptyList()
-        )
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns false
         val oauth2 = stubAudienceClaims(session, userId, emptyList())
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
                 grantScopesResultOf(emptyList())
-        coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
 
-        val result = handler.applyTerminalEffect(session)
+        val result = handler.prepareTerminalEffect(session)
 
-        val fail = assertInstanceOf(TerminalEffectResult.Fail::class.java, result)
+        val fail = assertInstanceOf(PreparedTerminalEffect.Fail::class.java, result)
         assertEquals("flow.authorization_flow.complete.no_scope", fail.error.detailsId)
+        coVerify(exactly = 0) { oauth2Manager.setGrantedScopes(any(), any(), any()) }
         coVerify(exactly = 0) { grantManager.createAuthorizationCodeGrant(any(), any(), any(), any()) }
         coVerify(exactly = 0) { authorizationCodeManager.generateCode(any(), any()) }
     }
 
     @Test
-    fun `applyTerminalEffect - Proceeds when no scope granted but access without scope is allowed`() = runTest {
+    fun `prepareTerminalEffect - Proceeds when no scope granted but access without scope is allowed`() = runTest {
         val userId = UUID.randomUUID()
         val clientId = "client-id"
         val session = createOnGoingSession(userId = userId)
@@ -377,6 +381,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
 
         every { uncheckedFeaturesConfig.allowAccessToClientWithoutScope } returns true
+        coEvery { userManager.findById(userId) } returns testUser
         val oauth2 = stubAudienceClaims(session, userId, emptyList())
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
                 grantScopesResultOf(emptyList())
@@ -385,28 +390,36 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         stubCodeIssuance(session, userId)
 
-        val result = handler.applyTerminalEffect(session)
+        val effect = assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
+        effect.apply()
 
-        assertEquals(TerminalEffectResult.Proceed, result)
+        coVerify { authorizationCodeManager.generateCode(oauth2AfterGranted, any()) }
     }
 
     @Test
-    fun `applyTerminalEffect - Read the claims of the audience the authorization is for`() = runTest {
+    fun `prepareTerminalEffect - Proceeds on a consented scope when the granting pipeline granted none`() = runTest {
         val userId = UUID.randomUUID()
-        val clientId = "client-id"
         val session = createOnGoingSession(userId = userId)
-        val oauth2AfterGranted = oauth2Of(clientId = clientId, grantedScopes = listOf("read"))
+
+        val oauth2 = stubAudienceClaims(session, userId, emptyList(), consentedScopes = listOf("profile"))
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns
+                grantScopesResultOf(emptyList())
+
+        assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
+    }
+
+    @Test
+    fun `prepareTerminalEffect - Read the claims of the audience the authorization is for`() = runTest {
+        val userId = UUID.randomUUID()
+        val session = createOnGoingSession(userId = userId)
         val audienceClaims = listOf(mockk<CollectedClaim>())
 
         val oauth2 = stubAudienceClaims(session, userId, audienceClaims)
         coEvery { scopeGrantingManager.grantScopes(session, oauth2, audienceClaims) } returns
-                grantScopesResultOf(emptyList())
-        coEvery { oauth2Manager.setGrantedScopes(session, emptyList(), any()) } returns oauth2AfterGranted
-        coEvery { consentManager.saveConsent(testUser, testAudience, "client-id", any()) } returns mockk()
+                grantScopesResultOf(listOf(mockk<EnabledScope>()))
 
-        stubCodeIssuance(session, userId)
-
-        assertEquals(TerminalEffectResult.Proceed, handler.applyTerminalEffect(session))
+        assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
+        coVerify { scopeGrantingManager.grantScopes(session, oauth2, audienceClaims) }
     }
 
     @Test
@@ -575,10 +588,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         session: OnGoingInteractiveFlowSession,
         userId: UUID,
         audienceClaims: List<CollectedClaim>,
+        consentedScopes: List<String>? = null,
     ): InteractiveFlowSessionOAuth2 {
-        val oauth2 = oauth2Of(clientId = "client-id")
+        val oauth2 = oauth2Of(clientId = "client-id", consentedScopes = consentedScopes)
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
-        coEvery { userManager.findById(userId) } returns testUser
         coEvery { oauth2Manager.getAudience(oauth2) } returns testAudience
         coEvery { collectedClaimManager.findByUserIdAndAudience(userId, testAudience.id) } returns audienceClaims
         return oauth2

@@ -147,9 +147,9 @@ class InteractiveFlowStepUriMapper(
      * only the client's own `state` is echoed back, as required by OAuth2.
      *
      * **The code is read back, although the request building this redirect is the one that just wrote it.**
-     * It is written by the completion, inside its transaction, and nothing carries it out: a terminal effect
-     * answers only whether the flow proceeds, and putting the code on the session or the step would hand a
-     * credential to every caller of the engine. Writing it here instead is what let a repeated request mint
+     * It is written by the completion, inside its transaction, and nothing carries it out: an applied terminal
+     * effect answers nothing, and putting the code on the session or the step would hand a credential to every
+     * caller of the engine. Writing it here instead is what let a repeated request mint
      * a second one. One read per authorization is the accepted price.
      */
     private suspend fun buildClientRedirectUri(session: CompletedInteractiveFlowSession): URI {

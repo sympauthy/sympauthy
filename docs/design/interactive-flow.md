@@ -80,8 +80,9 @@ handler, whether it still needs a step:
 2. A purpose whose handler returns nothing is complete. The engine marks it so and inserts that
    purpose's follow-ups **immediately after it** — which is why a gate's follow-up runs *before* the
    purpose the gate was protecting.
-3. When every purpose has resolved, the engine runs each terminal effect in order and moves the
-   session to completed or failed.
+3. When every purpose has resolved, the engine has each handler prepare its terminal effect, in
+   order, then moves the session to completed and applies them all — or fails it on the first
+   that refuses, without applying any.
 
 It returns an `InteractiveFlowStepResult`: the session as it now stands, and the step to send the
 person to.
@@ -106,6 +107,14 @@ or not at all — everything before them is deliberately not, because a flow a p
 walking through is many requests and no transaction spans them. What a promotion is, and what it
 has to take turns with, is [the provisional user](provisional-user.md).
 
+**A terminal effect is decided before that transaction and written inside it.** The promotion's
+locks are held until the transaction commits, and [the locking
+standard](../standards/locking-standard.md) forbids holding one across I/O — so whatever a purpose
+has to ask outside the database to decide its effect, it asks while the effect is prepared, and
+what it hands the engine is the writes alone. The decision travels to those writes in memory rather
+than through the session: two requests completing one session each decide, and only the one that
+commits applies what it decided.
+
 ## The handlers
 
 **`InteractiveFlowPurposeHandler` is one purpose's answers to the engine, and its KDoc is the
@@ -125,9 +134,10 @@ earlier in the list turns out to still need a step.
 result is a redirect loop rather than an error — the engine sends the person to a page that
 immediately decides it has nothing to do.
 
-**A terminal effect may fail the flow.** It returns either "proceed" or a failure carrying the
-exception, which is how a purpose that only discovers a problem at the end — no scope was granted, a
-link turned out to conflict — stops the session instead of completing it.
+**A terminal effect may fail the flow.** It is prepared as either the writes it comes to or a
+failure carrying the exception, which is how a purpose that only discovers a problem at the end — no
+scope was granted — stops the session instead of completing it. A refusal comes before the
+completion transaction opens, so nothing is promoted for a flow that was going to fail.
 
 **There is no registration list to edit.** The registry injects every handler bean and indexes them
 by purpose, so a new handler is wired up by existing. A purpose with no handler fails at runtime,
