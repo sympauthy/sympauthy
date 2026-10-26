@@ -46,13 +46,20 @@ passes, so no code exists for an authorization whose second factor has not.
 ## How the session ends
 
 **Completing grants the scopes, records the consent, opens the grant and generates the code, in one
-transaction.** The authorization's terminal effect runs the scopes through the granting pipeline,
-records the consent for the client's audience, consumes the invitation where one brought the person
-here, opens the grant every token of the authorization will be issued under, and generates the
-authorization code last, naming that grant. It runs inside [the completion
-transaction](interactive-flow.md#the-engine), so a purpose refusing after it rolls the code back
-with everything else, and a session never completes without one. Where no scope was granted and the
-deployment does not allow access to a client without one, the session fails there instead.
+transaction.** The authorization's terminal effect runs the scopes through the granting pipeline
+first, before [the completion transaction](interactive-flow.md#the-engine) opens, because the
+pipeline asks the client's authorization webhook where one is configured and that transaction holds
+the promotion's locks. Inside it, the effect records the granted scopes and the consent for the
+client's audience, consumes the invitation where one brought the person here, opens the grant every
+token of the authorization will be issued under, and generates the authorization code last, naming
+that grant — so a session never completes without a code, and a code never outlives a completion
+that failed. Where no scope was granted and the deployment does not allow access to a client
+without one, the session fails before that transaction opens instead.
+
+**The authorization webhook is asked a question, not told an outcome.** It is called before the
+promotion, so the user id it is handed may belong to a sign-up that a concurrent one then keeps
+from becoming an account, and the authorization it decides on may still fail to complete. A client
+reads the call as a request for a decision and learns of an authorization from the code.
 
 **The code is handed out once.** It goes to the client's redirect, answered to the request that
 completed the session. A later request with the same state to a step that answers with where the

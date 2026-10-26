@@ -11,7 +11,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.TerminalEffectResult
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -24,16 +24,18 @@ import jakarta.inject.Singleton
  * step of its purpose; the first purpose that still needs a step yields the step to present. As a purpose
  * resolves, the engine marks it complete and inserts the follow-up purposes it declares right after it — so
  * completion is recorded one purpose at a time as the engine hands off, even while later purposes still need
- * steps. Once
- * every purpose has resolved, the engine runs each purpose's terminal effect and transitions the session to
- * completed (or failed). The engine is the sole owner of every session mutation — appending, completing,
- * failing — while the handlers only read the session and describe what their purpose needs.
+ * steps. Once every purpose has resolved, the engine has each handler prepare its purpose's terminal effect,
+ * applies them and transitions the session to completed (or failed). The engine is the sole owner of every
+ * session mutation — appending, completing, failing — while the handlers only read the session and describe
+ * what their purpose needs.
  *
  * **Completing is one transaction.** The terminal effects, the promotion of whatever the session signed up
  * and the completion write commit together or not at all — see [commitCompletion]. Everything before that is
  * deliberately not: a flow the end-user is still walking through is many requests, and the point of
  * [com.sympauthy.data.model.SessionScoped] is that the rows those requests write need no transaction to span
- * them.
+ * them. Preparing the terminal effects is not either, because the promotion's locks are held until that
+ * transaction commits and deciding an effect may call out of this server, which
+ * `docs/standards/locking-standard.md` forbids a transaction holding a lock to do.
  */
 @Singleton
 open class InteractiveFlowEngine(
@@ -137,35 +139,39 @@ open class InteractiveFlowEngine(
     }
 
     /**
-     * Every purpose has resolved and been marked complete: commit the completion, or fail the session on a
-     * terminal effect that refused it.
+     * Every purpose has resolved and been marked complete: prepare each purpose's terminal effect, then commit
+     * the completion, or fail the session on a terminal effect that refused it.
      *
-     * The refusal is carried out of the transaction as an exception rather than returned, so a terminal
-     * effect that failed after an earlier one already wrote takes that write down with it. The session is
-     * then failed outside, in a transaction of its own — the one write that must survive.
+     * The effects are prepared before the completion transaction opens, because deciding one may call out of
+     * this server — the OAuth2 purpose asks the client's authorization webhook — and the promotion's locks are
+     * held until that transaction commits. A refusal therefore comes before anything is written, and the
+     * session is failed in a transaction of its own.
      */
     private suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
-        return try {
-            val completed = commitCompletion(session)
-            // Once that transaction has committed, in one of its own. The account is real by then, so nothing
-            // in user_security_contexts ever names one the abandoned-account sweep may delete — and a write
-            // that can violate a unique index is kept out of a transaction whose rollback would answer a
-            // person whose sign-in succeeded with a failure. It fails quietly for the same reason.
-            userSecurityContextManager.fold(completed)
-            InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
-        } catch (refused: TerminalEffectRefusedException) {
-            InteractiveFlowStepResult(
-                sessionManager.markAsFailedIfNotRecoverable(session, refused.error),
-                InteractiveFlowStep.Error
-            )
+        val effects = mutableListOf<PreparedTerminalEffect.Apply>()
+        for (purpose in session.purposes) {
+            when (val effect = purposeRegistry.getForPurpose(purpose).prepareTerminalEffect(session)) {
+                is PreparedTerminalEffect.Apply -> effects.add(effect)
+                is PreparedTerminalEffect.Fail -> return InteractiveFlowStepResult(
+                    sessionManager.markAsFailedIfNotRecoverable(session, effect.error),
+                    InteractiveFlowStep.Error
+                )
+            }
         }
+        val completed = commitCompletion(session, effects)
+        // Once that transaction has committed, in one of its own. The account is real by then, so nothing
+        // in user_security_contexts ever names one the abandoned-account sweep may delete — and a write
+        // that can violate a unique index is kept out of a transaction whose rollback would answer a
+        // person whose sign-in succeeded with a failure. It fails quietly for the same reason.
+        userSecurityContextManager.fold(completed)
+        return InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
     }
 
     /**
-     * Promote whatever the session signed up, run each purpose's terminal effect in order, and transition it
-     * to completed — all in one transaction.
+     * Promote whatever the session signed up, apply each of the [effects] prepared for its purposes in order,
+     * and transition it to completed — all in one transaction.
      *
-     * Terminal effects run only here — once every purpose (e.g. the final MFA gate) has resolved — so a
+     * Terminal effects are applied only here — once every purpose (e.g. the final MFA gate) has resolved — so a
      * purpose's concern-specific completion work (e.g. the OAuth2 purpose granting scopes, recording consent
      * and consuming the invitation) is committed only when the whole flow is about to succeed.
      *
@@ -174,12 +180,13 @@ open class InteractiveFlowEngine(
      * cleaner then cannot delete that account, which is a foreign key it must not break rather than one row
      * left behind.
      *
-     * Throws [TerminalEffectRefusedException] when a purpose refuses to complete, and a non-recoverable
-     * [BusinessException] when the promotion finds an identifier taken; either rolls the whole of it back.
+     * Throws a non-recoverable [BusinessException] when the promotion finds an identifier taken, which rolls the
+     * whole of it back.
      */
     @Transactional
     internal open suspend fun commitCompletion(
-        session: OnGoingInteractiveFlowSession
+        session: OnGoingInteractiveFlowSession,
+        effects: List<PreparedTerminalEffect.Apply>
     ): CompletedInteractiveFlowSession {
         // Promotion first, so every row a terminal effect goes on to write — a consent, a consumed
         // invitation — attaches to an account that exists rather than to one still being authored. It is
@@ -193,20 +200,7 @@ open class InteractiveFlowEngine(
         // committed and refuses to delete a promoted one on its own terms rather than on this one's — see
         // ProvisionalAccountManager.deleteAbandoned.
         provisionalAccountManager.promote(session)
-        for (purpose in session.purposes) {
-            val effect = purposeRegistry.getForPurpose(purpose).applyTerminalEffect(session)
-            if (effect is TerminalEffectResult.Fail) {
-                throw TerminalEffectRefusedException(effect.error)
-            }
-        }
+        effects.forEach { it.apply() }
         return sessionManager.markAsCompleted(session)
     }
 }
-
-/**
- * Carries a [TerminalEffectResult.Fail] out of the completion transaction so it rolls back.
- *
- * Not a [BusinessException]: this never reaches the API boundary. The engine catches it and fails the
- * session with the [error] it holds, which is the exception the end-user is actually answered with.
- */
-private class TerminalEffectRefusedException(val error: BusinessException) : RuntimeException(error)

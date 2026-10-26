@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.flow.auth
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.manager.auth.UserGrantScopesResult
 import com.sympauthy.business.manager.auth.UserScopeGrantingManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
@@ -15,6 +16,7 @@ import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -22,14 +24,15 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.PurposeDebugInformation
-import com.sympauthy.business.model.flow.TerminalEffectResult
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.util.UUID
 
 /**
  * [InteractiveFlowPurposeHandler] for the OAuth2 / OpenID Connect authorization flow initiated at
@@ -231,26 +234,18 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     }
 
     /**
-     * Grant the requested scopes for the ongoing [session] and record the consent.
+     * Grant the requested scopes for the ongoing [session], and return the writes recording the authorization.
      *
      * If the allowAccessToClientWithoutScope flag is false and no scope has been granted, returns
-     * [TerminalEffectResult.Fail] so the engine fails the session and the end-user is not allowed to continue
+     * [PreparedTerminalEffect.Fail] so the engine fails the session and the end-user is not allowed to continue
      * to the client.
      *
-     * On success, a [com.sympauthy.business.model.oauth2.Consent] is persisted recording which scopes the user
-     * authorized for the client. If an active consent already exists for this user+client pair, it is revoked
-     * and replaced.
-     *
-     * The grant every token of this authorization will be issued under is opened here, once the scopes and the
-     * consent it records are decided, and the authorization code is generated last, naming it. The session
-     * completes holding the one code its hand-off carries, and a flow refused by a later purpose rolls both
-     * back with everything else.
-     *
-     * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up. An
-     * invitation is spent on an account that comes to exist, so a flow that is abandoned leaves it pending
-     * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
-     * runs inside the completion transaction, so the first flow to reach it takes it and the second is
-     * refused. See [com.sympauthy.data.model.SessionScoped].
+     * The scopes are decided here, before the completion transaction, because the granting pipeline calls the
+     * client's authorization webhook where one is configured, and that transaction holds the promotion's locks.
+     * Deciding needs nothing the promotion makes real: the account keeps its id when it is promoted, and the
+     * claims it is read with are rows the account owns, which a read by user id sees before it is promoted. The
+     * decision is carried to the writes in memory rather than recorded on the session first, so a second request
+     * completing the same session cannot replace it with an answer of its own before this one commits.
      *
      * The claims handed to the granting pipeline are the ones this authorization's audience has, read that way
      * rather than read whole and narrowed after: a rule deciding on a claim restricted to another audience
@@ -258,43 +253,75 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * posting the value itself. Consent is not applied to them — what a rule may branch on and what the
      * end-user agreed to disclose to the client are different questions.
      */
-    override suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult {
+    override suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
 
         val userId = session.userId
             ?: throw internalBusinessExceptionOf("flow.authorization_flow.complete.missing_user")
-        // The account was promoted before any terminal effect ran, so it is read as a committed one.
-        val user = userManager.findById(userId)
-        // Fetched once here and threaded downward: the granting pipeline and the consent below both answer for
-        // the audience it names, and neither reads the record again.
-        val oauth2BeforeGranting = oauth2Manager.fetchOAuth2(session)
-        val audience = oauth2Manager.getAudience(oauth2BeforeGranting)
+        // Fetched once here and threaded downward: the granting pipeline and the consent recorded after it both
+        // answer for the audience it names, and neither reads the record again.
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        val audience = oauth2Manager.getAudience(oauth2)
         val audienceClaims = collectedClaimManager.findByUserIdAndAudience(userId, audience.id)
 
         // Grant only grantable scopes through the granting pipeline
         val grantScopesResult = scopeGrantingManager.grantScopes(
             session = session,
-            oauth2 = oauth2BeforeGranting,
+            oauth2 = oauth2,
             audienceClaims = audienceClaims
         )
-        val oauth2 = oauth2Manager.setGrantedScopes(
-            session = session,
-            grantedScopes = grantScopesResult.grantedScopes,
-            grantedBy = grantScopesResult.grantedBy
-        )
 
-        val hasAnyScope = !oauth2.grantedScopes.isNullOrEmpty() ||
+        val hasAnyScope = grantScopesResult.grantedScopes.isNotEmpty() ||
                 !oauth2.consentedScopes.isNullOrEmpty()
         if (!hasAnyScope && !featuresConfig.allowAccessToClientWithoutScope) {
             // No scope has been granted and the end-user is not allowed to continue to the client in this state.
-            return TerminalEffectResult.Fail(
+            return PreparedTerminalEffect.Fail(
                 businessExceptionOf(
                     detailsId = "flow.authorization_flow.complete.no_scope",
                     descriptionId = "description.flow.unauthorized_to_access_client",
                 )
             )
         }
+        return PreparedTerminalEffect.Apply {
+            recordAuthorization(session, userId, audience, grantScopesResult)
+        }
+    }
 
+    /**
+     * Record the authorization [grantScopesResult] decided for the ongoing [session] of [userId], for the
+     * [audience] of its client: the granted scopes, the consent, the consumed invitation, the grant and the
+     * authorization code.
+     *
+     * Every row it writes attaches to the account, so it requires the account promoted, in the transaction
+     * that commits the promotion.
+     *
+     * A [com.sympauthy.business.model.oauth2.Consent] is persisted recording which scopes the user authorized
+     * for the client. If an active consent already exists for this user+client pair, it is revoked and replaced.
+     *
+     * The grant every token of this authorization will be issued under is opened here, once the scopes and the
+     * consent it records are decided, and the authorization code is generated last, naming it. The session
+     * completes holding the one code its hand-off carries, and a completion that fails after this rolls both
+     * back with everything else.
+     *
+     * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up. An
+     * invitation is spent on an account that comes to exist, so a flow that is abandoned leaves it pending
+     * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
+     * runs inside the completion transaction, so the first flow to reach it takes it and the second is
+     * refused. See [com.sympauthy.data.model.SessionScoped].
+     */
+    internal suspend fun recordAuthorization(
+        session: OnGoingInteractiveFlowSession,
+        userId: UUID,
+        audience: Audience,
+        grantScopesResult: UserGrantScopesResult
+    ) {
+        // The account was promoted before any terminal effect is applied, so it is read as a committed one.
+        val user = userManager.findById(userId)
+        val oauth2 = oauth2Manager.setGrantedScopes(
+            session = session,
+            grantedScopes = grantScopesResult.grantedScopes,
+            grantedBy = grantScopesResult.grantedBy
+        )
         consentManager.saveConsent(
             user = user,
             audience = audience,
@@ -304,6 +331,5 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         oauth2.invitationId?.let { invitationManager.consumeInvitation(invitationManager.findById(it), user) }
         val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audience.id)
         authorizationCodeManager.generateCode(oauth2, grant)
-        return TerminalEffectResult.Proceed
     }
 }

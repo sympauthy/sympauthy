@@ -4,8 +4,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.PurposeDebugInformation
-import com.sympauthy.business.model.flow.TerminalEffectResult
 
 /**
  * Owns the step logic and completion behaviour of a single [purpose] of an interactive flow session.
@@ -43,15 +43,17 @@ interface InteractiveFlowPurposeHandler {
     suspend fun followUpPurposes(session: OnGoingInteractiveFlowSession): List<InteractiveFlowPurpose> = emptyList()
 
     /**
-     * Run this purpose's own terminal effect on the ongoing [session] — its concern-specific completion work
-     * (e.g. the OAuth2 purpose granting scopes and recording consent).
+     * Decide this purpose's own terminal effect on the ongoing [session] — its concern-specific completion work
+     * (e.g. the OAuth2 purpose granting scopes and recording consent) — and return the writes it comes to.
      *
-     * Run once every purpose has resolved, for each purpose in order, before that purpose is marked complete.
-     * [TerminalEffectResult.Fail] fails the session instead of proceeding. The default is a no-op
-     * ([TerminalEffectResult.Proceed]), for a purpose with no terminal effect.
+     * Asked once every purpose has resolved, for each purpose in order, outside any transaction: this is where
+     * the effect does whatever I/O deciding it takes, and it writes nothing. The engine applies every
+     * [PreparedTerminalEffect.Apply] inside the completion transaction, after the promotion, in the same order.
+     * [PreparedTerminalEffect.Fail] fails the session instead, before that transaction opens. The default writes
+     * nothing, for a purpose with no terminal effect.
      */
-    suspend fun applyTerminalEffect(session: OnGoingInteractiveFlowSession): TerminalEffectResult =
-        TerminalEffectResult.Proceed
+    suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect =
+        PreparedTerminalEffect.Apply { }
 
     /**
      * Whether a session this purpose initiated hands the end-user back only once, to the request that

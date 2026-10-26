@@ -788,7 +788,7 @@ to it, because those it could express.
 ### Does a granting rule see claims of every audience?
 
 **Decision:** No. Each caller reads the claims of the audience its decision lands in, through
-`CollectedClaimManager.findByUserIdAndAudience`: `applyTerminalEffect` reads the flow's audience
+`CollectedClaimManager.findByUserIdAndAudience`: `prepareTerminalEffect` reads the flow's audience
 before granting, and the token exchange reads the audience the act-as token is being issued for.
 Consent is still not applied — what a rule may branch on and what a person agreed to disclose
 remain different questions.

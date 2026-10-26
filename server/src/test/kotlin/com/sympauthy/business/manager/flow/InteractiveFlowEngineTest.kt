@@ -10,7 +10,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.TerminalEffectResult
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import java.net.URI
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -100,7 +100,7 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - All purposes resolved runs the terminal effect and completes the session`() = runTest {
+    fun `advance - All purposes resolved applies the terminal effect and completes the session`() = runTest {
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
         val completed = completedSession()
@@ -111,13 +111,15 @@ class InteractiveFlowEngineTest {
             sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
         } returns marked
         coEvery { handler.followUpPurposes(marked) } returns emptyList()
-        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Proceed
+        val effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+        coEvery { handler.prepareTerminalEffect(marked) } returns effect
         coEvery { sessionManager.markAsCompleted(marked) } returns completed
 
         val result = engine.advance(session)
 
         assertSame(completed, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
+        coVerify(exactly = 1) { effect.apply() }
     }
 
     @Test
@@ -133,7 +135,7 @@ class InteractiveFlowEngineTest {
             sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
         } returns marked
         coEvery { handler.followUpPurposes(marked) } returns emptyList()
-        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Fail(error)
+        coEvery { handler.prepareTerminalEffect(marked) } returns PreparedTerminalEffect.Fail(error)
         coEvery { sessionManager.markAsFailedIfNotRecoverable(marked, error) } returns failed
 
         val result = engine.advance(session)
@@ -359,7 +361,7 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - Runs every terminal effect in order then completes the session once`() = runTest {
+    fun `advance - Applies every terminal effect in order then completes the session once`() = runTest {
         // Both purposes are resolved: each is marked complete as the engine hands off, then every terminal
         // effect runs in order on the fully-marked session before the single completion transition.
         val session = onGoingSession(
@@ -386,18 +388,24 @@ class InteractiveFlowEngineTest {
             sessionManager.markPurposeAsCompleted(afterFirst, InteractiveFlowPurpose.MFA_CHALLENGE)
         } returns afterSecond
         coEvery { mfaHandler.followUpPurposes(afterSecond) } returns emptyList()
-        coEvery { oauth2Handler.applyTerminalEffect(afterSecond) } returns TerminalEffectResult.Proceed
-        coEvery { mfaHandler.applyTerminalEffect(afterSecond) } returns TerminalEffectResult.Proceed
+        val oauth2Effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+        val mfaEffect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+        coEvery { oauth2Handler.prepareTerminalEffect(afterSecond) } returns oauth2Effect
+        coEvery { mfaHandler.prepareTerminalEffect(afterSecond) } returns mfaEffect
         coEvery { sessionManager.markAsCompleted(afterSecond) } returns completed
 
         val result = engine.advance(session)
 
         assertSame(completed, result.session)
         assertEquals(InteractiveFlowStep.Complete, result.step)
-        // Terminal effects run on the fully-marked session, in purpose order, before completion.
+        // Terminal effects are prepared on the fully-marked session and applied, both in purpose order, before
+        // completion.
         coVerifyOrder {
-            oauth2Handler.applyTerminalEffect(afterSecond)
-            mfaHandler.applyTerminalEffect(afterSecond)
+            oauth2Handler.prepareTerminalEffect(afterSecond)
+            mfaHandler.prepareTerminalEffect(afterSecond)
+            oauth2Effect.apply()
+            mfaEffect.apply()
+            sessionManager.markAsCompleted(afterSecond)
         }
     }
 
@@ -441,7 +449,7 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
-    fun `advance - Promotes what the session signed up before the terminal effects and the completion`() =
+    fun `advance - Promotes what the session signed up between preparing the terminal effects and applying them`() =
         runTest {
             val userId = UUID.randomUUID()
             val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
@@ -454,22 +462,25 @@ class InteractiveFlowEngineTest {
                 sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
             } returns marked
             coEvery { handler.followUpPurposes(marked) } returns emptyList()
-            coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Proceed
+            val effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+            coEvery { handler.prepareTerminalEffect(marked) } returns effect
             coEvery { sessionManager.markAsCompleted(marked) } returns completed
 
             assertSame(completed, engine.advance(session).session)
 
-            // Promotion first, so a consent or a consumed invitation a terminal effect writes attaches to an
-            // account that exists.
+            // Prepared before the promotion, so whatever deciding the effect calls out to is not waited on under
+            // the promotion's locks. Applied after it, so a consent or a consumed invitation the effect writes
+            // attaches to an account that exists.
             coVerifyOrder {
+                handler.prepareTerminalEffect(marked)
                 provisionalAccountManager.promote(marked)
-                handler.applyTerminalEffect(marked)
+                effect.apply()
                 sessionManager.markAsCompleted(marked)
             }
         }
 
     @Test
-    fun `advance - A refused terminal effect never completes the session`() = runTest {
+    fun `advance - A refused terminal effect neither promotes nor completes the session`() = runTest {
         val userId = UUID.randomUUID()
         val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
         val marked = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE), userId = userId)
@@ -481,14 +492,49 @@ class InteractiveFlowEngineTest {
             sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
         } returns marked
         coEvery { handler.followUpPurposes(marked) } returns emptyList()
-        coEvery { handler.applyTerminalEffect(marked) } returns TerminalEffectResult.Fail(error)
+        coEvery { handler.prepareTerminalEffect(marked) } returns PreparedTerminalEffect.Fail(error)
         coEvery { sessionManager.markAsFailedIfNotRecoverable(marked, error) } returns failedSession()
 
         engine.advance(session)
 
-        // The promotion has already run by then; what undoes it is the transaction the refusal rolls back,
-        // which no double can show.
+        coVerify(exactly = 0) { provisionalAccountManager.promote(any()) }
         coVerify(exactly = 0) { sessionManager.markAsCompleted(any()) }
+    }
+
+    @Test
+    fun `advance - A terminal effect refused by a later purpose applies none prepared before it`() = runTest {
+        val session = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
+        )
+        val afterFirst = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
+        )
+        val afterSecond = onGoingSession(
+            listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE)
+        )
+        val error = mockk<BusinessException>()
+        val oauth2Handler = mockk<InteractiveFlowPurposeHandler>()
+        val mfaHandler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns oauth2Handler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.MFA_CHALLENGE) } returns mfaHandler
+        coEvery { oauth2Handler.nextStepOrNull(session) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns afterFirst
+        coEvery { oauth2Handler.followUpPurposes(afterFirst) } returns emptyList()
+        coEvery { mfaHandler.nextStepOrNull(afterFirst) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(afterFirst, InteractiveFlowPurpose.MFA_CHALLENGE)
+        } returns afterSecond
+        coEvery { mfaHandler.followUpPurposes(afterSecond) } returns emptyList()
+        val oauth2Effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+        coEvery { oauth2Handler.prepareTerminalEffect(afterSecond) } returns oauth2Effect
+        coEvery { mfaHandler.prepareTerminalEffect(afterSecond) } returns PreparedTerminalEffect.Fail(error)
+        coEvery { sessionManager.markAsFailedIfNotRecoverable(afterSecond, error) } returns failedSession()
+
+        assertEquals(InteractiveFlowStep.Error, engine.advance(session).step)
+
+        coVerify(exactly = 0) { oauth2Effect.apply() }
     }
 
     private fun onGoingSession(
