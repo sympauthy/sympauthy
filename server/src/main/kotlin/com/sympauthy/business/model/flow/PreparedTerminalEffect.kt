@@ -15,12 +15,17 @@ sealed interface PreparedTerminalEffect {
     /**
      * The terminal effect is decided, and [apply] writes it.
      *
-     * The engine runs [apply] inside the completion transaction, after the promotion, so it does no I/O beyond
-     * the database: the promotion's locks are held until that transaction commits.
+     * The engine runs [apply] inside the completion transaction, after the promotion and the completion write,
+     * so it does no I/O beyond the database: the promotion's locks are held until that transaction commits.
      */
     fun interface Apply : PreparedTerminalEffect {
         suspend fun apply()
     }
+
+    /**
+     * The purpose has no terminal effect, and the flow completes without one.
+     */
+    data object None : PreparedTerminalEffect
 
     /**
      * The terminal effect cannot let the flow complete; the engine fails the session with [error] without

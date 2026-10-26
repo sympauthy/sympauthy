@@ -81,7 +81,7 @@ handler, whether it still needs a step:
    purpose's follow-ups **immediately after it** — which is why a gate's follow-up runs *before* the
    purpose the gate was protecting.
 3. When every purpose has resolved, the engine has each handler prepare its terminal effect, in
-   order, then applies them all and moves the session to completed — or fails it on the first
+   order, then moves the session to completed and applies them all — or fails it on the first
    that refuses, without applying any.
 
 It returns an `InteractiveFlowStepResult`: the session as it now stands, and the step to send the

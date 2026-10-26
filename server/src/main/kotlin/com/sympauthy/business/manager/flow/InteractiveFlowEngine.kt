@@ -152,6 +152,7 @@ open class InteractiveFlowEngine(
         for (purpose in session.purposes) {
             when (val effect = purposeRegistry.getForPurpose(purpose).prepareTerminalEffect(session)) {
                 is PreparedTerminalEffect.Apply -> effects.add(effect)
+                PreparedTerminalEffect.None -> Unit
                 is PreparedTerminalEffect.Fail -> return InteractiveFlowStepResult(
                     sessionManager.markAsFailedIfNotRecoverable(session, effect.error),
                     InteractiveFlowStep.Error
@@ -168,8 +169,8 @@ open class InteractiveFlowEngine(
     }
 
     /**
-     * Promote whatever the session signed up, apply each of the [effects] prepared for its purposes in order,
-     * and transition it to completed — all in one transaction.
+     * Promote whatever the session signed up, transition it to completed, and apply each of the [effects]
+     * prepared for its purposes in order — all in one transaction.
      *
      * Terminal effects are applied only here — once every purpose (e.g. the final MFA gate) has resolved — so a
      * purpose's concern-specific completion work (e.g. the OAuth2 purpose granting scopes, recording consent
@@ -180,8 +181,9 @@ open class InteractiveFlowEngine(
      * cleaner then cannot delete that account, which is a foreign key it must not break rather than one row
      * left behind.
      *
-     * Throws a non-recoverable [BusinessException] when the promotion finds an identifier taken, which rolls the
-     * whole of it back.
+     * Throws a non-recoverable [BusinessException] when the promotion finds an identifier taken, and the
+     * concurrent-modification failure when the session moved or went since it was read; either rolls the whole
+     * of it back.
      */
     @Transactional
     internal open suspend fun commitCompletion(
@@ -200,7 +202,12 @@ open class InteractiveFlowEngine(
         // committed and refuses to delete a promoted one on its own terms rather than on this one's — see
         // ProvisionalAccountManager.deleteAbandoned.
         provisionalAccountManager.promote(session)
+        // The completion write before the effects, so a session that moved or went while the effects were
+        // prepared is refused before anything is written against its account. The cleaner collects an account
+        // only once its session is gone, so this is also where a sign-up collected during that wait is answered,
+        // rather than by an effect finding its account missing.
+        val completed = sessionManager.markAsCompleted(session)
         effects.forEach { it.apply() }
-        return sessionManager.markAsCompleted(session)
+        return completed
     }
 }

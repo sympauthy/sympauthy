@@ -315,7 +315,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         audience: Audience,
         grantScopesResult: UserGrantScopesResult
     ) {
-        // The account was promoted before any terminal effect is applied, so it is read as a committed one.
+        // The account was promoted, and the session completed, before any terminal effect is applied, so it is
+        // read as a committed one.
         val user = userManager.findById(userId)
         val oauth2 = oauth2Manager.setGrantedScopes(
             session = session,

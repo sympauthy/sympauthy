@@ -49,11 +49,11 @@ interface InteractiveFlowPurposeHandler {
      * Asked once every purpose has resolved, for each purpose in order, outside any transaction: this is where
      * the effect does whatever I/O deciding it takes, and it writes nothing. The engine applies every
      * [PreparedTerminalEffect.Apply] inside the completion transaction, after the promotion, in the same order.
-     * [PreparedTerminalEffect.Fail] fails the session instead, before that transaction opens. The default writes
-     * nothing, for a purpose with no terminal effect.
+     * [PreparedTerminalEffect.Fail] fails the session instead, before that transaction opens. The default is
+     * [PreparedTerminalEffect.None], for a purpose with no terminal effect.
      */
     suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect =
-        PreparedTerminalEffect.Apply { }
+        PreparedTerminalEffect.None
 
     /**
      * Whether a session this purpose initiated hands the end-user back only once, to the request that
