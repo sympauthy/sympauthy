@@ -112,8 +112,10 @@ class ScopeManager(
      *
      * This method does the following:
      * - If no scope is provided by the end-user, return the default scopes defined by the [client],
-     *   which [Client.defaultScopes] already holds inside the allowed set.
+     *   which [Client.defaultScopes] already holds inside the allowed set and free of client scopes.
      * - parse the [uncheckedScopes] and throw an unrecoverable exception if it fails.
+     * - reject client scopes, which only a `client_credentials` flow obtains: one named here could
+     *   never be granted, and the authorization would succeed without it.
      * - reject scopes whose audience does not match the [client]'s audience.
      * - reject scopes that are not in the [client]'s allowed scopes.
      */
@@ -133,6 +135,13 @@ class ScopeManager(
                         descriptionId = "description.scope.parse_requested.unsupported",
                         values = arrayOf("scope" to scope)
                     )
+                    if (foundScope is ClientScope) {
+                        throw businessExceptionOf(
+                            detailsId = "scope.parse_requested.not_user_scope",
+                            descriptionId = "description.scope.parse_requested.not_user_scope",
+                            values = arrayOf("scope" to scope)
+                        )
+                    }
                     if (foundScope.audienceId != null && foundScope.audienceId != client.audience.id) {
                         throw businessExceptionOf(
                             detailsId = "scope.audience_mismatch",

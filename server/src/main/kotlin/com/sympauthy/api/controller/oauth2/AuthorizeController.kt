@@ -64,8 +64,9 @@ open class AuthorizeController(
                 name = "scope",
                 `in` = QUERY,
                 description = "Scopes the client asks for, separated by spaces. A scope that is not enabled, " +
-                    "belongs to another audience or is not allowed to the client fails the authorization " +
-                    "request. When absent, the `default-scopes` configured for the client.",
+                    "is a client scope only the `client_credentials` grant obtains, belongs to another " +
+                    "audience or is not allowed to the client fails the authorization request. When absent, " +
+                    "the `default-scopes` configured for the client.",
                 schema = Schema(
                     type = "string"
                 )

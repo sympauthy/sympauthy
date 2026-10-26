@@ -114,7 +114,7 @@ class ClientsConfigValidator(
             }
         }
         val defaultScopes = when {
-            parsed.defaultScopes != null -> fieldValidator.validateScopes(
+            parsed.defaultScopes != null -> fieldValidator.validateDefaultScopes(
                 subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes, scopesById,
                 audienceId = parsed.audienceId
             )

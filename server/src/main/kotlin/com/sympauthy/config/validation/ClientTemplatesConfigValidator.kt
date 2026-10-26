@@ -44,7 +44,7 @@ class ClientTemplatesConfigValidator(
         val allowedScopes = fieldValidator.validateScopes(
             subCtx, "$configKeyPrefix.allowed-scopes", parsed.allowedScopes, scopesById
         )?.toSet()
-        val defaultScopes = fieldValidator.validateScopes(
+        val defaultScopes = fieldValidator.validateDefaultScopes(
             subCtx, "$configKeyPrefix.default-scopes", parsed.defaultScopes, scopesById
         )
         val authorizationWebhook = fieldValidator.validateWebhook(parsed.authorizationWebhook)
