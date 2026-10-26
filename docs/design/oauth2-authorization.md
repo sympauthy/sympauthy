@@ -56,11 +56,6 @@ that grant — so a session never completes without a code, and a code never out
 that failed. Where no scope was granted and the deployment does not allow access to a client
 without one, the session fails before that transaction opens instead.
 
-**The authorization webhook is asked a question, not told an outcome.** It is called before the
-promotion, so the user id it is handed may belong to a sign-up that a concurrent one then keeps
-from becoming an account, and the authorization it decides on may still fail to complete. A client
-reads the call as a request for a decision and learns of an authorization from the code.
-
 **The code is handed out once.** It goes to the client's redirect, answered to the request that
 completed the session. A later request with the same state to a step that answers with where the
 flow goes — a reload, the back button, a form submitted twice — is sent to the error page, which

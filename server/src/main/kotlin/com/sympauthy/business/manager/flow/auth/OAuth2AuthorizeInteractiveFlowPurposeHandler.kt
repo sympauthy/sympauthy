@@ -258,8 +258,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
         val userId = session.userId
             ?: throw internalBusinessExceptionOf("flow.authorization_flow.complete.missing_user")
-        // Fetched once here and threaded downward: the granting pipeline and the consent recorded after it both
-        // answer for the audience it names, and neither reads the record again.
+        // The audience is resolved once here and threaded downward: the granting pipeline and the consent
+        // recorded after it both answer for it, and neither resolves it again.
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         val audience = oauth2Manager.getAudience(oauth2)
         val audienceClaims = collectedClaimManager.findByUserIdAndAudience(userId, audience.id)
