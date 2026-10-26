@@ -98,10 +98,12 @@ H2 in a local file, which is the default above and survives restarts:
 url: r2dbc:h2:file://localhost/./sympauthy
 ```
 
-H2 in memory, which is empty on every start:
+H2 in memory, which is empty on every start. `DB_CLOSE_DELAY=-1` keeps it for the life of the
+process: without it H2 discards the database when the migration's connection closes, and the server
+then reads an empty one:
 
 ```yaml
-url: r2dbc:h2:mem://localhost/sympauthy
+url: "r2dbc:h2:mem://localhost/sympauthy?DB_CLOSE_DELAY=-1"
 ```
 
 PostgreSQL, which is what a deployment runs:
