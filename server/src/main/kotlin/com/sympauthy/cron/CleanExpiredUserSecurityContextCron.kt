@@ -3,7 +3,7 @@ package com.sympauthy.cron
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
 import com.sympauthy.business.manager.security.UserSecurityContextCleaner
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -35,7 +35,7 @@ class CleanExpiredUserSecurityContextCron(
             jobLeaseManager.withLease(CLEAN_EXPIRED_USER_SECURITY_CONTEXTS) {
                 val count = userSecurityContextCleaner.clean()
                 if (count > 0) {
-                    logger.debug("Cleaned $count expired user security contexts.")
+                    logger.debug { "Cleaned $count expired user security contexts." }
                 }
             }
         }

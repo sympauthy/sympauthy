@@ -3,7 +3,7 @@ package com.sympauthy.cron
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.business.manager.user.ProvisionalAccountManager
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -38,7 +38,7 @@ class CleanAbandonedAccountCron(
             jobLeaseManager.withLease(CLEAN_ABANDONED_ACCOUNTS) {
                 val count = provisionalAccountManager.deleteAbandoned()
                 if (count > 0) {
-                    logger.debug("Cleaned $count accounts left behind by an abandoned sign-up.")
+                    logger.debug { "Cleaned $count accounts left behind by an abandoned sign-up." }
                 }
             }
         }

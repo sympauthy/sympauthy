@@ -35,7 +35,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -242,7 +242,7 @@ class InteractiveFlowSessionCollectionManager(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            logger.warn("Could not tell which purpose session ${ongoing.id} is stopped at.", failure)
+            logger.warn(failure) { "Could not tell which purpose session ${ongoing.id} is stopped at." }
             null
         }
     }

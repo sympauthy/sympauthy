@@ -19,7 +19,7 @@ import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -308,12 +308,10 @@ open class InvitationManager(
                 ?.takeIf { it.belongsToAudience(invitation.audienceId) }
                 ?: return@mapNotNull null
             if (claim in refusedClaims) {
-                logger.info(
-                    "Invitation {} pre-assigns the identifier claim {}, and the flow resolved an existing " +
-                        "account rather than creating one. The claim is left alone.",
-                    invitation.id,
-                    claim.id
-                )
+                logger.debug {
+                    "Invitation ${invitation.id} pre-assigns the identifier claim ${claim.id}, and the flow " +
+                        "resolved an existing account rather than creating one. The claim is left alone."
+                }
                 return@mapNotNull null
             }
             // An invitation holds its claims as text, so the value has lost the type it was cleaned to
@@ -323,11 +321,10 @@ open class InvitationManager(
             // configuration moved under the invitation, is left alone rather than written wrong.
             val cleaned = claimValueValidator.cleanValueForClaimOrNull(claim, value)
             if (cleaned == null) {
-                logger.info(
-                    "Invitation {} carries a value for {} that the claim no longer accepts. It is left alone.",
-                    invitation.id,
-                    claim.id
-                )
+                logger.debug {
+                    "Invitation ${invitation.id} carries a value for ${claim.id} that the claim no longer " +
+                        "accepts. It is left alone."
+                }
                 return@mapNotNull null
             }
             CollectedClaimUpdate(

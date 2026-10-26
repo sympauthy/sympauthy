@@ -3,10 +3,47 @@
     <!-- Stop logback outputting its own log at start -->
     <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
 
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <!-- Stops the queue on exit, which drains it for up to its maxFlushTime. -->
+    <shutdownHook class="ch.qos.logback.core.hook.DefaultShutdownHook"/>
+
+    <property name="PATTERN"
+              value="%cyan(%d{HH:mm:ss.SSS}) %gray([%thread]) %highlight(%-5level) %magenta(%logger{36}) - %msg%n"/>
+
+    <!-- Written to by the queue's own thread alone. -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%cyan(%d{HH:mm:ss.SSS}) %gray([%thread]) %highlight(%-5level) %magenta(%logger{36}) - %msg%n
-            </pattern>
+            <pattern>${PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+    Every level below ERROR: the caller hands the line over and moves on. INFO and below are dropped once
+    the queue is four fifths full, which is logback's default discarding threshold, and a WARN once it is
+    full. On exit, what is left is drained for up to a second and then abandoned.
+    -->
+    <appender name="QUEUE" class="com.sympauthy.monitoring.ConsoleQueueAppender">
+        <queueSize>1024</queueSize>
+        <neverBlock>true</neverBlock>
+        <maxFlushTime>1000</maxFlushTime>
+        <includeCallerData>false</includeCallerData>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>DENY</onMatch>
+            <onMismatch>NEUTRAL</onMismatch>
+        </filter>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <!--
+    ERROR alone, written on the caller's thread: it is the one line that must not be dropped, and it is
+    written when the queue is the most likely to be full.
+    -->
+    <appender name="CONSOLE_ERROR" class="ch.qos.logback.core.ConsoleAppender">
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <pattern>${PATTERN}</pattern>
         </encoder>
     </appender>
 
@@ -21,6 +58,7 @@
     <logger name="io.micronaut.transaction.support.AbstractReactorTransactionOperations" level="ERROR"/>
 
     <root level="info">
-        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="QUEUE"/>
+        <appender-ref ref="CONSOLE_ERROR"/>
     </root>
 </configuration>

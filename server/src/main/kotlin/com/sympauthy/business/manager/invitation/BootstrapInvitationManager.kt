@@ -8,7 +8,7 @@ import com.sympauthy.config.model.BootstrapInvitation
 import com.sympauthy.config.model.BootstrapInvitationsConfig
 import com.sympauthy.config.model.EnabledBootstrapInvitationsConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject
@@ -58,11 +58,11 @@ class BootstrapInvitationManager(
         runBlocking {
             launch {
                 if (configReadiness.getConfigurationErrors().isNotEmpty()) {
-                    logger.warn(
+                    logger.warn {
                         "Bootstrap invitations: skipping — the configuration has errors and this server " +
                                 "reports itself unready. No invitation was created and none was revoked. " +
                                 "Fix the errors reported at startup and restart to obtain a token."
-                    )
+                    }
                     return@launch
                 }
                 bootstrapInvitationsConfig.orThrow().invitations.forEach { invitation ->
@@ -77,10 +77,10 @@ class BootstrapInvitationManager(
         val audience = bootstrapInvitation.audience
         val existingConsents = consentManager.findActiveConsentsByAudience(audience.id)
         if (existingConsents.isNotEmpty()) {
-            logger.info(
+            logger.info {
                 "Bootstrap invitation '${bootstrapInvitation.id}': skipping — " +
                         "${existingConsents.size} user(s) already consented for audience '${audience.id}'."
-            )
+            }
             return
         }
 
@@ -101,15 +101,15 @@ class BootstrapInvitationManager(
         val urlTemplate = bootstrapInvitation.urlTemplate
         if (urlTemplate != null) {
             val url = urlTemplate.replace("{token}", rawToken)
-            logger.info(
+            logger.info {
                 "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${audience.id}'. " +
                         "Registration URL: $url"
-            )
+            }
         } else {
-            logger.info(
+            logger.info {
                 "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${audience.id}'. " +
                         "Token: $rawToken"
-            )
+            }
         }
     }
 

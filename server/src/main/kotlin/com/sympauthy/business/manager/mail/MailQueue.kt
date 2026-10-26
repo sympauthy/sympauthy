@@ -6,13 +6,17 @@ import com.sympauthy.business.model.mail.QueuedMail
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.*
+import jakarta.mail.AuthenticationFailedException
 import kotlinx.coroutines.channels.Channel
+import java.io.IOException
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
@@ -22,6 +26,9 @@ import java.util.*
  *
  * Mails are persisted to the database and enqueued to an in-process coroutine [Channel] for immediate dispatch.
  * On successful send, the database record is deleted. On failure, the record is discarded from the database.
+ *
+ * A mail server that cannot be reached is reported to the mail sender's condition; any other mail that
+ * fails to send is a WARN about that mail.
  *
  * On startup, unsent mails that have not expired are replayed; expired records are discarded.
  * Mails with no expiration date are always replayed.
@@ -48,7 +55,8 @@ class MailQueue(
     @Inject private val configReadiness: ConfigReadiness,
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
     @Inject private val mailQueueRepository: MailQueueRepository,
-    @Inject private val jobLeaseManager: JobLeaseManager
+    @Inject private val jobLeaseManager: JobLeaseManager,
+    @Inject private val conditions: Conditions
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -87,10 +95,10 @@ class MailQueue(
         if (!enabled) return
 
         if (configReadiness.getConfigurationErrors().isNotEmpty()) {
-            logger.warn(
+            logger.warn {
                 "Mail queue: not replaying — the configuration has errors and this server reports " +
                         "itself unready. Unsent mails stay in the queue for the next startup."
-            )
+            }
             return
         }
 
@@ -144,7 +152,7 @@ class MailQueue(
         val now = LocalDateTime.now()
         val staleCount = mailQueueRepository.deleteByExpirationDateBefore(now)
         if (staleCount > 0) {
-            logger.info("Discarded $staleCount expired mail(s) from queue.")
+            logger.info { "Discarded $staleCount expired mail(s) from queue." }
         }
 
         val unsent = mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(now)
@@ -152,7 +160,7 @@ class MailQueue(
             processMail(entity.toQueuedMail())
         }
         if (unsent.isNotEmpty()) {
-            logger.info("Replayed ${unsent.size} unsent mail(s) from database.")
+            logger.info { "Replayed ${unsent.size} unsent mail(s) from database." }
         }
     }
 
@@ -165,14 +173,29 @@ class MailQueue(
                     mail.parameters.forEach { (key, value) -> set(key, value) }
                     localizedSubject(mail.subjectKey)
                 }
-            logger.trace("Sending mail template=${mail.template} to=${mail.receiver}.")
+            logger.trace { "Sending mail template=${mail.template} to=${mail.receiver}." }
             mailSender!!.send(builder.builder)
+            conditions.reportSuccess(Condition.Mail)
         } catch (e: Exception) {
-            logger.error("Failed to send mail ${mail.id} (template=${mail.template}, receiver=${mail.receiver}).", e)
+            if (e.isMailServerFailure()) {
+                conditions.reportFailure(Condition.Mail, e)
+            } else {
+                logger.warn(e) {
+                    "Failed to send mail ${mail.id} (template=${mail.template}, receiver=${mail.receiver})."
+                }
+            }
         } finally {
             mailQueueRepository.deleteById(mail.id)
         }
     }
+
+    /**
+     * Whether this failure to send a mail says the mail server is unwell — it could not be reached, did not
+     * answer in time, or refused this server's credentials — rather than that this one mail could not be
+     * sent.
+     */
+    private fun Exception.isMailServerFailure(): Boolean = generateSequence<Throwable>(this) { it.cause }
+        .any { it is IOException || it is AuthenticationFailedException }
 
     private fun MailQueueEntity.toQueuedMail() = QueuedMail(
         id = id!!,

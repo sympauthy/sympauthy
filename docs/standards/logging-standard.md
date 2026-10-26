@@ -42,10 +42,11 @@ the WARN an operator needs out of the queue.
 
 ## A call site
 
-**A logger is obtained with `loggerForClass()`.**
+**A logger is obtained with `loggerForClass()`**, which answers the server's own `Logger` rather than
+SLF4J's. Nothing reaches SLF4J's directly.
 
 **A message is passed as a lambda, never as a built string.** A string template is built on every
-call whether its level is enabled or not.
+call whether its level is enabled or not, and the server's `Logger` takes nothing else.
 
 ```kotlin
 logger.debug { "Skipping ${job.leaseName}: another instance holds its lease." }

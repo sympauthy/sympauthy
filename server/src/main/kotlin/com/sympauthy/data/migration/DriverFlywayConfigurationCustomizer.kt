@@ -1,6 +1,6 @@
 package com.sympauthy.data.migration
 
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.flyway.FlywayConfigurationCustomizer
 import org.flywaydb.core.api.CoreLocationPrefix
 import org.flywaydb.core.api.Location
@@ -55,7 +55,7 @@ open class DriverFlywayConfigurationCustomizer(
     override fun getName() = "default"
 
     override fun customizeFluentConfiguration(fluentConfiguration: FluentConfiguration) {
-        logger.info("Customizing Flyway configuration for $driver")
+        logger.info { "Customizing Flyway configuration for $driver" }
         val locations = getClassPathLocationsForDriver(fluentConfiguration)
         fluentConfiguration.locations(*locations.toTypedArray())
 

@@ -84,7 +84,8 @@ dependencies {
     compileOnly("tools.jackson.core:jackson-core")
 
     // Logging
-    runtimeOnly("ch.qos.logback:logback-classic")
+    // Compiled against, because the appender in front of the console is the server's own subclass.
+    implementation("ch.qos.logback:logback-classic")
 
     // API documentation
     // Must be above 6.3.0 to fix KSP issue: https://github.com/micronaut-projects/micronaut-openapi/issues/1154

@@ -122,7 +122,6 @@ class InvitationManagerTest {
 
     /** An identifier claim as [InvitationManager.applyInvitationClaims] asks after it, its id read to log it. */
     private fun identifierClaim(): EnabledClaim = mockk {
-        every { id } returns "email"
         every { belongsToAudience(any()) } returns true
     }
 
@@ -481,7 +480,6 @@ class InvitationManagerTest {
         val invitationId = UUID.randomUUID()
         val invitation = createInvitation(id = invitationId, claims = mapOf("custom_role" to "admin"))
         val claim = createStoredClaim()
-        every { claim.id } returns "custom_role"
         every { claimValueValidator.cleanValueForClaimOrNull(claim, "admin") } returns null
         val user = provisionalUser()
 

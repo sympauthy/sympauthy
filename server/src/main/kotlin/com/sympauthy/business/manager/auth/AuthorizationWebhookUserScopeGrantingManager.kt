@@ -12,7 +12,9 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
@@ -25,6 +27,9 @@ import jakarta.inject.Singleton
  * this manager calls the webhook endpoint with the user context and requested scopes,
  * and maps the response to grant or deny decisions.
  *
+ * A failed call is reported to the client's authorization webhook condition; what the authorization gets
+ * on it is the client's `on-failure` policy.
+ *
  * This method is inserted before the rule-based granting in the
  * [UserScopeGrantingManager] pipeline.
  *
@@ -35,7 +40,8 @@ class AuthorizationWebhookUserScopeGrantingManager(
     @Inject private val clientManagerProvider: Provider<ClientManager>,
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationWebhookClient: AuthorizationWebhookClient,
-    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val conditions: Conditions
 ) {
 
     private val logger = loggerForClass()
@@ -68,6 +74,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
 
         return when (val result = authorizationWebhookClient.callWebhook(authorizationWebhook, request)) {
             is AuthorizationWebhookResult.Success -> {
+                conditions.reportSuccess(Condition.AuthorizationWebhook(client.id))
                 val response = result.response
                 val granted = mutableListOf<EnabledScope>()
                 val declined = mutableListOf<EnabledScope>()
@@ -92,10 +99,10 @@ class AuthorizationWebhookUserScopeGrantingManager(
                         }
                     }
 
-                logger.debug(
-                    "Authorization webhook for client {} granted {} scope(s) and declined {} scope(s).",
-                    client.id, granted.size, declined.size
-                )
+                logger.debug {
+                    "Authorization webhook for client ${client.id} granted ${granted.size} scope(s) and " +
+                        "declined ${declined.size} scope(s)."
+                }
 
                 ScopeGrantingMethodResult(
                     source = GrantedBy.WEBHOOK,
@@ -105,10 +112,9 @@ class AuthorizationWebhookUserScopeGrantingManager(
             }
 
             is AuthorizationWebhookResult.Failure -> {
-                logger.warn(
-                    "Authorization webhook call to {} for client {} failed: {}",
-                    authorizationWebhook.url, client.id, result.message
-                )
+                // Every failure counts, a 4xx included: the request is this server's own, composed from what it
+                // has already validated, so a refusal says the webhook or the secret it shares is wrong.
+                conditions.reportFailure(Condition.AuthorizationWebhook(client.id), result.cause)
                 when (authorizationWebhook.onFailure) {
                     AuthorizationWebhookOnFailure.DENY_ALL -> ScopeGrantingMethodResult(
                         source = GrantedBy.WEBHOOK,

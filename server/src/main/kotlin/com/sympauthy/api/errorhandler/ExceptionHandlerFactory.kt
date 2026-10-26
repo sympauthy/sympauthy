@@ -1,5 +1,6 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.monitoring.Conditions
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Replaces
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
@@ -59,7 +60,8 @@ import java.net.URISyntaxException
 @Factory
 class ExceptionHandlerFactory(
     @Inject private val exceptionNormalizer: ExceptionNormalizer,
-    @Inject private val exceptionHandler: LocalizedExceptionHandler
+    @Inject private val exceptionHandler: LocalizedExceptionHandler,
+    @Inject private val conditions: Conditions
 ) {
 
     @Singleton
@@ -134,5 +136,5 @@ class ExceptionHandlerFactory(
     fun throwableExceptionHandler() = exceptionHandler<Throwable>()
 
     private inline fun <reified T : Throwable> exceptionHandler() =
-        ThrowableExceptionHandler<T>(exceptionNormalizer, exceptionHandler)
+        ThrowableExceptionHandler<T>(exceptionNormalizer, exceptionHandler, conditions)
 }

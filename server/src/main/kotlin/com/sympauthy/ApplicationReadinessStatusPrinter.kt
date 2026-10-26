@@ -15,7 +15,7 @@ import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
 import com.sympauthy.view.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
 import io.micronaut.context.MessageSource
@@ -84,19 +84,19 @@ class ApplicationReadinessStatusPrinter(
     }
 
     private suspend fun printReadyBanner() {
-        logger.info("SympAuthy v$version is ready and has found the following elements in its configuration:")
+        logger.info { "SympAuthy v$version is ready and has found the following elements in its configuration:" }
         val authConfig = uncheckedAuthConfig.orThrow()
-        logger.info("- Issuer: ${authConfig.issuer}")
+        logger.info { "- Issuer: ${authConfig.issuer}" }
 
         val byPasswordLabel = if (authConfig.byPassword.enabled) "enabled" else "disabled"
-        logger.info("- Authentication by password: $byPasswordLabel.")
+        logger.info { "- Authentication by password: $byPasswordLabel." }
         val enabledProviders = try {
             providerConfigManager.listEnabledProviders()
         } catch (_: Throwable) {
             emptyList()
         }
         if (enabledProviders.isEmpty()) {
-            logger.info("- Authentication by provider: disabled.")
+            logger.info { "- Authentication by provider: disabled." }
         } else {
             val providerDescriptions = enabledProviders.joinToString(", ") { provider ->
                 val type = when (provider.auth) {
@@ -105,16 +105,16 @@ class ApplicationReadinessStatusPrinter(
                 }
                 "${provider.name} ($type)"
             }
-            logger.info("- Authentication by provider: $providerDescriptions.")
+            logger.info { "- Authentication by provider: $providerDescriptions." }
         }
 
         val mfaConfig = uncheckedMfaConfig as? EnabledMfaConfig
         val mfaMethods = listOfNotNull("TOTP".takeIf { mfaConfig?.totp == true })
         if (mfaConfig == null || (!mfaConfig.required && mfaMethods.isEmpty())) {
-            logger.info("- MFA disabled.")
+            logger.info { "- MFA disabled." }
         } else {
             val requiredLabel = if (mfaConfig.required) "required" else "optional"
-            logger.info("- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()}).")
+            logger.info { "- MFA enabled ($requiredLabel, ${mfaMethods.joinToString()})." }
         }
 
         val audiencesCount = try {
@@ -122,14 +122,14 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             0
         }
-        logger.info("- ${pluralize(audiencesCount, "audience")}.")
+        logger.info { "- ${pluralize(audiencesCount, "audience")}." }
 
         val clientsCount = try {
             clientManager.listClients().size
         } catch (_: Throwable) {
             0
         }
-        logger.info("- ${pluralize(clientsCount, "client")}.")
+        logger.info { "- ${pluralize(clientsCount, "client")}." }
 
         val scopes = try {
             scopeManager.listEnabledScopes()
@@ -142,13 +142,13 @@ class ApplicationReadinessStatusPrinter(
         val grantableScopesCount =
             scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
         val clientScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ClientScope }
-        logger.info(
+        logger.info {
             "- ${pluralize(scopes.size, "scope")} " +
                     "(${pluralize(consentableScopesCount, "consentable", "consentable")}, " +
                     "${pluralize(grantableScopesCount, "grantable", "grantable")}, " +
                     "${pluralize(adminScopesCount, "admin", "admin")}, " +
                     "${pluralize(clientScopesCount, "client", "client")})."
-        )
+        }
 
         val enabledClaims = try {
             claimManager.listEnabledClaims()
@@ -160,12 +160,12 @@ class ApplicationReadinessStatusPrinter(
         val personalClaimsCount = enabledClaims.count { it.kind == ClaimKind.PERSONAL }
         val applicationClaimsCount = enabledClaims.count { it.kind == ClaimKind.APPLICATION }
         val generatedClaimsCount = enabledClaims.count { it.kind == null }
-        logger.info(
+        logger.info {
             "- ${pluralize(enabledClaims.size, "claim")} " +
                     "(${pluralize(personalClaimsCount, "personal", "personal")}, " +
                     "${pluralize(applicationClaimsCount, "application", "application")}, " +
                     "${pluralize(generatedClaimsCount, "generated", "generated")})."
-        )
+        }
 
         val userRulesCount = try {
             scopeGrantingRuleManager.listUserScopeGrantingRules().size
@@ -178,11 +178,11 @@ class ApplicationReadinessStatusPrinter(
             0
         }
         val totalRulesCount = userRulesCount + clientRulesCount
-        logger.info(
+        logger.info {
             "- ${pluralize(totalRulesCount, "rule")} " +
                     "(${pluralize(userRulesCount, "user", "user")}, " +
                     "${pluralize(clientRulesCount, "client", "client")})."
-        )
+        }
 
         val clientTemplateCount = try {
             clientTemplatesConfig.orNull()?.templates?.size ?: 0
@@ -200,12 +200,12 @@ class ApplicationReadinessStatusPrinter(
             0
         }
         val totalTemplateCount = clientTemplateCount + scopeTemplateCount + claimTemplateCount
-        logger.info(
+        logger.info {
             "- ${pluralize(totalTemplateCount, "template")} " +
                     "(${pluralize(clientTemplateCount, "client", "client")}, " +
                     "${pluralize(scopeTemplateCount, "scope", "scope")}, " +
                     "${pluralize(claimTemplateCount, "claim", "claim")})."
-        )
+        }
     }
 
     /**
@@ -238,9 +238,9 @@ class ApplicationReadinessStatusPrinter(
         }
 
         if (entries.isNotEmpty()) {
-            logger.info("SympAuthy v$version is currently serving:")
+            logger.info { "SympAuthy v$version is currently serving:" }
             entries.forEach { (label, url) ->
-                logger.info("- $label: $url")
+                logger.info { "- $label: $url" }
             }
         }
     }
@@ -248,19 +248,19 @@ class ApplicationReadinessStatusPrinter(
     @Suppress("MaxLineLength")
     private suspend fun printErrorBanner(configurationErrors: List<Exception>) {
         if (configurationErrors.isEmpty()) {
-            logger.info("No error detected in the configuration.")
+            logger.info { "No error detected in the configuration." }
         } else {
-            logger.error(
+            logger.error {
                 "One or more errors detected in the configuration. This application will NOT OPERATE PROPERLY."
-            )
+            }
             configurationErrors
                 .map { it.getKeyAndLocalizedMessage(messageSource) }
                 .forEach { (key, localizedErrorMessage) ->
-                    logger.error("- $key: $localizedErrorMessage")
+                    logger.error { "- $key: $localizedErrorMessage" }
                 }
 
             if (!environment.isDefaultActive) {
-                logger.info("The '${DEFAULT_ENVIRONMENT}' environment is not enabled meaning you are missing default configuration of SympAuthy. If it is not intentional, you can enable it by adding '${DEFAULT_ENVIRONMENT}' to micronaut environments. Either by param '--micronaut-environments=${DEFAULT_ENVIRONMENT}' or by environment variable 'MICRONAUT_ENVIRONMENTS=${DEFAULT_ENVIRONMENT}'.")
+                logger.info { "The '${DEFAULT_ENVIRONMENT}' environment is not enabled meaning you are missing default configuration of SympAuthy. If it is not intentional, you can enable it by adding '${DEFAULT_ENVIRONMENT}' to micronaut environments. Either by param '--micronaut-environments=${DEFAULT_ENVIRONMENT}' or by environment variable 'MICRONAUT_ENVIRONMENTS=${DEFAULT_ENVIRONMENT}'." }
             }
         }
     }

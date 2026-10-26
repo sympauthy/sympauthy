@@ -28,6 +28,7 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.Conditions
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import com.sympauthy.business.manager.security.UserSecurityContextManager
@@ -103,6 +104,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
      */
     @SpyK
     var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
+
+    @MockK
+    lateinit var conditions: Conditions
 
     @SpyK
     @InjectMockKs
