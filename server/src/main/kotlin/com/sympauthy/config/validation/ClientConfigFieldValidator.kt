@@ -3,6 +3,7 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
@@ -101,6 +102,35 @@ class ClientConfigFieldValidator {
             }
             verifiedScope
         }
+    }
+
+    /**
+     * Look up default scopes the way [validateScopes] does, and also refuse a [ClientScope] among
+     * them under `config.client.default_scopes.not_user_scope`, against the index it was written at.
+     *
+     * The default scopes are what an authorization request naming no scope is answered with, and a
+     * client scope is obtained in a `client_credentials` flow only: one named here could never be
+     * granted, and each such request would be refused at the authorization endpoint instead of once,
+     * at startup.
+     */
+    fun validateDefaultScopes(
+        ctx: ConfigParsingContext,
+        key: String,
+        scopes: List<String>?,
+        scopesById: Map<String, EnabledScope>,
+        audienceId: String? = null
+    ): List<EnabledScope>? {
+        scopes?.forEachIndexed { index, scope ->
+            if (scopesById[scope] is ClientScope) {
+                ctx.addError(
+                    configExceptionOf(
+                        "$key[$index]", "config.client.default_scopes.not_user_scope",
+                        "scope" to scope
+                    )
+                )
+            }
+        }
+        return validateScopes(ctx, key, scopes, scopesById, audienceId)
     }
 
     /**

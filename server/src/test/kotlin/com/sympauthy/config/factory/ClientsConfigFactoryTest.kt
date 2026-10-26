@@ -4,6 +4,7 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope
 import com.sympauthy.business.model.oauth2.EnabledScope
@@ -379,6 +380,33 @@ class ClientsConfigFactoryTest {
         assertEquals("config.client.scope.inherited_audience_mismatch", error.messageId)
         assertEquals("clients.my-app.allowed-scopes", error.key)
         assertEquals("templates.clients.default.allowed-scopes", error.values["scopesKey"])
+    }
+
+    @Test
+    fun `provideClients - Client may not default to a client scope it is allowed`() = runTest {
+        val factory = factoryServing(
+            listOf(ConsentableUserScope("my-scope"), ClientScope("users:claims:read")),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE, GrantType.CLIENT_CREDENTIALS),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(
+            clientProperties(
+                id = "my-app",
+                secret = "secret",
+                allowedScopes = listOf("my-scope", "users:claims:read"),
+                defaultScopes = listOf("my-scope", "users:claims:read")
+            )
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val errors = config.configurationErrors!!.filterIsInstance<ConfigurationException>()
+        assertEquals(listOf("config.client.default_scopes.not_user_scope"), errors.map { it.messageId })
+        assertEquals(listOf("clients.my-app.default-scopes[1]"), errors.map { it.key })
     }
 
     @Test
