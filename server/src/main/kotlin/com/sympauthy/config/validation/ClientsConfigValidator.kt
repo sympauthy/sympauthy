@@ -109,7 +109,9 @@ class ClientsConfigValidator(
                 audienceId = parsed.audienceId
             )?.toSet()
 
-            else -> parsed.template?.allowedScopes
+            else -> parsed.template?.allowedScopes?.also {
+                validateInheritedScopesAudience(subCtx, configKeyPrefix, parsed, "allowed-scopes", it)
+            }
         }
         val defaultScopes = when {
             parsed.defaultScopes != null -> fieldValidator.validateScopes(
@@ -117,7 +119,9 @@ class ClientsConfigValidator(
                 audienceId = parsed.audienceId
             )
 
-            else -> parsed.template?.defaultScopes
+            else -> parsed.template?.defaultScopes?.also {
+                validateInheritedScopesAudience(subCtx, configKeyPrefix, parsed, "default-scopes", it)
+            }
         }
         // A list that lost an entry to an error above is not the list the file holds, and holding the
         // two to each other would report a scope as disallowed against a line that allows it.
@@ -143,6 +147,46 @@ class ClientsConfigValidator(
             defaultScopes = defaultScopes,
             authorizationWebhook = authorizationWebhook
         )
+    }
+
+    /**
+     * Refuse the client when one of the [scopes] it inherits as its list of [name] belongs to an
+     * audience other than its own.
+     *
+     * A list the client writes is held to its audience as it is resolved, and a template's cannot be:
+     * a client may name an audience of its own, so the only audience that decides is the client's,
+     * and it is known only here. The default scopes need it because a request naming no scope is
+     * granted them without being checked again, and the allowed scopes because every read trusting
+     * them would otherwise have to.
+     *
+     * The error is against the client and names the template key the scope was written at. An
+     * inherited list has no position under the client, and the same scope written twice in it is
+     * one mistake.
+     */
+    private fun validateInheritedScopesAudience(
+        ctx: ConfigParsingContext,
+        configKeyPrefix: String,
+        parsed: ParsedClient,
+        name: String,
+        scopes: Collection<EnabledScope>
+    ) {
+        val clientAudienceId = parsed.audienceId ?: return
+        val scopesKey = scopesKey(configKeyPrefix, parsed, name, inherited = true)
+        scopes.distinctBy { it.scope }.forEach { scope ->
+            val scopeAudienceId = scope.audienceId
+            if (scopeAudienceId != null && scopeAudienceId != clientAudienceId) {
+                ctx.addError(
+                    configExceptionOf(
+                        "$configKeyPrefix.$name",
+                        "config.client.scope.inherited_audience_mismatch",
+                        "scope" to scope.scope,
+                        "scopesKey" to scopesKey,
+                        "scopeAudience" to scopeAudienceId,
+                        "clientAudience" to clientAudienceId
+                    )
+                )
+            }
+        }
     }
 
     /**

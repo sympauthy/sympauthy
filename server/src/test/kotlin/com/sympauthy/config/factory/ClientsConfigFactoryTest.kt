@@ -309,6 +309,79 @@ class ClientsConfigFactoryTest {
     }
 
     @Test
+    fun `provideClients - Client may inherit a scope of its own audience`() = runTest {
+        val inherited = ConsentableUserScope("my-scope", audienceId = "test-audience")
+        val factory = factoryServing(
+            listOf(inherited),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback"),
+                allowedScopes = setOf(inherited),
+                defaultScopes = listOf(inherited)
+            )
+        )
+        val clients = listOf(clientProperties(id = "my-app", secret = "secret"))
+
+        val result = factory.provideClients(clients).first()
+
+        assertInstanceOf(EnabledClientsConfig::class.java, result)
+        assertEquals(
+            listOf("my-scope"),
+            (result as EnabledClientsConfig).clients.first().defaultScopes?.map { it.scope }
+        )
+    }
+
+    @Test
+    fun `provideClients - Client may not default to a template scope of another audience`() = runTest {
+        val inherited = ConsentableUserScope("admin-scope", audienceId = "admin")
+        val factory = factoryServing(
+            listOf(inherited),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback"),
+                defaultScopes = listOf(inherited, inherited)
+            )
+        )
+        val clients = listOf(clientProperties(id = "my-app", secret = "secret"))
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().single()
+        assertEquals("config.client.scope.inherited_audience_mismatch", error.messageId)
+        assertEquals("clients.my-app.default-scopes", error.key)
+        assertEquals("admin-scope", error.values["scope"])
+        assertEquals("templates.clients.default.default-scopes", error.values["scopesKey"])
+        assertEquals("admin", error.values["scopeAudience"])
+        assertEquals("test-audience", error.values["clientAudience"])
+    }
+
+    @Test
+    fun `provideClients - Client may not be allowed a template scope of another audience`() = runTest {
+        val inherited = ConsentableUserScope("admin-scope", audienceId = "admin")
+        val factory = factoryServing(
+            listOf(inherited),
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback"),
+                allowedScopes = setOf(inherited)
+            )
+        )
+        val clients = listOf(clientProperties(id = "my-app", secret = "secret"))
+
+        val result = factory.provideClients(clients).first()
+
+        val config = assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().single()
+        assertEquals("config.client.scope.inherited_audience_mismatch", error.messageId)
+        assertEquals("clients.my-app.allowed-scopes", error.key)
+        assertEquals("templates.clients.default.allowed-scopes", error.values["scopesKey"])
+    }
+
+    @Test
     fun `provideClients - Client allowed every scope may default to any of them`() = runTest {
         val factory = factoryServing(
             listOf(ConsentableUserScope("my-scope")),
