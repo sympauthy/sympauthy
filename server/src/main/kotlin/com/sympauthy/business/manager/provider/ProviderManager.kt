@@ -10,7 +10,7 @@ import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import jakarta.annotation.PostConstruct
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap
 open class ProviderManager(
     @Inject private val providersConfig: ProvidersConfig,
     @Inject private val openIdConnectDiscoveryClient: OpenIdConnectDiscoveryClient,
-    @Inject private val conditions: Conditions
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     /**
@@ -51,9 +51,9 @@ open class ProviderManager(
         for (config in enabledConfig.providers) {
             providers[config.id] = scope.async {
                 try {
-                    resolveProvider(config).also { conditions.reportSuccess(Condition.Provider(config.id)) }
+                    resolveProvider(config).also { conditionMonitor.reportSuccess(Condition.Provider(config.id)) }
                 } catch (e: Exception) {
-                    conditions.reportFailure(Condition.Provider(config.id), e)
+                    conditionMonitor.reportFailure(Condition.Provider(config.id), e)
                     retryResolution(config)
                     DisabledProvider(config.id, e.toLocalizedException(config))
                 }
@@ -74,12 +74,12 @@ open class ProviderManager(
             delay(RESOLUTION_RETRY_INTERVAL.toMillis())
             try {
                 providers[config.id] = CompletableDeferred(resolveProvider(config))
-                conditions.reportSuccess(Condition.Provider(config.id))
+                conditionMonitor.reportSuccess(Condition.Provider(config.id))
                 return@launch
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Exception) {
-                conditions.reportFailure(Condition.Provider(config.id), e)
+                conditionMonitor.reportFailure(Condition.Provider(config.id), e)
             }
         }
     }
@@ -155,6 +155,6 @@ open class ProviderManager(
          * How long a provider that could not be resolved waits before it is tried again. It reuses the
          * conditions' quiet period rather than adding a number of its own to the ones the design fixes.
          */
-        private val RESOLUTION_RETRY_INTERVAL: Duration = Conditions.QUIET_PERIOD
+        private val RESOLUTION_RETRY_INTERVAL: Duration = ConditionMonitor.QUIET_PERIOD
     }
 }

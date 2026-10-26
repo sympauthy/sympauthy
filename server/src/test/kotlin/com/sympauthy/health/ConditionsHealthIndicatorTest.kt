@@ -1,7 +1,7 @@
 package com.sympauthy.health
 
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import io.micronaut.health.HealthStatus
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.test.runTest
@@ -12,9 +12,9 @@ import java.time.Instant
 
 class ConditionsHealthIndicatorTest {
 
-    private val conditions = Conditions()
+    private val conditionMonitor = ConditionMonitor()
 
-    private val indicator = ConditionsHealthIndicator(conditions)
+    private val indicator = ConditionsHealthIndicator(conditionMonitor)
 
     private val since = Instant.parse("2026-10-26T12:00:00Z")
 
@@ -28,9 +28,9 @@ class ConditionsHealthIndicatorTest {
 
     @Test
     fun `getResult - Is degraded and lists each degraded condition by name, never with its failure`() = runTest {
-        conditions.reportFailure(Condition.Database, IllegalStateException("db.internal:5432"), since)
-        conditions.reportFailure(Condition.Provider("google"), null, since)
-        conditions.reportFailure(Condition.AuthorizationWebhook("google"), null, since)
+        conditionMonitor.reportFailure(Condition.Database, IllegalStateException("db.internal:5432"), since)
+        conditionMonitor.reportFailure(Condition.Provider("google"), null, since)
+        conditionMonitor.reportFailure(Condition.AuthorizationWebhook("google"), null, since)
 
         val result = indicator.result.awaitSingle()
 

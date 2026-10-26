@@ -6,7 +6,7 @@ import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import io.micronaut.email.EmailException
 import jakarta.mail.SendFailedException
 import io.mockk.coEvery
@@ -40,7 +40,7 @@ class MailQueueTest {
     @MockK
     lateinit var jobLeaseManager: JobLeaseManager
 
-    private val conditions = Conditions()
+    private val conditionMonitor = ConditionMonitor()
 
     private val first = mail("first@example.com")
     private val second = mail("second@example.com")
@@ -52,7 +52,7 @@ class MailQueueTest {
         mailBuilderFactory = mailBuilderFactory,
         mailQueueRepository = mailQueueRepository,
         jobLeaseManager = jobLeaseManager,
-        conditions = conditions
+        conditionMonitor = conditionMonitor
     )
 
     private fun holdingTheLease() {
@@ -147,7 +147,7 @@ class MailQueueTest {
 
         queue().replayUnsentMails()
 
-        assertTrue(conditions.isDegraded(Condition.Mail))
+        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
         coVerify(exactly = 1) { mailQueueRepository.deleteById(first.id!!) }
     }
 
@@ -160,7 +160,7 @@ class MailQueueTest {
 
         queue().replayUnsentMails()
 
-        assertFalse(conditions.isDegraded(Condition.Mail))
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
     }
 
     private fun mail(receiver: String) = MailQueueEntity(

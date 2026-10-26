@@ -1,7 +1,7 @@
 package com.sympauthy.health
 
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.DegradedCondition
 import io.micronaut.core.async.publisher.Publishers
 import io.micronaut.health.HealthStatus
@@ -24,11 +24,11 @@ import org.reactivestreams.Publisher
  */
 @Singleton
 class ConditionsHealthIndicator(
-    @Inject private val conditions: Conditions
+    @Inject private val conditionMonitor: ConditionMonitor
 ) : HealthIndicator {
 
     override fun getResult(): Publisher<HealthResult> {
-        val degraded = conditions.listDegraded()
+        val degraded = conditionMonitor.listDegraded()
         val builder = HealthResult.builder(HEALTH_INDICATOR_NAME)
         if (degraded.isEmpty()) {
             builder.status(UP)

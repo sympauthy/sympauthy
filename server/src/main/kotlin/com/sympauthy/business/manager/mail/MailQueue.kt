@@ -7,7 +7,7 @@ import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
@@ -56,7 +56,7 @@ class MailQueue(
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
     @Inject private val mailQueueRepository: MailQueueRepository,
     @Inject private val jobLeaseManager: JobLeaseManager,
-    @Inject private val conditions: Conditions
+    @Inject private val conditionMonitor: ConditionMonitor
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -175,10 +175,10 @@ class MailQueue(
                 }
             logger.trace { "Sending mail template=${mail.template} to=${mail.receiver}." }
             mailSender!!.send(builder.builder)
-            conditions.reportSuccess(Condition.Mail)
+            conditionMonitor.reportSuccess(Condition.Mail)
         } catch (e: Exception) {
             if (e.isMailServerFailure()) {
-                conditions.reportFailure(Condition.Mail, e)
+                conditionMonitor.reportFailure(Condition.Mail, e)
             } else {
                 logger.warn(e) {
                     "Failed to send mail ${mail.id} (template=${mail.template}, receiver=${mail.receiver})."

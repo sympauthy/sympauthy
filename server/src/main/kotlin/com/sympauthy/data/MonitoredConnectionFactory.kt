@@ -1,7 +1,7 @@
 package com.sympauthy.data
 
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import io.micronaut.context.event.BeanCreatedEvent
 import io.micronaut.context.event.BeanCreatedEventListener
 import io.r2dbc.spi.Connection
@@ -23,12 +23,12 @@ import reactor.core.publisher.Mono
  */
 class MonitoredConnectionFactory(
     private val delegate: ConnectionFactory,
-    private val conditions: Conditions
+    private val conditionMonitor: ConditionMonitor
 ) : ConnectionFactory, Wrapped<ConnectionFactory> {
 
     override fun create(): Publisher<out Connection> = Mono.from(delegate.create())
-        .doOnNext { conditions.reportSuccess(Condition.Database) }
-        .doOnError { failure -> conditions.reportFailure(Condition.Database, failure) }
+        .doOnNext { conditionMonitor.reportSuccess(Condition.Database) }
+        .doOnError { failure -> conditionMonitor.reportFailure(Condition.Database, failure) }
 
     override fun getMetadata(): ConnectionFactoryMetadata = delegate.metadata
 
@@ -40,11 +40,11 @@ class MonitoredConnectionFactory(
  */
 @Singleton
 class MonitoredConnectionFactoryListener(
-    @Inject private val conditions: Provider<Conditions>
+    @Inject private val conditionMonitor: Provider<ConditionMonitor>
 ) : BeanCreatedEventListener<ConnectionFactory> {
 
     override fun onCreated(event: BeanCreatedEvent<ConnectionFactory>): ConnectionFactory =
-        MonitoredConnectionFactory(event.bean, conditions.get())
+        MonitoredConnectionFactory(event.bean, conditionMonitor.get())
 }
 
 /**

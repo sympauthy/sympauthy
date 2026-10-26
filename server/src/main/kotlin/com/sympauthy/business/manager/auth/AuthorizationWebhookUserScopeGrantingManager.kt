@@ -13,7 +13,7 @@ import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Provider
@@ -41,7 +41,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationWebhookClient: AuthorizationWebhookClient,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val conditions: Conditions
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -74,7 +74,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
 
         return when (val result = authorizationWebhookClient.callWebhook(authorizationWebhook, request)) {
             is AuthorizationWebhookResult.Success -> {
-                conditions.reportSuccess(Condition.AuthorizationWebhook(client.id))
+                conditionMonitor.reportSuccess(Condition.AuthorizationWebhook(client.id))
                 val response = result.response
                 val granted = mutableListOf<EnabledScope>()
                 val declined = mutableListOf<EnabledScope>()
@@ -114,7 +114,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
             is AuthorizationWebhookResult.Failure -> {
                 // Every failure counts, a 4xx included: the request is this server's own, composed from what it
                 // has already validated, so a refusal says the webhook or the secret it shares is wrong.
-                conditions.reportFailure(Condition.AuthorizationWebhook(client.id), result.cause)
+                conditionMonitor.reportFailure(Condition.AuthorizationWebhook(client.id), result.cause)
                 when (authorizationWebhook.onFailure) {
                     AuthorizationWebhookOnFailure.DENY_ALL -> ScopeGrantingMethodResult(
                         source = GrantedBy.WEBHOOK,

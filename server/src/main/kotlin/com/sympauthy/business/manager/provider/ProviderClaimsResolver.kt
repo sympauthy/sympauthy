@@ -11,7 +11,7 @@ import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.UserInfoEndpointClient
 import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -27,7 +27,7 @@ class ProviderClaimsResolver(
     @Inject private val providerIdTokenManager: ProviderIdTokenManager,
     @Inject private val providerIdTokenClaimsExtractor: ProviderIdTokenClaimsExtractor,
     @Inject private val userInfoEndpointClient: UserInfoEndpointClient,
-    @Inject private val conditions: Conditions,
+    @Inject private val conditionMonitor: ConditionMonitor,
 ) {
 
     /**
@@ -59,7 +59,7 @@ class ProviderClaimsResolver(
         val idTokenClaims = if (openIdConnectConfig != null) {
             // The provider's key set is fetched to verify the token, and a key set that cannot be fetched is the
             // provider failing. A token that fails verification is not.
-            conditions.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+            conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
                 providerIdTokenManager.validateAndExtractClaims(
                     openIdConnectConfig = openIdConnectConfig,
                     idTokenRaw = idTokenRaw,
@@ -83,7 +83,7 @@ class ProviderClaimsResolver(
         val userInfo = provider.userInfo
             ?: throw businessExceptionOf("provider.user_info.not_configured", "providerId" to provider.id)
 
-        val rawUserInfoMap = conditions.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+        val rawUserInfoMap = conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
             userInfoEndpointClient.fetchUserInfo(
                 userInfoConfig = userInfo,
                 credentials = tokens

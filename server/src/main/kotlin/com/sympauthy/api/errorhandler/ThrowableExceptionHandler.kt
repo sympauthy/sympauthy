@@ -1,7 +1,7 @@
 package com.sympauthy.api.errorhandler
 
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
@@ -13,7 +13,7 @@ import io.r2dbc.spi.R2dbcTransientResourceException
 class ThrowableExceptionHandler<T : Throwable>(
     private val exceptionNormalizer: ExceptionNormalizer,
     private val exceptionHandler: LocalizedExceptionHandler,
-    private val conditions: Conditions
+    private val conditionMonitor: ConditionMonitor
 ) : ExceptionHandler<T, HttpResponse<*>> {
 
     private val logger = loggerForClass()
@@ -47,6 +47,6 @@ class ThrowableExceptionHandler<T : Throwable>(
             it is R2dbcNonTransientResourceException || it is R2dbcTransientResourceException ||
                 it is R2dbcTimeoutException
         }
-        return unreachable && conditions.isDegraded(Condition.Database)
+        return unreachable && conditionMonitor.isDegraded(Condition.Database)
     }
 }

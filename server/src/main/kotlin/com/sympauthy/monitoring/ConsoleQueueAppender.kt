@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong
  * dropping.
  *
  * **The count is static** because logback builds this appender from its file, before and outside the
- * application context, so it cannot be handed [Conditions]. It is the one place the two meet, and it is
+ * application context, so it cannot be handed [ConditionMonitor]. It is the one place the two meet, and it is
  * read by taking it, with [takeDropped].
  *
  * The count is decided before the line is handed to logback's appender, which decides again: a line lost

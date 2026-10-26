@@ -1,7 +1,7 @@
 package com.sympauthy.monitoring
 
 /**
- * A dependency the server cannot fully work without, reported operational or degraded by [Conditions].
+ * A dependency the server cannot fully work without, reported operational or degraded by [ConditionMonitor].
  *
  * This declaration is the authority on which conditions exist: anything reached outside this process on
  * a request's behalf, and the console's own queue, whose dropping a line is the server failing to say

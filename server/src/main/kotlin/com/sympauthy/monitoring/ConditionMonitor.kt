@@ -26,7 +26,7 @@ import kotlin.time.toKotlinDuration
  * `docs/design/logging.md` is the design this implements.
  */
 @Singleton
-class Conditions {
+class ConditionMonitor {
 
     private val logger = loggerForClass()
 

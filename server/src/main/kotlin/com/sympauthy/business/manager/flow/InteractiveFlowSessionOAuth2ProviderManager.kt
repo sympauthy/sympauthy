@@ -32,7 +32,7 @@ import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.*
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -69,7 +69,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val conditions: Conditions
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -456,7 +456,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             authorizeCode = authorizeCode,
             redirectUri = redirectUri
         )
-        val response = conditions.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+        val response = conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
             tokenEndpointClient.fetchTokens(request)
         }
 

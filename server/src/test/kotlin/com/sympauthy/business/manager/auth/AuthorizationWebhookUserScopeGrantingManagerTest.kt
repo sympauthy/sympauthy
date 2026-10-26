@@ -17,7 +17,7 @@ import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequ
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResponse
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.Conditions
+import com.sympauthy.monitoring.ConditionMonitor
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.mockk.coEvery
@@ -49,19 +49,19 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @MockK
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
-    lateinit var conditions: Conditions
+    lateinit var conditionMonitor: ConditionMonitor
 
     lateinit var manager: AuthorizationWebhookUserScopeGrantingManager
 
     @BeforeEach
     fun setUp() {
-        conditions = Conditions()
+        conditionMonitor = ConditionMonitor()
         manager = AuthorizationWebhookUserScopeGrantingManager(
             clientManagerProvider = { clientManager },
             scopeManager = scopeManager,
             authorizationWebhookClient = authorizationWebhookClient,
             oauth2Manager = oauth2Manager,
-            conditions = conditions
+            conditionMonitor = conditionMonitor
         )
     }
 
@@ -186,7 +186,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
             assertTrue(result.grantedScopes.isEmpty())
             assertEquals(listOf(scope1, scope2), result.declinedScopes)
-            assertTrue(conditions.isDegraded(Condition.AuthorizationWebhook("test-client")))
+            assertTrue(conditionMonitor.isDegraded(Condition.AuthorizationWebhook("test-client")))
         }
 
     @Test
@@ -204,7 +204,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
         manager.applyAuthorizationWebhookScopeGranting(session, listOf(scope1), emptyList())
 
-        assertTrue(conditions.isDegraded(Condition.AuthorizationWebhook("test-client")))
+        assertTrue(conditionMonitor.isDegraded(Condition.AuthorizationWebhook("test-client")))
     }
 
     @Test
@@ -226,7 +226,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
             assertTrue(result.grantedScopes.isEmpty())
             assertTrue(result.declinedScopes.isEmpty())
-            assertTrue(conditions.isDegraded(Condition.AuthorizationWebhook("test-client")))
+            assertTrue(conditionMonitor.isDegraded(Condition.AuthorizationWebhook("test-client")))
         }
 
     @Test

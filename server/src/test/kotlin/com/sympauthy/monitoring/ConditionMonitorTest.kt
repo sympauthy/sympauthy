@@ -16,13 +16,13 @@ import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.time.Instant
 
-class ConditionsTest {
+class ConditionMonitorTest {
 
-    private val conditions = Conditions()
+    private val conditionMonitor = ConditionMonitor()
 
     private val written = ListAppender<ILoggingEvent>()
 
-    private val logger = LoggerFactory.getLogger(Conditions::class.java) as ch.qos.logback.classic.Logger
+    private val logger = LoggerFactory.getLogger(ConditionMonitor::class.java) as ch.qos.logback.classic.Logger
 
     private val start = Instant.parse("2026-10-26T12:00:00Z")
 
@@ -42,34 +42,34 @@ class ConditionsTest {
     @Test
     fun `reportFailure - Degrades the condition and writes one ERROR however many failures follow`() {
         val failure = IOException("Connection refused")
-        repeat(100) { conditions.reportFailure(Condition.Database, failure, start.plusSeconds(it.toLong())) }
+        repeat(100) { conditionMonitor.reportFailure(Condition.Database, failure, start.plusSeconds(it.toLong())) }
 
         val errors = linesAt(Level.ERROR)
         assertEquals(1, errors.size)
         assertTrue(errors.single().formattedMessage.startsWith("The database is failing"))
         assertSame(failure, (errors.single().throwableProxy as ch.qos.logback.classic.spi.ThrowableProxy).throwable)
-        assertEquals(listOf(DegradedCondition(Condition.Database, start)), conditions.listDegraded())
+        assertEquals(listOf(DegradedCondition(Condition.Database, start)), conditionMonitor.listDegraded())
     }
 
     @Test
     fun `reportSuccess - Leaves an operational condition operational and writes nothing`() {
-        conditions.reportSuccess(Condition.Mail, start)
+        conditionMonitor.reportSuccess(Condition.Mail, start)
 
-        assertFalse(conditions.isDegraded(Condition.Mail))
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
         assertTrue(written.list.isEmpty())
     }
 
     @Test
     fun `endQuietPeriods - Recovers a condition a quiet period after a success, saying what it absorbed`() {
-        conditions.reportFailure(Condition.Mail, null, start)
-        conditions.reportFailure(Condition.Mail, null, start.plusSeconds(10))
-        conditions.reportSuccess(Condition.Mail, start.plusSeconds(20))
+        conditionMonitor.reportFailure(Condition.Mail, null, start)
+        conditionMonitor.reportFailure(Condition.Mail, null, start.plusSeconds(10))
+        conditionMonitor.reportSuccess(Condition.Mail, start.plusSeconds(20))
 
-        conditions.endQuietPeriods(start.plusSeconds(49))
-        assertTrue(conditions.isDegraded(Condition.Mail))
+        conditionMonitor.endQuietPeriods(start.plusSeconds(49))
+        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
 
-        conditions.endQuietPeriods(start.plusSeconds(50))
-        assertFalse(conditions.isDegraded(Condition.Mail))
+        conditionMonitor.endQuietPeriods(start.plusSeconds(50))
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
         assertEquals(
             "The mail sender recovered after 50s degraded, having absorbed 2 failures.",
             linesAt(Level.INFO).single().formattedMessage
@@ -78,43 +78,43 @@ class ConditionsTest {
 
     @Test
     fun `endQuietPeriods - Does not recover a condition that failed again during its quiet period`() {
-        conditions.reportFailure(Condition.Mail, null, start)
-        conditions.reportSuccess(Condition.Mail, start.plusSeconds(1))
-        conditions.reportFailure(Condition.Mail, null, start.plusSeconds(2))
+        conditionMonitor.reportFailure(Condition.Mail, null, start)
+        conditionMonitor.reportSuccess(Condition.Mail, start.plusSeconds(1))
+        conditionMonitor.reportFailure(Condition.Mail, null, start.plusSeconds(2))
 
-        conditions.endQuietPeriods(start.plusSeconds(60))
+        conditionMonitor.endQuietPeriods(start.plusSeconds(60))
 
-        assertTrue(conditions.isDegraded(Condition.Mail))
+        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
         assertTrue(linesAt(Level.INFO).isEmpty())
     }
 
     @Test
     fun `endQuietPeriods - Starts the quiet period on the first success after a failure, not the last`() {
-        conditions.reportFailure(Condition.Mail, null, start)
-        conditions.reportSuccess(Condition.Mail, start.plusSeconds(1))
-        conditions.reportSuccess(Condition.Mail, start.plusSeconds(20))
+        conditionMonitor.reportFailure(Condition.Mail, null, start)
+        conditionMonitor.reportSuccess(Condition.Mail, start.plusSeconds(1))
+        conditionMonitor.reportSuccess(Condition.Mail, start.plusSeconds(20))
 
-        conditions.endQuietPeriods(start.plusSeconds(31))
+        conditionMonitor.endQuietPeriods(start.plusSeconds(31))
 
-        assertFalse(conditions.isDegraded(Condition.Mail))
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
     }
 
     @Test
     fun `reportFailure - Writes the ERROR again once a recovered condition fails`() {
-        conditions.reportFailure(Condition.Mail, null, start)
-        conditions.reportSuccess(Condition.Mail, start)
-        conditions.endQuietPeriods(start.plusSeconds(30))
-        conditions.reportFailure(Condition.Mail, null, start.plusSeconds(31))
+        conditionMonitor.reportFailure(Condition.Mail, null, start)
+        conditionMonitor.reportSuccess(Condition.Mail, start)
+        conditionMonitor.endQuietPeriods(start.plusSeconds(30))
+        conditionMonitor.reportFailure(Condition.Mail, null, start.plusSeconds(31))
 
         assertEquals(2, linesAt(Level.ERROR).size)
-        assertEquals(listOf(DegradedCondition(Condition.Mail, start.plusSeconds(31))), conditions.listDegraded())
+        assertEquals(listOf(DegradedCondition(Condition.Mail, start.plusSeconds(31))), conditionMonitor.listDegraded())
     }
 
     @Test
     fun `reportFailures - Words the console's failures as the lines it dropped`() {
-        conditions.reportFailures(Condition.Console, 120, null, start)
-        conditions.reportSuccess(Condition.Console, start.plusSeconds(1))
-        conditions.endQuietPeriods(start.plusSeconds(31))
+        conditionMonitor.reportFailures(Condition.Console, 120, null, start)
+        conditionMonitor.reportSuccess(Condition.Console, start.plusSeconds(1))
+        conditionMonitor.endQuietPeriods(start.plusSeconds(31))
 
         assertEquals(
             "The console's queue recovered after 31s degraded, having dropped 120 lines.",
@@ -124,14 +124,14 @@ class ConditionsTest {
 
     @Test
     fun `observe - Reports a success when the block returns`() = runTest {
-        conditions.reportFailure(Condition.Provider("google"), null, start)
+        conditionMonitor.reportFailure(Condition.Provider("google"), null, start)
 
-        val result = conditions.observe(Condition.Provider("google"), { true }) { "answer" }
+        val result = conditionMonitor.observe(Condition.Provider("google"), { true }) { "answer" }
 
         assertEquals("answer", result)
         // The success started the quiet period, which a failure would have reset.
-        conditions.endQuietPeriods(Instant.now().plus(Conditions.QUIET_PERIOD))
-        assertFalse(conditions.isDegraded(Condition.Provider("google")))
+        conditionMonitor.endQuietPeriods(Instant.now().plus(ConditionMonitor.QUIET_PERIOD))
+        assertFalse(conditionMonitor.isDegraded(Condition.Provider("google")))
     }
 
     @Test
@@ -139,19 +139,19 @@ class ConditionsTest {
         val failure = IOException("Connection refused")
 
         val thrown = assertThrows<IOException> {
-            conditions.observe(Condition.Provider("google"), { it is IOException }) { throw failure }
+            conditionMonitor.observe(Condition.Provider("google"), { it is IOException }) { throw failure }
         }
 
         assertSame(failure, thrown)
-        assertTrue(conditions.isDegraded(Condition.Provider("google")))
+        assertTrue(conditionMonitor.isDegraded(Condition.Provider("google")))
     }
 
     @Test
     fun `observe - Reports nothing for a failure the classifier says is not the dependency's`() = runTest {
         assertThrows<IllegalStateException> {
-            conditions.observe(Condition.Provider("google"), { it is IOException }) { error("invalid_grant") }
+            conditionMonitor.observe(Condition.Provider("google"), { it is IOException }) { error("invalid_grant") }
         }
 
-        assertFalse(conditions.isDegraded(Condition.Provider("google")))
+        assertFalse(conditionMonitor.isDegraded(Condition.Provider("google")))
     }
 }
