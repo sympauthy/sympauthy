@@ -33,6 +33,9 @@ to change it, and why it was settled that way. The rules a change is held to are
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.
+- **[Logging](logging.md)** — what the server says about itself while it runs: what an ERROR line
+  means, the dependencies `/health` reports degraded, and why a log line never makes its caller
+  wait.
 
 ## Neither a design document nor a rule
 

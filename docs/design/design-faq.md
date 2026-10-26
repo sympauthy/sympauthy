@@ -1183,4 +1183,96 @@ place is the last to go. [The security context](security-context.md) holds them.
 
 ---
 
+## Logging
+
+### Is an ERROR written per failure, or per change of state?
+
+**Decision:** Per change of state. A dependency is a condition; its first failure degrades it and
+writes one ERROR, the failures after it are counted, and it recovers — one line at INFO — on a
+success followed by a quiet period without a failure.
+
+**Options considered:**
+
+- **An ERROR per failure** — what the code did, and the simplest thing to grep for.
+- **An ERROR per failure, rate-limited** — a line at most every so often per logger or per message.
+- **An ERROR per change of state, with a quiet period before recovery.**
+
+**Rationale:**
+
+An ERROR is written synchronously, so its cost is paid by the caller, and per failure that cost
+scales with the traffic an outage meets: a provider down under a thousand requests a second is a
+thousand synchronous writes a second, at the moment the server is least able to afford them.
+Rate-limiting bounds the cost but keeps the shape wrong — an operator still reads one outage as a
+stream of lines and is never told it ended. A condition says both ends once, and the count it
+carries says what the stream would have.
+
+Without the quiet period, a dependency failing one call in two flips on every call and writes the
+per-failure line again by another route.
+
+The survey behind this found no authorization server that deduplicates a repeated upstream error;
+Keycloak's definition of ERROR, "a significant error or problem leading to the inability to process
+requests", is the nearest to the meaning this one gives it.
+
+### Is an ERROR written through the log queue?
+
+**Decision:** No. Every level below ERROR goes through the bounded queue in front of the console;
+an ERROR is written to the console directly, on the caller's thread.
+
+**Options considered:**
+
+- **Everything through the queue** — one path, and nothing ever writes on a request's thread.
+- **Everything through the queue, ERROR never dropped** — the queue blocks for an ERROR when full.
+- **ERROR written directly, the rest queued.**
+
+**Rationale:**
+
+The queue is full exactly when the server is degraded, which is when an ERROR is written; through
+the queue, the one line saying the server is in trouble is the one most likely to be dropped, and
+one that is queued is lost with the process if a crash follows it. Blocking for it instead makes the
+caller wait on the queue and on stdout both. Written directly, it waits on stdout alone, and only a
+condition changing state takes that path — which is what makes a synchronous write affordable.
+
+**What it costs.** An ERROR may appear before a line queued ahead of it, and a stdout that stops
+being read blocks the caller writing one. [Logging](logging.md) names both.
+
+### Does a full log queue make its caller wait?
+
+**Decision:** No. INFO and below are dropped once the queue is four fifths full, a WARN once it is
+full, and every drop is counted and reported by the console's condition.
+
+**Options considered:**
+
+- **Block when full** — what Keycloak's asynchronous logging does, and Quarkus's default.
+- **Drop anything when full** — what the OpenTelemetry SDK's batch processors do.
+- **Drop the lower levels first, and count.**
+
+**Rationale:**
+
+Blocking hands stdout's backpressure back to the request the queue took it off, on threads the
+server cannot afford to stall. Dropping is safe here only because nothing critical is queued: an
+ERROR never is. Dropping the lower levels first keeps room for a WARN through a burst of INFO, and
+counting is what turns a silent gap in the log into backpressure an operator is told about — the
+one thing none of the servers surveyed does.
+
+### Does a degraded dependency take readiness down?
+
+**Decision:** No. A degraded condition degrades `/health`, which still answers `200`, and readiness
+and liveness report what they did before.
+
+**Options considered:**
+
+- **Readiness down while a condition is degraded.**
+- **Liveness down while a condition is degraded.**
+- **`/health` degraded, readiness and liveness untouched.**
+
+**Rationale:**
+
+An external dependency fails for every instance at once. Readiness taken down by it pulls every
+instance out of the load balancer, turning one broken sign-in method into an outage; liveness taken
+down restarts every instance into the same outage. Spring Boot's own guidance keeps external systems
+out of liveness for the same reason. Readiness stays the configuration's, because a corrected file
+and a restart is what fixes that, and nothing a restart fixes is reported by a condition.
+
+---
+
 ← [How the system works](index.md)

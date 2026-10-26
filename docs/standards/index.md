@@ -30,6 +30,8 @@ the other half — [how the system works](../design/index.md).
   lock a transaction holds over an object, the batch a run claims, and the lease a job takes.
 - **[Internationalization standard](i18n-standard.md)** — why there is a bundle per audience, how a
   key is named, and how it reaches the reader in their own language.
+- **[Logging standard](logging-standard.md)** — the level a line is written at, how its message
+  is built, what it may never carry, and how a dependency's failure is reported instead of logged.
 - **[Comment standard](comment-standard.md)** — what a KDoc carries, and where the rationale that
   does not belong in one goes instead.
 - **[Testing standard](testing-standard.md)** — what each kind of subject is tested with, where its

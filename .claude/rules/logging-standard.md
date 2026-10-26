@@ -1,0 +1,1 @@
+../../docs/standards/logging-standard.md
