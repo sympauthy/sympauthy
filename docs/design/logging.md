@@ -7,7 +7,7 @@ an ERROR says the server is not fully operational and says it once.
 
 The rules a call site is held to — which level a line takes, how its message is built, what it may
 never carry — are [the logging standard](../standards/logging-standard.md). The configuration's own
-verdict, the one thing readiness reports, is [the `config` layer
+verdict, the one thing that takes readiness down, is [the `config` layer
 standard](../standards/config-layer-code-standard.md)'s.
 
 ## What an operator reads
@@ -77,11 +77,16 @@ degraded, and the right one, because a restart with a corrected file is what fix
 
 ### What `/health` publishes
 
-**A degraded condition degrades `/health`, and changes neither readiness nor liveness.** A provider
-that is down is down for every instance at once, so taking readiness down would pull every instance
-out of the load balancer and make one broken sign-in method an outage; restarting fixes nothing
-somebody else is running. Readiness keeps reporting the configuration alone — see [the design
+**A degraded condition degrades `/health` and readiness, and takes neither down.** Both report
+`DEGRADED` and answer `200`, and liveness does not report it at all. A provider that is down is down
+for every instance at once, so taking readiness down would pull every instance out of the load
+balancer and make one broken sign-in method an outage; restarting fixes nothing somebody else is
+running. The configuration is the one thing that takes readiness down — see [the design
 FAQ](design-faq.md#does-a-degraded-dependency-take-readiness-down).
+
+**Readiness reports it because the framework builds readiness from every indicator not marked for
+liveness.** Keeping it out would mean replacing the framework's health endpoint, and a probe that
+reads the status code, as a load balancer's does, already reads a degraded readiness as ready.
 
 **A condition is published by name and state, never with its failure.** The details of `/health` are
 visible anonymously, and an exception message carries hostnames, internal addresses and response
@@ -154,13 +159,19 @@ so a condition recovers up to a second after its quiet period has run out.
 **The conditions live in `monitoring/`, beside the layers.** `business` reports the dependencies its
 managers call, `data` reports the database from the connection factory every repository obtains its
 connections from, and the console's appender reports itself, so by [the architecture's
-test](architecture.md#beside-the-layers) they belong to none of them. `api` reads the database's
-condition to leave out of the log a `500` it has already reported. The health indicator in `health/`
+test](architecture.md#beside-the-layers) they belong to none of them. The health indicator in `health/`
 reads them, the way it reads the configuration's verdict, and Micronaut's own R2DBC indicator is
 turned off: it answers `503` when the database cannot be reached, and publishes the exception.
 
-**A provider that could not be resolved is tried again every quiet period** until it resolves. Its
-condition counts every attempt that fails, and the provider is served from the attempt that does not.
+**A failure caught on its way to a WARN is handed to the monitor first.** It recognises the database
+failing in whatever surfaced it — a `500`, a security context that could not be recorded — reports it
+to the database's condition, and the WARN is not written. That is also how a connection lost
+mid-query is reported, since obtaining the connection had succeeded.
+
+**A provider whose discovery could not be fetched is tried again every quiet period** until it
+resolves. Its condition counts every attempt that fails, and the provider is served from the attempt
+that does not. A provider that answers with something it cannot be resolved from is a configuration
+error rather than an outage: one ERROR, and it stays disabled until a restart.
 
 **A message is built only when its level is enabled**, because the server's own `Logger`, in
 `monitoring/`, takes a message as a lambda and nothing else. It wraps SLF4J's rather than extending

@@ -9,6 +9,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
+import com.sympauthy.monitoring.ConditionMonitor
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -40,7 +41,8 @@ class UserSecurityContextManagerTest {
     private val userManager = mockk<UserManager>(relaxed = true)
     private val sessionRepository = mockk<InteractiveFlowSessionSecurityContextRepository>(relaxed = true)
     private val contextRepository = mockk<UserSecurityContextRepository>(relaxed = true)
-    private val manager = UserSecurityContextManager(userManager, sessionRepository, contextRepository)
+    private val manager =
+        UserSecurityContextManager(userManager, sessionRepository, contextRepository, ConditionMonitor())
 
     private val sessionId = UUID.randomUUID()
     private val userId = UUID.randomUUID()

@@ -98,6 +98,11 @@ class BootstrapInvitationManager(
 
         // The integration tests read the token back out of the container log, through the testcontainers
         // library's getBootstrapInvitationToken. The format of the two lines below is its contract.
+        //
+        // An accepted deviation from the logging standard: the line carries a credential, and the console
+        // is the only place an operator is handed it. Being INFO, it also goes through the queue, which
+        // drops it once the queue is four fifths full and abandons it a second into shutdown; the operator
+        // who misses it restarts the server, which revokes it and writes a new one.
         val urlTemplate = bootstrapInvitation.urlTemplate
         if (urlTemplate != null) {
             val url = urlTemplate.replace("{token}", rawToken)

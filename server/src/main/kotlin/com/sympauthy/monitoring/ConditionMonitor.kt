@@ -84,6 +84,22 @@ class ConditionMonitor {
     }
 
     /**
+     * Report [failure] to the condition it says is failing, if it says one is, and answer whether it did.
+     *
+     * A caller about to write [failure] at WARN writes nothing when this answers true: a dependency that
+     * is down fails every operation that meets it, and its condition already says so once. A condition
+     * already degraded is not reported to again, since whatever degraded it may have counted this very
+     * failure on its way up.
+     */
+    fun absorb(failure: Throwable, now: Instant = Instant.now()): Boolean {
+        val condition = ABSORBING_CONDITIONS.firstOrNull { it.isFailedBy(failure) } ?: return false
+        if (!isDegraded(condition)) {
+            reportFailure(condition, failure, now)
+        }
+        return true
+    }
+
+    /**
      * Run [block] against [condition], reporting a success if it returns and a failure if it throws
      * something [isFailure] says the dependency is unwell for. What [block] throws is rethrown either
      * way, and anything else it throws is reported as neither.
@@ -154,6 +170,11 @@ class ConditionMonitor {
     ) : State
 
     companion object {
+        /**
+         * The conditions a failure caught anywhere can be recognised as.
+         */
+        private val ABSORBING_CONDITIONS: List<Condition> = listOf(Condition.Database)
+
         /**
          * How long a degraded condition has to go without a failure after a success to recover, which
          * also bounds the ERROR lines one condition writes to one per period.

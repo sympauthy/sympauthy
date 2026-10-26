@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.io.FileNotFoundException
 import java.net.ConnectException
 import java.time.LocalDateTime
 import java.util.*
@@ -157,6 +158,18 @@ class MailQueueTest {
         coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(first)
         coEvery { mailQueueRepository.deleteById(any()) } returns 1
         coEvery { mailSender.send(any()) } throws EmailException(SendFailedException("Invalid Addresses"))
+
+        queue().replayUnsentMails()
+
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
+    }
+
+    @Test
+    fun `replayUnsentMails - Leaves the mail sender's condition alone when a template cannot be read`() = runTest {
+        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
+        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(first)
+        coEvery { mailQueueRepository.deleteById(any()) } returns 1
+        coEvery { mailSender.send(any()) } throws EmailException(FileNotFoundException("validation-code.ftl"))
 
         queue().replayUnsentMails()
 

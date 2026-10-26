@@ -28,11 +28,13 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
+import com.sympauthy.monitoring.ConditionMonitor
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.CancellationException
@@ -80,6 +82,9 @@ class InteractiveFlowSessionCollectionManagerTest {
 
     private val securityContextMapper: InteractiveFlowSessionSecurityContextMapper =
         InteractiveFlowSessionSecurityContextMapper()
+
+    @SpyK
+    var conditionMonitor: ConditionMonitor = ConditionMonitor()
 
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionCollectionManager

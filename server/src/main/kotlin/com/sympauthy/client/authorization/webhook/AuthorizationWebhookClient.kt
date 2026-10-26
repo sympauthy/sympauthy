@@ -12,6 +12,8 @@ import io.micronaut.http.client.HttpClient
 import io.micronaut.serde.ObjectMapper
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.reactive.awaitFirst
 import kotlinx.coroutines.time.withTimeout
 import javax.crypto.Mac
@@ -25,7 +27,8 @@ import javax.crypto.spec.SecretKeySpec
  *
  * The call is subject to a configurable timeout (`advanced.webhooks.authorization.timeout`).
  * All failures (network errors, timeouts, non-2xx responses, invalid payloads) are returned
- * as [AuthorizationWebhookResult.Failure] rather than thrown as exceptions.
+ * as [AuthorizationWebhookResult.Failure] rather than thrown as exceptions. The cancellation of the coroutine
+ * waiting on the answer is not a failure of the webhook, and is thrown.
  */
 @Singleton
 class AuthorizationWebhookClient(
@@ -60,6 +63,11 @@ class AuthorizationWebhookClient(
                     .awaitFirst()
             }
             AuthorizationWebhookResult.Success(response)
+        } catch (e: TimeoutCancellationException) {
+            AuthorizationWebhookResult.Failure(message = "No answer within $timeout", cause = e)
+        } catch (cancelled: CancellationException) {
+            // The request waiting on the answer was cancelled, which says nothing about the webhook.
+            throw cancelled
         } catch (e: Exception) {
             AuthorizationWebhookResult.Failure(
                 message = e.message ?: e::class.simpleName ?: "Unknown error",

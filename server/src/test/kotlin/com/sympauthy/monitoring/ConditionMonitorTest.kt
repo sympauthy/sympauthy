@@ -3,6 +3,10 @@ package com.sympauthy.monitoring
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
+import io.r2dbc.spi.R2dbcBadGrammarException
+import io.r2dbc.spi.R2dbcNonTransientResourceException
+import io.r2dbc.spi.R2dbcPermissionDeniedException
+import io.r2dbc.spi.R2dbcTimeoutException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -120,6 +124,37 @@ class ConditionMonitorTest {
             "The console's queue recovered after 31s degraded, having dropped 120 lines.",
             linesAt(Level.INFO).single().formattedMessage
         )
+    }
+
+    @Test
+    fun `absorb - Degrades the database for a connection lost under a query, and answers true`() {
+        val lost = IllegalStateException("query failed", R2dbcNonTransientResourceException("Connection closed"))
+
+        assertTrue(conditionMonitor.absorb(lost, start))
+
+        assertTrue(conditionMonitor.isDegraded(Condition.Database))
+        assertEquals(1, linesAt(Level.ERROR).size)
+    }
+
+    @Test
+    fun `absorb - Recognises refused credentials as the database failing`() {
+        assertTrue(conditionMonitor.absorb(R2dbcPermissionDeniedException("password authentication failed"), start))
+    }
+
+    @Test
+    fun `absorb - Writes nothing more for a database already degraded`() {
+        conditionMonitor.reportFailure(Condition.Database, null, start)
+
+        assertTrue(conditionMonitor.absorb(R2dbcTimeoutException("timeout"), start.plusSeconds(1)))
+
+        assertEquals(1, linesAt(Level.ERROR).size)
+    }
+
+    @Test
+    fun `absorb - Answers false for a query that failed on a working connection`() {
+        assertFalse(conditionMonitor.absorb(R2dbcBadGrammarException("syntax error"), start))
+
+        assertFalse(conditionMonitor.isDegraded(Condition.Database))
     }
 
     @Test

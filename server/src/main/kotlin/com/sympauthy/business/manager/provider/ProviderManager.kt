@@ -6,12 +6,15 @@ import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
+import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.loggerForClass
 import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.*
@@ -25,8 +28,10 @@ import java.util.concurrent.ConcurrentHashMap
  * Each provider is resolved concurrently at startup. For OAuth2 providers, this is a direct mapping.
  * For OpenID Connect providers, this involves fetching the discovery document to resolve endpoints.
  *
- * A provider whose discovery cannot be fetched starts disabled and its condition degraded, and its
- * resolution is retried until it answers.
+ * A provider whose discovery cannot be fetched — it cannot be reached, does not answer in time, or answers
+ * with a `5xx` — starts disabled and its condition degraded, and its resolution is retried until it answers.
+ * One that answers with something this server cannot use is a configuration error rather than an outage:
+ * it says so in one ERROR and stays disabled until the server restarts.
  *
  * Configuration validation (parsing YAML, checking required fields) is handled by
  * [com.sympauthy.config.factory.ProvidersConfigFactory].
@@ -45,6 +50,8 @@ open class ProviderManager(
 
     private val providers = ConcurrentHashMap<String, Deferred<Provider>>()
 
+    private val logger = loggerForClass()
+
     @PostConstruct
     fun init() {
         val enabledConfig = providersConfig as? EnabledProvidersConfig ?: return
@@ -52,13 +59,24 @@ open class ProviderManager(
             providers[config.id] = scope.async {
                 try {
                     resolveProvider(config).also { conditionMonitor.reportSuccess(Condition.Provider(config.id)) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
-                    conditionMonitor.reportFailure(Condition.Provider(config.id), e)
-                    retryResolution(config)
+                    if (e.isRemoteFailure()) {
+                        conditionMonitor.reportFailure(Condition.Provider(config.id), e)
+                        retryResolution(config)
+                    } else {
+                        reportUnusable(config, e)
+                    }
                     DisabledProvider(config.id, e.toLocalizedException(config))
                 }
             }
         }
+    }
+
+    @PreDestroy
+    fun close() {
+        scope.cancel()
     }
 
     /**
@@ -67,7 +85,9 @@ open class ProviderManager(
      *
      * A provider whose discovery cannot be fetched at startup is otherwise disabled until the server is
      * restarted, and its condition reported degraded with nothing that could ever see it recover. Every
-     * failed attempt is reported to its condition, which counts it.
+     * attempt that cannot fetch it is reported to its condition, which counts it. An attempt that fetches
+     * something this server cannot use ends the retries: the provider answered, so its condition recovers,
+     * and it stays disabled with the ERROR it would have had at startup.
      */
     private fun retryResolution(config: ProviderConfig) = scope.launch {
         while (true) {
@@ -79,8 +99,20 @@ open class ProviderManager(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Exception) {
+                if (!e.isRemoteFailure()) {
+                    reportUnusable(config, e)
+                    conditionMonitor.reportSuccess(Condition.Provider(config.id))
+                    return@launch
+                }
                 conditionMonitor.reportFailure(Condition.Provider(config.id), e)
             }
+        }
+    }
+
+    private fun reportUnusable(config: ProviderConfig, failure: Exception) {
+        logger.error(failure) {
+            "Provider '${config.id}' answered with something this server cannot resolve it from, and stays " +
+                "disabled until the server restarts. Its configuration is the likely cause."
         }
     }
 

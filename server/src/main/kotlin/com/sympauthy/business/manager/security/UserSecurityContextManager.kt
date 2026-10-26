@@ -10,6 +10,7 @@ import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
 import com.sympauthy.util.isRowAlreadyThere
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -40,7 +41,8 @@ import java.util.*
 open class UserSecurityContextManager(
     @Inject private val userManager: UserManager,
     @Inject private val sessionRepository: InteractiveFlowSessionSecurityContextRepository,
-    @Inject private val contextRepository: UserSecurityContextRepository
+    @Inject private val contextRepository: UserSecurityContextRepository,
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -90,7 +92,9 @@ open class UserSecurityContextManager(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            logger.warn(failure) { "Could not record where session $sessionId proved a credential." }
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not record where session $sessionId proved a credential." }
+            }
         }
     }
 
@@ -128,7 +132,9 @@ open class UserSecurityContextManager(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            logger.warn(failure) { "Could not record where session $sessionId was observed from." }
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not record where session $sessionId was observed from." }
+            }
         }
     }
 
@@ -181,7 +187,9 @@ open class UserSecurityContextManager(
                 throw cancelled
             } catch (failure: Exception) {
                 if (!failure.isPlaceAlreadyRecorded()) {
-                    logger.warn(failure) { "Could not fold the place session $sessionId was observed from." }
+                    if (!conditionMonitor.absorb(failure)) {
+                        logger.warn(failure) { "Could not fold the place session $sessionId was observed from." }
+                    }
                     return
                 }
                 // Another completion inserted this same place between the read and the insert. The row is

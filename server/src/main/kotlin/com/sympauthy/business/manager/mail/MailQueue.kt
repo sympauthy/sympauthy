@@ -16,10 +16,13 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 import jakarta.mail.AuthenticationFailedException
 import kotlinx.coroutines.channels.Channel
-import java.io.IOException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
+import javax.net.ssl.SSLException
 
 /**
  * Mail queue that provides fire-and-forget mail sending with database-backed crash resilience.
@@ -193,9 +196,15 @@ class MailQueue(
      * Whether this failure to send a mail says the mail server is unwell — it could not be reached, did not
      * answer in time, or refused this server's credentials — rather than that this one mail could not be
      * sent.
+     *
+     * The network's own failures are named rather than any [java.io.IOException]: a template that cannot be
+     * read fails with one too, inside the same send, and is this one mail's.
      */
     private fun Exception.isMailServerFailure(): Boolean = generateSequence<Throwable>(this) { it.cause }
-        .any { it is IOException || it is AuthenticationFailedException }
+        .any {
+            it is SocketException || it is SocketTimeoutException || it is UnknownHostException ||
+                it is SSLException || it is AuthenticationFailedException
+        }
 
     private fun MailQueueEntity.toQueuedMail() = QueuedMail(
         id = id!!,

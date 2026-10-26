@@ -1,5 +1,10 @@
 package com.sympauthy.monitoring
 
+import io.r2dbc.spi.R2dbcNonTransientResourceException
+import io.r2dbc.spi.R2dbcPermissionDeniedException
+import io.r2dbc.spi.R2dbcTimeoutException
+import io.r2dbc.spi.R2dbcTransientResourceException
+
 /**
  * A dependency the server cannot fully work without, reported operational or degraded by [ConditionMonitor].
  *
@@ -33,9 +38,24 @@ sealed class Condition {
     internal open fun describeFailures(count: Long): String =
         "absorbed $count ${if (count == 1L) "failure" else "failures"}"
 
+    /**
+     * Whether [failure], caught wherever it surfaced, is this dependency failing rather than the operation
+     * that met it. Only a condition that answers this can be handed a failure by [ConditionMonitor.absorb].
+     */
+    internal open fun isFailedBy(failure: Throwable): Boolean = false
+
     data object Database : Condition() {
         override val name = "database"
         override val subject = "The database"
+
+        /**
+         * The database could not be reached, did not answer in time, refused this server's credentials, or
+         * lost the connection a query was running on. A query that failed on a working connection is not.
+         */
+        override fun isFailedBy(failure: Throwable): Boolean = generateSequence(failure) { it.cause }.any {
+            it is R2dbcNonTransientResourceException || it is R2dbcTransientResourceException ||
+                it is R2dbcTimeoutException || it is R2dbcPermissionDeniedException
+        }
     }
 
     data object Mail : Condition() {

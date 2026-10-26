@@ -35,6 +35,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -85,7 +86,8 @@ class InteractiveFlowSessionCollectionManager(
     @Inject private val securityContextMapper: InteractiveFlowSessionSecurityContextMapper,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
-    @Inject private val clientManager: ClientManager
+    @Inject private val clientManager: ClientManager,
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -242,7 +244,9 @@ class InteractiveFlowSessionCollectionManager(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            logger.warn(failure) { "Could not tell which purpose session ${ongoing.id} is stopped at." }
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not tell which purpose session ${ongoing.id} is stopped at." }
+            }
             null
         }
     }
