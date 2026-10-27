@@ -15,6 +15,7 @@ import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
+import com.sympauthy.util.pluralize
 import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
 import com.sympauthy.view.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
@@ -207,19 +208,6 @@ class ApplicationReadinessStatusPrinter(
                     "${pluralize(claimTemplateCount, "claim", "claim")})."
         }
     }
-
-    /**
-     * [count] and the word counted, which takes an `s` where the count calls for one.
-     *
-     * A caller writes [plural] out where that is not the word. The breakdown a line carries in its
-     * parentheses qualifies the noun the line already named, and an adjective doing that is the same
-     * word whatever the count is — "3 generateds" is what the default produces there.
-     *
-     * One is the only count the singular answers for: none of something is plural in English, so a
-     * line reporting nothing reports "0 scopes".
-     */
-    private fun pluralize(count: Int, singular: String, plural: String = "${singular}s") =
-        if (count == 1) "$count $singular" else "$count $plural"
 
     private fun printServingBanner() {
         val urlsConfig = uncheckedUrlsConfig.getOrNull() ?: return

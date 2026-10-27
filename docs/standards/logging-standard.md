@@ -67,13 +67,19 @@ URL or query string that may carry one.
 **A pattern carries no caller data.** `%caller`, `%file`, `%line`, `%method` and `%class` walk the
 stack on the caller's thread.
 
-**Every appender below ERROR is reached through the queue.** An appender added beside it writes on
-the caller's thread for every line, which is the cost the queue exists to remove.
+**Every appender below ERROR is reached through the queue, except OpenTelemetry's.** An appender
+added beside it writes on the caller's thread for every line, which is the cost the queue exists to
+remove. OpenTelemetry's has to read the trace from the caller's thread, and costs it the record it
+builds there — a throwable's stack trace rendered as text included — and one add to the SDK's own
+bounded queue.
+
+**The OpenTelemetry appender captures no code attribute.** Leave `captureCodeAttributes` off, for
+the reason a pattern carries no caller data.
 
 ## What this standard does not cover
 
-**What a span, a metric or an exported attribute may carry.** The server exports none, and the first
-that does settles it.
+**What a span, a metric or an exported attribute may carry.** [The telemetry
+standard](telemetry-standard.md) holds it.
 
 **A record of security events.** Its delivery is not a log line's, and nothing here governs it.
 

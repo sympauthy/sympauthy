@@ -41,9 +41,11 @@ the response says it, and a line for each would let anybody fill the log on dema
 
 **A dependency the server cannot fully work without is a condition, operational or degraded.** It is
 anything reached outside this process on a request's behalf — the database, the mail sender, a
-provider, a client's authorization webhook — and the console's own queue, whose dropping a line is
-the server failing to say what it was asked to. The declaration of the conditions is the authority
-on which exist.
+provider, a client's authorization webhook — the console's own queue, whose dropping a line is the
+server failing to say what it was asked to, and the collector its telemetry is exported to, whose
+refusing an export is the same failure on the other channel. The declaration of the conditions is
+the authority on which exist; what the collector's condition counts is
+[telemetry](telemetry.md#when-the-collector-does-not-answer)'s.
 
 **The first failure degrades a condition, and writes the ERROR.** A failure while it is degraded
 only counts. That is what keeps the cost of an outage flat: written per failure, a provider down
@@ -145,7 +147,9 @@ orders them; holding an ERROR until the queue drained would undo the reason it d
 ## What implements it
 
 **`logback.xml` is where the two paths are wired**: the queue every level below ERROR goes through,
-in front of the console, and the console written to directly for ERROR. The queue's size, its drop
+in front of the console, and the console written to directly for ERROR. The OpenTelemetry appender
+sits beside both, on the caller's thread, for [the reason telemetry
+gives](telemetry.md#what-implements-it). The queue's size, its drop
 thresholds and its drain on shutdown are fixed there rather than in the server's configuration — a
 deployment supplying its own logback file in place of the shipped one keeps whichever of these
 guarantees it reproduces.
@@ -178,9 +182,6 @@ error rather than an outage: one ERROR, and it stays disabled until a restart.
 it, so the overloads taking a built string are not there to be called.
 
 ## What this document does not settle
-
-**Telemetry.** The server exports no trace, metric or log record anywhere but the console. Where
-those would leave from, and which threads would carry them, is open.
 
 **A record of security events.** An audit trail kept for operators and for the person concerned is
 not a log line, and nothing here is its delivery: a queue that drops under pressure is the wrong

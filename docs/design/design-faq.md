@@ -1279,6 +1279,96 @@ condition.
 Keeping the condition out of readiness altogether would mean owning a copy of a framework class for
 a difference no probe reading the status code can see: a degraded readiness still answers `200`.
 
+## Telemetry
+
+### Why the OpenTelemetry SDK rather than Micrometer?
+
+**Decision:** Traces, metrics and log records all come from the OpenTelemetry SDK that Micronaut's
+tracing module builds, exported over OTLP through one exporter.
+
+**Options considered:**
+
+- **Micrometer with its OTLP registry, beside the tracing SDK** — Micronaut's usual metrics stack.
+- **A Prometheus scrape endpoint** — what most self-hosted servers expose.
+- **The OpenTelemetry Java agent** — instrumentation attached to the JVM at startup.
+- **The SDK alone**, its HTTP request durations recorded by the same instrumenters as the spans.
+
+**Rationale:**
+
+The tracing module's instrumenters already record the request durations, on the same resource and
+under the same attributes as the spans. Micrometer beside them would put a second OTLP client in the
+process, exporting a second resource, configured under a second prefix, to say the same thing about
+one request in another attribute vocabulary. A scrape endpoint is a new surface, with an audience
+and a gate of its own that a push needs none of. The agent attaches to a JVM, and the production
+artifact is a native image: there is no JVM to attach it to.
+
+### Is a query string redacted parameter by parameter?
+
+**Decision:** No. A query is replaced whole with `REDACTED`, in `url.query` and in `url.full`, in
+the attributes a request's span and its metrics are both recorded from.
+
+**Options considered:**
+
+- **The semantic conventions' default redaction** — the values of a short list of parameters,
+  which are cloud signatures and none of this server's.
+- **A list of this server's credential parameters, redacted by value.**
+- **A list of the parameters safe to keep, the rest redacted.**
+- **The whole query, replaced.**
+- **Redacting spans on their way to the exporter.**
+
+**Rationale:**
+
+The default list names `sig` and `X-Amz-Signature`, not `code`, `state` or `invitation_token`. A
+list of this server's own goes stale the next time a specification adds a parameter, and a list of
+safe ones the next time a route adds one; either way the failure is a credential exported in
+silence. The whole query costs nothing that matters, since the route names the endpoint and the path
+says what was asked for.
+
+Redacting spans at the exporter leaves the query in the metrics: a histogram's exemplar carries the
+request's attributes its series is not keyed by. The attributes are redacted where they are gathered
+so that no signal sees the query at all, and they are overwritten rather than removed because the
+builder the instrumenter hands an extractor silently ignores a removal.
+
+### Is telemetry turned off by leaving the exporters unset?
+
+**Decision:** No. `application.yml` ships `micronaut.otel.enabled: false` beside every signal's
+exporter set to OTLP, and a deployment turns telemetry on with the flag and an endpoint.
+
+**Options considered:**
+
+- **The exporters left unset**, each defaulting to `none` until a deployment names it.
+- **The SDK's own switch, `otel.sdk.disabled`.**
+- **Micronaut's flag, `micronaut.otel.enabled`.**
+
+**Rationale:**
+
+With no exporter, the integration is still built: every request opens a span and records its
+duration for nothing to read, and turning it on takes a key per signal. The SDK's switch builds an
+SDK that does nothing, under filters and an appender that still run. Micronaut's flag removes the
+integration whole, so a server with telemetry off does no telemetry work at all, and every setting
+that is the same for every deployment can ship already set, leaving a deployment two keys to write.
+
+### Are the runtime metrics read through OpenTelemetry's runtime instrumentation?
+
+**Decision:** No. The server reads the heap pools, the threads, the CPU and each garbage collector
+from the platform's management beans itself.
+
+**Options considered:**
+
+- **The runtime instrumentation, everything it registers.**
+- **The runtime instrumentation, narrowed by views on the meter provider.**
+- **The readings a native image fills, read by the server.**
+
+**Rationale:**
+
+A native image leaves most of the instrumentation's readings empty, and exporting a metric that is
+always zero states something false about the server. A view can drop an instrument but not a
+series, and the non-heap pool that is always zero is a series of the same instruments as the heap
+pools; the instrumentation registers all of its readings or none of them. Read by the server, the
+set is the same calls, written out once, and it is the one an operator gets on the JVM and on the
+native image alike. The instrumentation's GC duration is built from notifications a native image
+never sends, which is why the collectors' own count and time are read in its place.
+
 ---
 
 ← [How the system works](index.md)

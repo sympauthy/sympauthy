@@ -168,6 +168,40 @@ documentation declares, `client`, is client credentials and takes a client id an
 `clientId`, and set `login` and `password` as secret variables — Bruno keeps secret values out of
 the collection files, so nothing is committed.
 
+### Watching the telemetry
+
+**[otel-tui](https://github.com/ymtdzzz/otel-tui) is a collector and a viewer in one terminal**, so
+the traces, metrics and log records of [telemetry](telemetry.md) can be read without running a
+backend. Start it before the server:
+
+```sh
+docker run --rm -it -p 4318:4318 ymtdzzz/otel-tui:latest
+```
+
+Then turn telemetry on in your configuration, and name it as the collector:
+
+```yaml
+micronaut:
+  otel:
+    enabled: true
+otel:
+  exporter:
+    otlp:
+      endpoint: http://localhost:4318
+```
+
+**The rest is shipped in `application.yml`**: every signal exported over OTLP, the protocol, a
+metric export every ten seconds and `/health` left out of the traces —
+[telemetry](telemetry.md#what-a-deployment-gets) says why.
+
+**Only port 4318 is published, because the server speaks `http/protobuf` alone.** The gRPC port
+otel-tui also listens on has no sender in the server to reach it.
+
+**otel-tui keeps what it receives in memory**, so it starts empty every time. Stopping it while the
+server runs degrades the `collector` condition, with the ERROR that comes with it, until it is
+started again — that is the outage [telemetry](telemetry.md#when-the-collector-does-not-answer)
+describes, not a fault in the setup.
+
 ## The native image
 
 ```sh

@@ -198,8 +198,9 @@ are looked for in the files a deployment wrote, and nowhere else.
 
 **A key a framework owns.** Micronaut compiles its own configuration classes with the property
 lookups inlined rather than declared, so what a deployment writes under `micronaut`, `endpoints`,
-`flyway` or `netty` cannot be held to the rule above: there is no list of what those prefixes accept
-to hold it against, and guessing one would take readiness down over a key that works.
+`flyway`, `netty` or `otel` cannot be held to the rule above: there is no list of what those
+prefixes accept to hold it against, and guessing one would take readiness down over a key that
+works.
 
 **A deployment supplying its own implementation.** The set a setting picks from is what the server
 ships. Making the declaration single is not making it open: there is no plugin surface here, and

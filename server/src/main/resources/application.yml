@@ -40,6 +40,11 @@ micronaut:
     serialization:
       inclusion: NON_NULL
 
+  # Off because a self-hosted server may have no collector to send to, and one named nowhere would be degraded from
+  # the first export.
+  otel:
+    enabled: false
+
   router:
     static-resources:
       flow-non-html:
@@ -76,6 +81,24 @@ endpoints:
     # answering 503, and publishes no exception to an anonymous caller.
     r2dbc:
       enabled: false
+
+otel:
+  traces:
+    exporter: otlp
+  metrics:
+    exporter: otlp
+  logs:
+    exporter: otlp
+  exporter:
+    otlp:
+      # The SDK's default is grpc, and the only sender the server ships speaks http/protobuf.
+      protocol: http/protobuf
+  metric:
+    export:
+      interval: 10000
+  # A liveness probe every few seconds would otherwise be the most-traced route.
+  exclusions:
+    - /health.*
 
 flyway:
   enabled: true
