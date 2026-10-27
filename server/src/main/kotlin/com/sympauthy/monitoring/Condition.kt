@@ -1,5 +1,6 @@
 package com.sympauthy.monitoring
 
+import com.sympauthy.util.pluralize
 import io.r2dbc.spi.R2dbcNonTransientResourceException
 import io.r2dbc.spi.R2dbcPermissionDeniedException
 import io.r2dbc.spi.R2dbcTimeoutException
@@ -37,7 +38,7 @@ sealed class Condition {
      * of what it counts.
      */
     internal open fun describeFailures(count: Long, lost: Map<String, Long>): String =
-        "absorbed ${plural(count, "failure")}"
+        "absorbed ${pluralize(count, "failure")}"
 
     /**
      * Whether [failure], caught wherever it surfaced, is this dependency failing rather than the operation
@@ -74,7 +75,7 @@ sealed class Condition {
         override val failingMessage = "The console's queue is full and dropping lines below ERROR"
 
         override fun describeFailures(count: Long, lost: Map<String, Long>): String =
-            "dropped ${plural(count, "line")}"
+            "dropped ${pluralize(count, "line")}"
     }
 
     /**
@@ -97,8 +98,8 @@ sealed class Condition {
         const val LOG_RECORD = "log record"
 
         override fun describeFailures(count: Long, lost: Map<String, Long>): String {
-            val failed = "failed ${plural(count, "export")}"
-            val losses = listOf(SPAN, LOG_RECORD).mapNotNull { noun -> lost[noun]?.let { plural(it, noun) } }
+            val failed = "failed ${pluralize(count, "export")}"
+            val losses = listOf(SPAN, LOG_RECORD).mapNotNull { noun -> lost[noun]?.let { pluralize(it, noun) } }
             return if (losses.isEmpty()) failed else "$failed and lost ${losses.joinToString(" and ")}"
         }
     }
@@ -113,8 +114,3 @@ sealed class Condition {
         override val subject get() = "The authorization webhook of client '$clientId'"
     }
 }
-
-/**
- * [count] followed by [noun], in the plural unless [count] is one.
- */
-private fun plural(count: Long, noun: String): String = "$count ${if (count == 1L) noun else "${noun}s"}"

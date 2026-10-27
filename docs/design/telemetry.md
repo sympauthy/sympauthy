@@ -130,7 +130,12 @@ FAQ](design-faq.md#are-the-runtime-metrics-read-through-opentelemetrys-runtime-i
 [logging](logging.md#when-the-server-is-not-fully-operational) reports any dependency: the first
 failed export writes the ERROR, every failure after it is counted, and an export that succeeds
 followed by the quiet period recovers it in one line. `/health` lists it as `collector`. One
-condition stands for every signal, since they all leave through one endpoint and fail together.
+condition stands for every signal, since a deployment names one collector for them all.
+
+**It recovers only once every signal whose last export failed has exported again.** A deployment
+may still send a signal to an endpoint of its own, and the metrics leave every ten seconds while a
+span leaves only once a request is served: their successes alone would recover the condition in
+every lull in traffic while every span export still failed.
 
 **Every failed export counts, whatever the collector answered.** The request is composed by this
 server alone, so a refusal says the collector, or what this server was configured to reach it with,
@@ -141,7 +146,8 @@ that failed. A metric loses nothing worth counting, since each is exported as it
 the next export that succeeds carries what a failed one did not.
 
 **What the SDK's own queues drop is not counted on the console.** The SDK calls nothing back when a
-queue is full; it records the drop in metrics of its own, which are exported with the rest. A queue
+queue is full; it records the drop in metrics of its own, which are exported with the rest, and the
+one line the span queue writes about it is on a logger silenced for its failure reports. A queue
 dropping while the collector answers is therefore visible at the collector and nowhere on the
 console.
 
@@ -177,7 +183,8 @@ test](architecture.md#beside-the-layers) puts them beside the layers.
 
 **`logback.xml` places the appender beside the console's queue, not behind it.** The trace a record
 is stamped with is read from the thread that logged it, so a record handed to the queue's thread
-first would carry none; what it costs the caller is one add to the SDK's queue. The same file
+first would carry none. What it costs the caller is the record built there, with a logged
+throwable's stack trace rendered as text, and one add to the SDK's queue. The same file
 silences the SDK's own loggers, which write through `java.util.logging`, by setting the levels
 logback propagates to them.
 
@@ -223,6 +230,10 @@ to that.
 **A GraalVM release filling different readings.** The exported set is the one the probe found on
 GraalVM 25 with the Serial collector, and nothing notices a reading that falls silent after an
 upgrade.
+
+**The appender after a refresh.** A context refresh reloads `logback.xml` and attaches an appender
+that is neither handed the SDK nor detached, so until a restart its records stop reaching the
+collector, or are held until its queue fills. Nothing in the server refreshes its context.
 
 **A scenario exporting to a collector.** The integration suite runs no server against one. The
 unit tests prove the redaction and the reports to the collector's condition, piece by piece; what

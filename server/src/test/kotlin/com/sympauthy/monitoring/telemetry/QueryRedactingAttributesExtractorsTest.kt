@@ -52,4 +52,24 @@ class QueryRedactingAttributesExtractorsTest {
         assertEquals("https://idp.example.com/token", unchanged.get(URL_FULL))
         assertNull(unchanged.get(URL_QUERY))
     }
+
+    @Test
+    fun `onStart - Drops a fragment, and adds no query for a question mark inside it`() {
+        val attributes = Attributes.builder().put(URL_FULL, "https://idp.example.com/cb#access_token=secret?x")
+
+        QueryRedactingHttpClientAttributesExtractor()
+            .onStart(attributes, Context.root(), mockk<MutableHttpRequest<*>>())
+
+        assertEquals("https://idp.example.com/cb", attributes.build().get(URL_FULL))
+    }
+
+    @Test
+    fun `onStart - Redacts the query and drops the fragment after it`() {
+        val attributes = Attributes.builder().put(URL_FULL, "https://idp.example.com/cb?code=secret#state")
+
+        QueryRedactingHttpClientAttributesExtractor()
+            .onStart(attributes, Context.root(), mockk<MutableHttpRequest<*>>())
+
+        assertEquals("https://idp.example.com/cb?$REDACTED", attributes.build().get(URL_FULL))
+    }
 }

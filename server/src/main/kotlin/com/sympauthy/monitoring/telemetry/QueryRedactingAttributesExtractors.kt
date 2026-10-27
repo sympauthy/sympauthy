@@ -73,14 +73,19 @@ const val REDACTED = "REDACTED"
 /**
  * Replace the query in [attributes]' `url.query` with [REDACTED], and the query in their `url.full` too,
  * leaving each attribute absent where it was.
+ *
+ * A fragment is dropped from `url.full`: it is never sent, and a token is what one carries back from an
+ * implicit grant.
  */
 internal fun redactQuery(attributes: AttributesBuilder) {
     val built = attributes.build()
     if (built.get(URL_QUERY) != null) {
         attributes.put(URL_QUERY, REDACTED)
     }
-    val fullUrl = built.get(URL_FULL)
-    if (fullUrl != null && '?' in fullUrl) {
-        attributes.put(URL_FULL, "${fullUrl.substringBefore('?')}?$REDACTED")
+    val fullUrl = built.get(URL_FULL) ?: return
+    val end = fullUrl.indexOfAny(charArrayOf('?', '#'))
+    if (end != -1) {
+        val query = if (fullUrl[end] == '?') "?$REDACTED" else ""
+        attributes.put(URL_FULL, fullUrl.substring(0, end) + query)
     }
 }

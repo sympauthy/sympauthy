@@ -21,14 +21,9 @@ class TelemetryExportCustomizer(
 ) : OpenTelemetryBuilderCustomizer {
 
     override fun configure(builder: AutoConfiguredOpenTelemetrySdkBuilder) {
-        builder.addSpanExporterCustomizer { exporter, _ ->
-            CollectorReportingSpanExporter(exporter, conditionMonitor)
-        }
-        builder.addLogRecordExporterCustomizer { exporter, _ ->
-            CollectorReportingLogRecordExporter(exporter, conditionMonitor)
-        }
-        builder.addMetricExporterCustomizer { exporter, _ ->
-            CollectorReportingMetricExporter(exporter, conditionMonitor)
-        }
+        val report = CollectorReport(conditionMonitor)
+        builder.addSpanExporterCustomizer { exporter, _ -> CollectorReportingSpanExporter(exporter, report) }
+        builder.addLogRecordExporterCustomizer { exporter, _ -> CollectorReportingLogRecordExporter(exporter, report) }
+        builder.addMetricExporterCustomizer { exporter, _ -> CollectorReportingMetricExporter(exporter, report) }
     }
 }

@@ -69,8 +69,9 @@ stack on the caller's thread.
 
 **Every appender below ERROR is reached through the queue, except OpenTelemetry's.** An appender
 added beside it writes on the caller's thread for every line, which is the cost the queue exists to
-remove; OpenTelemetry's only hands the record to the SDK's own bounded queue, and has to read the
-trace from the caller's thread.
+remove. OpenTelemetry's has to read the trace from the caller's thread, and costs it the record it
+builds there — a throwable's stack trace rendered as text included — and one add to the SDK's own
+bounded queue.
 
 **The OpenTelemetry appender captures no code attribute.** Leave `captureCodeAttributes` off, for
 the reason a pattern carries no caller data.

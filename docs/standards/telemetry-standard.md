@@ -32,8 +32,9 @@ client of its own — a Micrometer registry, a second OTLP exporter, a vendor's 
 added.
 
 **An exporter the SDK builds is reported to `Condition.Collector`.** Wrap it in
-`TelemetryExportCustomizer`, so that its failures degrade the condition and its successes recover
-it.
+`TelemetryExportCustomizer`, through the `CollectorReport` the other signals share, so that its
+failures degrade the condition and its successes recover it only once no other signal's last export
+failed.
 
 **A shipped file names no header to capture.** Leave `otel.http.server.request-headers`, its
 response twin and the client's empty; a deployment that names one owns what it copies.

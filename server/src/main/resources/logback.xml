@@ -56,8 +56,9 @@
     <!--
     Every level, handed to the OpenTelemetry SDK on the caller's thread: a record is stamped with the trace and
     span of the thread that logged it, which a record handed to the queue's thread first would lose. What it
-    costs the caller is one add to the SDK's own bounded queue, which drops rather than waits. The server detaches
-    it at startup when telemetry is off.
+    costs the caller is the record built there, a throwable's stack trace rendered as text included, and one add
+    to the SDK's own bounded queue, which drops rather than waits. The server detaches it at startup when
+    telemetry is off.
     -->
     <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender"/>
 
