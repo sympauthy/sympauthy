@@ -23,6 +23,10 @@ anywhere else is reported to its condition or written at a lower level.
 Report its failures and its successes both: the first degrades it and writes the ERROR, the second
 is what lets it recover.
 
+**A failure about to be written at WARN is first handed to `ConditionMonitor.absorb()`, and written
+only if it answers false.** A dependency that is down fails every operation meeting it, and its
+condition says so once.
+
 **Only a failure saying the dependency is unwell is reported as one.** A refused connection, a
 timeout and a `5xx` are; a `4xx` caused by what a person or a client sent is not. A `4xx` answering
 a request this server composed alone — a client's authorization webhook — is.
@@ -42,10 +46,11 @@ the WARN an operator needs out of the queue.
 
 ## A call site
 
-**A logger is obtained with `loggerForClass()`.**
+**A logger is obtained with `loggerForClass()`**, which answers the server's own `Logger` rather than
+SLF4J's. Nothing reaches SLF4J's directly.
 
 **A message is passed as a lambda, never as a built string.** A string template is built on every
-call whether its level is enabled or not.
+call whether its level is enabled or not, and the server's `Logger` takes nothing else.
 
 ```kotlin
 logger.debug { "Skipping ${job.leaseName}: another instance holds its lease." }

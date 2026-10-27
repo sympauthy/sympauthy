@@ -92,8 +92,9 @@ can write against its session, and nothing they write is visible to the fold.
 choose and an unbounded table would let one session mint a row per request. Past the bound the
 place nobody has been seen at for longest makes room for the new one — what a session is read for
 is where it is being driven from now — and a place a credential was proven at goes last, so
-presenting user agents cannot roll somebody's proof out. A rollover is logged, because a session
-presenting that many places is either a person on a train or somebody enumerating.
+presenting user agents cannot roll somebody's proof out. A rollover is logged at DEBUG: a session
+presenting that many places is either a person on a train or somebody enumerating, and anybody can
+present them at will, which [logging](logging.md) keeps below WARN.
 
 **Nothing unidentified is kept.** A place a session recorded belongs to that session and is
 collected with it, so a failed sign-in and an abandoned flow leave nothing behind, and completing a

@@ -16,6 +16,10 @@ import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResponse
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
+import io.micronaut.http.HttpResponse
+import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.MockK
@@ -45,15 +49,19 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
     @MockK
     lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
 
+    lateinit var conditionMonitor: ConditionMonitor
+
     lateinit var manager: AuthorizationWebhookUserScopeGrantingManager
 
     @BeforeEach
     fun setUp() {
+        conditionMonitor = ConditionMonitor()
         manager = AuthorizationWebhookUserScopeGrantingManager(
             clientManagerProvider = { clientManager },
             scopeManager = scopeManager,
             authorizationWebhookClient = authorizationWebhookClient,
-            oauth2Manager = oauth2Manager
+            oauth2Manager = oauth2Manager,
+            conditionMonitor = conditionMonitor
         )
     }
 
@@ -178,7 +186,26 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
             assertTrue(result.grantedScopes.isEmpty())
             assertEquals(listOf(scope1, scope2), result.declinedScopes)
+            assertTrue(conditionMonitor.isDegraded(Condition.AuthorizationWebhook("test-client")))
         }
+
+    @Test
+    fun `applyAuthorizationWebhookScopeGranting - Degrades the webhook's condition on a 4xx`() = runTest {
+        val session = mockSession()
+        coEvery { clientManager.findClientById("test-client") } returns mockClient(
+            authorizationWebhook = mockWebhookConfig(onFailure = AuthorizationWebhookOnFailure.DENY_ALL)
+        )
+        coEvery {
+            authorizationWebhookClient.callWebhook(any(), any<AuthorizationWebhookRequest>())
+        } returns AuthorizationWebhookResult.Failure(
+            message = "Unauthorized",
+            cause = HttpClientResponseException("Unauthorized", HttpResponse.unauthorized<Any>())
+        )
+
+        manager.applyAuthorizationWebhookScopeGranting(session, listOf(scope1), emptyList())
+
+        assertTrue(conditionMonitor.isDegraded(Condition.AuthorizationWebhook("test-client")))
+    }
 
     @Test
     @Suppress("MaxLineLength")
@@ -199,6 +226,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
 
             assertTrue(result.grantedScopes.isEmpty())
             assertTrue(result.declinedScopes.isEmpty())
+            assertTrue(conditionMonitor.isDegraded(Condition.AuthorizationWebhook("test-client")))
         }
 
     @Test

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.lock
 
 import com.sympauthy.data.repository.JobLeaseRepository
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -66,7 +66,7 @@ class JobLeaseManager(
         ) == 1
 
         if (!acquired) {
-            logger.debug("Skipping ${job.leaseName}: another instance holds its lease.")
+            logger.debug { "Skipping ${job.leaseName}: another instance holds its lease." }
             return false
         }
 

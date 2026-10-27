@@ -3,7 +3,7 @@ package com.sympauthy.cron
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -33,7 +33,7 @@ class CleanExpiredInteractiveFlowSessionCron(
             jobLeaseManager.withLease(CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS) {
                 val result = interactiveFlowSessionCleaner.clean()
                 if (result.sessionCount > 0) {
-                    logger.debug("Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.validationCodesCount} validation codes).")
+                    logger.debug { "Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.validationCodesCount} validation codes)." }
                 }
             }
         }

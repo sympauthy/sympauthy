@@ -72,6 +72,10 @@ endpoints:
       enabled: false
     jdbc:
       enabled: false
+    # Off because the database is reported by its condition instead, which degrades /health rather than
+    # answering 503, and publishes no exception to an anonymous caller.
+    r2dbc:
+      enabled: false
 
 flyway:
   enabled: true

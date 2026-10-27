@@ -1256,22 +1256,28 @@ one thing none of the servers surveyed does.
 
 ### Does a degraded dependency take readiness down?
 
-**Decision:** No. A degraded condition degrades `/health`, which still answers `200`, and readiness
-and liveness report what they did before.
+**Decision:** No. A degraded condition makes `/health` and readiness report `DEGRADED`, and both
+still answer `200`; liveness does not report it.
 
 **Options considered:**
 
 - **Readiness down while a condition is degraded.**
 - **Liveness down while a condition is degraded.**
-- **`/health` degraded, readiness and liveness untouched.**
+- **`/health` degraded, readiness and liveness untouched** — which takes replacing the framework's
+  health endpoint, since it builds readiness from every indicator not marked for liveness.
+- **`/health` and readiness degraded and answering `200`, liveness untouched.**
 
 **Rationale:**
 
 An external dependency fails for every instance at once. Readiness taken down by it pulls every
 instance out of the load balancer, turning one broken sign-in method into an outage; liveness taken
 down restarts every instance into the same outage. Spring Boot's own guidance keeps external systems
-out of liveness for the same reason. Readiness stays the configuration's, because a corrected file
-and a restart is what fixes that, and nothing a restart fixes is reported by a condition.
+out of liveness for the same reason. Only the configuration takes readiness down, because a
+corrected file and a restart is what fixes that, and nothing a restart fixes is reported by a
+condition.
+
+Keeping the condition out of readiness altogether would mean owning a copy of a framework class for
+a difference no probe reading the status code can see: a degraded readiness still answers `200`.
 
 ---
 

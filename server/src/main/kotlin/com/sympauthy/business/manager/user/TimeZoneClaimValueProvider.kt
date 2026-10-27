@@ -2,7 +2,7 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.TimeZone
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import jakarta.inject.Singleton
@@ -28,10 +28,10 @@ class TimeZoneClaimValueProvider {
             try {
                 ZoneId.of(zoneId).let { Observable.just(it) }
             } catch (e: DateTimeException) {
-                logger.error("Failed to load timezone $zoneId.", e)
+                logger.warn(e) { "Failed to load timezone $zoneId." }
                 Observable.empty()
             } catch (e: ZoneRulesException) {
-                logger.error("Failed to load timezone $zoneId.", e)
+                logger.warn(e) { "Failed to load timezone $zoneId." }
                 Observable.empty()
             }
         }

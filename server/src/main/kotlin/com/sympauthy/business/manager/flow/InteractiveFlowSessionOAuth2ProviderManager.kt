@@ -28,9 +28,12 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
 import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.config.model.*
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -65,7 +68,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val lockManager: LockManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -378,12 +382,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             // was created (InteractiveFlowSessionLinkProviderManager.startLinkProviderSession), and promotion
             // is one-way, so its session id is null and reading it back would only re-answer that.
             providerClaimsManager.saveUserInfo(provider, userId, sessionId = null, rawUserInfo)
-            logger.info(
-                "Linked provider {} (subject {}) to user {}.",
-                provider.id,
-                rawUserInfo.subject,
-                userId
-            )
+            logger.debug { "Linked provider ${provider.id} (subject ${rawUserInfo.subject}) to user $userId." }
         }
     }
 
@@ -457,7 +456,9 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             authorizeCode = authorizeCode,
             redirectUri = redirectUri
         )
-        val response = tokenEndpointClient.fetchTokens(request)
+        val response = conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+            tokenEndpointClient.fetchTokens(request)
+        }
 
         // Verify token type is Bearer (RFC 6749 §7.1)
         if (!response.tokenType.equals("Bearer", ignoreCase = true)) {

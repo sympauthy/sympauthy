@@ -5,13 +5,21 @@ import com.sympauthy.business.manager.lock.LeasedJob.MAIL_BACKLOG
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
+import io.micronaut.email.EmailException
+import jakarta.mail.SendFailedException
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.io.FileNotFoundException
+import java.net.ConnectException
 import java.time.LocalDateTime
 import java.util.*
 
@@ -33,6 +41,8 @@ class MailQueueTest {
     @MockK
     lateinit var jobLeaseManager: JobLeaseManager
 
+    private val conditionMonitor = ConditionMonitor()
+
     private val first = mail("first@example.com")
     private val second = mail("second@example.com")
 
@@ -42,7 +52,8 @@ class MailQueueTest {
         configReadiness = configReadiness,
         mailBuilderFactory = mailBuilderFactory,
         mailQueueRepository = mailQueueRepository,
-        jobLeaseManager = jobLeaseManager
+        jobLeaseManager = jobLeaseManager,
+        conditionMonitor = conditionMonitor
     )
 
     private fun holdingTheLease() {
@@ -126,6 +137,43 @@ class MailQueueTest {
         queue().replayUnsentMails()
 
         coVerify(exactly = 0) { mailSender.send(any()) }
+    }
+
+    @Test
+    fun `replayUnsentMails - Degrades the mail sender's condition when its server cannot be reached`() = runTest {
+        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
+        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(first)
+        coEvery { mailQueueRepository.deleteById(any()) } returns 1
+        coEvery { mailSender.send(any()) } throws EmailException(ConnectException("Refused"))
+
+        queue().replayUnsentMails()
+
+        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
+        coVerify(exactly = 1) { mailQueueRepository.deleteById(first.id!!) }
+    }
+
+    @Test
+    fun `replayUnsentMails - Leaves the mail sender's condition alone when one mail cannot be sent`() = runTest {
+        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
+        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(first)
+        coEvery { mailQueueRepository.deleteById(any()) } returns 1
+        coEvery { mailSender.send(any()) } throws EmailException(SendFailedException("Invalid Addresses"))
+
+        queue().replayUnsentMails()
+
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
+    }
+
+    @Test
+    fun `replayUnsentMails - Leaves the mail sender's condition alone when a template cannot be read`() = runTest {
+        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
+        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(first)
+        coEvery { mailQueueRepository.deleteById(any()) } returns 1
+        coEvery { mailSender.send(any()) } throws EmailException(FileNotFoundException("validation-code.ftl"))
+
+        queue().replayUnsentMails()
+
+        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
     }
 
     private fun mail(receiver: String) = MailQueueEntity(

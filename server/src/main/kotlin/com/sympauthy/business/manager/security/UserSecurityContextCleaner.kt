@@ -4,7 +4,7 @@ import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -44,10 +44,10 @@ open class UserSecurityContextCleaner(
             // Said rather than passed over in silence: this is the one job whose not running keeps personal
             // data past the point an operator asked for it to go, and silence there is indistinguishable
             // from a table that had nothing to delete.
-            logger.warn(
+            logger.warn {
                 "Not deleting expired security contexts: the configuration did not parse, so no retention " +
                     "says what expired means. Readiness reports which keys are at fault."
-            )
+            }
             return 0
         }
 
@@ -58,7 +58,7 @@ open class UserSecurityContextCleaner(
             deleted += batch.deleted
             if (batch.claimed < BATCH_SIZE) return deleted
         }
-        logger.debug("Stopped after $MAX_BATCHES batches; the remaining expired contexts go on the next run.")
+        logger.debug { "Stopped after $MAX_BATCHES batches; the remaining expired contexts go on the next run." }
         return deleted
     }
 

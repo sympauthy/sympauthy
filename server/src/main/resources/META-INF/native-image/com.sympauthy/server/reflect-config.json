@@ -15,5 +15,45 @@
         "parameterTypes": []
       }
     ]
+  },
+  {
+    "name": "com.sympauthy.monitoring.ConsoleQueueAppender",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "allPublicMethods": true
+  },
+  {
+    "name": "ch.qos.logback.classic.filter.LevelFilter",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "allPublicMethods": true
+  },
+  {
+    "name": "ch.qos.logback.classic.filter.ThresholdFilter",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "allPublicMethods": true
+  },
+  {
+    "name": "ch.qos.logback.core.hook.DefaultShutdownHook",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ],
+    "allPublicMethods": true
   }
 ]

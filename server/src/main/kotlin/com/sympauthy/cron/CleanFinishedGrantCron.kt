@@ -3,7 +3,7 @@ package com.sympauthy.cron
 import com.sympauthy.business.manager.auth.GrantCleaner
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_FINISHED_GRANTS
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -36,10 +36,10 @@ class CleanFinishedGrantCron(
             jobLeaseManager.withLease(CLEAN_FINISHED_GRANTS) {
                 val result = grantCleaner.clean()
                 if (result.tokenCount > 0 || result.authorizationCodeCount > 0 || result.grantCount > 0) {
-                    logger.debug(
+                    logger.debug {
                         "Cleaned ${result.tokenCount} tokens, ${result.authorizationCodeCount} authorization codes " +
                             "and ${result.grantCount} finished grants."
-                    )
+                    }
                 }
             }
         }

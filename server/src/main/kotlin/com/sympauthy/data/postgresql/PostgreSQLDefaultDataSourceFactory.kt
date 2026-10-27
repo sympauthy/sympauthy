@@ -1,8 +1,9 @@
 package com.sympauthy.data.postgresql
 
+import com.sympauthy.data.driverConnectionFactory
 import com.sympauthy.data.postgresql.util.PostgresqlConnectionConfigurationProxy
 import com.sympauthy.data.postgresql.util.configurationProxy
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.context.annotation.Context
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
@@ -34,8 +35,9 @@ class PostgreSQLDefaultDataSourceFactory(
     @Context
     @Named("default")
     fun provideDataSource(): DataSource? {
+        val connectionFactory = connectionFactory.driverConnectionFactory
         return if (connectionFactory is PostgresqlConnectionFactory) {
-            log.debug("Initializing PostgreSQL JDBC data source from R2DBC connection factory.")
+            log.debug { "Initializing PostgreSQL JDBC data source from R2DBC connection factory." }
             runBlocking {
                 convertConnectionFactoryToDataSource(connectionFactory.configurationProxy)
             }

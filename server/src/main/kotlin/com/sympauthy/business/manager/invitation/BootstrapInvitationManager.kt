@@ -8,7 +8,7 @@ import com.sympauthy.config.model.BootstrapInvitation
 import com.sympauthy.config.model.BootstrapInvitationsConfig
 import com.sympauthy.config.model.EnabledBootstrapInvitationsConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject
@@ -58,11 +58,11 @@ class BootstrapInvitationManager(
         runBlocking {
             launch {
                 if (configReadiness.getConfigurationErrors().isNotEmpty()) {
-                    logger.warn(
+                    logger.warn {
                         "Bootstrap invitations: skipping — the configuration has errors and this server " +
                                 "reports itself unready. No invitation was created and none was revoked. " +
                                 "Fix the errors reported at startup and restart to obtain a token."
-                    )
+                    }
                     return@launch
                 }
                 bootstrapInvitationsConfig.orThrow().invitations.forEach { invitation ->
@@ -77,10 +77,10 @@ class BootstrapInvitationManager(
         val audience = bootstrapInvitation.audience
         val existingConsents = consentManager.findActiveConsentsByAudience(audience.id)
         if (existingConsents.isNotEmpty()) {
-            logger.info(
+            logger.info {
                 "Bootstrap invitation '${bootstrapInvitation.id}': skipping — " +
                         "${existingConsents.size} user(s) already consented for audience '${audience.id}'."
-            )
+            }
             return
         }
 
@@ -98,18 +98,23 @@ class BootstrapInvitationManager(
 
         // The integration tests read the token back out of the container log, through the testcontainers
         // library's getBootstrapInvitationToken. The format of the two lines below is its contract.
+        //
+        // An accepted deviation from the logging standard: the line carries a credential, and the console
+        // is the only place an operator is handed it. Being INFO, it also goes through the queue, which
+        // drops it once the queue is four fifths full and abandons it a second into shutdown; the operator
+        // who misses it restarts the server, which revokes it and writes a new one.
         val urlTemplate = bootstrapInvitation.urlTemplate
         if (urlTemplate != null) {
             val url = urlTemplate.replace("{token}", rawToken)
-            logger.info(
+            logger.info {
                 "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${audience.id}'. " +
                         "Registration URL: $url"
-            )
+            }
         } else {
-            logger.info(
+            logger.info {
                 "Bootstrap invitation '${bootstrapInvitation.id}' created for audience '${audience.id}'. " +
                         "Token: $rawToken"
-            )
+            }
         }
     }
 

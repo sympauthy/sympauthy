@@ -12,7 +12,7 @@ import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.util.min
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -56,6 +56,7 @@ open class ValidationCodeGenerator(
     ): ValidationCode {
         var tryCount = 0
         var savedEntity: ValidationCodeEntity? = null
+        var lastFailure: Exception? = null
 
         val creationDate = now()
         val expirationDate = getExpirationDate(
@@ -78,13 +79,16 @@ open class ValidationCodeGenerator(
                 )
                 savedEntity = validationCodeRepository.save(entity)
             } catch (e: Exception) {
-                logger.error("Failed to insert", e)
+                // A code drawn twice collides with the one already held. Any other failure is the next attempt's to
+                // meet, and the last one's to throw.
+                logger.debug(e) { "Could not insert validation code on attempt ${tryCount + 1}; drawing another." }
+                lastFailure = e
                 tryCount++
             }
         }
 
         return savedEntity?.let(validationCodeMapper::toValidationCode)
-            ?: error("Unable to generate code in $tryCount attempts.")
+            ?: throw IllegalStateException("Unable to generate code in $tryCount attempts.", lastFailure)
     }
 
     internal fun generateCode(): String {

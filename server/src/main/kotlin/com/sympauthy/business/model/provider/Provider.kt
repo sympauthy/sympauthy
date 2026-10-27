@@ -23,7 +23,7 @@ class EnabledProvider(
 ) : Provider(id, true)
 
 /**
- * A [Provider] that have an evident defect in its configuration.
+ * A [Provider] that could not be resolved, its discovery document having failed to be fetched.
  * The [cause] holds the reason why we failed to configure this [Provider].
  */
 class DisabledProvider(

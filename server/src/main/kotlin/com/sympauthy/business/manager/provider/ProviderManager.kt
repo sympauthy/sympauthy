@@ -6,18 +6,20 @@ import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
+import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
-import com.sympauthy.server.ErrorMessages
-import com.sympauthy.util.loggerForClass
-import com.sympauthy.util.render
-import io.micronaut.context.MessageSource
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.loggerForClass
 import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.*
 import java.net.URI
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -26,45 +28,100 @@ import java.util.concurrent.ConcurrentHashMap
  * Each provider is resolved concurrently at startup. For OAuth2 providers, this is a direct mapping.
  * For OpenID Connect providers, this involves fetching the discovery document to resolve endpoints.
  *
+ * A provider whose discovery cannot be fetched — it cannot be reached, does not answer in time, or answers
+ * with a `5xx` — starts disabled and its condition degraded, and its resolution is retried until it answers.
+ * One that answers with something this server cannot use is a configuration error rather than an outage:
+ * it says so in one ERROR and stays disabled until the server restarts.
+ *
  * Configuration validation (parsing YAML, checking required fields) is handled by
  * [com.sympauthy.config.factory.ProvidersConfigFactory].
  */
 @Singleton
 open class ProviderManager(
     @Inject private val providersConfig: ProvidersConfig,
-    @param:ErrorMessages @Inject private val messageSource: MessageSource,
-    @Inject private val openIdConnectDiscoveryClient: OpenIdConnectDiscoveryClient
+    @Inject private val openIdConnectDiscoveryClient: OpenIdConnectDiscoveryClient,
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
-    private val logger = loggerForClass()
+    /**
+     * The scope a provider is resolved on, and retried on while its discovery cannot be fetched.
+     */
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val providers = ConcurrentHashMap<String, Deferred<Provider>>()
+
+    private val logger = loggerForClass()
 
     @PostConstruct
     fun init() {
         val enabledConfig = providersConfig as? EnabledProvidersConfig ?: return
-        val scope = CoroutineScope(Dispatchers.IO)
         for (config in enabledConfig.providers) {
             providers[config.id] = scope.async {
                 try {
-                    resolveProvider(config)
-                } catch (e: LocalizedException) {
-                    val localizedErrorMessage = messageSource.render(e.detailsId, e.values)
-                    logger.error("Failed to resolve provider ${config.id}: $localizedErrorMessage")
-                    DisabledProvider(config.id, e)
+                    resolveProvider(config).also { conditionMonitor.reportSuccess(Condition.Provider(config.id)) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
-                    logger.error("Failed to resolve provider ${config.id}: ${e.message}")
-                    DisabledProvider(
-                        config.id, LocalizedException(
-                            detailsId = "provider.openid_connect.discovery_failed",
-                            values = mapOf("issuer" to config.id),
-                            throwable = e
-                        )
-                    )
+                    if (e.isRemoteFailure()) {
+                        conditionMonitor.reportFailure(Condition.Provider(config.id), e)
+                        retryResolution(config)
+                    } else {
+                        reportUnusable(config, e)
+                    }
+                    DisabledProvider(config.id, e.toLocalizedException(config))
                 }
             }
         }
     }
+
+    @PreDestroy
+    fun close() {
+        scope.cancel()
+    }
+
+    /**
+     * Resolve the provider [config] declares again every [RESOLUTION_RETRY_INTERVAL] until it resolves, and
+     * from then on serve it like a provider that resolved at startup.
+     *
+     * A provider whose discovery cannot be fetched at startup is otherwise disabled until the server is
+     * restarted, and its condition reported degraded with nothing that could ever see it recover. Every
+     * attempt that cannot fetch it is reported to its condition, which counts it. An attempt that fetches
+     * something this server cannot use ends the retries: the provider answered, so its condition recovers,
+     * and it stays disabled with the ERROR it would have had at startup.
+     */
+    private fun retryResolution(config: ProviderConfig) = scope.launch {
+        while (true) {
+            delay(RESOLUTION_RETRY_INTERVAL.toMillis())
+            try {
+                providers[config.id] = CompletableDeferred(resolveProvider(config))
+                conditionMonitor.reportSuccess(Condition.Provider(config.id))
+                return@launch
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                if (!e.isRemoteFailure()) {
+                    reportUnusable(config, e)
+                    conditionMonitor.reportSuccess(Condition.Provider(config.id))
+                    return@launch
+                }
+                conditionMonitor.reportFailure(Condition.Provider(config.id), e)
+            }
+        }
+    }
+
+    private fun reportUnusable(config: ProviderConfig, failure: Exception) {
+        logger.error(failure) {
+            "Provider '${config.id}' answered with something this server cannot resolve it from, and stays " +
+                "disabled until the server restarts. Its configuration is the likely cause."
+        }
+    }
+
+    private fun Exception.toLocalizedException(config: ProviderConfig) = this as? LocalizedException
+        ?: LocalizedException(
+            detailsId = "provider.openid_connect.discovery_failed",
+            values = mapOf("issuer" to config.id),
+            throwable = this
+        )
 
     suspend fun listProviders(): List<Provider> {
         return providers.values.awaitAll()
@@ -123,5 +180,13 @@ open class ProviderManager(
             userInfo = config.userInfo,
             auth = auth
         )
+    }
+
+    companion object {
+        /**
+         * How long a provider that could not be resolved waits before it is tried again. It reuses the
+         * conditions' quiet period rather than adding a number of its own to the ones the design fixes.
+         */
+        private val RESOLUTION_RETRY_INTERVAL: Duration = ConditionMonitor.QUIET_PERIOD
     }
 }

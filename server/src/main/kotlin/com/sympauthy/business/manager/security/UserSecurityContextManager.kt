@@ -10,7 +10,8 @@ import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
 import com.sympauthy.util.isRowAlreadyThere
-import com.sympauthy.util.loggerForClass
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.loggerForClass
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -40,7 +41,8 @@ import java.util.*
 open class UserSecurityContextManager(
     @Inject private val userManager: UserManager,
     @Inject private val sessionRepository: InteractiveFlowSessionSecurityContextRepository,
-    @Inject private val contextRepository: UserSecurityContextRepository
+    @Inject private val contextRepository: UserSecurityContextRepository,
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -81,15 +83,18 @@ open class UserSecurityContextManager(
         val fingerprint = observedRequest.securityContextKey().fingerprint
         try {
             if (sessionRepository.markProven(sessionId, fingerprint, LocalDateTime.now()) == 0) {
-                logger.warn(
+                // DEBUG at most: whoever holds a session's state can roll its places out at will.
+                logger.debug {
                     "Session $sessionId proved a credential at a place it no longer holds, so nothing " +
                         "will be folded into that person's record."
-                )
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            logger.warn("Could not record where session $sessionId proved a credential.", failure)
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not record where session $sessionId proved a credential." }
+            }
         }
     }
 
@@ -113,11 +118,12 @@ open class UserSecurityContextManager(
         try {
             if (writePlace(sessionId, key, observedRequest, now) == 0) {
                 // A session presenting more than a handful of distinct places is either a person on a train
-                // or somebody enumerating, and neither should be silent.
-                logger.warn(
+                // or somebody enumerating. It is DEBUG at most all the same: whoever holds a session's state
+                // provokes it at will, by presenting user agents.
+                logger.debug {
                     "Session $sessionId has been driven from more than $MAX_OBSERVATIONS_PER_SESSION " +
                         "distinct places. The one least recently seen makes room for this one."
-                )
+                }
                 sessionRepository.deleteLeastRecentPlace(sessionId)
                 // Once more, and once only: a second empty answer means a concurrent request took the room
                 // this one just made, and the line above already says a session is presenting too many.
@@ -126,7 +132,9 @@ open class UserSecurityContextManager(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            logger.warn("Could not record where session $sessionId was observed from.", failure)
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not record where session $sessionId was observed from." }
+            }
         }
     }
 
@@ -179,13 +187,15 @@ open class UserSecurityContextManager(
                 throw cancelled
             } catch (failure: Exception) {
                 if (!failure.isPlaceAlreadyRecorded()) {
-                    logger.warn("Could not fold the place session $sessionId was observed from.", failure)
+                    if (!conditionMonitor.absorb(failure)) {
+                        logger.warn(failure) { "Could not fold the place session $sessionId was observed from." }
+                    }
                     return
                 }
                 // Another completion inserted this same place between the read and the insert. The row is
                 // there now, so the attempt after this one takes the update path rather than the insert.
                 if (attempt == ATTEMPTS - 1) {
-                    logger.warn("Gave up folding the place session $sessionId was observed from.", failure)
+                    logger.warn(failure) { "Gave up folding the place session $sessionId was observed from." }
                 }
             }
         }

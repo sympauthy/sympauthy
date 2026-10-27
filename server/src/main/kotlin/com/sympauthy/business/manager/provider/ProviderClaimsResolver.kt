@@ -9,6 +9,9 @@ import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.UserInfoEndpointClient
+import com.sympauthy.client.isRemoteFailure
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -24,6 +27,7 @@ class ProviderClaimsResolver(
     @Inject private val providerIdTokenManager: ProviderIdTokenManager,
     @Inject private val providerIdTokenClaimsExtractor: ProviderIdTokenClaimsExtractor,
     @Inject private val userInfoEndpointClient: UserInfoEndpointClient,
+    @Inject private val conditionMonitor: ConditionMonitor,
 ) {
 
     /**
@@ -53,12 +57,16 @@ class ProviderClaimsResolver(
         val openIdConnectConfig = provider.auth as? ProviderOpenIdConnectConfig
 
         val idTokenClaims = if (openIdConnectConfig != null) {
-            providerIdTokenManager.validateAndExtractClaims(
-                openIdConnectConfig = openIdConnectConfig,
-                idTokenRaw = idTokenRaw,
-                accessToken = tokens.accessToken,
-                expectedNonce = expectedNonce
-            )
+            // The provider's key set is fetched to verify the token, and a key set that cannot be fetched is the
+            // provider failing. A token that fails verification is not.
+            conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+                providerIdTokenManager.validateAndExtractClaims(
+                    openIdConnectConfig = openIdConnectConfig,
+                    idTokenRaw = idTokenRaw,
+                    accessToken = tokens.accessToken,
+                    expectedNonce = expectedNonce
+                )
+            }
         } else {
             // For OAuth2 providers that unexpectedly return an ID token,
             // we still extract claims but skip signature validation.
@@ -75,10 +83,12 @@ class ProviderClaimsResolver(
         val userInfo = provider.userInfo
             ?: throw businessExceptionOf("provider.user_info.not_configured", "providerId" to provider.id)
 
-        val rawUserInfoMap = userInfoEndpointClient.fetchUserInfo(
-            userInfoConfig = userInfo,
-            credentials = tokens
-        )
+        val rawUserInfoMap = conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+            userInfoEndpointClient.fetchUserInfo(
+                userInfoConfig = userInfo,
+                credentials = tokens
+            )
+        }
 
         val document = JsonPath.parse(rawUserInfoMap)
         return userInfo.paths.entries

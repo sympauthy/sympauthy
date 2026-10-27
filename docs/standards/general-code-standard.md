@@ -47,11 +47,12 @@ change to this table before it is a class.
 
 | From | May import | Never |
 | --- | --- | --- |
-| `api` | `business`, `config`, `security` | `data` — no entity, no repository |
-| `business` | `data`, `config`, `client` | `api` |
-| `data` | Micronaut Data and the JDK | `business`, `api` |
+| `api` | `business`, `config`, `security`, `monitoring` | `data` — no entity, no repository |
+| `business` | `data`, `config`, `client`, `monitoring` | `api` |
+| `data` | Micronaut Data, `monitoring` and the JDK | `business`, `api` |
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
 | `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
+| `monitoring` | logback, SLF4J, the R2DBC SPI, the Micronaut framework, the JDK | every layer |
 
 **`business` may import `api` in exactly one case**: a manager in `business.manager.auth` throws the
 protocol's own error type, which lives in `api` because an OAuth2 error code is a wire format. [The
@@ -132,7 +133,9 @@ the top level of the file that owns the concept — a downcast off an authentica
 caused it.
 
 **Retries and circuit breaking on outbound calls.** A third-party provider being down surfaces as a
-failed flow.
+failed flow. The one retry is a provider's discovery document that could not be fetched at startup,
+which [logging](../design/logging.md#what-implements-it) has tried again until it answers, since
+nothing else would ever resolve that provider.
 
 **Caching.** Nothing memoises anything, including the discovery documents and key sets fetched from
 third-party providers.
