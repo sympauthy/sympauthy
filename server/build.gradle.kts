@@ -103,6 +103,19 @@ dependencies {
     // Health & Liveness endpoints
     implementation("io.micronaut:micronaut-management")
 
+    // Telemetry: traces, metrics and logs from one OpenTelemetry SDK, over one OTLP exporter.
+    implementation("io.micronaut.tracing:micronaut-tracing-opentelemetry-http")
+    runtimeOnly("io.opentelemetry:opentelemetry-exporter-otlp") {
+        // The default sender is OkHttp, a second HTTP stack and a second Kotlin runtime for one POST that
+        // java.net.http already makes. The sender is chosen by what is on the classpath, so excluding this one
+        // and adding the JDK's is the whole switch.
+        exclude(group = "io.opentelemetry", module = "opentelemetry-exporter-sender-okhttp")
+    }
+    runtimeOnly("io.opentelemetry:opentelemetry-exporter-sender-jdk")
+    // Named by logback.xml, which places it beside the console's queue rather than behind it, and detached by
+    // the server when telemetry is off.
+    implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0")
+
     // Expression evaluation: for scope granting rules
     implementation(libs.evalex)
 

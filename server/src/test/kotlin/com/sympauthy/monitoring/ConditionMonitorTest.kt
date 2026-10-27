@@ -127,6 +127,20 @@ class ConditionMonitorTest {
     }
 
     @Test
+    fun `reportFailures - Sums what the failures lost, and says it in the recovery line`() {
+        listOf(Condition.Collector.SPAN to 512L, Condition.Collector.SPAN to 88L, Condition.Collector.LOG_RECORD to 1L)
+            .forEach { lost -> conditionMonitor.reportFailures(Condition.Collector, 1, null, start, mapOf(lost)) }
+        conditionMonitor.reportSuccess(Condition.Collector, start.plusSeconds(1))
+        conditionMonitor.endQuietPeriods(start.plusSeconds(31))
+
+        assertEquals(
+            "The telemetry collector recovered after 31s degraded, having failed 3 exports and lost 600 spans and " +
+                "1 log record.",
+            linesAt(Level.INFO).single().formattedMessage
+        )
+    }
+
+    @Test
     fun `absorb - Degrades the database for a connection lost under a query, and answers true`() {
         val lost = IllegalStateException("query failed", R2dbcNonTransientResourceException("Connection closed"))
 

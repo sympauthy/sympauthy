@@ -43,20 +43,26 @@ class ConditionMonitor {
     }
 
     /**
-     * Report that [condition] failed [count] times, the last of them with [failure] if there is one.
+     * Report that [condition] failed [count] times, the last of them with [failure] if there is one, and that
+     * the failures lost what [lost] counts, under the keys [condition] declares.
      */
     fun reportFailures(
         condition: Condition,
         count: Long,
         failure: Throwable? = null,
-        now: Instant = Instant.now()
+        now: Instant = Instant.now(),
+        lost: Map<String, Long> = emptyMap()
     ) {
         val state = states.computeIfAbsent(condition) { AtomicReference(Operational) }
         while (true) {
             val current = state.get()
             val next = when (current) {
-                Operational -> Degraded(since = now, failures = count, quietSince = null)
-                is Degraded -> current.copy(failures = current.failures + count, quietSince = null)
+                Operational -> Degraded(since = now, failures = count, lost = lost, quietSince = null)
+                is Degraded -> current.copy(
+                    failures = current.failures + count,
+                    lost = current.lost.plusCounts(lost),
+                    quietSince = null
+                )
             }
             if (state.compareAndSet(current, next)) {
                 if (current == Operational) {
@@ -137,7 +143,7 @@ class ConditionMonitor {
                 val degradedFor = Duration.between(current.since, now).truncatedTo(ChronoUnit.SECONDS)
                 logger.info {
                     "${condition.subject} recovered after ${degradedFor.toKotlinDuration()} degraded, having " +
-                        "${condition.describeFailures(current.failures)}."
+                        "${condition.describeFailures(current.failures, current.lost)}."
                 }
             }
         }
@@ -160,14 +166,21 @@ class ConditionMonitor {
     private data object Operational : State
 
     /**
-     * A condition degraded [since] that moment, having absorbed [failures], and quiet since [quietSince]
-     * if it has answered since its last failure.
+     * A condition degraded [since] that moment, having absorbed [failures] that lost what [lost] counts, and
+     * quiet since [quietSince] if it has answered since its last failure.
      */
     private data class Degraded(
         val since: Instant,
         val failures: Long,
+        val lost: Map<String, Long>,
         val quietSince: Instant?
     ) : State
+
+    /**
+     * These counts and [other]'s, summed key by key.
+     */
+    private fun Map<String, Long>.plusCounts(other: Map<String, Long>): Map<String, Long> =
+        if (other.isEmpty()) this else (keys + other.keys).associateWith { (this[it] ?: 0) + (other[it] ?: 0) }
 
     companion object {
         /**

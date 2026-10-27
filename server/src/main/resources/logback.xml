@@ -3,6 +3,12 @@
     <!-- Stop logback outputting its own log at start -->
     <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
 
+    <!--
+    Copies the level of every logger below onto the java.util.logging logger of the same name, which is what the
+    OpenTelemetry SDK writes through, and holds on to it so that it keeps that level.
+    -->
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator"/>
+
     <!-- Stops the queue on exit, which drains it for up to its maxFlushTime. -->
     <shutdownHook class="ch.qos.logback.core.hook.DefaultShutdownHook"/>
 
@@ -48,11 +54,30 @@
     </appender>
 
     <!--
+    Every level, handed to the OpenTelemetry SDK on the caller's thread: a record is stamped with the trace and
+    span of the thread that logged it, which a record handed to the queue's thread first would lose. What it
+    costs the caller is one add to the SDK's own bounded queue, which drops rather than waits. The server detaches
+    it at startup when telemetry is off.
+    -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender"/>
+
+    <!--
     <logger name="io.micronaut.context.condition" level="TRACE"/>
     -->
     <!-- Enable the logging of the SQL queries.
     <logger name="io.micronaut.data.query" level="TRACE"/>
     -->
+
+    <!--
+    The OpenTelemetry SDK's own report of a failed export, and of what its queues dropped meanwhile: it writes one
+    per failure to stderr, on its own schedule, for an outage the collector's condition states once.
+    -->
+    <logger name="io.opentelemetry.exporter.otlp.internal.HttpExporter" level="OFF"/>
+    <logger name="io.opentelemetry.exporter.otlp.internal.GrpcExporter" level="OFF"/>
+    <logger name="io.opentelemetry.exporter.sender.jdk.internal.JdkHttpSender" level="OFF"/>
+    <logger name="io.opentelemetry.sdk.trace.export.BatchSpanProcessor" level="OFF"/>
+    <logger name="io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor$Worker" level="OFF"/>
+    <logger name="io.opentelemetry.sdk.metrics.export.PeriodicMetricReader" level="OFF"/>
 
     <!-- Mute "Rolling back transaction on error" warnings triggered by expected business exceptions. -->
     <logger name="io.micronaut.transaction.support.AbstractReactorTransactionOperations" level="ERROR"/>
@@ -60,5 +85,6 @@
     <root level="info">
         <appender-ref ref="QUEUE"/>
         <appender-ref ref="CONSOLE_ERROR"/>
+        <appender-ref ref="OTEL"/>
     </root>
 </configuration>

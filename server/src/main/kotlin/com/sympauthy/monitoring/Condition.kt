@@ -9,8 +9,8 @@ import io.r2dbc.spi.R2dbcTransientResourceException
  * A dependency the server cannot fully work without, reported operational or degraded by [ConditionMonitor].
  *
  * This declaration is the authority on which conditions exist: anything reached outside this process on
- * a request's behalf, and the console's own queue, whose dropping a line is the server failing to say
- * what it was asked to.
+ * a request's behalf, the console's own queue, whose dropping a line is the server failing to say what it
+ * was asked to, and the collector the server's telemetry is exported to.
  *
  * A condition is published on `/health` by its [name] alone, and the names say nothing the sign-in pages
  * do not.
@@ -33,10 +33,11 @@ sealed class Condition {
     internal open val failingMessage: String get() = "$subject is failing"
 
     /**
-     * [count] failures, worded as what failed.
+     * [count] failures, worded as what failed, and what they [lost]: each count keyed by the singular noun
+     * of what it counts.
      */
-    internal open fun describeFailures(count: Long): String =
-        "absorbed $count ${if (count == 1L) "failure" else "failures"}"
+    internal open fun describeFailures(count: Long, lost: Map<String, Long>): String =
+        "absorbed ${plural(count, "failure")}"
 
     /**
      * Whether [failure], caught wherever it surfaced, is this dependency failing rather than the operation
@@ -72,8 +73,34 @@ sealed class Condition {
         override val subject = "The console's queue"
         override val failingMessage = "The console's queue is full and dropping lines below ERROR"
 
-        override fun describeFailures(count: Long): String =
-            "dropped $count ${if (count == 1L) "line" else "lines"}"
+        override fun describeFailures(count: Long, lost: Map<String, Long>): String =
+            "dropped ${plural(count, "line")}"
+    }
+
+    /**
+     * The collector traces, metrics and log records are exported to. Its failures are the exports it did not
+     * accept, and what they lost is the spans and log records in them: a metric is exported as a running
+     * total, so the next export that succeeds carries what a failed one did not.
+     */
+    data object Collector : Condition() {
+        override val name = "collector"
+        override val subject = "The telemetry collector"
+
+        /**
+         * The key a failed export counts the spans it lost under.
+         */
+        const val SPAN = "span"
+
+        /**
+         * The key a failed export counts the log records it lost under.
+         */
+        const val LOG_RECORD = "log record"
+
+        override fun describeFailures(count: Long, lost: Map<String, Long>): String {
+            val failed = "failed ${plural(count, "export")}"
+            val losses = listOf(SPAN, LOG_RECORD).mapNotNull { noun -> lost[noun]?.let { plural(it, noun) } }
+            return if (losses.isEmpty()) failed else "$failed and lost ${losses.joinToString(" and ")}"
+        }
     }
 
     data class Provider(val providerId: String) : Condition() {
@@ -86,3 +113,8 @@ sealed class Condition {
         override val subject get() = "The authorization webhook of client '$clientId'"
     }
 }
+
+/**
+ * [count] followed by [noun], in the plural unless [count] is one.
+ */
+private fun plural(count: Long, noun: String): String = "$count ${if (count == 1L) noun else "${noun}s"}"

@@ -73,6 +73,15 @@ should not need a build.
 Mail templates. Their structure only; every string in them comes from [a message
 bundle](../standards/i18n-standard.md).
 
+## Observability
+
+### [OpenTelemetry](https://opentelemetry.io)
+
+Traces, metrics and log records, from one SDK over one vendor-neutral protocol, so that a deployment
+picks its own backend behind a collector and this server ships an integration with none of them.
+Micronaut's tracing module builds the SDK and instruments the HTTP server and client;
+[telemetry](telemetry.md) is what leaves, and why nothing does until a deployment turns it on.
+
 ## Testing
 
 ### JUnit 5 and [MockK](https://mockk.io)
