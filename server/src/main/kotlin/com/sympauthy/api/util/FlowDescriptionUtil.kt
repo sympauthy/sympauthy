@@ -32,15 +32,21 @@ const val FLOW_STATE_BAD_REQUEST_DESCRIPTION =
         "`state` names has expired and been deleted."
 
 /**
- * The lines a flow operation appends to [FLOW_STATE_BAD_REQUEST_DESCRIPTION] when it answers with a body of
- * its own rather than a redirect, and so refuses a session that is over or has no user yet instead of
- * sending the browser where the session stands.
+ * The line a flow operation appends to [FLOW_STATE_BAD_REQUEST_DESCRIPTION] when it answers with a body of
+ * its own rather than a redirect, and so refuses a session that is over instead of sending the browser where
+ * the session stands.
  */
-const val FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION =
+const val FLOW_ONGOING_SESSION_BAD_REQUEST_DESCRIPTION =
     "\n- `ctrl.flow.not_ongoing`: the interactive flow session has already completed, failed or been " +
-        "cancelled.\n" +
-        "- `auth.interactive_flow_session.user.missing`: the end-user has not signed in to the interactive " +
-        "flow session yet."
+        "cancelled."
+
+/**
+ * The lines such an operation appends instead when it also needs the session's user, and so refuses a
+ * session that has no user yet as well.
+ */
+const val FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION = FLOW_ONGOING_SESSION_BAD_REQUEST_DESCRIPTION +
+    "\n- `auth.interactive_flow_session.user.missing`: the end-user has not signed in to the interactive " +
+    "flow session yet."
 
 /**
  * What becomes of a failure the end-user cannot correct, on a flow operation answering with a

@@ -50,8 +50,8 @@ background.
 
 ### The client and admin surfaces
 
-**The client and admin surfaces are protected by scope**, declared at class level so the whole
-surface is gated in one place — except the client's claim routes, gated on a client token alone
+**The client and admin surfaces are protected by scope**, every route gated on a scope of its own
+surface and of no other — except the client's claim routes, gated on a client token alone
 because [each claim's ACL decides](claims.md#a-client) what a client reads and writes there.
 Anything narrower than the surface — this administrator may act on this row — is a check inside the
 manager, because nothing has been loaded at the moment the annotation runs.

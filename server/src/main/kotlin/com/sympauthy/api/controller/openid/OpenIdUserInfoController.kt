@@ -18,6 +18,10 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
+/**
+ * Gated on a user's access token rather than left anonymous like the rest of the protocol surface, because
+ * OpenID Connect Core §5.3 has the endpoint called with the access token whose claims it returns.
+ */
 @Controller(OPENID_USERINFO_ENDPOINT)
 @Secured(IS_USER)
 class OpenIdUserInfoController(

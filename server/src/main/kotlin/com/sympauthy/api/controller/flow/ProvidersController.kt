@@ -91,6 +91,11 @@ class ProvidersController(
             mapResultToResource = { HttpResponse.seeOther<Any>(it) }
         )
 
+    /**
+     * Anonymous rather than gated on the state, so that a browser returning from the provider without a
+     * `state` is answered `auth.interactive_flow_session.validate.missing_state` instead of being refused
+     * before the route is reached. The state is verified when the session is resolved.
+     */
     @Operation(
         description = "Receive the browser back from a provider, and sign the end-user in, or up, with the " +
             "identity the provider vouches for. The provider redirects the browser here; a client never calls " +

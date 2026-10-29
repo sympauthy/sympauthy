@@ -28,6 +28,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
+/**
+ * Gated on a client token alone rather than on a scope of the client surface, because what a client reads
+ * and writes here is decided claim by claim, by each claim's ACL — see `docs/design/claims.md`.
+ */
 @Controller("/api/v1/client/users/{userId}/claims")
 @Secured(IS_CLIENT)
 @SecurityRequirement(name = "client")
