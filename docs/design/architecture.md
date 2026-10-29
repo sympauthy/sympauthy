@@ -68,8 +68,8 @@ access token; and the application prefixes are gated on scope, but for the clien
 which a claim's ACL decides. [Security](security.md) is where each is spelled out.
 
 **The prefix is a security boundary, not only a routing convention.** It is what every route's
-gate is held to: a route gated on anything its prefix does not admit fails the build, unless it is
-written down as a departure with its reason. What each gate does and does not protect against is
+gate is held to: a route gated on anything its prefix does not admit fails the build, unless
+`SurfaceGateTest` lists it as a departure with its reason. What each gate does and does not protect against is
 [security](security.md).
 
 ### When a surface carries a version

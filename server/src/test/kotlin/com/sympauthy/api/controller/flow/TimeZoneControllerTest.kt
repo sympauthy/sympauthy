@@ -2,10 +2,9 @@ package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.mapper.flow.TimeZoneResourceMapper
 import com.sympauthy.api.resource.provider.TimeZoneResource
-import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.TimeZoneClaimValueProvider
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -108,9 +107,13 @@ class TimeZoneControllerTest {
             interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRun<List<TimeZoneResource>>(
                 any(), any(), any()
             )
-        } throws businessExceptionOf("auth.interactive_flow_session.validate.wrong_signature")
+        } throws httpExceptionOf(
+            HttpStatus.BAD_REQUEST,
+            "auth.interactive_flow_session.validate.wrong_signature",
+            "description.oauth2.invalid_state"
+        )
 
-        val exception = assertThrows<BusinessException> {
+        val exception = assertThrows<LocalizedHttpException> {
             controller.listTimeZones(StateAuthentication("forged-state"), observed, "zoneinfo")
         }
 

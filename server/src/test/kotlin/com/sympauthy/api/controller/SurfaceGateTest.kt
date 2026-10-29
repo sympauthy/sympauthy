@@ -42,11 +42,16 @@ class SurfaceGateTest {
             "/api/openid/userinfo", setOf(IS_USER),
             "OpenID Connect Core §5.3 has it called with an access token"
         ),
-        Departure("/.well-known", setOf(IS_ANONYMOUS), "discovery is public by specification"),
+        Departure("/.well-known/openid-configuration", setOf(IS_ANONYMOUS), "discovery is public by specification"),
+        Departure("/.well-known/public.jwk", setOf(IS_ANONYMOUS), "discovery is public by specification"),
         Departure("/openapi.yml", setOf(IS_ANONYMOUS), "the API description is public"),
         Departure("/version", setOf(IS_ANONYMOUS), "the version is public"),
-        Departure("/flow", emptySet(), "it is a page, opened to anyone by the security configuration"),
+        Departure(
+            "/flow/{path:[^\\.]*}", emptySet(),
+            "it is a page, opened to anyone by the security configuration"
+        ),
         Departure("/admin", setOf(IS_ANONYMOUS), "it is a page, signing in on its own"),
+        Departure("/admin/{path:[^\\.]*}", setOf(IS_ANONYMOUS), "it is a page, signing in on its own"),
         Departure("/swagger-ui", setOf(IS_ANONYMOUS), "it is a page, reading the public API description"),
     )
 
@@ -61,7 +66,7 @@ class SurfaceGateTest {
         assertTrue(routes.isNotEmpty(), "no controller declares a route, so this test reads nothing")
 
         val misgated = routes.mapNotNull { route ->
-            val departure = departures.firstOrNull { route.path.isUnder(it.path) }
+            val departure = departures.firstOrNull { it.path == route.path }
             val admitted = surfaces.entries.firstOrNull { route.path.isUnder(it.key) }?.value
             when {
                 departure != null -> if (route.gate == departure.gate) null else
@@ -76,7 +81,7 @@ class SurfaceGateTest {
 
     @Test
     fun `Every listed departure excuses a route`() {
-        val unused = departures.filter { departure -> routes.none { it.path.isUnder(departure.path) } }
+        val unused = departures.filter { departure -> routes.none { it.path == departure.path } }
         assertEquals(emptyList<Departure>(), unused)
     }
 
@@ -86,7 +91,7 @@ class SurfaceGateTest {
         return controller.declaredMethods.flatMap { method ->
             val gate = (method.getAnnotation(Secured::class.java) ?: classGate)?.value?.toSet().orEmpty()
             mappingsOf(method).map { (httpMethod, path) ->
-                Route("$httpMethod $prefix${path.removeSuffix("/")}", "$prefix$path", gate)
+                Route(httpMethod, "$prefix${path.removeSuffix("/")}".ifEmpty { "/" }, gate)
             }
         }
     }
@@ -100,8 +105,8 @@ class SurfaceGateTest {
 
     private fun String.isUnder(prefix: String) = this == prefix || startsWith("$prefix/")
 
-    private data class Route(val operation: String, val path: String, val gate: Set<String>) {
-        override fun toString() = "$operation (gated on $gate)"
+    private data class Route(val method: String, val path: String, val gate: Set<String>) {
+        override fun toString() = "$method $path (gated on $gate)"
     }
 
     private data class Departure(val path: String, val gate: Set<String>, val reason: String)
