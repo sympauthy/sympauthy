@@ -23,10 +23,6 @@ set it to nothing else in any file or environment the server ships.
 **A bean that needs the SDK is conditioned on `TELEMETRY_ENABLED` not being `false`**, the
 condition the framework puts on its own, so that the server starts with the integration absent.
 
-**An instrument recorded where an event happens is not conditioned.** It is built on the
-`OpenTelemetry` bean, which is OpenTelemetry's no-op while telemetry is off, so the code recording
-it has one path whether a collector is named or not.
-
 **A setting that is the same for every deployment ships in `application.yml`.** The exporters, the
 protocol the one sender speaks, the metric export interval and the routes no trace is taken for are
 the server's to decide, so that a deployment's file names only the flag and the collector.
@@ -44,9 +40,6 @@ failed.
 draws it at startup and keeps one a deployment names; a resource the SDK builds without it merges
 the series of every instance.
 
-**A shipped file names no header to capture.** Leave `otel.http.server.request-headers`, its
-response twin and the client's empty; a deployment that names one owns what it copies.
-
 ## What an attribute may carry
 
 **An attribute carries a route, a status, a method, an identifier, or a name the configuration
@@ -55,21 +48,19 @@ declares.** A path naming an account, a client's id and a provider's id are iden
 **An attribute never carries a credential or a value a person typed.** A token, a code, a state, a
 secret, a password, a claim's value, or a query string that may hold one.
 
-**An attribute holding a URL has its query redacted where the request's attributes are gathered.**
-An extractor added for another instrumenter replaces the query the way
-`QueryRedactingHttpServerAttributesExtractor` does, ordered after the extractors that set it.
+## Logs
 
-**A metric attribute takes its values from a set the server bounds.** Key on the route template,
-never on the path, and on an id only where the configuration declares the set it comes from.
+**A record is exported as logback is handed it, and held to [the logging
+standard](logging-standard.md).** What a record may carry and where the OpenTelemetry appender sits
+are that standard's rules.
 
-**An id is recorded once the configuration has been found to declare it, and left out otherwise.**
-`client_id` waits for the client to authenticate: the id a request sent is chosen by whoever sent
-it.
+## Metrics
 
-**No metric attribute names an account, a session, a grant, a token, a scope list, an address, a
-redirect URI or an exception's message.** A single request is a trace's to show.
+### An instrument
 
-## An instrument
+**An instrument recorded where an event happens is not conditioned.** It is built on the
+`OpenTelemetry` bean, which is OpenTelemetry's no-op while telemetry is off, so the code recording
+it has one path whether a collector is named or not.
 
 **A technical instrument takes the name an existing convention gives it, with its unit and its
 attribute keys.** Look in OpenTelemetry's semantic conventions first, then in OpenTelemetry's own
@@ -89,7 +80,19 @@ the constant finds each of them.
 **A reading the native image leaves empty is not exported.** Check it on the native run before
 adding it, and drop it from the JVM run too, so that both export one set.
 
-## An event a metric counts
+### What a metric attribute may carry
+
+**A metric attribute takes its values from a set the server bounds.** Key on the route template,
+never on the path, and on an id only where the configuration declares the set it comes from.
+
+**An id is recorded once the configuration has been found to declare it, and left out otherwise.**
+`client_id` waits for the client to authenticate: the id a request sent is chosen by whoever sent
+it.
+
+**No metric attribute names an account, a session, a grant, a token, a scope list, an address, a
+redirect URI or an exception's message.** A single request is a trace's to show.
+
+### An event a metric counts
 
 What a domain event is counted under was left open until the server counted the events an operator
 watches; these are the rules those settled, and
@@ -118,7 +121,7 @@ a call beside it, and never report one to `ConditionMonitor` directly. A collect
 one of them: it is reported to `Condition.Collector` alone, through `CollectorReport`.
 
 **The database is only a condition.** The connection factory reports to `Condition.Database`, and
-no call to the database is timed.
+no metric times a query: its span is what says how long it took.
 
 **A metric about a condition is named for the condition, and keys it as `condition`.** A condition
 is not always reached by a call, so a metric about calls is named for the calls.
@@ -126,6 +129,23 @@ is not always reached by a call, so a metric about calls is named for the calls.
 **A scheduled job runs through `JobLeaseManager`, and a run never throws.** A run is recorded as
 it ended, and a failure is reported the way the logging standard reports one about to be written
 at WARN.
+
+## Traces
+
+**A span the server opens itself starts only under a span already open.** A scheduled job's work
+has no request around it, and a root span there is a trace per run, per instance, for the life of
+the deployment. `QueryTracingListener` opens none for a query made outside a request.
+
+**An attribute holding a URL has its query redacted where the request's attributes are gathered.**
+An extractor added for another instrumenter replaces the query the way
+`QueryRedactingHttpServerAttributesExtractor` does, ordered after the extractors that set it.
+
+**A statement is exported with every value in it replaced, bound or written into it.** Describe a
+query through `DatabaseQuery`, which holds a statement only once OpenTelemetry's SQL analyzer has
+replaced its values, and read double quotes as identifiers, which is what both dialects make them.
+
+**A shipped file names no header to capture.** Leave `otel.http.server.request-headers`, its
+response twin and the client's empty; a deployment that names one owns what it copies.
 
 ## What this standard does not cover
 

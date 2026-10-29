@@ -79,7 +79,8 @@ bundle](../standards/i18n-standard.md).
 
 Traces, metrics and log records, from one SDK over one vendor-neutral protocol, so that a deployment
 picks its own backend behind a collector and this server ships an integration with none of them.
-Micronaut's tracing module builds the SDK and instruments the HTTP server and client;
+Micronaut's tracing module builds the SDK and instruments the HTTP server and client, and the server
+traces its own queries over [r2dbc-proxy](https://github.com/r2dbc/r2dbc-proxy);
 [telemetry](telemetry.md) is what leaves, and why nothing does until a deployment turns it on.
 
 ## Testing
