@@ -14,6 +14,7 @@ import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -277,16 +278,64 @@ open class ConsentAwareCollectedClaimManager(
         audience: Audience,
         updates: List<CollectedClaimUpdate>,
         doors: ClaimAclTokenDoors
+    ): List<CollectedClaim> = applyUpdatesThroughDoors(
+        user = user,
+        audience = audience,
+        updates = updates,
+        canBeWritten = doors::canBeWrittenByClient,
+        canBeRead = doors::canBeReadByClient
+    )
+
+    /**
+     * Update the claims collected for the [user] through their own access token, issued to a client of the
+     * [audience].
+     *
+     * Only claims of that audience and writable by the person through [doors] are applied. Updates
+     * targeting any other claim are silently ignored.
+     * Returns all claims of that audience the person may read through the same token, which is not the same
+     * set: a claim the person may write and may not read is applied and left out of the answer.
+     *
+     * The person's write door is the one asked, and never the flow's: the flow collects from a person on this
+     * server's own pages having just authenticated, and a bearer token says nothing of the kind — see
+     * [com.sympauthy.business.model.user.claim.ClaimAcl.writableByPerson].
+     *
+     * **An identifier claim is left out whatever the ACL says**, for the reason [updateByClient] gives:
+     * nothing in a claim write proves the person controls the new value, or that the person is the one asking.
+     */
+    @Transactional
+    open suspend fun updateByPerson(
+        user: User,
+        audience: Audience,
+        updates: List<CollectedClaimUpdate>,
+        doors: ClaimAclTokenDoors
+    ): List<CollectedClaim> = applyUpdatesThroughDoors(
+        user = user,
+        audience = audience,
+        updates = updates,
+        canBeWritten = doors::canBeWrittenByPerson,
+        canBeRead = doors::canBeReadByPerson
+    )
+
+    /**
+     * Apply the [updates] that are not of an identifier claim, are of the [audience], and that [canBeWritten]
+     * lets through, then answer the [user]'s claims of that audience that [canBeRead] lets through.
+     */
+    internal suspend fun applyUpdatesThroughDoors(
+        user: User,
+        audience: Audience,
+        updates: List<CollectedClaimUpdate>,
+        canBeWritten: (EnabledClaim) -> Boolean,
+        canBeRead: (EnabledClaim) -> Boolean
     ): List<CollectedClaim> {
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
                 it.claim.belongsToAudience(audience.id) &&
-                doors.canBeWrittenByClient(it.claim)
+                canBeWritten(it.claim)
         }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
         return collectedClaims.filter {
-            it.claim.belongsToAudience(audience.id) && doors.canBeReadByClient(it.claim)
+            it.claim.belongsToAudience(audience.id) && canBeRead(it.claim)
         }
     }
 }

@@ -7,19 +7,19 @@ It is organised into three layers, each owning its own model, with two more pack
 all of them. A request flows down through the three and back:
 
 ```
-  OAuth2 clients   discovery      the flow pages     client apps     the admin console
-        │              │                │                 │                 │
-   /api/oauth2   /.well-known    /api/v1/flow      /api/v1/client    /api/v1/admin
-   /api/openid          │                │                 │                 │
-        ▼              ▼                ▼                 ▼                 ▼
-  ┌───────────────────────────────────────────────────────────────────────────────┐
-  │ api        controller/  resource/  mapper/  filter/  errorhandler/            │
-  ├───────────────────────────────────────────────────────────────────────────────┤   c  s
-  │ business   manager/  model/  mapper/                                          │   o  e
-  ├───────────────────────────────────────────────────────────────────────────────┤   n  c
-  │ data       repository/  model/            postgresql/ + h2/                   │   f  u
-  └───────────────────────────────────────────────────────────────────────────────┘   i  r
-                                    │  R2DBC, non-blocking                             g  e
+  OAuth2 clients   discovery     flow pages    client apps    person's apps  admin console
+        │              │             │              │               │              │
+   /api/oauth2    /.well-known  /api/v1/flow  /api/v1/client  /api/v1/user   /api/v1/admin
+   /api/openid         │             │              │               │              │
+        ▼              ▼             ▼              ▼               ▼              ▼
+  ┌───────────────────────────────────────────────────────────────────────────────────────┐
+  │ api        controller/  resource/  mapper/  filter/  errorhandler/                    │
+  ├───────────────────────────────────────────────────────────────────────────────────────┤   c  s
+  │ business   manager/  model/  mapper/                                                  │   o  e
+  ├───────────────────────────────────────────────────────────────────────────────────────┤   n  c
+  │ data       repository/  model/            postgresql/ + h2/                           │   f  u
+  └───────────────────────────────────────────────────────────────────────────────────────┘   i  r
+                                    │  R2DBC, non-blocking                                     g  e
                                     ▼
                           PostgreSQL   or   H2
 ```
@@ -57,15 +57,17 @@ a whole prefix should be refusable for in one place, is its own surface.
 
 The routing is the source of truth for which exist. Today they run from the protocol endpoints under
 `/api/oauth2` and `/api/openid`, through the flow the sign-in pages drive under `/api/v1/flow`, to
-the server-to-server and back-office prefixes under `/api/v1/client` and `/api/v1/admin`.
+the server-to-server and back-office prefixes under `/api/v1/client` and `/api/v1/admin`, and the
+prefix a client calls on behalf of the person signed in to it, under `/api/v1/user`.
 
 ### How a surface is gated
 
 **A gate is never one check.** The protocol endpoints are guarded by the protocol itself — client
 authentication, PKCE, a signed `state` — rather than by a role; discovery is public by
 specification; the flow prefix is gated on a signed session token that is emphatically not a user's
-access token; and the application prefixes are gated on scope, but for the client's claim routes,
-which a claim's ACL decides. [Security](security.md) is where each is spelled out.
+access token; the application prefixes are gated on scope, but for the client's claim routes,
+which a claim's ACL decides; and the user prefix is gated on the person's own access token, a claim's
+ACL deciding what it reads and writes. [Security](security.md) is where each is spelled out.
 
 **The prefix is a security boundary, not only a routing convention.** It is what the gate of every
 route a controller declares is held to: such a route gated on anything its prefix does not admit
@@ -160,7 +162,7 @@ sympauthy/
 ├── server/
 │   ├── src/main/kotlin/com/sympauthy/
 │   │   ├── api/
-│   │   │   ├── controller/     admin/ client/ flow/ oauth2/ openid/ openapi/
+│   │   │   ├── controller/     admin/ client/ flow/ oauth2/ openid/ openapi/ user/
 │   │   │   ├── resource/       the DTOs, one package per surface
 │   │   │   ├── mapper/         business model → resource
 │   │   │   ├── filter/         CORS, one filter per surface

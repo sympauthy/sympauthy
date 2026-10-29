@@ -145,7 +145,7 @@ status or reading a credential off a header is what earns a utility.
 
 **Each surface has its own CORS filter**, ordered ahead of everything else, and the framework's own
 handling stays off. The flow pages are a configured origin, the admin console another, and the
-protocol endpoints are called from anywhere.
+protocol endpoints and the user surface are called from anywhere.
 
 **A failure becomes a status in one place.** Normalise every exception into the single localized
 HTTP exception first, and render it from there.

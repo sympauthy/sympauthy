@@ -131,9 +131,9 @@ discloses to no client would be asked for again on every pass, and the sign-in w
 complete.
 
 **The person's own token writes through a door of its own.** It is shut unless a deployment opens
-it; the surface that honours it is the user surface, which is designed and not yet built. Honouring
-the flow's door instead would have made every profile claim writable through an API on the day of
-the upgrade, with nobody asked.
+it, and [the user surface](security.md#the-user-surface) is where it is honoured, beside a read
+through the person's read door. Honouring the flow's door instead would have made every profile
+claim writable through an API on the day of the upgrade, with nobody asked.
 
 **A read narrows, and is never challenged.** A read is answered with the claims whose door is open
 and nothing about the others, so a claim whose door asks for an authentication younger than an hour
@@ -151,6 +151,12 @@ for. Under `||` both operands refused are both challenged, which over-reports; h
 are written into one response is
 [security's](security.md#a-refusal-carrying-several-challenges), and
 `ClaimAclManager.getPersonWriteChallenges` derives the set.
+
+**A write naming several claims is refused once, and by name first.** A claim refused on nothing a
+challenge bears is named, whatever else the write was refused for, because a client re-authorizing
+for the others would be refused again for that one. Otherwise the challenges of every refused claim
+are one set — each scope any of them names, the smallest age, the binding once — so a single
+re-authorization meets them all. Nothing is written until every claim named is let through.
 
 #### An application claim
 
@@ -295,13 +301,19 @@ a claim restricted to another is a value chosen for an audience nobody asked and
 the flow that writes it. A bootstrap invitation is refused at startup rather than at creation,
 because the file it is written in is what the deployment is being told about.
 
-**No client writes an identifier claim, whatever its scopes.** An identifier is what an account
-signs in with, and nothing in a claim write verifies the value it stores — so a client able to set
-one could repoint an account's sign-in at an address it holds, with nobody asked and nothing sent.
-The scopes that let a client write a claim say what it may record about a person, not what that
-person signs in as. The client surface refuses one by name rather than dropping it, and the manager
-behind it leaves it out the same way the interactive flow already does. Why no surface changes one
-afterwards is [security's](security.md#what-this-document-does-not-settle).
+**The person's own token writes only its client's audience's claims, for the same reason.** A
+token is issued to one client, the consent behind it is that audience's, and a claim restricted to
+another is refused by name rather than ignored.
+
+**No client writes an identifier claim, whatever its scopes, and no person's token does either.** An
+identifier is what an account signs in with, and nothing in a claim write verifies the value it
+stores — so a client able to set one could repoint an account's sign-in at an address it holds, with
+nobody asked and nothing sent. The scopes that let a client write a claim say what it may record
+about a person, not what that person signs in as; and a person's token says a client was authorized
+to act for them, not that the person is the one asking. The client and user surfaces refuse one by
+name whatever the ACL opens, rather than dropping it, and the manager behind each leaves it out the
+same way the interactive flow already does. Why no surface changes one afterwards is
+[security's](security.md#what-this-document-does-not-settle).
 
 ## Configuration
 

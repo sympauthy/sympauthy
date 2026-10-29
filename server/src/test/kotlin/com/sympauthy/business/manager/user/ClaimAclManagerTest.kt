@@ -222,6 +222,52 @@ class ClaimAclManagerTest {
         assertTrue(manager.getPersonWriteChallenges(claim, context(), NOW).isEmpty())
     }
 
+    @Test
+    fun `getPersonWriteChallenges - Answer several claims with one challenge each token meeting satisfies`() {
+        val profileClaim = claim(
+            ClaimAcl.SHUT.copy(
+                writableByPerson = ClaimAclExpression(
+                    """$SCOPE_IS_CONSENTED("profile:write") && $AUTHENTICATION_IS_YOUNGER_THAN("1h")""",
+                    consentedScopes = setOf("profile:write"),
+                    authenticationAges = setOf(Duration.ofHours(1))
+                )
+            )
+        )
+        val addressClaim = claim(
+            ClaimAcl.SHUT.copy(
+                writableByPerson = ClaimAclExpression(
+                    """$SCOPE_IS_CONSENTED("address:write") && $AUTHENTICATION_IS_YOUNGER_THAN("5m") && """ +
+                        """$TOKEN_IS_BOUND()""",
+                    consentedScopes = setOf("address:write"),
+                    authenticationAges = setOf(Duration.ofMinutes(5)),
+                    asksForBoundToken = true
+                )
+            )
+        )
+
+        val challenges = manager.getPersonWriteChallenges(
+            listOf(profileClaim, addressClaim), context(authenticationDate = NOW.minusDays(1)), NOW
+        )
+
+        assertEquals(
+            listOf(
+                WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write", "address:write")),
+                WwwAuthenticateChallenge.InsufficientUserAuthentication(Duration.ofMinutes(5)),
+                WwwAuthenticateChallenge.UnboundToken
+            ),
+            challenges
+        )
+    }
+
+    @Test
+    fun `getPersonWriteChallenges - Name a scope two claims share once`() {
+        val claim = claim(ClaimAcl.SHUT.copy(writableByPerson = consentedTo("profile:write")))
+
+        val challenges = manager.getPersonWriteChallenges(listOf(claim, claim.copy(id = "name")), context(), NOW)
+
+        assertEquals(listOf(WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write"))), challenges)
+    }
+
     private companion object {
         val NOW: LocalDateTime = LocalDateTime.of(2026, 6, 1, 12, 0, 0)
     }

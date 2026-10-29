@@ -83,6 +83,12 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
                 "audience and their invitations. Each requires an access token the client obtained with the " +
                 "`client_credentials` grant, carrying the scope the operation names."
         ),
+        Tag(
+            name = "user",
+            description = "Endpoints a client calls on behalf of the end-user signed in to it, to read and update " +
+                "that end-user's own claims. Each requires an access token issued to that end-user. " +
+                ACCESS_TOKEN_PRESENTATION_DESCRIPTION
+        ),
     ]
 )
 @SecuritySchemes(
@@ -130,6 +136,20 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
                         OAuthScope(name = BuiltInClientScopeId.INVITATIONS_READ),
                         OAuthScope(name = BuiltInClientScopeId.INVITATIONS_WRITE)
                     ]
+                )
+            )
+        ),
+        SecurityScheme(
+            name = "user",
+            description = "Access token of an end-user, issued to a client through the authorization code grant. " +
+                "Which claims it reads and updates is decided per claim by the configuration, from the scopes " +
+                "the end-user consented to. " + ACCESS_TOKEN_PRESENTATION_DESCRIPTION,
+            type = OAUTH2,
+            flows = OAuthFlows(
+                authorizationCode = OAuthFlow(
+                    authorizationUrl = "{rootUrl}/api/oauth2/authorize",
+                    tokenUrl = "{rootUrl}/api/oauth2/token",
+                    refreshUrl = "{rootUrl}/api/oauth2/token"
                 )
             )
         )

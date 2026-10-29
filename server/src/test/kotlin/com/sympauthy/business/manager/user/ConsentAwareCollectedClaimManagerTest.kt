@@ -92,6 +92,7 @@ class ConsentAwareCollectedClaimManagerTest {
         required: Boolean = false,
         collectedInFlow: Boolean = true,
         readableByClient: Boolean = true,
+        writableByPerson: Boolean = false,
         publishedIn: Set<ClaimPublicationPlace> = ClaimPublicationPlace.entries.toSet(),
         publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet()
     ) = PersonalClaim(
@@ -108,7 +109,7 @@ class ConsentAwareCollectedClaimManagerTest {
             ClaimAcl(
                 collectedInFlow = it.takeIf { collectedInFlow },
                 readableByPerson = it,
-                writableByPerson = null,
+                writableByPerson = it.takeIf { writableByPerson },
                 readableByClient = it.takeIf { readableByClient },
                 writableByClient = it
             )
@@ -828,5 +829,86 @@ class ConsentAwareCollectedClaimManagerTest {
 
         assertEquals(1, result.count())
         assertSame(collectedShared, result[0])
+    }
+
+    @Test
+    fun `updateByPerson - Write through the person's door and not the flow's`() = runTest {
+        val scope = "scope1"
+        val writableClaim = claimWithConsentScope(scope, writableByPerson = true)
+        // Collected by the flow on the same consent, which is no permission to write it with a token.
+        val collectedOnlyClaim = PersonalClaim(
+            id = "collected_only",
+            verifiedId = null,
+            dataType = ClaimDataType.STRING,
+            group = null,
+            required = false,
+            allowedValues = null,
+            publishedIn = ClaimPublicationPlace.entries.toSet(),
+            publishedInWhenRequested = emptySet(),
+            acl = claimWithConsentScope(scope).acl
+        )
+        val writableUpdate = mockk<CollectedClaimUpdate> {
+            every { claim } returns writableClaim
+        }
+        val collectedOnlyUpdate = mockk<CollectedClaimUpdate> {
+            every { claim } returns collectedOnlyClaim
+        }
+
+        val user = mockk<User>()
+        val collectedWritable = mockk<CollectedClaim> {
+            every { claim } returns writableClaim
+        }
+
+        every { claimManager.listIdentifierClaims() } returns emptyList()
+        coEvery {
+            collectedClaimManager.applyUpdates(user, listOf(writableUpdate))
+        } returns listOf(collectedWritable)
+
+        val result = manager.updateByPerson(
+            user, audience, listOf(writableUpdate, collectedOnlyUpdate), doors(listOf(scope))
+        )
+
+        assertEquals(listOf(collectedWritable), result)
+    }
+
+    @Test
+    fun `updateByPerson - Never write an identifier claim`() = runTest {
+        val scope = "scope1"
+        val emailClaim = claimWithConsentScope(scope, writableByPerson = true)
+        val update = mockk<CollectedClaimUpdate> {
+            every { claim } returns emailClaim
+        }
+
+        val user = mockk<User>()
+
+        every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+        // applyUpdates is stubbed for the empty list alone: reaching the assertion is proof the refused
+        // update never travelled to the write.
+        coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
+
+        val result = manager.updateByPerson(user, audience, listOf(update), doors(listOf(scope)))
+
+        assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun `updateByPerson - Answer what the person may read, not what the client may`() = runTest {
+        val scope = "scope1"
+        val claim = claimWithConsentScope(scope, writableByPerson = true, readableByClient = false)
+        val update = mockk<CollectedClaimUpdate> {
+            every { this@mockk.claim } returns claim
+        }
+
+        val user = mockk<User>()
+        val collected = mockk<CollectedClaim> {
+            every { this@mockk.claim } returns claim
+        }
+
+        every { claimManager.listIdentifierClaims() } returns emptyList()
+        coEvery { collectedClaimManager.applyUpdates(user, listOf(update)) } returns listOf(collected)
+
+        val result = manager.updateByPerson(user, audience, listOf(update), doors(listOf(scope)))
+
+        assertEquals(listOf(collected), result)
     }
 }

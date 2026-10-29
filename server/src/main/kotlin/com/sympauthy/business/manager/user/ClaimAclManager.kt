@@ -85,6 +85,33 @@ class ClaimAclManager {
             WwwAuthenticateChallenge.UnboundToken.takeIf { door.asksForBoundToken && !context.bound }
         )
     }
+
+    /**
+     * Return the challenges one write of every one of [claims] through the person's own access token owes the
+     * client, where [ClaimAclTokenDoors.canBeWrittenByPerson] refused each of them in [context]: what the
+     * single-claim [getPersonWriteChallenges] answers for each, as one refusal.
+     *
+     * A token meeting the answer meets every claim's, so it names every scope any of them names, the smallest
+     * age any of them demands, and the binding once. A claim owing no challenge contributes none, so a caller
+     * holding one refuses it by name before asking this.
+     */
+    fun getPersonWriteChallenges(
+        claims: Collection<EnabledClaim>,
+        context: ClaimAclContext,
+        now: LocalDateTime = LocalDateTime.now()
+    ): List<WwwAuthenticateChallenge> {
+        val challenges = claims.flatMap { getPersonWriteChallenges(it, context, now) }
+        val missingScopes = challenges.filterIsInstance<WwwAuthenticateChallenge.InsufficientScope>()
+            .flatMap(WwwAuthenticateChallenge.InsufficientScope::scopes)
+            .distinct()
+        val refusedAge = challenges.filterIsInstance<WwwAuthenticateChallenge.InsufficientUserAuthentication>()
+            .minOfOrNull(WwwAuthenticateChallenge.InsufficientUserAuthentication::maxAge)
+        return listOfNotNull(
+            missingScopes.takeIf { it.isNotEmpty() }?.let { WwwAuthenticateChallenge.InsufficientScope(it) },
+            refusedAge?.let { WwwAuthenticateChallenge.InsufficientUserAuthentication(it) },
+            WwwAuthenticateChallenge.UnboundToken.takeIf { WwwAuthenticateChallenge.UnboundToken in challenges }
+        )
+    }
 }
 
 /**

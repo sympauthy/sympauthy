@@ -40,6 +40,13 @@ class GeneratedClaimsManager(
         computeValues(user.id, doors::canBeReadByClient) { computeUpdatedAt(user.id) }
 
     /**
+     * Compute values for the enabled generated claims of the [user] that the person may read through their own
+     * access token, through [doors]: those whose person read door is open.
+     */
+    suspend fun computeValuesReadableByPerson(user: User, doors: ClaimAclTokenDoors): Map<String, Any?> =
+        computeValues(user.id, doors::canBeReadByPerson) { computeUpdatedAt(user.id) }
+
+    /**
      * Compute values for all enabled generated claims of the [user], reading `updated_at`
      * from the date the caller already holds instead of querying for it.
      *

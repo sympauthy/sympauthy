@@ -1144,6 +1144,40 @@ joined by `||` to the consent term; the age becomes `&& AUTHENTICATION_IS_YOUNGE
 `writable-by-person`. The shipped `personal` template opens no door, so a deployment's own personal
 claim writes three lines where it wrote one.
 
+### How does a person's own access token write their claims?
+
+**Decision:** Through a surface of its own, `/api/v1/user`, gated on the person's access token, with
+the person's write door of each claim deciding which of them it writes. The door is shut unless a
+deployment opens it, so no claim is writable this way on upgrade.
+[Security](security.md#the-user-surface) holds the rule.
+
+**Options considered:**
+
+- **Honour the flow's door** — the person is the person either way.
+- **A surface of its own, opened per claim by the ACL** — what was chosen.
+- **The same surface behind a switch of its own**, as `admin.enabled` turns the admin surface on.
+- **A grantable scope gating the surface**, beside the ACL.
+- **A claim write on the admin surface**, for the console a person administers from.
+- **Routes under `/api/v1/client`**, reached by a person's token as well as a client's.
+
+**Rationale:**
+
+An access token says a client was authorized to act for the person, for as long as a refresh token
+lets it, and nothing about the person being there; the flow is the person on this server's own
+pages having just authenticated. One permission over both is opened for the near caller and read by
+the far one, and the shipped claims open the flow's door, so honouring it would have made every
+profile claim writable through an API the day a deployment upgraded. A written claim also leaves
+this server, into the id tokens of every client of the audience, so a client able to write one
+chooses what other applications are told about a person.
+
+A switch is all-or-nothing where the ACL is per claim: a deployment wanting one claim writable would
+open the surface for every claim whose door it ever opened. A grantable scope is a rule evaluated
+against the person and the client, which is not the question asked here — the question is which
+claim, and the door answers it per claim. The admin surface would have the console write its own
+operator's profile with a scope that rewrites every account's, and would do nothing for any other
+client's page. And a prefix with two gates is two surfaces under one name, since [a surface is a
+prefix with one audience and one gate](architecture.md#surfaces).
+
 ---
 
 ## Where a request came from
