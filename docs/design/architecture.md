@@ -66,8 +66,8 @@ prefix a client calls on behalf of the person signed in to it, under `/api/v1/us
 authentication, PKCE, a signed `state` — rather than by a role; discovery is public by
 specification; the flow prefix is gated on a signed session token that is emphatically not a user's
 access token; the application prefixes are gated on scope, but for the client's claim routes,
-which a claim's ACL decides; and the user prefix is gated on the person's own access token, a claim's
-ACL deciding what it reads and writes. [Security](security.md) is where each is spelled out.
+which a claim's ACL decides; and the user prefix is gated on an access token issued for a person, a
+claim's ACL deciding what it reads and writes. [Security](security.md) is where each is spelled out.
 
 **The prefix is a security boundary, not only a routing convention.** It is what the gate of every
 route a controller declares is held to: such a route gated on anything its prefix does not admit

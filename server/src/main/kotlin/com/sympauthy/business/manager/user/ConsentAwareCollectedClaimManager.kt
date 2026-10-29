@@ -280,15 +280,15 @@ open class ConsentAwareCollectedClaimManager(
         doors: ClaimAclTokenDoors
     ): List<CollectedClaim> = applyUpdatesThroughDoors(
         user = user,
-        audience = audience,
+        audienceId = audience.id,
         updates = updates,
         canBeWritten = doors::canBeWrittenByClient,
         canBeRead = doors::canBeReadByClient
     )
 
     /**
-     * Update the claims collected for the [user] through their own access token, issued to a client of the
-     * [audience].
+     * Update the claims collected for the [user] through their own access token, issued for the audience
+     * [audienceId] — the one the exchange named for an act-as token, rather than the acting client's own.
      *
      * Only claims of that audience and writable by the person through [doors] are applied. Updates
      * targeting any other claim are silently ignored.
@@ -305,24 +305,25 @@ open class ConsentAwareCollectedClaimManager(
     @Transactional
     open suspend fun updateByPerson(
         user: User,
-        audience: Audience,
+        audienceId: String,
         updates: List<CollectedClaimUpdate>,
         doors: ClaimAclTokenDoors
     ): List<CollectedClaim> = applyUpdatesThroughDoors(
         user = user,
-        audience = audience,
+        audienceId = audienceId,
         updates = updates,
         canBeWritten = doors::canBeWrittenByPerson,
         canBeRead = doors::canBeReadByPerson
     )
 
     /**
-     * Apply the [updates] that are not of an identifier claim, are of the [audience], and that [canBeWritten]
-     * lets through, then answer the [user]'s claims of that audience that [canBeRead] lets through.
+     * Apply the [updates] that are not of an identifier claim, are of the audience [audienceId], and that
+     * [canBeWritten] lets through, then answer the [user]'s claims of that audience that [canBeRead] lets
+     * through.
      */
-    internal suspend fun applyUpdatesThroughDoors(
+    private suspend fun applyUpdatesThroughDoors(
         user: User,
-        audience: Audience,
+        audienceId: String,
         updates: List<CollectedClaimUpdate>,
         canBeWritten: (EnabledClaim) -> Boolean,
         canBeRead: (EnabledClaim) -> Boolean
@@ -330,12 +331,12 @@ open class ConsentAwareCollectedClaimManager(
         val identifierClaims = claimManager.listIdentifierClaims().toSet()
         val applicableUpdates = updates.filter {
             it.claim !in identifierClaims &&
-                it.claim.belongsToAudience(audience.id) &&
+                it.claim.belongsToAudience(audienceId) &&
                 canBeWritten(it.claim)
         }
         val collectedClaims = collectedClaimManager.applyUpdates(user, applicableUpdates)
         return collectedClaims.filter {
-            it.claim.belongsToAudience(audience.id) && canBeRead(it.claim)
+            it.claim.belongsToAudience(audienceId) && canBeRead(it.claim)
         }
     }
 }

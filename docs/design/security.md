@@ -58,14 +58,19 @@ manager, because nothing has been loaded at the moment the annotation runs.
 
 ### The user surface
 
-**The user surface is protected by the person's own access token**, declared at class level, and it
-answers for the person that token was issued for and for nobody else: no route names a user. Which
-of their claims it reads and writes is [each claim's ACL](claims.md#the-person) through the person's
-two token doors, in the audience of the client the token was issued to, so the surface asks no scope
-of its own. It is a surface rather than routes under the client prefix because its caller is
+**The user surface is protected by an access token issued for a person**, declared at class level,
+and it answers for the person that token was issued for and for nobody else: no route names a user.
+Which of their claims it reads and writes is [each claim's ACL](claims.md#the-person) through the
+person's two token doors, in the audience the token was issued for, so the surface asks no scope of
+its own. It is a surface rather than routes under the client prefix because its caller is
 authenticated differently: a client token there, a person's token here. [The design
 FAQ](design-faq.md#how-does-a-persons-own-access-token-write-their-claims) holds the options that
 lost to it.
+
+**An act-as token is let in, and the doors decide what it reaches.** Neither a consent nor an
+authentication of the person stands behind one, so a door asking for either refuses it, and a door
+asking for neither opens the claim to every client an act-as rule lets act. [The design
+FAQ](design-faq.md#does-an-act-as-token-reach-the-user-surface) holds the alternative.
 
 **It answers every origin.** Its caller is a page of any client of the deployment, whose origin this
 server is not told, and every route authenticates from the `Authorization` header and never from a
@@ -274,9 +279,9 @@ decline would bind nothing: whoever stole the token would present it the old way
 its proof to be matched against, and accepting it would let a proof stand for a binding nobody made.
 
 **The binding is checked by whatever accepts an access token, not by the surface it reaches.** The
-userinfo endpoint and the client, user and admin surfaces are resource servers inside this one, and every
-one of them takes its token through `AccessTokenValidator`, which hands the token, the scheme it
-came under and the proof beside it to `DpopManager`. A surface added behind an access token is
+userinfo endpoint and the client, user and admin surfaces are resource servers inside this one, and
+every one of them takes its token through `AccessTokenValidator`, which hands the token, the scheme
+it came under and the proof beside it to `DpopManager`. A surface added behind an access token is
 therefore checked without asking to be, and the refresh grant asks `DpopManager` the same question
 of a bound refresh token, so the token endpoint and the resource surfaces cannot disagree about
 which key a proof must be signed with. The framework reads the `Bearer` scheme alone, and

@@ -146,9 +146,9 @@ answered with its own challenge: a scope the person did not consent to with RFC 
 `insufficient_scope`, an authentication too old with RFC 9470's `insufficient_user_authentication`
 and `max_age`, an unbound token with `invalid_token` on RFC 9449's `DPoP` challenge. A client reads
 whichever it understands, re-authorizes, and retries. A refusal on which no challenge bears — a
-granted scope, the client, a literal — is refused by name, because there is nothing to re-authorize
-for. Under `||` both operands refused are both challenged, which over-reports; how the challenges
-are written into one response is
+granted scope, a scope the client is not allowed, the client, a literal — is refused by name,
+because there is nothing to re-authorize for. Under `||` both operands refused are both challenged,
+which over-reports; how the challenges are written into one response is
 [security's](security.md#a-refusal-carrying-several-challenges), and
 `ClaimAclManager.getPersonWriteChallenges` derives the set.
 
@@ -301,9 +301,9 @@ a claim restricted to another is a value chosen for an audience nobody asked and
 the flow that writes it. A bootstrap invitation is refused at startup rather than at creation,
 because the file it is written in is what the deployment is being told about.
 
-**The person's own token writes only its client's audience's claims, for the same reason.** A
-token is issued to one client, the consent behind it is that audience's, and a claim restricted to
-another is refused by name rather than ignored.
+**A token for the person writes only the claims of the audience it was issued for, for the same
+reason.** The consent behind it is that audience's, and a claim restricted to another is refused by
+name rather than ignored. For an act-as token that is the audience its exchange named.
 
 **No client writes an identifier claim, whatever its scopes, and no person's token does either.** An
 identifier is what an account signs in with, and nothing in a claim write verifies the value it

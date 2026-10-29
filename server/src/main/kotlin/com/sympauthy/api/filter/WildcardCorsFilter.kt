@@ -11,6 +11,8 @@ import jakarta.inject.Inject
 import org.reactivestreams.Publisher
 import kotlin.jvm.optionals.getOrNull
 
+private const val USER_PATH = "/api/v1/user"
+
 /**
  * Wildcard CORS filter for endpoints that allow all origins (`Access-Control-Allow-Origin: *`).
  *
@@ -19,6 +21,8 @@ import kotlin.jvm.optionals.getOrNull
  * - **OAuth 2.0** (`/api/oauth2`) — token and revocation endpoints called directly by public clients (e.g. SPAs).
  * - **OpenID Connect** (`/api/openid`) — the UserInfo endpoint, which an SPA calls cross-origin with the
  *   access token it just obtained.
+ * - **The user API** (`/api/v1/user`) — the person's own claims, which a page of any client of the deployment
+ *   reads and writes with the person's access token, so no origin is known to this server ahead of the request.
  *
  * All of them authenticate from an explicit `Authorization` (or `DPoP`) header rather than from cookies,
  * and no `Access-Control-Allow-Credentials` is ever sent, so allowing every origin does not let a
@@ -34,12 +38,14 @@ import kotlin.jvm.optionals.getOrNull
  * - **OPTIONS preflight** — short-circuited with `200` and wildcard CORS headers.
  * - **Regular request with `Origin`** — proceeds through the chain; wildcard CORS header appended.
  *
- * The set of allowed request headers is uniform across all paths and defined by [CorsPreflightHeaders].
+ * The set of allowed request headers is uniform across all paths and defined by [CorsPreflightHeaders]. The
+ * methods a preflight advertises are the ones the surface it reached answers.
  */
 @Filter(
     "/.well-known/**",
     "/api/oauth2/**",
-    "/api/openid/**"
+    "/api/openid/**",
+    "$USER_PATH/**"
 )
 class WildcardCorsFilter(
     @Inject private val corsPreflightHeaders: CorsPreflightHeaders
@@ -56,24 +62,27 @@ class WildcardCorsFilter(
 
         if (request.method == HttpMethod.OPTIONS) {
             val response = HttpResponse.ok<Any>()
-            addCorsHeaders(response, preflight = true)
+            addCorsHeaders(response, allowedMethods = allowedMethodsOf(request))
             return Flowable.just(response)
         }
 
         return Flowable.fromPublisher(chain.proceed(request)).map { response ->
-            addCorsHeaders(response, preflight = false)
+            addCorsHeaders(response, allowedMethods = null)
             response
         }
     }
 
+    private fun allowedMethodsOf(request: HttpRequest<*>): String =
+        if (request.path.startsWith("$USER_PATH/")) USER_ALLOWED_METHODS else ALLOWED_METHODS
+
     /**
-     * A response that is not a preflight exposes `WWW-Authenticate`, so a page reads the challenge a refusal
-     * carries.
+     * A preflight advertises [allowedMethods]. A response that is not one, where they are null, exposes
+     * `WWW-Authenticate`, so a page reads the challenge a refusal carries.
      */
-    private fun addCorsHeaders(response: MutableHttpResponse<*>, preflight: Boolean) {
+    private fun addCorsHeaders(response: MutableHttpResponse<*>, allowedMethods: String?) {
         response.headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        if (preflight) {
-            corsPreflightHeaders.addTo(response, ALLOWED_METHODS)
+        if (allowedMethods != null) {
+            corsPreflightHeaders.addTo(response, allowedMethods)
         } else {
             response.headers.add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.WWW_AUTHENTICATE)
         }
@@ -81,5 +90,6 @@ class WildcardCorsFilter(
 
     companion object {
         private const val ALLOWED_METHODS = "GET, POST, OPTIONS"
+        private const val USER_ALLOWED_METHODS = "GET, PATCH, OPTIONS"
     }
 }

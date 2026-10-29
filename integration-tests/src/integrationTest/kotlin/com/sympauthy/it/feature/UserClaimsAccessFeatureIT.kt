@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * access token, and writes only the claims the deployment opened to that token.**
  *
  * `name` opens its person write door on consent to `profile`; `given_name` opens it on consent to
- * `profile:write`, a scope the person is never asked for; `nickname` keeps the ACL the shipped file gives it,
+ * `profile:write`, a scope the client is allowed and the person is never asked for; `nickname` keeps the ACL the shipped file gives it,
  * which lets the flow collect it on the same consent and opens no door to a token. A person signs up through a
  * public client — no secret anywhere — consenting to `profile` and supplying `name` and `nickname`, and the
  * access token the code exchange issues them is presented to `/api/v1/user/claims`.
@@ -115,8 +115,9 @@ class UserClaimsAccessFeatureIT : AbstractSympauthyIT() {
      * `name` and `nickname` turned on and required, so the sign-up collects them, and `given_name` turned on;
      * `name` opens the person's write door on `profile`, and `given_name` on `profile:write`, a consentable
      * scope the client never asks for. Everything else about the three — the `personal` template, the flow's
-     * and the read doors on `profile` — is what the shipped file gives them. The client is allowed and
-     * defaulted to `profile`, which the base configuration does not allow it.
+     * and the read doors on `profile` — is what the shipped file gives them. The client is defaulted to
+     * `profile`, which the base configuration does not allow it, and is allowed `profile:write` as well: a
+     * scope it could never be issued would be refused by name rather than challenged for.
      */
     private fun userClaimsConfig(): Map<String, Any> = mapOf(
         "scopes" to mapOf(
@@ -135,7 +136,7 @@ class UserClaimsAccessFeatureIT : AbstractSympauthyIT() {
             "nickname" to mapOf("enabled" to true, "required" to true),
         ),
         "clients" to mapOf(
-            clientId to mapOf("allowed-scopes" to SCOPES, "default-scopes" to SCOPES),
+            clientId to mapOf("allowed-scopes" to SCOPES + WRITE_SCOPE, "default-scopes" to SCOPES),
         ),
     )
 

@@ -1178,6 +1178,23 @@ operator's profile with a scope that rewrites every account's, and would do noth
 client's page. And a prefix with two gates is two surfaces under one name, since [a surface is a
 prefix with one audience and one gate](architecture.md#surfaces).
 
+### Does an act-as token reach the user surface?
+
+**Decision:** Yes, and each claim's doors decide what it reads and writes, in the audience its
+exchange named. [Security](security.md#the-user-surface) holds the rule.
+
+**Options considered:**
+
+- **Let it in, the doors deciding** — what was chosen.
+- **Refuse it with `forbidden`**, as `/userinfo` refuses a `client_credentials` token.
+
+**Rationale:**
+
+The door is where a deployment already says who may read and write a claim, and a door asking for
+the person's consent or a recent authentication of theirs refuses an act-as token by itself, since
+neither stands behind one. Refusing the token at the surface would have been a second answer to the
+same question, overriding a door a deployment opened on purpose.
+
 ---
 
 ## Where a request came from

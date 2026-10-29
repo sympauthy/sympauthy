@@ -77,12 +77,14 @@ class UserClaimControllerTest {
         sessionId = null
     )
 
-    private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
+    // Another audience than the token's, as an act-as token issued for the audience its exchange named has: every
+    // read and write below is asserted against the token's, so none of them can be answering for the client's.
+    private val clientAudience = Audience(id = CLIENT_AUDIENCE, tokenAudience = CLIENT_AUDIENCE)
 
     private val client = Client(
         id = "client",
         secret = null,
-        audience = audience,
+        audience = clientAudience,
         allowedGrantTypes = emptySet(),
         authorizationFlow = null
     )
@@ -98,7 +100,7 @@ class UserClaimControllerTest {
         val generatedClaimValues = mapOf<String, Any?>("sub" to userId.toString())
         val resource = mockk<UserClaimResource>()
 
-        coEvery { userManager.findById(userId) } returns user
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         every { claimAclManager.getTokenDoors(any(), any()) } returns doors
         coEvery {
             consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(userId, AUDIENCE, doors)
@@ -113,7 +115,7 @@ class UserClaimControllerTest {
 
     @Test
     fun `updateClaims - Refuse an identifier claim before a claim that does not exist`() = runTest {
-        coEvery { userManager.findById(userId) } returns user
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns listOf(claim(EMAIL_CLAIM))
 
         // The ACL pass and the write are left unstubbed: reaching the assertion is proof the identifier was
@@ -131,7 +133,7 @@ class UserClaimControllerTest {
 
     @Test
     fun `updateClaims - Refuse a claim that does not exist`() = runTest {
-        coEvery { userManager.findById(userId) } returns user
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.findByIdOrNull(UNKNOWN_CLAIM) } returns null
 
@@ -144,11 +146,11 @@ class UserClaimControllerTest {
     }
 
     @Test
-    fun `updateClaims - Refuse a claim of another audience rather than ignore it`() = runTest {
-        val billingClaim = claim(TIER_CLAIM, audienceId = "billing")
-        coEvery { userManager.findById(userId) } returns user
+    fun `updateClaims - Refuse a claim of another audience than the token's rather than ignore it`() = runTest {
+        val clientClaim = claim(TIER_CLAIM, audienceId = CLIENT_AUDIENCE)
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns emptyList()
-        every { claimManager.findByIdOrNull(TIER_CLAIM) } returns billingClaim
+        every { claimManager.findByIdOrNull(TIER_CLAIM) } returns clientClaim
 
         val exception = assertThrows<BusinessException> {
             controller.updateClaims(authentication(reachesTheAcl = false), mapOf(TIER_CLAIM to "gold"))
@@ -189,7 +191,9 @@ class UserClaimControllerTest {
             val challenges = listOf(InsufficientScope(listOf(WRITE_SCOPE)))
             stubClaims(doors)
             every { claimAclManager.getPersonWriteChallenges(nameClaim, any(), any()) } returns challenges
-            every { claimAclManager.getPersonWriteChallenges(listOf(nameClaim), any(), any()) } returns challenges
+            every {
+                claimAclManager.mergePersonWriteChallenges(match { it.toList() == listOf(challenges) })
+            } returns challenges
 
             // The write is left unstubbed: reaching the assertion is proof nothing was written, the nickname the
             // door let through included.
@@ -215,7 +219,7 @@ class UserClaimControllerTest {
         stubClaims(doors, nameClaim)
         every { collectedClaimUpdateMapper.toUpdates(body) } returns updates
         coEvery {
-            consentAwareCollectedClaimManager.updateByPerson(user, audience, updates, doors)
+            consentAwareCollectedClaimManager.updateByPerson(user, AUDIENCE, updates, doors)
         } returns collectedClaims
         coEvery { generatedClaimsManager.computeValuesReadableByPerson(user, doors) } returns generatedClaimValues
         every { claimMapper.toResource(collectedClaims, generatedClaimValues) } returns resource
@@ -232,6 +236,7 @@ class UserClaimControllerTest {
     private fun authentication(reachesTheAcl: Boolean = true): UserAuthentication {
         val grant = mockk<Grant> {
             every { userId } returns this@UserClaimControllerTest.userId
+            every { audienceId } returns AUDIENCE
             if (reachesTheAcl) every { authenticationDate } returns null
         }
         val token = mockk<AuthenticationToken> {
@@ -259,7 +264,7 @@ class UserClaimControllerTest {
      * names by their ids, and the [doors] they are asked through.
      */
     private fun stubClaims(doors: ClaimAclTokenDoors, vararg claims: EnabledClaim = arrayOf(nameClaim, nicknameClaim)) {
-        coEvery { userManager.findById(userId) } returns user
+        coEvery { userManager.findByIdOrNull(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns emptyList()
         claims.forEach { claim -> every { claimManager.findByIdOrNull(claim.id) } returns claim }
         every { claimAclManager.getTokenDoors(any(), any()) } returns doors
@@ -267,6 +272,7 @@ class UserClaimControllerTest {
 
     private companion object {
         const val AUDIENCE = "default"
+        const val CLIENT_AUDIENCE = "acting-client"
         const val EMAIL_CLAIM = "email"
         const val EMAIL = "somebody-else@example.com"
         const val NAME_CLAIM = "name"

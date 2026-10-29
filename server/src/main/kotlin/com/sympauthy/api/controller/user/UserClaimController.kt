@@ -7,6 +7,7 @@ import com.sympauthy.api.resource.user.UserClaimResource
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
@@ -45,23 +46,24 @@ class UserClaimController(
 
     @Operation(
         description = "Retrieve the claims of the end-user the access token was issued for that they may read " +
-            "through it: those not restricted to another audience than the client's whose `claims.<id>.acl` " +
+            "through it: those not restricted to another audience than the token's whose `claims.<id>.acl` " +
             "lets the end-user read them.",
         tags = ["user"],
         responses = [
             ApiResponse(responseCode = "200", description = "The claims the end-user may read."),
             ApiResponse(responseCode = "401", description = UNAUTHORIZED_RESPONSE_DESCRIPTION),
-            ApiResponse(responseCode = "403", description = NOT_A_USER_TOKEN_RESPONSE_DESCRIPTION)
+            ApiResponse(responseCode = "403", description = NOT_A_USER_TOKEN_RESPONSE_DESCRIPTION),
+            ApiResponse(responseCode = "404", description = USER_NOT_FOUND_RESPONSE_DESCRIPTION)
         ]
     )
     @Get
     suspend fun getClaims(authentication: Authentication): UserClaimResource {
         val userAuth = authentication.userAuthentication
-        val user = userManager.findById(authentication.userId)
+        val user = userManager.findByIdOrNull(authentication.userId).orNotFound()
         val doors = claimAclManager.getTokenDoors(userAuth.claimAclContext())
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = user.id,
-            audienceId = userAuth.client.audience.id,
+            audienceId = userAuth.authenticationToken.grant.audienceId,
             doors = doors
         )
         val generatedClaimValues = generatedClaimsManager.computeValuesReadableByPerson(user, doors)
@@ -71,7 +73,7 @@ class UserClaimController(
     @Operation(
         description = "Update the claims of the end-user the access token was issued for. The body maps each " +
             "claim identifier to its new value, and `null` or a blank value clears the claim. The end-user may " +
-            "write a claim not restricted to another audience than the client's whose `claims.<id>.acl` lets " +
+            "write a claim not restricted to another audience than the token's whose `claims.<id>.acl` lets " +
             "the end-user write it with their own access token, which no claim does unless the configuration " +
             "says so. Identifier claims are never written.",
         tags = ["user"],
@@ -105,6 +107,7 @@ class UserClaimController(
                     "- `forbidden`: a claim may only be written once the end-user consented to a scope they " +
                     "have not. The `WWW-Authenticate` challenge names the scopes to authorize again with."
             ),
+            ApiResponse(responseCode = "404", description = USER_NOT_FOUND_RESPONSE_DESCRIPTION),
             ApiResponse(responseCode = "413", description = BODY_TOO_LARGE_RESPONSE_DESCRIPTION)
         ]
     )
@@ -114,8 +117,10 @@ class UserClaimController(
         @Body body: Map<String, Any?>
     ): UserClaimResource {
         val userAuth = authentication.userAuthentication
-        val audience = userAuth.client.audience
-        val user = userManager.findById(authentication.userId)
+        // The audience the token was issued for, which for an act-as token is the one the exchange named rather
+        // than the acting client's own.
+        val audienceId = userAuth.authenticationToken.grant.audienceId
+        val user = userManager.findByIdOrNull(authentication.userId).orNotFound()
 
         // Asked before the ACL below, because no answer the ACL could give would change this one: nothing in a
         // claim write proves the person controls the new value, or that the person is the one asking.
@@ -135,7 +140,7 @@ class UserClaimController(
         // caller named it, and a silent success would read as the value having been stored.
         val claimsById = body.keys.associateWith(claimManager::findByIdOrNull)
         val unknownClaim = claimsById.entries.firstOrNull { (_, claim) ->
-            claim == null || !claim.belongsToAudience(audience.id)
+            claim == null || !claim.belongsToAudience(audienceId)
         }
         if (unknownClaim != null) {
             throw invalidClaimException(unknownClaim.key)
@@ -146,25 +151,25 @@ class UserClaimController(
         val now = LocalDateTime.now()
         val context = userAuth.claimAclContext()
         val doors = claimAclManager.getTokenDoors(context, now)
-        val refusedClaims = claimsById.values.filterNotNull().filterNot(doors::canBeWrittenByPerson)
+        val challengesByRefusedClaim = claimsById.values.filterNotNull()
+            .filterNot(doors::canBeWrittenByPerson)
+            .associateWith { claimAclManager.getPersonWriteChallenges(it, context, now) }
         // A claim no token could be re-authorized into writing is refused by name, before any challenge: a client
         // re-authorizing for the others would be refused again for it.
-        val unchallengedClaim = refusedClaims.firstOrNull {
-            claimAclManager.getPersonWriteChallenges(it, context, now).isEmpty()
-        }
+        val unchallengedClaim = challengesByRefusedClaim.entries.firstOrNull { (_, challenges) -> challenges.isEmpty() }
         if (unchallengedClaim != null) {
-            throw invalidClaimException(unchallengedClaim.id)
+            throw invalidClaimException(unchallengedClaim.key.id)
         }
-        if (refusedClaims.isNotEmpty()) {
+        if (challengesByRefusedClaim.isNotEmpty()) {
             throw accessTokenChallengeExceptionOf(
                 userAuth.authenticationToken.accessTokenScheme,
-                claimAclManager.getPersonWriteChallenges(refusedClaims, context, now)
+                claimAclManager.mergePersonWriteChallenges(challengesByRefusedClaim.values)
             )
         }
 
         // The write answers every claim the person may read after it, which is the same set the read would.
         val updates = collectedClaimUpdateMapper.toUpdates(body)
-        val claims = consentAwareCollectedClaimManager.updateByPerson(user, audience, updates, doors)
+        val claims = consentAwareCollectedClaimManager.updateByPerson(user, audienceId, updates, doors)
         val generatedClaimValues = generatedClaimsManager.computeValuesReadableByPerson(user, doors)
         return claimMapper.toResource(claims, generatedClaimValues)
     }
@@ -178,3 +183,6 @@ class UserClaimController(
 
 private const val NOT_A_USER_TOKEN_RESPONSE_DESCRIPTION =
     "- `forbidden`: the access token was issued by the `client_credentials` grant, with no end-user behind it."
+
+private const val USER_NOT_FOUND_RESPONSE_DESCRIPTION =
+    "- `not_found`: the end-user the access token was issued for no longer exists."

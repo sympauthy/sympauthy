@@ -865,7 +865,7 @@ class ConsentAwareCollectedClaimManagerTest {
         } returns listOf(collectedWritable)
 
         val result = manager.updateByPerson(
-            user, audience, listOf(writableUpdate, collectedOnlyUpdate), doors(listOf(scope))
+            user, audience.id, listOf(writableUpdate, collectedOnlyUpdate), doors(listOf(scope))
         )
 
         assertEquals(listOf(collectedWritable), result)
@@ -886,7 +886,7 @@ class ConsentAwareCollectedClaimManagerTest {
         // update never travelled to the write.
         coEvery { collectedClaimManager.applyUpdates(user, emptyList()) } returns emptyList()
 
-        val result = manager.updateByPerson(user, audience, listOf(update), doors(listOf(scope)))
+        val result = manager.updateByPerson(user, audience.id, listOf(update), doors(listOf(scope)))
 
         assertTrue(result.isEmpty())
     }
@@ -907,7 +907,7 @@ class ConsentAwareCollectedClaimManagerTest {
         every { claimManager.listIdentifierClaims() } returns emptyList()
         coEvery { collectedClaimManager.applyUpdates(user, listOf(update)) } returns listOf(collected)
 
-        val result = manager.updateByPerson(user, audience, listOf(update), doors(listOf(scope)))
+        val result = manager.updateByPerson(user, audience.id, listOf(update), doors(listOf(scope)))
 
         assertEquals(listOf(collected), result)
     }
