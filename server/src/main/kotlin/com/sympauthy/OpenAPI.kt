@@ -1,5 +1,7 @@
 package com.sympauthy
 
+import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
+import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import io.swagger.v3.oas.annotations.ExternalDocumentation
@@ -83,6 +85,12 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
                 "audience and their invitations. Each requires an access token the client obtained with the " +
                 "`client_credentials` grant, carrying the scope the operation names."
         ),
+        Tag(
+            name = "user",
+            description = "Endpoints a client calls on behalf of the end-user signed in to it, to read and update " +
+                "that end-user's own claims. Each requires an access token issued to that end-user. " +
+                ACCESS_TOKEN_PRESENTATION_DESCRIPTION
+        ),
     ]
 )
 @SecuritySchemes(
@@ -95,9 +103,9 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
             type = OAUTH2,
             flows = OAuthFlows(
                 authorizationCode = OAuthFlow(
-                    authorizationUrl = "{rootUrl}/api/oauth2/authorize",
-                    tokenUrl = "{rootUrl}/api/oauth2/token",
-                    refreshUrl = "{rootUrl}/api/oauth2/token",
+                    authorizationUrl = "{rootUrl}$OAUTH2_AUTHORIZE_ENDPOINT",
+                    tokenUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
+                    refreshUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
                     scopes = [
                         OAuthScope(name = AdminScopeId.CONFIG_READ),
                         OAuthScope(name = AdminScopeId.USERS_READ),
@@ -119,7 +127,7 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
             type = OAUTH2,
             flows = OAuthFlows(
                 clientCredentials = OAuthFlow(
-                    tokenUrl = "{rootUrl}/api/oauth2/token",
+                    tokenUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
                     scopes = [
                         OAuthScope(name = BuiltInClientScopeId.USERS_READ),
                         OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_READ),
@@ -130,6 +138,20 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
                         OAuthScope(name = BuiltInClientScopeId.INVITATIONS_READ),
                         OAuthScope(name = BuiltInClientScopeId.INVITATIONS_WRITE)
                     ]
+                )
+            )
+        ),
+        SecurityScheme(
+            name = "user",
+            description = "Access token of an end-user, issued to a client through the authorization code grant, " +
+                "or through the token exchange for a client acting as the end-user. Which claims it reads and " +
+                "updates is decided per claim by the configuration. " + ACCESS_TOKEN_PRESENTATION_DESCRIPTION,
+            type = OAUTH2,
+            flows = OAuthFlows(
+                authorizationCode = OAuthFlow(
+                    authorizationUrl = "{rootUrl}$OAUTH2_AUTHORIZE_ENDPOINT",
+                    tokenUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
+                    refreshUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT"
                 )
             )
         )

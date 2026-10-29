@@ -9,6 +9,8 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.KeyUse
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
+import com.sympauthy.api.controller.OAUTH2_SURFACE
+import com.sympauthy.api.controller.OPENID_SURFACE
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
@@ -56,13 +58,13 @@ class DpopManagerTest {
 
     private fun boundRequest(
         method: String = "POST",
-        uri: URI = URI.create("/api/oauth2/token"),
+        uri: URI = URI.create("$OAUTH2_SURFACE/token"),
         accessToken: String? = null
     ) = DpopBoundRequest(method = method, uri = uri, accessToken = accessToken)
 
     private fun userInfoRequest() = boundRequest(
         method = "GET",
-        uri = URI.create("/api/openid/userinfo"),
+        uri = URI.create("$OPENID_SURFACE/userinfo"),
         accessToken = ACCESS_TOKEN
     )
 
@@ -289,7 +291,7 @@ class DpopManagerTest {
     @Test
     fun `validateProof - Strips query string from request URI for htu comparison`() = runTest {
         val proof = createValidDpopProof(htu = "https://auth.example.com/api/oauth2/token")
-        val request = boundRequest(uri = URI.create("/api/oauth2/token?foo=bar"))
+        val request = boundRequest(uri = URI.create("$OAUTH2_SURFACE/token?foo=bar"))
 
         val result = dpopManager.validateProof(proof, request)
         assertNotNull(result)
@@ -371,13 +373,13 @@ class DpopManagerTest {
 
     @Test
     fun `getRequestUri - Strips query from request path`() = runTest {
-        val request = boundRequest(uri = URI.create("/api/oauth2/token?code=abc&state=xyz"))
+        val request = boundRequest(uri = URI.create("$OAUTH2_SURFACE/token?code=abc&state=xyz"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 
     @Test
     fun `getRequestUri - Uses urls root for scheme and authority`() = runTest {
-        val request = boundRequest(uri = URI.create("/api/oauth2/token"))
+        val request = boundRequest(uri = URI.create("$OAUTH2_SURFACE/token"))
         assertEquals("https://auth.example.com/api/oauth2/token", dpopManager.getRequestUri(request))
     }
 
@@ -406,7 +408,7 @@ class DpopManagerTest {
         )
         val request = boundRequest(
             method = "GET",
-            uri = URI.create("/api/openid/userinfo"),
+            uri = URI.create("$OPENID_SURFACE/userinfo"),
             accessToken = "another-access-token"
         )
 

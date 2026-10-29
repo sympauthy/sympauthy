@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.OAUTH2_SURFACE
 import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
@@ -95,7 +96,7 @@ class RevokeController(
     }
 
     companion object {
-        const val OAUTH2_REVOKE_ENDPOINT = "/api/oauth2/revoke"
+        const val OAUTH2_REVOKE_ENDPOINT = "$OAUTH2_SURFACE/revoke"
         const val TOKEN_PARAM = "token"
         const val TOKEN_TYPE_HINT_PARAM = "token_type_hint"
     }

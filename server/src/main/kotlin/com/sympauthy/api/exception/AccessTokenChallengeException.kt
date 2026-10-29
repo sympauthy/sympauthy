@@ -123,8 +123,8 @@ class AccessTokenChallengeException(
          * RFC 6750 §3 requires a `Bearer` challenge to carry a parameter, and one answering a request that
          * presented no token has no error to carry, so the realm is what it carries. RFC 9110 §11.5 makes the
          * realm, together with the root URL of the server, a protection space — the resources one set of
-         * credentials is good for. An access token is accepted on the userinfo endpoint and on the client and
-         * admin surfaces, so no one surface names the space it is good in, and the realm names the server. The
+         * credentials is good for. An access token is accepted on the userinfo endpoint and on the client, user
+         * and admin surfaces, so no one surface names the space it is good in, and the realm names the server. The
          * `Basic` challenge of a client names its surface instead, because client credentials are accepted on
          * that one alone.
          *

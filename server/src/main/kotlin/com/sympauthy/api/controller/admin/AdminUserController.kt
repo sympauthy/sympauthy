@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserDetailResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserResourceMapper
@@ -41,7 +42,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/users")
+@Controller("$ADMIN_SURFACE/users")
 @Secured(ADMIN_USERS_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
 class AdminUserController(
@@ -67,7 +68,7 @@ class AdminUserController(
                 "of its own, named by the claim's identifier. " +
                 "Users are ordered by creation date, oldest first, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/users/capabilities.",
+                "$ADMIN_SURFACE/users/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

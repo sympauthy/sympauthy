@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.mapper.admin.AdminClaimResourceMapper
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.resource.admin.AdminClaimListResource
@@ -36,7 +37,7 @@ import jakarta.inject.Inject
 private const val FORBIDDEN_DESCRIPTION =
     "- `forbidden`: the access token does not carry the scope `admin:config:read`."
 
-@Controller("/api/v1/admin/claims")
+@Controller("$ADMIN_SURFACE/claims")
 @Secured(ADMIN_CONFIG_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminClaimController(
@@ -51,7 +52,7 @@ class AdminClaimController(
                 "Claims are ordered with the enabled ones first, then by identifier, unless another order is " +
                 "asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/claims/capabilities.",
+                "$ADMIN_SURFACE/claims/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

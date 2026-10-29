@@ -1,5 +1,6 @@
 package com.sympauthy.api.filter
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.config.model.AdminConfig
 import com.sympauthy.config.model.EnabledAdminConfig
 import com.sympauthy.config.model.EnabledUrlsConfig
@@ -35,7 +36,7 @@ import kotlin.jvm.optionals.getOrNull
  *
  * In wildcard mode (non-integrated UI), all origins are considered allowed.
  */
-@Filter("/api/v1/admin/**")
+@Filter("$ADMIN_SURFACE/**")
 class AdminCorsFilter(
     @Inject private val adminConfig: AdminConfig,
     @Inject private val urlsConfig: UrlsConfig,

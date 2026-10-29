@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.OAUTH2_SURFACE
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
@@ -271,6 +272,6 @@ open class AuthorizeController(
     }
 
     companion object {
-        const val OAUTH2_AUTHORIZE_ENDPOINT = "/api/oauth2/authorize"
+        const val OAUTH2_AUTHORIZE_ENDPOINT = "$OAUTH2_SURFACE/authorize"
     }
 }

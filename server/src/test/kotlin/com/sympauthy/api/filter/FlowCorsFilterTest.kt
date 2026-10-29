@@ -1,6 +1,7 @@
 package com.sympauthy.api.filter
 
 import com.sympauthy.api.AbstractFlowIntegrationTest
+import com.sympauthy.api.controller.FLOW_SURFACE
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
@@ -16,7 +17,7 @@ class FlowCorsFilterTest : AbstractFlowIntegrationTest() {
     private val unknownOrigin = "http://evil.example.com"
 
     /** Both the GET (configuration) and POST (sign-in) endpoints live on SignInController. */
-    private val path = "/api/v1/flow/sign-in"
+    private val path = "$FLOW_SURFACE/sign-in"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"

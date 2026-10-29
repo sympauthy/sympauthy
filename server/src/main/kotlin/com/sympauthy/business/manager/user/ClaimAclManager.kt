@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.user
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
@@ -66,6 +67,9 @@ class ClaimAclManager {
      * door that is shut, or one refused on a granted scope, the client or a literal — and the caller then
      * refuses by name, because there is nothing to re-authorize for.
      *
+     * A scope the client is not allowed is never named: the authorization it asks for next would drop it, and
+     * the client would be refused again for a scope it was told would let it through.
+     *
      * The age demanded is the smallest refused one, which satisfies every one of them.
      */
     fun getPersonWriteChallenges(
@@ -75,7 +79,10 @@ class ClaimAclManager {
     ): List<WwwAuthenticateChallenge> {
         val door = claim.acl.writableByPerson ?: return emptyList()
         val authenticationAge = context.authenticationDate?.let { Duration.between(it, now) }
-        val missingScopes = door.consentedScopes.filter { it !in context.consentedScopes }
+        val allowedScopes = context.client.allowedScopes?.map(EnabledScope::scope)?.toSet()
+        val missingScopes = door.consentedScopes.filter {
+            it !in context.consentedScopes && (allowedScopes == null || it in allowedScopes)
+        }
         val refusedAge = door.authenticationAges
             .filter { authenticationAge == null || authenticationAge > it }
             .minOrNull()
@@ -83,6 +90,31 @@ class ClaimAclManager {
             missingScopes.takeIf { it.isNotEmpty() }?.let { WwwAuthenticateChallenge.InsufficientScope(it) },
             refusedAge?.let { WwwAuthenticateChallenge.InsufficientUserAuthentication(it) },
             WwwAuthenticateChallenge.UnboundToken.takeIf { door.asksForBoundToken && !context.bound }
+        )
+    }
+
+    /**
+     * Return the challenges one write of several claims through the person's own access token owes the
+     * client, from what [getPersonWriteChallenges] answered for each of them in [challengesByClaim], as one
+     * refusal.
+     *
+     * A token meeting the answer meets every claim's, so it names every scope any of them names, the smallest
+     * age any of them demands, and the binding once. A claim owing no challenge contributes none, so a caller
+     * holding one refuses it by name before asking this.
+     */
+    fun mergePersonWriteChallenges(
+        challengesByClaim: Collection<List<WwwAuthenticateChallenge>>
+    ): List<WwwAuthenticateChallenge> {
+        val challenges = challengesByClaim.flatten()
+        val missingScopes = challenges.filterIsInstance<WwwAuthenticateChallenge.InsufficientScope>()
+            .flatMap(WwwAuthenticateChallenge.InsufficientScope::scopes)
+            .distinct()
+        val refusedAge = challenges.filterIsInstance<WwwAuthenticateChallenge.InsufficientUserAuthentication>()
+            .minOfOrNull(WwwAuthenticateChallenge.InsufficientUserAuthentication::maxAge)
+        return listOfNotNull(
+            missingScopes.takeIf { it.isNotEmpty() }?.let { WwwAuthenticateChallenge.InsufficientScope(it) },
+            refusedAge?.let { WwwAuthenticateChallenge.InsufficientUserAuthentication(it) },
+            WwwAuthenticateChallenge.UnboundToken.takeIf { WwwAuthenticateChallenge.UnboundToken in challenges }
         )
     }
 }

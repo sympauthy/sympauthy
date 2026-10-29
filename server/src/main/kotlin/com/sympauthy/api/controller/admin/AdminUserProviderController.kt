@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
@@ -53,7 +54,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/users/{userId}/providers")
+@Controller("$ADMIN_SURFACE/users/{userId}/providers")
 class AdminUserProviderController(
     @Inject private val userManager: UserManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
@@ -76,7 +77,7 @@ class AdminUserProviderController(
                 "Providers are ordered by the date they were linked, oldest first, unless another order is " +
                 "asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/users/{userId}/providers/capabilities.",
+                "$ADMIN_SURFACE/users/{userId}/providers/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

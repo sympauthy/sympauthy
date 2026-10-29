@@ -56,6 +56,27 @@ because [each claim's ACL decides](claims.md#a-client) what a client reads and w
 Anything narrower than the surface — this administrator may act on this row — is a check inside the
 manager, because nothing has been loaded at the moment the annotation runs.
 
+### The user surface
+
+**The user surface is protected by an access token issued for a person**, declared at class level,
+and it answers for the person that token was issued for and for nobody else: no route names a user.
+Which of their claims it reads and writes is [each claim's ACL](claims.md#the-person) through the
+person's two token doors, in the audience the token was issued for, so the surface asks no scope of
+its own. It is a surface rather than routes under the client prefix because its caller is
+authenticated differently: a client token there, a person's token here. [The design
+FAQ](design-faq.md#how-does-a-persons-own-access-token-write-their-claims) holds the options that
+lost to it.
+
+**An act-as token is let in, and the doors decide what it reaches.** Neither a consent nor an
+authentication of the person stands behind one, so a door asking for either refuses it, and a door
+asking for neither opens the claim to every client an act-as rule lets act. [The design
+FAQ](design-faq.md#does-an-act-as-token-reach-the-user-surface) holds the alternative.
+
+**It answers every origin.** Its caller is a page of any client of the deployment, whose origin this
+server is not told, and every route authenticates from the `Authorization` header and never from a
+cookie, with no `Access-Control-Allow-Credentials` sent — so a page on another origin still needs a
+token it does not have. `/userinfo` is answered the same way for the same reason.
+
 ## Scopes
 
 `Scope` is a sealed hierarchy, and **the split is about where a scope comes from** rather than what
@@ -258,9 +279,9 @@ decline would bind nothing: whoever stole the token would present it the old way
 its proof to be matched against, and accepting it would let a proof stand for a binding nobody made.
 
 **The binding is checked by whatever accepts an access token, not by the surface it reaches.** The
-userinfo endpoint and the client and admin surfaces are resource servers inside this one, and every
-one of them takes its token through `AccessTokenValidator`, which hands the token, the scheme it
-came under and the proof beside it to `DpopManager`. A surface added behind an access token is
+userinfo endpoint and the client, user and admin surfaces are resource servers inside this one, and
+every one of them takes its token through `AccessTokenValidator`, which hands the token, the scheme
+it came under and the proof beside it to `DpopManager`. A surface added behind an access token is
 therefore checked without asking to be, and the refresh grant asks `DpopManager` the same question
 of a bound refresh token, so the token endpoint and the resource surfaces cannot disagree about
 which key a proof must be signed with. The framework reads the `Bearer` scheme alone, and
@@ -304,10 +325,10 @@ and are told `invalid_token`.
 
 **Both challenges name the realm `sympauthy`.** RFC 6750 §3 requires a `Bearer` challenge to carry a
 parameter, and one answering a request that presented no token has no error to carry. A token is
-accepted on the userinfo endpoint and on the client and admin surfaces, so no one surface names the
-space it is good in, and the realm names the server. The `Basic` challenge of [a client that fails
-to authenticate](#the-protocol-surfaces) names its surface, because client credentials are accepted
-on that one and nowhere else.
+accepted on the userinfo endpoint and on the client, user and admin surfaces, so no one surface
+names the space it is good in, and the realm names the server. The `Basic` challenge of [a client
+that fails to authenticate](#the-protocol-surfaces) names its surface, because client credentials
+are accepted on that one and nowhere else.
 
 **`insufficient_scope` names the scope where the refusal knows it.** RFC 6750 §3.1 lets it say
 which scope the request requires, space-separated in a `scope` parameter. The framework's `403`
@@ -429,11 +450,9 @@ to ask for. [The design
 FAQ](design-faq.md#is-a-stale-authentication-answered-with-a-challenge-or-with-a-re-authenticated-flow)
 argues the re-authenticated flow that lost to it.
 
-**Nothing emits that challenge yet.** The age a deployment asks of an authentication is a term of
-[a claim's write door](claims.md#the-person), whose refusal carries this challenge beside the others
-the door's expression names, and the surface that would read it — the person's own claim write
-through their access token — is designed and not yet built. A read is never challenged whenever it
-does arrive.
+**A claim write on [the user surface](#the-user-surface) is what emits it.** The age a deployment
+asks of an authentication is a term of [a claim's write door](claims.md#the-person), whose refusal
+carries this challenge beside the others the door's expression names. A read is never challenged.
 
 ### The id token
 
@@ -496,11 +515,11 @@ one of every `401` all the same. Answering it is the flow's decision — a `Stat
 scheme a `POST` already presents it under, or a status other than `401` — and it has not been taken.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
-claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint,
-which refuses them by name, and not an invitation, whose pre-assigned claims reach an identifier
-only on an account the flow created — because none of them can prove the person controls the new
-value or that the person is the one asking. Proving both is an interactive flow with a purpose of
-its own, and it is designed and not yet built.
+claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint
+and not the user one, which both refuse them by name, and not an invitation, whose pre-assigned
+claims reach an identifier only on an account the flow created — because none of them can prove the
+person controls the new value or that the person is the one asking. Proving both is an interactive
+flow with a purpose of its own, and it is designed and not yet built.
 
 ---
 

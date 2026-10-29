@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.controller.CLIENT_SURFACE
 import com.sympauthy.api.mapper.client.ClientInvitationResourceMapper
 import com.sympauthy.api.resource.client.ClientCreateInvitationInputResource
 import com.sympauthy.api.resource.client.ClientCreatedInvitationResource
@@ -46,7 +47,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/client/invitations")
+@Controller("$CLIENT_SURFACE/invitations")
 class ClientInvitationController(
     @Inject private val invitationManager: InvitationManager,
     @Inject private val claimAclManager: ClaimAclManager,

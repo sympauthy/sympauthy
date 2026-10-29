@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.MfaFlowResource
@@ -112,7 +113,7 @@ class MfaEnrollmentController(
         )
 
     companion object {
-        const val MFA_ENROLLMENT_ENDPOINT = "/api/v1/flow/mfa/enrollment"
+        const val MFA_ENROLLMENT_ENDPOINT = "$FLOW_SURFACE/mfa/enrollment"
         const val MFA_ENROLLMENT_SKIP_ENDPOINT = "$MFA_ENROLLMENT_ENDPOINT/skip"
     }
 }

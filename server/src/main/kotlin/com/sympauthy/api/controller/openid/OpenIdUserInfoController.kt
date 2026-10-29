@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.openid
 
+import com.sympauthy.api.controller.OPENID_SURFACE
 import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OPENID_USERINFO_ENDPOINT
 import com.sympauthy.api.mapper.UserInfoResourceMapper
 import com.sympauthy.api.resource.openid.UserInfoResource
@@ -78,6 +79,6 @@ class OpenIdUserInfoController(
     }
 
     companion object {
-        const val OPENID_USERINFO_ENDPOINT = "/api/openid/userinfo"
+        const val OPENID_USERINFO_ENDPOINT = "$OPENID_SURFACE/userinfo"
     }
 }

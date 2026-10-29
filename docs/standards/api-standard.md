@@ -148,9 +148,11 @@ the same flag. Nothing else of the body above carries over: no `status`, no `err
 
 ## CORS
 
-**Each surface has its own allow-list**, and none of them is `*` by default: the flow surface's
-origins are the pages a deployment configured, the admin surface's is the console. A wildcard is a
-deployment's decision.
+**Each surface has its own allow-list, and it is `*` only where the caller is any client's page.**
+The flow surface's origins are the pages a deployment configured and the admin surface's is the
+console, and elsewhere a wildcard is a deployment's decision. The protocol endpoints and the user
+surface answer every origin, since their caller is a page of whichever client the person signed in
+to and every route there authenticates from a header, never from a cookie.
 
 **A new flow step served from a new origin is a configuration change as well as a controller.**
 

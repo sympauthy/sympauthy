@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.flow.TimeZoneResourceMapper
@@ -26,7 +27,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Secured(HAS_STATE)
-@Controller("/api/v1/flow/claims/{claimId}/timezones")
+@Controller("$FLOW_SURFACE/claims/{claimId}/timezones")
 class TimeZoneController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val timeZoneProvider: TimeZoneClaimValueProvider,

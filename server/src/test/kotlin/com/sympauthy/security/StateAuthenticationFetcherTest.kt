@@ -1,5 +1,6 @@
 package com.sympauthy.security
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
 import io.mockk.every
@@ -22,7 +23,7 @@ class StateAuthenticationFetcherTest {
     fun `GET to flow path with state param returns StateAuthentication with state`() = runTest {
         val state = "test-jwt"
         val request = mockk<HttpRequest<*>>()
-        every { request.path } returns "/api/v1/flow/sign-in"
+        every { request.path } returns "$FLOW_SURFACE/sign-in"
         every { request.method } returns HttpMethod.GET
         every { request.parameters["state"] } returns state
 
@@ -35,7 +36,7 @@ class StateAuthenticationFetcherTest {
     @Test
     fun `GET to flow path without state publishes nothing`() = runTest {
         val request = mockk<HttpRequest<*>>()
-        every { request.path } returns "/api/v1/flow/sign-in"
+        every { request.path } returns "$FLOW_SURFACE/sign-in"
         every { request.method } returns HttpMethod.GET
         every { request.parameters["state"] } returns null
 
@@ -48,7 +49,7 @@ class StateAuthenticationFetcherTest {
     fun `POST to flow path with State authorization header returns StateAuthentication with state`() = runTest {
         val state = "test-jwt"
         val request = mockk<HttpRequest<*>>()
-        every { request.path } returns "/api/v1/flow/sign-in"
+        every { request.path } returns "$FLOW_SURFACE/sign-in"
         every { request.method } returns HttpMethod.POST
         every { request.headers.authorization } returns Optional.of("State $state")
 
@@ -61,7 +62,7 @@ class StateAuthenticationFetcherTest {
     @Test
     fun `POST to flow path with Bearer authorization header publishes nothing`() = runTest {
         val request = mockk<HttpRequest<*>>()
-        every { request.path } returns "/api/v1/flow/sign-in"
+        every { request.path } returns "$FLOW_SURFACE/sign-in"
         every { request.method } returns HttpMethod.POST
         every { request.headers.authorization } returns Optional.of("Bearer other-jwt")
 
@@ -73,7 +74,7 @@ class StateAuthenticationFetcherTest {
     @Test
     fun `POST to flow path without Authorization header publishes nothing`() = runTest {
         val request = mockk<HttpRequest<*>>()
-        every { request.path } returns "/api/v1/flow/sign-in"
+        every { request.path } returns "$FLOW_SURFACE/sign-in"
         every { request.method } returns HttpMethod.POST
         every { request.headers.authorization } returns Optional.empty()
 

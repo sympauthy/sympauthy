@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.OAUTH2_SURFACE
 import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
@@ -139,7 +140,7 @@ class IntrospectionController(
     }
 
     companion object {
-        const val OAUTH2_INTROSPECTION_ENDPOINT = "/api/oauth2/introspect"
+        const val OAUTH2_INTROSPECTION_ENDPOINT = "$OAUTH2_SURFACE/introspect"
         const val TOKEN_PARAM = "token"
         const val TOKEN_TYPE_HINT_PARAM = "token_type_hint"
     }

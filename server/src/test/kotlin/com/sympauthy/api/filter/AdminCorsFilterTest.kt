@@ -1,6 +1,7 @@
 package com.sympauthy.api.filter
 
 import com.sympauthy.api.AbstractFlowIntegrationTest
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
@@ -14,7 +15,7 @@ class AdminCorsFilterTest : AbstractFlowIntegrationTest() {
     /** Must match `urls.root` from `application-test.yml`. */
     private val allowedOrigin = "http://localhost:18080"
     private val unknownOrigin = "http://evil.example.com"
-    private val adminPath = "/api/v1/admin/clients"
+    private val adminPath = "$ADMIN_SURFACE/clients"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"

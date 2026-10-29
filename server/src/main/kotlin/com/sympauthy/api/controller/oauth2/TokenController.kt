@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.OAUTH2_SURFACE
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.api.controller.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
@@ -301,7 +302,7 @@ class TokenController(
     }
 
     companion object {
-        const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
+        const val OAUTH2_TOKEN_ENDPOINT = "$OAUTH2_SURFACE/token"
         const val GRANT_TYPE_PARAM = "grant_type"
         const val CODE_PARAM = "code"
         const val REFRESH_TOKEN_PARAM = "refresh_token"

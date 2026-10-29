@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.httpExceptionOf
@@ -57,7 +58,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/users/{userId}/mfa")
+@Controller("$ADMIN_SURFACE/users/{userId}/mfa")
 class AdminUserMfaController(
     @Inject private val userManager: UserManager,
     @Inject private val totpManager: TotpManager,
@@ -81,7 +82,7 @@ class AdminUserMfaController(
                 "MFA methods are ordered by the date they were confirmed, oldest first, unless another " +
                 "order is asked for. " +
                 "Which fields this collection can be filtered and ordered on is published at " +
-                "/api/v1/admin/users/{userId}/mfa/capabilities.",
+                "$ADMIN_SURFACE/users/{userId}/mfa/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

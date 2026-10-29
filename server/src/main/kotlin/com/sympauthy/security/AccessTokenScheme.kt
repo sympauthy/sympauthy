@@ -1,5 +1,6 @@
 package com.sympauthy.security
 
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.security.authentication.Authentication
@@ -30,11 +31,14 @@ enum class AccessTokenScheme(
  * it is bound, and is a bearer token everywhere else.
  */
 val Authentication.accessTokenSchemeOrNull: AccessTokenScheme?
-    get() {
-        val token = when (this) {
-            is UserAuthentication -> authenticationToken
-            is ClientAuthentication -> authenticationToken
-            else -> return null
-        }
-        return if (token.dpopJkt != null) DPOP else BEARER
+    get() = when (this) {
+        is UserAuthentication -> authenticationToken.accessTokenScheme
+        is ClientAuthentication -> authenticationToken.accessTokenScheme
+        else -> null
     }
+
+/**
+ * The scheme this token was presented under, read off the token for the reason [accessTokenSchemeOrNull] gives.
+ */
+val AuthenticationToken.accessTokenScheme: AccessTokenScheme
+    get() = if (dpopJkt != null) DPOP else BEARER

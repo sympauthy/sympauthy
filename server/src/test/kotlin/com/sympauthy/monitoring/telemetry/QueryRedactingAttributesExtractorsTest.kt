@@ -1,5 +1,6 @@
 package com.sympauthy.monitoring.telemetry
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MutableHttpRequest
 import io.mockk.mockk
@@ -18,8 +19,8 @@ class QueryRedactingAttributesExtractorsTest {
     @Test
     fun `onStart - Redacts the query of a request served and keeps its route and path`() {
         val attributes = Attributes.builder()
-            .put(HTTP_ROUTE, "/api/v1/flow/providers/{providerId}/callback")
-            .put(URL_PATH, "/api/v1/flow/providers/discord/callback")
+            .put(HTTP_ROUTE, "$FLOW_SURFACE/providers/{providerId}/callback")
+            .put(URL_PATH, "$FLOW_SURFACE/providers/discord/callback")
             .put(URL_QUERY, "code=SplxlOBeZQQYbYS6WxSbIA&state=af0ifjsldkj")
 
         QueryRedactingHttpServerAttributesExtractor()
@@ -27,8 +28,8 @@ class QueryRedactingAttributesExtractorsTest {
 
         val redacted = attributes.build()
         assertEquals(REDACTED, redacted.get(URL_QUERY))
-        assertEquals("/api/v1/flow/providers/{providerId}/callback", redacted.get(HTTP_ROUTE))
-        assertEquals("/api/v1/flow/providers/discord/callback", redacted.get(URL_PATH))
+        assertEquals("$FLOW_SURFACE/providers/{providerId}/callback", redacted.get(HTTP_ROUTE))
+        assertEquals("$FLOW_SURFACE/providers/discord/callback", redacted.get(URL_PATH))
     }
 
     @Test

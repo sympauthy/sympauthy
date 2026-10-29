@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminInteractiveFlowSessionResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
@@ -46,7 +47,7 @@ private const val FORBIDDEN_DESCRIPTION =
 private const val SESSION_NOT_FOUND_DESCRIPTION =
     "- `not_found`: no interactive flow session has this identifier, or it expired and was deleted."
 
-@Controller("/api/v1/admin/interactive-flow-sessions")
+@Controller("$ADMIN_SURFACE/interactive-flow-sessions")
 @Secured(ADMIN_INTERACTIVE_FLOW_SESSIONS_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ])
 class AdminInteractiveFlowSessionController(
@@ -63,7 +64,7 @@ class AdminInteractiveFlowSessionController(
                 "Interactive flow sessions are ordered by the date they started, oldest first, unless another " +
                 "order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/interactive-flow-sessions/capabilities.",
+                "$ADMIN_SURFACE/interactive-flow-sessions/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(
@@ -129,7 +130,7 @@ class AdminInteractiveFlowSessionController(
     @Operation(
         description = "Retrieve an interactive flow session, with each of its purposes and how far the " +
                 "session got with it. Its security contexts are listed at " +
-                "/api/v1/admin/interactive-flow-sessions/{sessionId}/security-contexts.",
+                "$ADMIN_SURFACE/interactive-flow-sessions/{sessionId}/security-contexts.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "200", description = "The interactive flow session."),
@@ -157,7 +158,7 @@ class AdminInteractiveFlowSessionController(
                 "order is asked for. New requests reorder them, so a walk through the pages may skip or " +
                 "repeat one. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/interactive-flow-sessions/{sessionId}/security-contexts/capabilities.",
+                "$ADMIN_SURFACE/interactive-flow-sessions/{sessionId}/security-contexts/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

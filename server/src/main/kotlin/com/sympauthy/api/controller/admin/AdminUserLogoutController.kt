@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.resource.admin.AdminForceLogoutResource
 import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
@@ -23,7 +24,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/users/{userId}/logout")
+@Controller("$ADMIN_SURFACE/users/{userId}/logout")
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONSENT_WRITE])
 class AdminUserLogoutController(
     @Inject private val userManager: UserManager,

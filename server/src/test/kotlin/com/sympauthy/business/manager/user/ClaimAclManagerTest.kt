@@ -1,7 +1,10 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclContext
@@ -14,7 +17,6 @@ import com.sympauthy.expression.AuthenticationIsYoungerThanFunction.Companion.FU
 import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
 import com.sympauthy.expression.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
 import com.sympauthy.expression.TokenIsBoundFunction.Companion.FUNCTION_NAME as TOKEN_IS_BOUND
-import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -27,7 +29,16 @@ class ClaimAclManagerTest {
 
     private val manager = ClaimAclManager()
 
-    private val client = mockk<Client>()
+    private val client = client(allowedScopes = null)
+
+    private fun client(allowedScopes: Set<EnabledScope>?) = Client(
+        id = "client",
+        secret = null,
+        audience = Audience(id = "default", tokenAudience = "default"),
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null,
+        allowedScopes = allowedScopes
+    )
 
     private fun claim(acl: ClaimAcl) = PersonalClaim(
         id = "phone_number",
@@ -45,7 +56,8 @@ class ClaimAclManagerTest {
         consentedScopes: List<String> = emptyList(),
         grantedScopes: List<String> = emptyList(),
         authenticationDate: LocalDateTime? = NOW,
-        bound: Boolean = false
+        bound: Boolean = false,
+        client: Client = this.client
     ) = ClaimAclContext(client, consentedScopes, grantedScopes, authenticationDate, bound)
 
     private fun consentedTo(scope: String) =
@@ -220,6 +232,79 @@ class ClaimAclManagerTest {
         val claim = claim(ClaimAcl.SHUT.copy(writableByPerson = ClaimAclExpression("""$SCOPE_IS_GRANTED("premium")""")))
 
         assertTrue(manager.getPersonWriteChallenges(claim, context(), NOW).isEmpty())
+    }
+
+    @Test
+    fun `getPersonWriteChallenges - Name no scope the client may not be issued`() {
+        val claim = claim(
+            ClaimAcl.SHUT.copy(
+                writableByPerson = ClaimAclExpression(
+                    """$SCOPE_IS_CONSENTED("billing") || $SCOPE_IS_CONSENTED("profile:write")""",
+                    consentedScopes = setOf("billing", "profile:write")
+                )
+            )
+        )
+        val context = context(client = client(allowedScopes = setOf(ConsentableUserScope("profile:write"))))
+
+        val challenges = manager.getPersonWriteChallenges(claim, context, NOW)
+
+        assertEquals(listOf(WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write"))), challenges)
+    }
+
+    @Test
+    fun `getPersonWriteChallenges - Carry none for a scope the client may not be issued`() {
+        val claim = claim(ClaimAcl.SHUT.copy(writableByPerson = consentedTo("billing")))
+        val context = context(client = client(allowedScopes = setOf(ConsentableUserScope("profile"))))
+
+        assertTrue(manager.getPersonWriteChallenges(claim, context, NOW).isEmpty())
+    }
+
+    @Test
+    fun `mergePersonWriteChallenges - Answer several claims with one challenge each token meeting satisfies`() {
+        val profileClaim = claim(
+            ClaimAcl.SHUT.copy(
+                writableByPerson = ClaimAclExpression(
+                    """$SCOPE_IS_CONSENTED("profile:write") && $AUTHENTICATION_IS_YOUNGER_THAN("1h")""",
+                    consentedScopes = setOf("profile:write"),
+                    authenticationAges = setOf(Duration.ofHours(1))
+                )
+            )
+        )
+        val addressClaim = claim(
+            ClaimAcl.SHUT.copy(
+                writableByPerson = ClaimAclExpression(
+                    """$SCOPE_IS_CONSENTED("address:write") && $AUTHENTICATION_IS_YOUNGER_THAN("5m") && """ +
+                        """$TOKEN_IS_BOUND()""",
+                    consentedScopes = setOf("address:write"),
+                    authenticationAges = setOf(Duration.ofMinutes(5)),
+                    asksForBoundToken = true
+                )
+            )
+        )
+
+        val context = context(authenticationDate = NOW.minusDays(1))
+
+        val challenges = manager.mergePersonWriteChallenges(
+            listOf(profileClaim, addressClaim).map { manager.getPersonWriteChallenges(it, context, NOW) }
+        )
+
+        assertEquals(
+            listOf(
+                WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write", "address:write")),
+                WwwAuthenticateChallenge.InsufficientUserAuthentication(Duration.ofMinutes(5)),
+                WwwAuthenticateChallenge.UnboundToken
+            ),
+            challenges
+        )
+    }
+
+    @Test
+    fun `mergePersonWriteChallenges - Name a scope two claims share once`() {
+        val challenge = WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write"))
+
+        val challenges = manager.mergePersonWriteChallenges(listOf(listOf(challenge), listOf(challenge)))
+
+        assertEquals(listOf(WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write"))), challenges)
     }
 
     private companion object {

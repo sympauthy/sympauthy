@@ -90,6 +90,10 @@ route nothing else references inline.
 **A route something below the `api` layer builds a URL for declares its constant with the concept**,
 and the controller names its route from that constant.
 
+**A route is written from its surface's prefix constant**, declared in `api/controller/Surfaces.kt`,
+and so is every filter path and test naming one. A prefix spelled in each controller is renamed in
+each, and the one that is missed is a route on no surface.
+
 **Security is declared on the class where its routes share a gate, and on the route where they do
 not**, always naming a gate the surface admits. Take the roles and scopes from the constants in
 `security/`, and put anything narrower than a scope in a manager check.
@@ -145,7 +149,7 @@ status or reading a credential off a header is what earns a utility.
 
 **Each surface has its own CORS filter**, ordered ahead of everything else, and the framework's own
 handling stays off. The flow pages are a configured origin, the admin console another, and the
-protocol endpoints are called from anywhere.
+protocol endpoints and the user surface are called from anywhere.
 
 **A failure becomes a status in one place.** Normalise every exception into the single localized
 HTTP exception first, and render it from there.

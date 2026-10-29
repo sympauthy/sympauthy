@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.controller.CLIENT_SURFACE
 import com.sympauthy.api.mapper.client.ClientUserResourceMapper
 import com.sympauthy.api.resource.client.ClientUserListResource
 import com.sympauthy.api.resource.client.ClientUserResource
@@ -32,7 +33,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/client/users")
+@Controller("$CLIENT_SURFACE/users")
 @Secured(CLIENT_USERS_READ)
 @SecurityRequirement(name = "client", scopes = [BuiltInClientScopeId.USERS_READ])
 class ClientUserController(

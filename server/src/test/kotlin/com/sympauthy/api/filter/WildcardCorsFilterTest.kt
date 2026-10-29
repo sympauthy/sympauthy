@@ -1,6 +1,9 @@
 package com.sympauthy.api.filter
 
 import com.sympauthy.api.AbstractFlowIntegrationTest
+import com.sympauthy.api.controller.OAUTH2_SURFACE
+import com.sympauthy.api.controller.OPENID_SURFACE
+import com.sympauthy.api.controller.USER_SURFACE
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
@@ -15,9 +18,10 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     private val localOrigin = "http://localhost:5173"
     private val discoveryPath = "/.well-known/openid-configuration"
     private val jwksPath = "/.well-known/public.jwk"
-    private val tokenPath = "/api/oauth2/token"
-    private val revokePath = "/api/oauth2/revoke"
-    private val userInfoPath = "/api/openid/userinfo"
+    private val tokenPath = "$OAUTH2_SURFACE/token"
+    private val revokePath = "$OAUTH2_SURFACE/revoke"
+    private val userInfoPath = "$OPENID_SURFACE/userinfo"
+    private val userClaimsPath = "$USER_SURFACE/claims"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"
@@ -163,6 +167,46 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     @Test
     fun `openid - GET without Origin header does not add CORS headers`() {
         val response = exchange(HttpRequest.GET<Any>(userInfoPath))
+
+        assertNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+    }
+
+    @Test
+    fun `user - OPTIONS preflight returns 200 with wildcard CORS headers and the methods of the surface`() {
+        val request = HttpRequest.OPTIONS<Any>(userClaimsPath)
+            .header(HttpHeaders.ORIGIN, anyOrigin)
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.PATCH.name)
+
+        // No Authorization header: the surface is @Secured(IS_USER), so an unfiltered preflight would 401.
+        val response = httpClient.toBlocking().exchange(request, String::class.java)
+
+        assertEquals(200, response.status.code)
+        assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+        assertEquals("GET, PATCH, OPTIONS", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS])
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
+    }
+
+    @Test
+    fun `user - Rejected GET with Origin still carries the wildcard CORS header`() {
+        // Unauthenticated, so the request itself fails; the browser must still be able to read the error.
+        val response = exchange(HttpRequest.GET<Any>(userClaimsPath).header(HttpHeaders.ORIGIN, anyOrigin))
+
+        assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+    }
+
+    @Test
+    fun `user - Rejected GET with Origin exposes the challenge it is answered with`() {
+        // An origin on localhost, because the framework refuses any other one to a server on localhost before
+        // the request reaches the route.
+        val response = exchange(HttpRequest.GET<Any>(userClaimsPath).header(HttpHeaders.ORIGIN, localOrigin))
+
+        assertNotNull(response.headers[HttpHeaders.WWW_AUTHENTICATE])
+        assertEquals(HttpHeaders.WWW_AUTHENTICATE, response.headers[HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS])
+    }
+
+    @Test
+    fun `user - GET without Origin header does not add CORS headers`() {
+        val response = exchange(HttpRequest.GET<Any>(userClaimsPath))
 
         assertNull(response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
     }

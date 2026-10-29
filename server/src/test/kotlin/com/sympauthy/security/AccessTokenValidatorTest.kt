@@ -1,5 +1,6 @@
 package com.sympauthy.security
 
+import com.sympauthy.api.controller.OPENID_SURFACE
 import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.InvalidJwtException
@@ -255,6 +256,6 @@ class AccessTokenValidatorTest {
         const val ENCODED_TOKEN = "encoded-access-token"
         const val CLIENT_ID = "client-app"
         const val PROOF = "a-proof"
-        const val USERINFO_PATH = "/api/openid/userinfo"
+        const val USERINFO_PATH = "$OPENID_SURFACE/userinfo"
     }
 }
