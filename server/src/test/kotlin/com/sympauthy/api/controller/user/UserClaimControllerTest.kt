@@ -13,15 +13,15 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.security.UserAuthentication

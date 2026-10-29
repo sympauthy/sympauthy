@@ -1,6 +1,6 @@
 package com.sympauthy.security
 
-import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.security.authentication.Authentication
