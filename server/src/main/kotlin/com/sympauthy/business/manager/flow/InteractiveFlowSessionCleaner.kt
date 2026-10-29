@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow
 
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
@@ -10,6 +11,7 @@ import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.monitoring.telemetry.FlowMetrics
+import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -40,9 +42,14 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
     @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
-    @Inject private val flowMetrics: FlowMetrics
+    @Inject private val flowMetrics: FlowMetrics,
+    @Inject private val jobMetrics: JobMetrics
 ) {
 
+    /**
+     * Delete the expired sessions and what they hold, and record the sessions and validation codes deleted under
+     * [CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS].
+     */
     @Transactional
     open suspend fun clean(): CleanResult = coroutineScope {
         val expiredSessions = sessionRepository.findExpired()
@@ -84,6 +91,9 @@ open class InteractiveFlowSessionCleaner(
 
         val sessionsCount = sessionRepository.deleteByIds(expiredSessionIds)
         expiredSessions.forEach(::recordIfUnfinished)
+        val job = CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS.leaseName
+        jobMetrics.recordDeletions(job, "interactive_flow_session", sessionsCount.toLong())
+        jobMetrics.recordDeletions(job, "validation_code", validationCodesCount.toLong())
 
         CleanResult(
             sessionCount = sessionsCount,

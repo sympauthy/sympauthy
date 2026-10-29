@@ -4,7 +4,6 @@ import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
 import com.sympauthy.business.manager.security.UserSecurityContextCleaner
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -25,8 +24,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class CleanExpiredUserSecurityContextCron(
     @Inject private val userSecurityContextCleaner: UserSecurityContextCleaner,
-    @Inject private val jobLeaseManager: JobLeaseManager,
-    @Inject private val jobMetrics: JobMetrics
+    @Inject private val jobLeaseManager: JobLeaseManager
 ) {
     private val logger = loggerForClass()
 
@@ -36,9 +34,6 @@ class CleanExpiredUserSecurityContextCron(
         GlobalScope.launch {
             jobLeaseManager.withLease(CLEAN_EXPIRED_USER_SECURITY_CONTEXTS) {
                 val count = userSecurityContextCleaner.clean()
-                jobMetrics.recordDeletions(
-                    CLEAN_EXPIRED_USER_SECURITY_CONTEXTS.leaseName, "user_security_context", count.toLong()
-                )
                 if (count > 0) {
                     logger.debug { "Cleaned $count expired user security contexts." }
                 }

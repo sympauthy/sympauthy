@@ -4,7 +4,6 @@ import com.sympauthy.business.manager.auth.GrantCleaner
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_FINISHED_GRANTS
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -26,8 +25,7 @@ import kotlinx.coroutines.launch
 @Singleton
 class CleanFinishedGrantCron(
     @Inject private val grantCleaner: GrantCleaner,
-    @Inject private val jobLeaseManager: JobLeaseManager,
-    @Inject private val jobMetrics: JobMetrics
+    @Inject private val jobLeaseManager: JobLeaseManager
 ) {
     private val logger = loggerForClass()
 
@@ -37,10 +35,6 @@ class CleanFinishedGrantCron(
         GlobalScope.launch {
             jobLeaseManager.withLease(CLEAN_FINISHED_GRANTS) {
                 val result = grantCleaner.clean()
-                val job = CLEAN_FINISHED_GRANTS.leaseName
-                jobMetrics.recordDeletions(job, "token", result.tokenCount.toLong())
-                jobMetrics.recordDeletions(job, "authorization_code", result.authorizationCodeCount.toLong())
-                jobMetrics.recordDeletions(job, "grant", result.grantCount.toLong())
                 if (result.tokenCount > 0 || result.authorizationCodeCount > 0 || result.grantCount > 0) {
                     logger.debug {
                         "Cleaned ${result.tokenCount} tokens, ${result.authorizationCodeCount} authorization codes " +

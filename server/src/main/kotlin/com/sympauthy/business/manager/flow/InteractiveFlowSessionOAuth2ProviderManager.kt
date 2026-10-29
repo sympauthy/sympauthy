@@ -31,7 +31,6 @@ import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.oauth2.TokenEndpointClient
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
-import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
@@ -160,28 +159,23 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         observedRequest: ObservedRequest,
         providerError: String? = null,
         providerErrorDescription: String? = null
-    ): InteractiveFlowSession {
-        // Only the callback that created the account is a sign-up; a session it confirms or links may carry an
-        // earlier one.
-        var createdAccount = false
-        return authenticationMetrics.recordAttempt(
-            method = PROVIDER,
-            // An id the configuration does not declare is the caller's to choose, and is not recorded.
-            providerId = providerId?.takeIf(providerConfigManager::isDeclared),
-            kind = SIGN_IN,
-            judge = Throwable::toOutcome,
-            successKind = { if (createdAccount) SIGN_UP else SIGN_IN }
-        ) {
-            signInOrSignUpUsingProvider(
-                session, providerId, redirectUri, authorizeCode, observedRequest, providerError,
-                providerErrorDescription
-            ) { createdAccount = it }
-        }
+    ): InteractiveFlowSession = authenticationMetrics.recordAttemptOfDeclaredKind(
+        method = PROVIDER,
+        // An id the configuration does not declare is the caller's to choose, and is not recorded.
+        providerId = providerId?.takeIf(providerConfigManager::isDeclared),
+        kind = SIGN_IN
+    ) { declareKind ->
+        signInOrSignUpUsingProvider(
+            session, providerId, redirectUri, authorizeCode, observedRequest, providerError, providerErrorDescription,
+            declareKind
+        )
     }
 
     /**
-     * What the public [signInOrSignUpUsingProvider] does, handing [onAccountCreated] whether resolving the
-     * callback created the account.
+     * What the public [signInOrSignUpUsingProvider] does, handing [declareKind] the kind of attempt the branch it
+     * takes is: a sign-up from the moment it creates an account, a sign-in where that resolves to an existing one,
+     * and none where it links a provider or reaches a step where signing in no longer applies. A re-authentication
+     * stays a sign-in, since it proves a credential.
      */
     private suspend fun signInOrSignUpUsingProvider(
         session: OnGoingInteractiveFlowSession,
@@ -191,7 +185,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         observedRequest: ObservedRequest,
         providerError: String?,
         providerErrorDescription: String?,
-        onAccountCreated: (Boolean) -> Unit
+        declareKind: (String?) -> Unit
     ): InteractiveFlowSession {
         // Check if the provider returned an error instead of a code.
         if (!providerError.isNullOrBlank()) {
@@ -242,20 +236,24 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             return when (engine.currentPurposeOrNull(session)) {
                 InteractiveFlowPurpose.REAUTHENTICATION ->
                     confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo, observedRequest)
-                InteractiveFlowPurpose.LINK_PROVIDER ->
+                InteractiveFlowPurpose.LINK_PROVIDER -> {
+                    declareKind(null)
                     linkProviderToSessionUser(session, provider, rawUserInfo)
-                else -> session
+                }
+                else -> session.also { declareKind(null) }
             }
         }
 
         val (userId, signedUp) = if (existingUserInfo == null) {
+            declareKind(SIGN_UP)
             val establishment = establisher.establishNewProviderUser(session, provider, rawUserInfo)
+            // Resolved to an account that already held the asserted identity, rather than creating one.
+            if (!establishment.signedUp) declareKind(SIGN_IN)
             establishment.userId to establishment.signedUp
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId to false
         }
-        onAccountCreated(signedUp)
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId, signedUp = signedUp)
         // Stamped before the flow advances: completing it is what folds the observation into the person's
         // record. The provider round-trip landed in their own browser, so this is their address.

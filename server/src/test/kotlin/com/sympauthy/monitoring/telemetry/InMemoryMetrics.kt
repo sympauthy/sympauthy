@@ -49,6 +49,13 @@ class InMemoryMetrics : MetricReader {
     fun points(name: String): List<Attributes> = metric(name).data.points.map { it.attributes }
 
     /**
+     * The attributes of every point the metric named [name] holds now, and none where nothing was recorded on it.
+     */
+    fun pointsOrEmpty(name: String): List<Attributes> =
+        registration.collectAllMetrics().singleOrNull { it.name == name }?.data?.points?.map { it.attributes }
+            ?: emptyList()
+
+    /**
      * The count of the histogram named [name] under exactly [attributes].
      */
     fun count(name: String, attributes: Attributes): Long =

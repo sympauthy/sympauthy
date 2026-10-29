@@ -3,10 +3,15 @@ package com.sympauthy.business.manager.auth
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.GrantRepository
+import com.sympauthy.monitoring.telemetry.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.JobMetrics
+import com.sympauthy.monitoring.telemetry.JobMetrics.Companion.JOB_DELETIONS
+import com.sympauthy.monitoring.telemetry.attributes
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
@@ -29,6 +34,11 @@ class GrantCleanerTest {
     @MockK
     lateinit var grantRepository: GrantRepository
 
+    private val metrics = InMemoryMetrics()
+
+    @SpyK
+    var jobMetrics = JobMetrics(metrics.openTelemetry)
+
     @InjectMockKs
     lateinit var grantCleaner: GrantCleaner
 
@@ -47,6 +57,7 @@ class GrantCleanerTest {
         assertEquals(5, result.tokenCount)
         assertEquals(6, result.authorizationCodeCount)
         assertEquals(4, result.grantCount)
+        assertEquals(5, metrics.value(JOB_DELETIONS, attributes("job" to "clean_finished_grants", "kind" to "token")))
         assertFalse(cutoff.captured.isBefore(latestCutoff), "the cutoff should be a grace before now")
         assertTrue(
             cutoff.captured.isBefore(LocalDateTime.now().minus(GrantCleaner.EXPIRATION_GRACE).plusSeconds(1)),

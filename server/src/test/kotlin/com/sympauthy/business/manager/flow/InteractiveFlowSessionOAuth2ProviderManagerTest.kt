@@ -32,8 +32,12 @@ import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.InMemoryMetrics
 import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.attributes
 import io.mockk.*
+import io.mockk.coJustRun
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
@@ -111,8 +115,10 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     @MockK
     lateinit var remoteCallMonitor: RemoteCallMonitor
 
+    private val metrics = InMemoryMetrics()
+
     @SpyK
-    var authenticationMetrics = AuthenticationMetrics(OpenTelemetry.noop())
+    var authenticationMetrics = AuthenticationMetrics(metrics.openTelemetry)
 
     @SpyK
     @InjectMockKs
@@ -322,6 +328,38 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
         assertSame(session, result)
         coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
+        assertTrue(metrics.pointsOrEmpty(AUTHENTICATION_ATTEMPTS).isEmpty(), "linking a provider signs nobody in")
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Counts a callback that created the account as a sign-up`() = runTest {
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { userId } returns null }
+        val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+        val createdId = UUID.randomUUID()
+        coEvery { establisher.establishNewProviderUser(session, provider, rawUserInfo) } returns
+            ProviderUserEstablishment(userId = createdId, signedUp = true)
+        val updatedSession = mockk<OnGoingInteractiveFlowSession> { every { id } returns UUID.randomUUID() }
+        coEvery { sessionManager.setAuthenticatedUserId(session, createdId, signedUp = true) } returns updatedSession
+        coJustRun { userSecurityContextManager.markProven(any(), any()) }
+        coJustRun { oauth2Manager.setAuthenticationDate(updatedSession) }
+
+        manager.signInOrSignUpUsingProvider(
+            session, provider.id, redirectUri, authorizeCode = "code", observedRequest = observedRequestOf()
+        )
+
+        assertEquals(
+            1,
+            metrics.value(
+                AUTHENTICATION_ATTEMPTS,
+                attributes(
+                    "method" to "provider",
+                    "provider_id" to provider.id,
+                    "kind" to "sign_up",
+                    "outcome" to "success"
+                )
+            )
+        )
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -14,6 +15,7 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -43,7 +45,8 @@ open class ProvisionalAccountManager(
     @Inject private val passwordRepository: PasswordRepository,
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val providerUserInfoRepository: ProviderUserInfoRepository,
-    @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository
+    @Inject private val totpEnrollmentRepository: TotpEnrollmentRepository,
+    @Inject private val jobMetrics: JobMetrics
 ) {
 
     /**
@@ -160,6 +163,8 @@ open class ProvisionalAccountManager(
      * promotion left it — PostgreSQL through `EvalPlanQual`, H2 through the re-check it runs when the row
      * it locked turns out to have changed — so a promoted account is skipped rather than deleted out from
      * under the flow that finished it.
+     *
+     * The accounts deleted are recorded under [CLEAN_ABANDONED_ACCOUNTS].
      */
     @Transactional
     open suspend fun deleteAbandoned(): Int {
@@ -171,7 +176,9 @@ open class ProvisionalAccountManager(
         providerUserInfoRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
         totpEnrollmentRepository.deleteByUserIdInAndSessionIdIsNotNull(userIds)
 
-        return userRepository.deleteByIdInAndSessionIdIsNotNull(userIds)
+        return userRepository.deleteByIdInAndSessionIdIsNotNull(userIds).also {
+            jobMetrics.recordDeletions(CLEAN_ABANDONED_ACCOUNTS.leaseName, "account", it.toLong())
+        }
     }
 
     /**

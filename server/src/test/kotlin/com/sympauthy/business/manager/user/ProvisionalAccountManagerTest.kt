@@ -19,6 +19,7 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.monitoring.telemetry.JobMetrics
 import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -97,7 +98,8 @@ class ProvisionalAccountManagerTest {
             passwordRepository = passwordRepository,
             collectedClaimRepository = collectedClaimRepository,
             providerUserInfoRepository = providerUserInfoRepository,
-            totpEnrollmentRepository = totpEnrollmentRepository
+            totpEnrollmentRepository = totpEnrollmentRepository,
+            jobMetrics = JobMetrics(OpenTelemetry.noop())
         )
     }
 
