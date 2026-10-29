@@ -90,8 +90,12 @@ route nothing else references inline.
 **A route something below the `api` layer builds a URL for declares its constant with the concept**,
 and the controller names its route from that constant.
 
-**Security is declared at class level, matching the surface.** Take the roles and scopes from the
-constants in `security/`, and put anything narrower than the surface's default in a manager check.
+**Security is declared on the class where its routes share a gate, and on the route where they do
+not**, always naming a gate the surface admits. Take the roles and scopes from the constants in
+`security/`, and put anything narrower than a scope in a manager check.
+
+**A route gated otherwise than its surface admits is a departure, listed with its reason** in the
+test reading every controller, which fails on a departure nobody wrote down.
 
 **A parameter is documented on the parameter**, in an annotation on the method argument itself. The
 type, whether it is required and its format are inferred from the Kotlin.

@@ -67,9 +67,10 @@ specification; the flow prefix is gated on a signed session token that is emphat
 access token; and the application prefixes are gated on scope, but for the client's claim routes,
 which a claim's ACL decides. [Security](security.md) is where each is spelled out.
 
-**The prefix is a security boundary, not only a routing convention.** It is what lets a whole
-surface be gated once, in the security configuration, instead of one annotation at a time. What each
-gate does and does not protect against is [security](security.md).
+**The prefix is a security boundary, not only a routing convention.** It is what every route's
+gate is held to: a route gated on anything its prefix does not admit fails the build, unless it is
+written down as a departure with its reason. What each gate does and does not protect against is
+[security](security.md).
 
 ### When a surface carries a version
 
