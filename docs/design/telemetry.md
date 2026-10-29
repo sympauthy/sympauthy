@@ -241,10 +241,15 @@ FAQ](design-faq.md#is-a-query-traced-as-a-span-or-read-from-the-databases-statis
 
 **A span carries what the semantic conventions name for a database call, under their names.**
 `db.system.name` is `postgresql`, or `h2database` for H2; `db.namespace` is the database's name,
-`server.address` and `server.port` its server's; `db.query.text` is the statement and
-`db.query.summary` the operation and the tables it names, which the span is named by. A query the
-database refuses carries its SQL state as `db.response.status_code` and `error.type`. The database's
-user is not exported.
+and `server.address` and `server.port` its server's, which H2, running inside the server, has none
+of; `db.query.text` is the statement and `db.query.summary` the operation and the tables it names,
+which the span is named by. A statement bound to several rows at once carries their number as
+`db.operation.batch.size`. The database's user is not exported.
+
+**A query that did not finish says why.** One the database refused carries its SQL state as
+`db.response.status_code` and `error.type`. One cancelled before it produced any result — its
+request timed out, or its caller went away — ends as an error; one cancelled once it had, read as
+far as its caller wanted, does not.
 
 **A query made outside a request opens no span.** A scheduled job's sweep and the work the server
 does at startup have no request around them, so each would open a trace of its own, and a job
@@ -317,8 +322,9 @@ FAQ](design-faq.md#are-database-spans-opentelemetrys-r2dbc-instrumentation-or-th
 migration's data source is built from the driver's factory, which `driverConnectionFactory` reads
 through every factory wrapped in front of it.
 
-**A query reads its trace from the thread it is sent from**, and where that is one of the PostgreSQL
-driver's event loops, which holds none, from the propagated context the reactive chain carries.
+**A query reads its trace from the propagated context the reactive chain carries**, which is its
+request's, and from the thread it is sent from only where the chain carries none. On PostgreSQL that
+thread may be one of the driver's event loops, which holds no trace at all.
 
 ## When the collector does not answer
 

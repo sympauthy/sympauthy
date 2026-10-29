@@ -29,7 +29,7 @@ import io.opentelemetry.semconv.ServerAttributes.SERVER_ADDRESS
 import io.opentelemetry.semconv.ServerAttributes.SERVER_PORT
 import io.r2dbc.proxy.ProxyConnectionFactory
 import io.r2dbc.proxy.core.QueryExecutionInfo
-import io.r2dbc.proxy.listener.ProxyMethodExecutionListener
+import io.r2dbc.proxy.listener.ProxyExecutionListener
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
@@ -39,6 +39,7 @@ import io.r2dbc.spi.ConnectionFactoryOptions.HOST
 import io.r2dbc.spi.ConnectionFactoryOptions.PORT
 import io.r2dbc.spi.R2dbcException
 import reactor.util.context.ContextView
+import java.util.concurrent.CancellationException
 import io.opentelemetry.context.Context as TraceContext
 
 /**
@@ -91,35 +92,48 @@ private const val QUERY_INSTRUMENTATION_SCOPE = "com.sympauthy.database"
 internal class QueryTracingListener(
     private val instrumenter: Instrumenter<DatabaseQuery, Void>,
     private val database: QueriedDatabase
-) : ProxyMethodExecutionListener {
+) : ProxyExecutionListener {
 
     override fun beforeQuery(execution: QueryExecutionInfo) {
         val parent = requestContext(execution) ?: return
-        val query = DatabaseQuery(database, execution.queries.map { it.query }, execution.batchSize)
+        val query = DatabaseQuery(
+            database = database,
+            rawStatements = execution.queries.map { it.query },
+            batchSize = maxOf(execution.batchSize, execution.bindingsSize)
+        )
         if (!instrumenter.shouldStart(parent, query)) return
         execution.valueStore.put(QueryTrace::class.java, QueryTrace(instrumenter.start(parent, query), query))
     }
 
     override fun afterQuery(execution: QueryExecutionInfo) {
         val trace = execution.valueStore.get(QueryTrace::class.java, QueryTrace::class.java) ?: return
-        instrumenter.end(trace.context, trace.query, null, execution.throwable)
+        instrumenter.end(trace.context, trace.query, null, failureOf(execution))
     }
 
     /**
      * The trace the query was made under, or `null` when it was made outside any.
      *
-     * The query is sent from the thread the driver resumes on, which for PostgreSQL is one of its own event loops
-     * and holds no trace; the request's trace is then read from what the reactive chain carries.
+     * The trace the reactive chain carries is the request's, and is read first. The thread's is read where the chain
+     * carries none, as a query subscribed to directly does.
      */
     private fun requestContext(execution: QueryExecutionInfo): TraceContext? {
-        val current = TraceContext.current()
-        if (current.hasSpan()) return current
-        val reactiveContext = execution.valueStore.get(ContextView::class.java, ContextView::class.java) ?: return null
-        return ReactorPropagation.findContextElement(reactiveContext, OpenTelemetryPropagationContext::class.java)
-            .map { it.context() }
-            .filter { it.hasSpan() }
-            .orElse(null)
+        val reactiveContext = execution.valueStore.get(ContextView::class.java, ContextView::class.java)
+        val propagated = reactiveContext
+            ?.let { ReactorPropagation.findContextElement(it, OpenTelemetryPropagationContext::class.java) }
+            ?.map { it.context() }
+            ?.filter { it.hasSpan() }
+            ?.orElse(null)
+        return propagated ?: TraceContext.current().takeIf { it.hasSpan() }
     }
+
+    /**
+     * What ended [execution] early, or `null` when it ended with a result.
+     *
+     * A query cancelled before it produced any result, as one is when its request times out or its caller goes away,
+     * is reported as a failure; one cancelled once it has produced a result was read as far as its caller wanted.
+     */
+    private fun failureOf(execution: QueryExecutionInfo): Throwable? = execution.throwable
+        ?: if (execution.isSuccess) null else CancellationException("The query was cancelled before any result.")
 
     private fun TraceContext.hasSpan(): Boolean = Span.fromContext(this).spanContext.isValid
 
@@ -145,16 +159,35 @@ internal class QueriedDatabase(
 
         private const val OTHER_SQL = "other_sql"
 
-        fun of(options: ConnectionFactoryOptions) = QueriedDatabase(
-            systemName = when (options.getValue(DRIVER)) {
-                "postgresql" -> DbSystemNameValues.POSTGRESQL
-                "h2" -> H2DATABASE
-                else -> OTHER_SQL
-            },
-            namespace = options.getValue(DATABASE) as? String,
-            serverAddress = options.getValue(HOST) as? String,
-            serverPort = options.getValue(PORT) as? Int
-        )
+        /**
+         * The database [options] reach, every value read whichever type the configuration gave it: a value set
+         * under a datasource's `options` arrives as a string.
+         *
+         * H2 runs inside the server, so it has no server address, and its database is named by the last segment of
+         * its path, without the settings a URL appends after a semicolon.
+         */
+        fun of(options: ConnectionFactoryOptions): QueriedDatabase {
+            val database = options.getValue(DATABASE)?.toString()
+            return when (options.getValue(DRIVER)?.toString()) {
+                "h2" -> QueriedDatabase(
+                    systemName = H2DATABASE,
+                    namespace = database?.substringBefore(';')?.substringAfterLast('/'),
+                    serverAddress = null,
+                    serverPort = null
+                )
+
+                "postgresql" -> atServer(DbSystemNameValues.POSTGRESQL, database, options)
+                else -> atServer(OTHER_SQL, database, options)
+            }
+        }
+
+        private fun atServer(systemName: String, database: String?, options: ConnectionFactoryOptions) =
+            QueriedDatabase(
+                systemName = systemName,
+                namespace = database,
+                serverAddress = options.getValue(HOST)?.toString(),
+                serverPort = options.getValue(PORT)?.toString()?.toIntOrNull()
+            )
     }
 }
 

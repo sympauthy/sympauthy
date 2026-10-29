@@ -2,9 +2,12 @@ package com.sympauthy.monitoring.telemetry
 
 import io.micronaut.core.async.propagation.ReactorPropagation
 import io.micronaut.tracing.opentelemetry.OpenTelemetryPropagationContext
-import io.opentelemetry.api.common.Attributes
+import io.mockk.every
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.api.trace.SpanKind
+import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.common.CompletableResultCode
@@ -13,14 +16,20 @@ import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor
 import io.opentelemetry.sdk.trace.export.SpanExporter
 import io.opentelemetry.semconv.DbAttributes.DB_NAMESPACE
+import io.opentelemetry.semconv.DbAttributes.DB_OPERATION_BATCH_SIZE
 import io.opentelemetry.semconv.DbAttributes.DB_QUERY_SUMMARY
 import io.opentelemetry.semconv.DbAttributes.DB_QUERY_TEXT
 import io.opentelemetry.semconv.DbAttributes.DB_RESPONSE_STATUS_CODE
 import io.opentelemetry.semconv.DbAttributes.DB_SYSTEM_NAME
 import io.opentelemetry.semconv.ErrorAttributes.ERROR_TYPE
 import io.opentelemetry.semconv.ServerAttributes.SERVER_ADDRESS
-import io.opentelemetry.semconv.ServerAttributes.SERVER_PORT
+import io.r2dbc.proxy.core.QueryExecutionInfo
+import io.r2dbc.proxy.core.QueryInfo
+import io.r2dbc.proxy.core.ValueStore
 import io.r2dbc.spi.ConnectionFactoryOptions
+import io.r2dbc.spi.ConnectionFactoryOptions.DRIVER
+import io.r2dbc.spi.ConnectionFactoryOptions.HOST
+import io.r2dbc.spi.Option
 import io.r2dbc.spi.R2dbcException
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -29,10 +38,13 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 
+@ExtendWith(MockKExtension::class)
 class QueryTracingTest {
 
     private val exported = CopyOnWriteArrayList<SpanData>()
@@ -95,6 +107,7 @@ class QueryTracingTest {
         assertEquals(request.spanContext.spanId, query.parentSpanId)
         assertEquals("h2database", query.attributes.get(DB_SYSTEM_NAME))
         assertEquals("query-tracing-test", query.attributes.get(DB_NAMESPACE))
+        assertNull(query.attributes.get(SERVER_ADDRESS))
         assertEquals("SELECT", query.name)
     }
 
@@ -137,6 +150,89 @@ class QueryTracingTest {
     }
 
     @Test
+    fun `connectionFactory - Prefers the request's span the reactive chain carries over the thread's`() {
+        val request = tracer.spanBuilder("GET /request").setSpanKind(SpanKind.SERVER).startSpan()
+        val requestContext = OpenTelemetryPropagationContext(Context.root().with(request))
+        val unrelated = tracer.spanBuilder("unrelated").startSpan()
+
+        unrelated.makeCurrent().use {
+            execute("SELECT 1")
+                .contextWrite { ReactorPropagation.addContextElement(it, requestContext) }
+                .block()
+        }
+        request.end()
+        unrelated.end()
+
+        assertEquals(request.spanContext.spanId, querySpans().single().parentSpanId)
+    }
+
+    @Test
+    fun `connectionFactory - Records how many rows a statement bound at once`() {
+        execute("""CREATE TABLE IF NOT EXISTS "batched" ("id" INT)""").block()
+
+        underRequest {
+            Mono.usingWhen(
+                connectionFactory.create(),
+                { connection ->
+                    val statement = connection.createStatement("""INSERT INTO "batched" ("id") VALUES ($1)""")
+                        .bind(0, 1)
+                        .add()
+                        .bind(0, 2)
+                    Flux.from(statement.execute()).flatMap { it.rowsUpdated }.then()
+                },
+                { it.close() }
+            ).block()
+        }
+
+        assertEquals(2L, querySpans().single().attributes.get(DB_OPERATION_BATCH_SIZE))
+    }
+
+    @Test
+    fun `afterQuery - Ends as a failure a query cancelled before any result`() {
+        val listener = QueryTracingListener(
+            queryInstrumenter(openTelemetry),
+            QueriedDatabase("h2database", "sympauthy", null, null)
+        )
+        val store = ValueStore.create()
+        val execution = mockk<QueryExecutionInfo> {
+            every { queries } returns listOf(QueryInfo("SELECT 1"))
+            every { batchSize } returns 0
+            every { bindingsSize } returns 1
+            every { valueStore } returns store
+            every { throwable } returns null
+            every { isSuccess } returns false
+        }
+
+        underRequest {
+            listener.beforeQuery(execution)
+            listener.afterQuery(execution)
+        }
+
+        val query = querySpans().single()
+        assertEquals(StatusCode.ERROR, query.status.statusCode)
+        assertEquals(CancellationException::class.java.name, query.attributes.get(ERROR_TYPE))
+    }
+
+    @Test
+    fun `connectionFactory - Ends as a success a query cancelled once it produced a result`() {
+        underRequest {
+            Mono.usingWhen(
+                connectionFactory.create(),
+                { connection ->
+                    Flux.from(connection.createStatement("SELECT 1 UNION ALL SELECT 2").execute())
+                        .flatMap { result -> result.map { row, _ -> row.get(0) } }
+                        .next()
+                },
+                { it.close() }
+            ).block()
+        }
+
+        val query = querySpans().single()
+        assertEquals(StatusCode.UNSET, query.status.statusCode)
+        assertNull(query.attributes.get(ERROR_TYPE))
+    }
+
+    @Test
     fun `connectionFactory - Records the SQL state of a query the database refused`() {
         val failure = assertThrows<R2dbcException> {
             underRequest { execute("""SELECT "nothing" FROM "no_such_table"""").block() }
@@ -160,13 +256,28 @@ class QueryTracingTest {
     }
 
     @Test
-    fun `onStart - Leaves the address out of a database the options name no host for`() {
-        val query = DatabaseQuery(QueriedDatabase("h2database", "sympauthy", null, null), listOf("SELECT 1"), 0)
-        val attributes = Attributes.builder()
+    fun `of - Names an H2 database by the last segment of its path, and gives it no server`() {
+        val file = QueriedDatabase.of(ConnectionFactoryOptions.parse("r2dbc:h2:file://localhost/./sympauthy"))
+        val memory = QueriedDatabase.of(
+            ConnectionFactoryOptions.parse("r2dbc:h2:mem:///sympauthy;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE")
+        )
 
-        DatabaseQueryAttributesExtractor.onStart(attributes, Context.root(), query)
+        assertEquals("sympauthy", file.namespace)
+        assertNull(file.serverAddress)
+        assertNull(file.serverPort)
+        assertEquals("sympauthy", memory.namespace)
+    }
 
-        assertNull(attributes.build().get(SERVER_ADDRESS))
-        assertNull(attributes.build().get(SERVER_PORT))
+    @Test
+    fun `of - Reads a port the datasource's options gave as a string`() {
+        val database = QueriedDatabase.of(
+            ConnectionFactoryOptions.builder()
+                .option(DRIVER, "postgresql")
+                .option(HOST, "db.internal")
+                .option(Option.valueOf<String>("port"), "5433")
+                .build()
+        )
+
+        assertEquals(5433, database.serverPort)
     }
 }
