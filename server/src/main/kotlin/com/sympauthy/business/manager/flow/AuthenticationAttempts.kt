@@ -2,7 +2,8 @@ package com.sympauthy.business.manager.flow
 
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import kotlin.coroutines.cancellation.CancellationException
+import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.telemetry.measureOutcome
 
 /**
  * Run [block] as an authentication attempt with [method], through the provider [providerId] names where the method
@@ -20,13 +21,8 @@ internal suspend fun <T> AuthenticationMetrics.recordAttemptOfDeclaredKind(
     block: suspend (declareKind: (String?) -> Unit) -> T
 ): T {
     var declaredKind: String? = kind
-    val result = try {
-        Result.success(block { declaredKind = it })
-    } catch (cancelled: CancellationException) {
-        throw cancelled
-    } catch (failure: Throwable) {
-        Result.failure(failure)
-    }
-    val recordedKind = declaredKind ?: return result.getOrThrow()
-    return recordAttempt(method, providerId, recordedKind, Throwable::toOutcome) { result.getOrThrow() }
+    return measureOutcome(
+        onSuccess = { _, _ -> declaredKind?.let { recordAttempt(method, providerId, it, Outcome.Success) } },
+        onFailure = { _, failure -> declaredKind?.let { recordAttempt(method, providerId, it, failure.toOutcome()) } }
+    ) { block { declaredKind = it } }
 }

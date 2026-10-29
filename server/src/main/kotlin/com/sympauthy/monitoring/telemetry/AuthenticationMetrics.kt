@@ -57,7 +57,11 @@ class AuthenticationMetrics(
         onFailure = { _, failure -> recordAttempt(method, providerId, kind, judge(failure)) }
     ) { block() }
 
-    private fun recordAttempt(method: String, providerId: String?, kind: String, outcome: Outcome) {
+    /**
+     * Record an attempt of [kind] with [method], through the provider [providerId] names where the method is one,
+     * which ended as [outcome].
+     */
+    internal fun recordAttempt(method: String, providerId: String?, kind: String, outcome: Outcome) {
         attempts.add(
             1,
             Attributes.builder()
