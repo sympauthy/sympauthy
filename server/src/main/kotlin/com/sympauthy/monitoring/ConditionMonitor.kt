@@ -1,7 +1,6 @@
 package com.sympauthy.monitoring
 
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CancellationException
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -21,7 +20,8 @@ import kotlin.time.toKotlinDuration
  * The quiet period runs out when [endQuietPeriods] is next called after it.
  *
  * A success reported while a condition is operational costs a map lookup and nothing else: it is
- * reported on every call a dependency answers.
+ * reported on every call a dependency answers. The first one is what makes the condition observed, so that
+ * [listObserved] names every dependency that has answered, degraded or not.
  *
  * `docs/design/logging.md` is the design this implements.
  */
@@ -31,6 +31,7 @@ class ConditionMonitor {
     private val logger = loggerForClass()
 
     private val states = ConcurrentHashMap<Condition, AtomicReference<State>>()
+
 
     /**
      * Report that [condition] failed, with the [failure] that says how, if there is one.
@@ -81,7 +82,7 @@ class ConditionMonitor {
      * its quiet period.
      */
     fun reportSuccess(condition: Condition, now: Instant = Instant.now()) {
-        val state = states[condition] ?: return
+        val state = states.computeIfAbsent(condition) { AtomicReference(Operational) }
         while (true) {
             val current = state.get()
             if (current !is Degraded || current.quietSince != null) return
@@ -106,28 +107,9 @@ class ConditionMonitor {
     }
 
     /**
-     * Run [block] against [condition], reporting a success if it returns and a failure if it throws
-     * something [isFailure] says the dependency is unwell for. What [block] throws is rethrown either
-     * way, and anything else it throws is reported as neither.
+     * Every condition this instance has observed, each with whether it is degraded now.
      */
-    suspend fun <T> observe(
-        condition: Condition,
-        isFailure: (Throwable) -> Boolean,
-        block: suspend () -> T
-    ): T {
-        val result = try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
-            if (isFailure(failure)) {
-                reportFailure(condition, failure)
-            }
-            throw failure
-        }
-        reportSuccess(condition)
-        return result
-    }
+    fun listObserved(): Map<Condition, Boolean> = states.mapValues { (_, state) -> state.get() is Degraded }
 
     /**
      * Recover every condition whose quiet period started [QUIET_PERIOD] or more before [now] without a
@@ -195,6 +177,7 @@ class ConditionMonitor {
         val QUIET_PERIOD: Duration = Duration.ofSeconds(30)
     }
 }
+
 
 /**
  * A [condition] degraded [since] that moment.

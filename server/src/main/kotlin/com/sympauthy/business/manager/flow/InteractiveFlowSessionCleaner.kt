@@ -5,13 +5,14 @@ import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
-import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
+import com.sympauthy.monitoring.telemetry.FlowMetrics
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import io.micronaut.transaction.annotation.Transactional
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -39,6 +40,7 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
     @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
+    @Inject private val flowMetrics: FlowMetrics
 ) {
 
     @Transactional
@@ -81,10 +83,26 @@ open class InteractiveFlowSessionCleaner(
         deferredSecurityContextCount.await()
 
         val sessionsCount = sessionRepository.deleteByIds(expiredSessionIds)
+        expiredSessions.forEach(::recordIfUnfinished)
 
         CleanResult(
             sessionCount = sessionsCount,
             validationCodesCount = validationCodesCount,
+        )
+    }
+
+    /**
+     * Record the expired [session] on `sympauthy.flow.sessions.expired` if it expired unfinished, under the first
+     * of its purposes it had not finished. A session that completed, failed or was cancelled stays until it
+     * expires too, and was recorded when it ended.
+     */
+    private fun recordIfUnfinished(session: InteractiveFlowSessionEntity) {
+        if (session.completeDate != null || session.cancelDate != null || session.errorDate != null) return
+        val stalledPurpose = session.purposes.firstOrNull { it !in session.completedPurposes }
+        flowMetrics.recordExpired(
+            purpose = session.initiatingPurpose.lowercase(),
+            stalledPurpose = stalledPurpose?.lowercase(),
+            clientId = session.initiatingClientId
         )
     }
 

@@ -7,14 +7,15 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
-import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify
@@ -25,6 +26,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -51,7 +53,7 @@ class ConsentManagerTest {
     private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
 
     /** The real manager over the stripe table, so a test can say which row was taken before what. */
-    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
 
     @InjectMockKs
     lateinit var consentManager: ConsentManager

@@ -7,7 +7,9 @@ import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
 import io.micronaut.email.EmailException
+import io.opentelemetry.api.OpenTelemetry
 import jakarta.mail.SendFailedException
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -53,7 +55,7 @@ class MailQueueTest {
         mailBuilderFactory = mailBuilderFactory,
         mailQueueRepository = mailQueueRepository,
         jobLeaseManager = jobLeaseManager,
-        conditionMonitor = conditionMonitor
+        remoteCallMonitor = RemoteCallMonitor(conditionMonitor, OpenTelemetry.noop())
     )
 
     private fun holdingTheLease() {

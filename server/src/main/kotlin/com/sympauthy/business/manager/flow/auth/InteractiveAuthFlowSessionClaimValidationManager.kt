@@ -18,6 +18,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import io.micronaut.transaction.annotation.Transactional
@@ -32,6 +34,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val validationCodeManager: ValidationCodeManager,
+    @Inject private val authenticationMetrics: AuthenticationMetrics,
 ) {
 
     /**
@@ -227,7 +230,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         user: User,
         media: ValidationCodeMedia,
         code: String
-    ) {
+    ) = authenticationMetrics.recordValidationCodeCheck(media.name.lowercase(), Throwable::toOutcome) {
         val validationCodes = findCodesSentDuringSession(
             session = session,
             media = media

@@ -26,6 +26,11 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PASSWORD
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -51,7 +56,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userManager: UserManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
 ) {
 
     /**
@@ -99,7 +105,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         login: String?,
         password: String?,
         observedRequest: ObservedRequest
-    ): InteractiveFlowSession {
+    ): InteractiveFlowSession = authenticationMetrics.recordAttempt(PASSWORD, null, SIGN_IN, Throwable::toOutcome) {
         if (!signInEnabled) {
             throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
         }
@@ -133,7 +139,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
         //   primary credential was proven, or a CONFIRM gate still pending) -> sign-in no longer applies;
         //   return the session unchanged so the flow redirects to its current step, without switching identity.
         // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
-        return when {
+        return@recordAttempt when {
             session.userId == null -> {
                 // Stamped before the flow advances, because completing it is what folds the observation
                 // into the person's record — one stamped afterwards would arrive a completion too late.
@@ -190,19 +196,19 @@ open class InteractiveAuthFlowSessionPasswordManager(
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String,
         observedRequest: ObservedRequest
-    ): InteractiveFlowSession {
+    ): InteractiveFlowSession = authenticationMetrics.recordAttempt(PASSWORD, null, SIGN_UP, Throwable::toOutcome) {
         // Signing up ESTABLISHES identity, so it only runs while the session has none. A second post — a back
         // button, a retry, a duplicated request — would otherwise create a second account and switch the
         // session to it, orphaning the first with its password and identifier claims. The provider path
         // guards the same way in signInOrSignUpUsingProvider.
-        if (session.userId != null) return session
+        if (session.userId != null) return@recordAttempt session
 
         val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
         userSecurityContextManager.markProven(updatedSession.id, observedRequest)
         // Creating the account is proving a credential of it: the password written above is the one this
         // person will sign in with, so the authorization carries this moment rather than none at all.
         oauth2Manager.setAuthenticationDate(updatedSession)
-        return updatedSession
+        return@recordAttempt updatedSession
     }
 
     /**

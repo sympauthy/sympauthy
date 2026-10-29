@@ -2,12 +2,13 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.mapper.ClaimValueMapper
-import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
@@ -18,7 +19,7 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -26,6 +27,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
@@ -90,7 +92,7 @@ class ProvisionalAccountManagerTest {
             claimManager = claimManager,
             claimValueMapper = claimValueMapper,
             userManager = userManager,
-            lockManager = LockManager(objectLockRepository, HeldStripes()),
+            lockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop())),
             userRepository = userRepository,
             passwordRepository = passwordRepository,
             collectedClaimRepository = collectedClaimRepository,

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.lock
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -19,7 +20,8 @@ import jakarta.inject.Singleton
 @Singleton
 open class LockManager(
     @Inject private val objectLockRepository: ObjectLockRepository,
-    @Inject private val heldStripes: HeldStripes
+    @Inject private val heldStripes: HeldStripes,
+    @Inject private val lockMetrics: LockMetrics
 ) {
 
     /**
@@ -59,9 +61,14 @@ open class LockManager(
             return block()
         }
 
-        stripes.forEach {
-            objectLockRepository.lock(it)
-            heldStripes.hold(it)
+        if (stripes.isNotEmpty()) {
+            val start = System.nanoTime()
+            stripes.forEach {
+                objectLockRepository.lock(it)
+                heldStripes.hold(it)
+            }
+            val lock = keys.map(LockKey::kind).distinct().sorted().joinToString("+")
+            lockMetrics.recordWait(lock, System.nanoTime() - start)
         }
         return block()
     }

@@ -45,7 +45,9 @@ class PasswordManagerTest {
             every { hashedPassword } returns testHashedPassword
         }
 
-        coEvery { hashGenerator.hash(password, testSalt) } returns testHashedPassword.copyOf()
+        coEvery {
+            hashGenerator.hash(password, testSalt, PasswordHashGenerator.VERIFY)
+        } returns testHashedPassword.copyOf()
 
         assertTrue(manager.isPasswordMatching(entity, password))
     }
@@ -59,7 +61,7 @@ class PasswordManagerTest {
             every { hashedPassword } returns byteArrayOf(2)
         }
 
-        coEvery { hashGenerator.hash(password, testSalt) } returns byteArrayOf(3)
+        coEvery { hashGenerator.hash(password, testSalt, PasswordHashGenerator.VERIFY) } returns byteArrayOf(3)
 
         assertFalse(manager.isPasswordMatching(entity, password))
     }

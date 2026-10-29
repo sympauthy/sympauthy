@@ -9,11 +9,15 @@ import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepos
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
+import com.sympauthy.monitoring.telemetry.FlowMetrics
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.verify
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -48,6 +52,9 @@ class InteractiveFlowSessionCleanerTest {
     @MockK
     lateinit var validationCodeRepository: ValidationCodeRepository
 
+    @SpyK
+    var flowMetrics = FlowMetrics(OpenTelemetry.noop())
+
     @InjectMockKs
     lateinit var cleaner: InteractiveFlowSessionCleaner
 
@@ -80,6 +87,41 @@ class InteractiveFlowSessionCleanerTest {
         assertEquals(0, result.validationCodesCount)
     }
 
+    @Test
+    fun `clean - Counts a session that expired unfinished under the first purpose it had not finished`() = runTest {
+        expiredSessions(expiredSessionId) {
+            InteractiveFlowSessionEntity(
+                purposes = arrayOf("CONFIRM", "MFA_ENROLLMENT"),
+                initiatingPurpose = "MFA_ENROLLMENT",
+                initiatingClientId = "app",
+                completedPurposes = arrayOf("CONFIRM"),
+                sessionDate = LocalDateTime.now(),
+                expirationDate = LocalDateTime.now().minusHours(1)
+            )
+        }
+
+        cleaner.clean()
+
+        verify { flowMetrics.recordExpired("mfa_enrollment", "mfa_enrollment", "app") }
+    }
+
+    @Test
+    fun `clean - Does not count a session that ended before it expired`() = runTest {
+        expiredSessions(expiredSessionId) {
+            InteractiveFlowSessionEntity(
+                purposes = arrayOf("OAUTH2_AUTHORIZE"),
+                initiatingPurpose = "OAUTH2_AUTHORIZE",
+                sessionDate = LocalDateTime.now(),
+                expirationDate = LocalDateTime.now().minusHours(1),
+                cancelDate = LocalDateTime.now().minusHours(2)
+            )
+        }
+
+        cleaner.clean()
+
+        verify(exactly = 0) { flowMetrics.recordExpired(any(), any(), any()) }
+    }
+
     private fun dependencyDeletes(): List<suspend () -> Int> = listOf(
         { validationCodeRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { oauth2Repository.deleteBySessionIdIn(listOf(expiredSessionId)) },
@@ -90,15 +132,18 @@ class InteractiveFlowSessionCleanerTest {
         { securityContextRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
     )
 
-    private fun expiredSessions(vararg ids: UUID) {
-        val sessions = ids.map { id ->
+    private fun expiredSessions(
+        vararg ids: UUID,
+        session: () -> InteractiveFlowSessionEntity = {
             InteractiveFlowSessionEntity(
                 purposes = arrayOf("OAUTH2_AUTHORIZE"),
                 initiatingPurpose = "OAUTH2_AUTHORIZE",
                 sessionDate = LocalDateTime.now(),
                 expirationDate = LocalDateTime.now().minusHours(1)
-            ).apply { this.id = id }
+            )
         }
+    ) {
+        val sessions = ids.map { id -> session().apply { this.id = id } }
         val idList = ids.toList()
         coEvery { sessionRepository.findExpired() } returns sessions
         coEvery { validationCodeRepository.deleteBySessionIdIn(idList) } returns 0

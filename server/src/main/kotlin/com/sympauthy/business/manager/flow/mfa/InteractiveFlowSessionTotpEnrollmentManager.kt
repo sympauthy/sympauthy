@@ -10,6 +10,10 @@ import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.ENROLLMENT
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.TOTP
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -20,7 +24,8 @@ class InteractiveFlowSessionTotpEnrollmentManager(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
 ) {
 
     data class EnrollmentData(
@@ -60,22 +65,23 @@ class InteractiveFlowSessionTotpEnrollmentManager(
         session: OnGoingInteractiveFlowSession,
         user: User,
         code: String?
-    ): OnGoingInteractiveFlowSession {
-        val pendingEnrollment = totpManager.findPendingEnrollmentOrNull(user.id)
-            ?: throw recoverableBusinessExceptionOf(
-                detailsId = "flow.mfa.totp.enroll.no_pending_enrollment",
-                descriptionId = "description.flow.mfa.totp.enroll.no_pending_enrollment"
-            )
+    ): OnGoingInteractiveFlowSession =
+        authenticationMetrics.recordAttempt(TOTP, null, ENROLLMENT, Throwable::toOutcome) {
+            val pendingEnrollment = totpManager.findPendingEnrollmentOrNull(user.id)
+                ?: throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.mfa.totp.enroll.no_pending_enrollment",
+                    descriptionId = "description.flow.mfa.totp.enroll.no_pending_enrollment"
+                )
 
-        if (code.isNullOrBlank() || totpManager.confirmEnrollment(pendingEnrollment, code) == null) {
-            throw recoverableBusinessExceptionOf(
-                detailsId = "flow.mfa.totp.enroll.invalid_code",
-                descriptionId = "description.flow.mfa.totp.enroll.invalid_code"
-            )
+            if (code.isNullOrBlank() || totpManager.confirmEnrollment(pendingEnrollment, code) == null) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.mfa.totp.enroll.invalid_code",
+                    descriptionId = "description.flow.mfa.totp.enroll.invalid_code"
+                )
+            }
+
+            return@recordAttempt sessionManager.setMfaPassed(session)
         }
-
-        return sessionManager.setMfaPassed(session)
-    }
 
     /**
      * Derives the TOTP issuer label from the configured auth issuer URL (e.g. "auth.example.com").

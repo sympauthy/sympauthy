@@ -2,14 +2,17 @@ package com.sympauthy.business.manager.lock
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.just
 import io.mockk.runs
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -27,6 +30,9 @@ class LockManagerTest {
 
     @MockK
     lateinit var heldStripes: HeldStripes
+
+    @SpyK
+    var lockMetrics = LockMetrics(OpenTelemetry.noop())
 
     @InjectMockKs
     lateinit var manager: LockManager

@@ -91,6 +91,12 @@ sealed class LockKey(
         LockKey("provider_subject", "$providerId\u0000$subject")
 
     /**
+     * The kind of object this key names, which a metric records the lock under.
+     */
+    internal val kind: String
+        get() = scope
+
+    /**
      * The row of `object_locks` this key is taken over.
      *
      * SHA-256 rather than [Any.hashCode] because the mapping has to be the same in every instance and in

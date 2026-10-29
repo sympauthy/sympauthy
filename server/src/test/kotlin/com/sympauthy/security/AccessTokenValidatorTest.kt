@@ -18,6 +18,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
@@ -28,6 +29,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
@@ -60,7 +62,8 @@ class AccessTokenValidatorTest {
     lateinit var jwtManager: JwtManager
 
     private fun validator() = AccessTokenValidator(
-        clientManager, scopeManager, tokenManager, dpopManager, jwtManager, DpopTokenReader()
+        clientManager, scopeManager, tokenManager, dpopManager, jwtManager, DpopTokenReader(),
+        TokenMetrics(OpenTelemetry.noop())
     )
 
     private fun stubToken(token: AuthenticationToken) {

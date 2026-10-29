@@ -12,9 +12,11 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
+import com.sympauthy.client.remoteErrorType
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.telemetry.Outcome
 import jakarta.inject.Inject
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
@@ -41,7 +43,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
     @Inject private val scopeManager: ScopeManager,
     @Inject private val authorizationWebhookClient: AuthorizationWebhookClient,
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
-    @Inject private val conditionMonitor: ConditionMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -72,9 +74,11 @@ class AuthorizationWebhookUserScopeGrantingManager(
             claims = collectedClaims.associate { it.claim.id to it.value }
         )
 
+        val condition = Condition.AuthorizationWebhook(client.id)
+        val start = System.nanoTime()
         return when (val result = authorizationWebhookClient.callWebhook(authorizationWebhook, request)) {
             is AuthorizationWebhookResult.Success -> {
-                conditionMonitor.reportSuccess(Condition.AuthorizationWebhook(client.id))
+                remoteCallMonitor.reportCall(condition, WEBHOOK_OPERATION, System.nanoTime() - start, Outcome.Success)
                 val response = result.response
                 val granted = mutableListOf<EnabledScope>()
                 val declined = mutableListOf<EnabledScope>()
@@ -114,7 +118,10 @@ class AuthorizationWebhookUserScopeGrantingManager(
             is AuthorizationWebhookResult.Failure -> {
                 // Every failure counts, a 4xx included: the request is this server's own, composed from what it
                 // has already validated, so a refusal says the webhook or the secret it shares is wrong.
-                conditionMonitor.reportFailure(Condition.AuthorizationWebhook(client.id), result.cause)
+                val outcome = Outcome.Error(result.cause?.remoteErrorType() ?: UNKNOWN_FAILURE)
+                remoteCallMonitor.reportCall(
+                    condition, WEBHOOK_OPERATION, System.nanoTime() - start, outcome, result.cause
+                )
                 when (authorizationWebhook.onFailure) {
                     AuthorizationWebhookOnFailure.DENY_ALL -> ScopeGrantingMethodResult(
                         source = GrantedBy.WEBHOOK,
@@ -132,5 +139,15 @@ class AuthorizationWebhookUserScopeGrantingManager(
 
     companion object {
         private const val GRANT = "grant"
+
+        /**
+         * The operation a call to the webhook is recorded under.
+         */
+        private const val WEBHOOK_OPERATION = "authorize"
+
+        /**
+         * What a failure the webhook client carried no cause for is typed by.
+         */
+        private const val UNKNOWN_FAILURE = "unknown"
     }
 }

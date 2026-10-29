@@ -19,6 +19,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -26,6 +27,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -49,6 +51,9 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
 
     @MockK
     lateinit var validationCodeManager: ValidationCodeManager
+
+    @SpyK
+    var authenticationMetrics = AuthenticationMetrics(OpenTelemetry.noop())
 
     @SpyK
     @InjectMockKs

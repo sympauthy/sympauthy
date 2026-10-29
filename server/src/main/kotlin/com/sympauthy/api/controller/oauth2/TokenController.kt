@@ -7,28 +7,20 @@ import com.sympauthy.api.controller.oauth2.util.CLIENT_SECRET_SENT_TWICE_DESCRIP
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.controller.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.api.resource.oauth2.TokenResource
-import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
-import com.sympauthy.business.manager.auth.oauth2.PkceManager
 import com.sympauthy.business.manager.auth.oauth2.TokenExchangeManager
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.auth.oauth2.TokenRequestManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.*
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.util.nullIfBlank
 import com.sympauthy.util.enumValueOfWireNameOrNull
-import com.sympauthy.util.wireName
+import com.sympauthy.util.nullIfBlank
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
 import io.micronaut.http.annotation.Controller
@@ -45,13 +37,8 @@ import java.time.Duration
 
 @Controller(OAUTH2_TOKEN_ENDPOINT)
 class TokenController(
-    @Inject private val authorizationCodeManager: AuthorizationCodeManager,
-    @Inject private val tokenManager: TokenManager,
-    @Inject private val scopeManager: ScopeManager,
     @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil,
-    @Inject private val pkceManager: PkceManager,
-    @Inject private val clientScopeGrantingManager: ClientScopeGrantingManager,
-    @Inject private val tokenExchangeManager: TokenExchangeManager,
+    @Inject private val tokenRequestManager: TokenRequestManager,
     @Inject private val dpopManager: DpopManager,
     @Inject private val uncheckedAuthConfig: AuthConfig
 ) {
@@ -126,9 +113,9 @@ class TokenController(
             ]
         )
         grantType: String?,
-        @Part(CODE_PARAM)
+        @Part(TokenRequestManager.CODE_PARAM)
         @Schema(
-            name = CODE_PARAM,
+            name = TokenRequestManager.CODE_PARAM,
             description = "Authorization code the browser brought back to the `redirect_uri` of the " +
                 "authorization request. It expires `auth.authorization-code.expiration` after this server " +
                 "issued it. It is exchanged once: a later exchange is refused, and one passing every other " +
@@ -136,9 +123,9 @@ class TokenController(
                 "the `authorization_code` grant."
         )
         code: String?,
-        @Part(REFRESH_TOKEN_PARAM)
+        @Part(TokenRequestManager.REFRESH_TOKEN_PARAM)
         @Schema(
-            name = REFRESH_TOKEN_PARAM,
+            name = TokenRequestManager.REFRESH_TOKEN_PARAM,
             description = "Refresh token to exchange. Required for the `refresh_token` grant."
         )
         refreshToken: String?,
@@ -166,24 +153,24 @@ class TokenController(
                 "from, RFC 7636 §4.5. Required for the `authorization_code` grant."
         )
         codeVerifier: String?,
-        @Part(SUBJECT_TOKEN_PARAM)
+        @Part(TokenRequestManager.SUBJECT_TOKEN_PARAM)
         @Schema(
-            name = SUBJECT_TOKEN_PARAM,
+            name = TokenRequestManager.SUBJECT_TOKEN_PARAM,
             description = "Access token the client itself obtained with the `client_credentials` grant, " +
                 "RFC 8693 §2.1. The issued token names the client as its actor. Required for the token " +
                 "exchange grant."
         )
         subjectToken: String? = null,
-        @Part(SUBJECT_TOKEN_TYPE_PARAM)
+        @Part(TokenRequestManager.SUBJECT_TOKEN_TYPE_PARAM)
         @Schema(
-            name = SUBJECT_TOKEN_TYPE_PARAM,
+            name = TokenRequestManager.SUBJECT_TOKEN_TYPE_PARAM,
             description = "Type of `subject_token`, RFC 8693 §2.1. Required for the token exchange grant.",
             allowableValues = ["urn:ietf:params:oauth:token-type:access_token"]
         )
         subjectTokenType: String? = null,
-        @Part(REQUESTED_SUBJECT_PARAM)
+        @Part(TokenRequestManager.REQUESTED_SUBJECT_PARAM)
         @Schema(
-            name = REQUESTED_SUBJECT_PARAM,
+            name = TokenRequestManager.REQUESTED_SUBJECT_PARAM,
             description = "Identifier of the user the client acts for. Required for the token exchange grant."
         )
         requestedSubject: String? = null,
@@ -230,7 +217,6 @@ class TokenController(
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(
                     request, clientId, clientSecret
                 )
-                checkClientSupportsGrantType(client, GrantType.AUTHORIZATION_CODE)
                 getTokensUsingAuthorizationCode(
                     client = client,
                     code = code,
@@ -241,7 +227,6 @@ class TokenController(
 
             GrantType.REFRESH_TOKEN -> {
                 val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
-                checkClientSupportsGrantType(client, GrantType.REFRESH_TOKEN)
                 getTokensUsingRefreshToken(
                     client = client,
                     encodedRefreshToken = refreshToken,
@@ -251,7 +236,6 @@ class TokenController(
 
             GrantType.CLIENT_CREDENTIALS -> {
                 val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
-                checkClientSupportsGrantType(client, GrantType.CLIENT_CREDENTIALS)
                 getTokensUsingClientCredentials(
                     client = client,
                     scope = scope,
@@ -261,7 +245,6 @@ class TokenController(
 
             GrantType.TOKEN_EXCHANGE -> {
                 val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
-                checkClientSupportsGrantType(client, GrantType.TOKEN_EXCHANGE)
                 getTokensUsingTokenExchange(
                     client = client,
                     subjectToken = subjectToken,
@@ -288,31 +271,15 @@ class TokenController(
         codeVerifier: String?,
         dpopProof: DpopProof?
     ): TokenResource {
-        if (code.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to CODE_PARAM)
-        }
-
-        val (authorizationCode, grant) = authorizationCodeManager.checkCanExchange(
-            authorizationCodeManager.findByCodeOrNull(code), client
+        val tokens = tokenRequestManager.exchangeAuthorizationCode(
+            client = client,
+            code = code,
+            codeVerifier = codeVerifier,
+            dpopJkt = dpopProof?.jkt
         )
-
-        // Verify PKCE before issuing tokens
-        try {
-            pkceManager.verifyCodeVerifier(
-                codeVerifier = codeVerifier,
-                codeChallenge = authorizationCode.codeChallenge,
-                codeChallengeMethod = authorizationCode.codeChallengeMethod
-            )
-        } catch (e: BusinessException) {
-            throw e.toOAuth2Exception(INVALID_GRANT)
-        }
-
-        val tokens = tokenManager.generateTokensForUser(authorizationCode, grant, client, dpopJkt = dpopProof?.jkt)
-        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
-
         return TokenResource(
             accessToken = tokens.accessToken.token,
-            tokenType = tokenType,
+            tokenType = getTokenType(dpopProof),
             expiresIn = getExpiresIn(tokens.accessToken),
             scope = getScope(tokens.accessToken),
             refreshToken = tokens.refreshToken?.token,
@@ -325,17 +292,12 @@ class TokenController(
         encodedRefreshToken: String?,
         dpopProof: DpopProof?
     ): TokenResource {
-        if (encodedRefreshToken.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to REFRESH_TOKEN_PARAM)
-        }
-        val tokens = tokenManager.refreshToken(client, encodedRefreshToken, dpopJkt = dpopProof?.jkt)
-        val accessToken = tokens.accessToken
-        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
+        val tokens = tokenRequestManager.refreshTokens(client, encodedRefreshToken, dpopJkt = dpopProof?.jkt)
         return TokenResource(
-            accessToken = accessToken.token,
-            tokenType = tokenType,
-            expiresIn = getExpiresIn(accessToken),
-            scope = getScope(accessToken),
+            accessToken = tokens.accessToken.token,
+            tokenType = getTokenType(dpopProof),
+            expiresIn = getExpiresIn(tokens.accessToken),
+            scope = getScope(tokens.accessToken),
             refreshToken = tokens.refreshToken?.token ?: encodedRefreshToken,
             idToken = tokens.idToken?.token
         )
@@ -346,27 +308,10 @@ class TokenController(
         scope: String?,
         dpopProof: DpopProof?
     ): TokenResource {
-        // Every BusinessException this call throws refuses a scope the client asked for, so each one is
-        // invalid_scope. A server failure thrown as one would reach the client as invalid_scope too; a scopes
-        // configuration that failed to load throws a LocalizedException instead, and still answers 500.
-        val requestedScopes = try {
-            scopeManager.parseRequestedClientScopes(client, scope)
-        } catch (e: BusinessException) {
-            throw e.toOAuth2Exception(INVALID_SCOPE)
-        }
-        val grantResult = clientScopeGrantingManager.grantClientScopes(client, requestedScopes)
-        val scopeStrings = grantResult.grantedScopes.map { it.scope }
-
-        val accessToken = tokenManager.generateAccessTokenForClient(
-            client = client,
-            clientScopes = scopeStrings,
-            dpopJkt = dpopProof?.jkt
-        )
-        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
-
+        val accessToken = tokenRequestManager.generateClientToken(client, scope, dpopJkt = dpopProof?.jkt)
         return TokenResource(
             accessToken = accessToken.token,
-            tokenType = tokenType,
+            tokenType = getTokenType(dpopProof),
             expiresIn = getExpiresIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = null,
@@ -384,36 +329,19 @@ class TokenController(
         audience: String?,
         dpopProof: DpopProof?
     ): TokenResource {
-        if (subjectToken.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to SUBJECT_TOKEN_PARAM)
-        }
-        if (subjectTokenType.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to SUBJECT_TOKEN_TYPE_PARAM)
-        }
-        if (requestedSubject.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to REQUESTED_SUBJECT_PARAM)
-        }
-        // requested_token_type is optional, but when present we only support issuing access tokens.
-        if (requestedTokenType != null && requestedTokenType != TokenExchangeManager.ACCESS_TOKEN_TYPE) {
-            throw oauth2ExceptionOf(
-                INVALID_REQUEST, "token_exchange.unsupported_requested_token_type", "type" to requestedTokenType
-            )
-        }
-
-        val accessToken = tokenExchangeManager.exchangeForActAsToken(
-            actingClient = client,
+        val accessToken = tokenRequestManager.exchangeForActAsToken(
+            client = client,
             subjectToken = subjectToken,
             subjectTokenType = subjectTokenType,
             requestedSubject = requestedSubject,
+            requestedTokenType = requestedTokenType,
             resource = resource,
             audience = audience,
             dpopJkt = dpopProof?.jkt
         )
-        val tokenType = if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
-
         return TokenResource(
             accessToken = accessToken.token,
-            tokenType = tokenType,
+            tokenType = getTokenType(dpopProof),
             expiresIn = getExpiresIn(accessToken),
             scope = getScope(accessToken),
             refreshToken = null,
@@ -422,16 +350,8 @@ class TokenController(
         )
     }
 
-    private fun checkClientSupportsGrantType(client: Client, grantType: GrantType) {
-        if (!client.supportsGrantType(grantType)) {
-            throw oauth2ExceptionOf(
-                OAuth2ErrorCode.UNAUTHORIZED_CLIENT,
-                "token.unauthorized_grant_type",
-                "description.token.unauthorized_grant_type",
-                "grantType" to grantType.wireName
-            )
-        }
-    }
+    private fun getTokenType(dpopProof: DpopProof?): String =
+        if (dpopProof != null) TOKEN_TYPE_DPOP else TOKEN_TYPE_BEARER
 
     private fun getScope(accessToken: EncodedAuthenticationToken): String? {
         return accessToken.scopes
@@ -455,11 +375,6 @@ class TokenController(
     companion object {
         const val OAUTH2_TOKEN_ENDPOINT = "/api/oauth2/token"
         const val GRANT_TYPE_PARAM = "grant_type"
-        const val CODE_PARAM = "code"
-        const val REFRESH_TOKEN_PARAM = "refresh_token"
-        const val SUBJECT_TOKEN_PARAM = "subject_token"
-        const val SUBJECT_TOKEN_TYPE_PARAM = "subject_token_type"
-        const val REQUESTED_SUBJECT_PARAM = "requested_subject"
         const val TOKEN_TYPE_BEARER = "bearer"
         const val TOKEN_TYPE_DPOP = "DPoP"
     }

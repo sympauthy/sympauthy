@@ -8,14 +8,16 @@ import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
-import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
+import com.sympauthy.monitoring.telemetry.TokenMetrics
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -23,7 +25,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
 import io.mockk.spyk
-import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -52,7 +54,8 @@ class AuthorizationCodeManagerTest {
      * The real manager behind a spy: whether a grant was opened for the client presenting it is a function of
      * the two alone, so the scenarios run it rather than stub an answer to it.
      */
-    private val grantManager = spyk(GrantManager(mockk(), mockk(), mockk(), mockk(), mockk()))
+    private val grantManager =
+        spyk(GrantManager(mockk(), mockk(), mockk(), mockk(), mockk(), TokenMetrics(OpenTelemetry.noop())))
     private val authConfig = EnabledAuthConfig(
         issuer = "https://auth.example.com",
         token = mockk(),

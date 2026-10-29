@@ -2,8 +2,8 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.CollectedClaimMapper
@@ -15,6 +15,7 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -23,6 +24,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -47,7 +49,7 @@ class CollectedClaimManagerTest {
      * `withLock` would run the block whether or not anything was ever locked, and the key naming the value
      * as `collected_claims` spells it is half of what makes this agree with the promotion.
      */
-    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
 
     @MockK
     lateinit var collectedClaimRepository: CollectedClaimRepository

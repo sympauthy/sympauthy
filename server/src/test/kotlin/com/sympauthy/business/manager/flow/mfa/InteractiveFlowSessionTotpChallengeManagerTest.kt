@@ -5,10 +5,15 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.attributes
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -27,6 +32,11 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
 
+    private val metrics = InMemoryMetrics()
+
+    @SpyK
+    var authenticationMetrics = AuthenticationMetrics(metrics.openTelemetry)
+
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionTotpChallengeManager
 
@@ -42,6 +52,26 @@ class InteractiveFlowSessionTotpChallengeManagerTest {
         val result = manager.validateTotpChallenge(session, user, "123456")
 
         assertSame(updatedSession, result)
+    }
+
+    @Test
+    fun `validateTotpChallenge - Records a refused code as a refused second factor`() = runTest {
+        coEvery { totpManager.isCodeValidForUser(user, "000000") } returns false
+
+        assertThrows<BusinessException> { manager.validateTotpChallenge(session, user, "000000") }
+
+        assertEquals(
+            1,
+            metrics.value(
+                AUTHENTICATION_ATTEMPTS,
+                attributes(
+                    "method" to "totp",
+                    "kind" to "second_factor",
+                    "outcome" to "refused",
+                    "error.type" to "flow.mfa.totp.challenge.invalid_code"
+                )
+            )
+        )
     }
 
     @Test

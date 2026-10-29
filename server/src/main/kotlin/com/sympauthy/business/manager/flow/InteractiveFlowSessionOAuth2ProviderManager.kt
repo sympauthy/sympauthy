@@ -7,11 +7,10 @@ import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProvid
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
-import com.sympauthy.business.manager.security.UserSecurityContextManager
-import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -27,12 +26,18 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
+import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PROVIDER
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
 import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -69,7 +74,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val conditionMonitor: ConditionMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
 ) {
 
     private val logger = loggerForClass()
@@ -155,6 +161,38 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         providerError: String? = null,
         providerErrorDescription: String? = null
     ): InteractiveFlowSession {
+        // Only the callback that created the account is a sign-up; a session it confirms or links may carry an
+        // earlier one.
+        var createdAccount = false
+        return authenticationMetrics.recordAttempt(
+            method = PROVIDER,
+            // An id the configuration does not declare is the caller's to choose, and is not recorded.
+            providerId = providerId?.takeIf(providerConfigManager::isDeclared),
+            kind = SIGN_IN,
+            judge = Throwable::toOutcome,
+            successKind = { if (createdAccount) SIGN_UP else SIGN_IN }
+        ) {
+            signInOrSignUpUsingProvider(
+                session, providerId, redirectUri, authorizeCode, observedRequest, providerError,
+                providerErrorDescription
+            ) { createdAccount = it }
+        }
+    }
+
+    /**
+     * What the public [signInOrSignUpUsingProvider] does, handing [onAccountCreated] whether resolving the
+     * callback created the account.
+     */
+    private suspend fun signInOrSignUpUsingProvider(
+        session: OnGoingInteractiveFlowSession,
+        providerId: String?,
+        redirectUri: URI,
+        authorizeCode: String?,
+        observedRequest: ObservedRequest,
+        providerError: String?,
+        providerErrorDescription: String?,
+        onAccountCreated: (Boolean) -> Unit
+    ): InteractiveFlowSession {
         // Check if the provider returned an error instead of a code.
         if (!providerError.isNullOrBlank()) {
             throw businessExceptionOf(
@@ -217,6 +255,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
             existingUserInfo.userId to false
         }
+        onAccountCreated(signedUp)
         val updatedSession = sessionManager.setAuthenticatedUserId(session, userId, signedUp = signedUp)
         // Stamped before the flow advances: completing it is what folds the observation into the person's
         // record. The provider round-trip landed in their own browser, so this is their address.
@@ -456,7 +495,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             authorizeCode = authorizeCode,
             redirectUri = redirectUri
         )
-        val response = conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+        val response = remoteCallMonitor.observe(Condition.Provider(provider.id), "token", Throwable::remoteOutcome) {
             tokenEndpointClient.fetchTokens(request)
         }
 

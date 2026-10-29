@@ -14,9 +14,9 @@ import java.lang.management.MemoryUsage
  * The runtime metrics a native image can fill, read from the platform's management beans on every export.
  *
  * Heap memory per pool, thread count, process CPU time and count, under the names OpenTelemetry's semantic
- * conventions give them, and each garbage collector's collection count and accumulated time under this
- * server's own names, since the conventions' `jvm.gc.duration` is built from notifications a native image
- * never sends. `docs/design/telemetry.md` says why nothing else is exported.
+ * conventions give them, and each garbage collector's collection count and accumulated time under the names
+ * OpenTelemetry's JMX metrics give them, since the conventions' `jvm.gc.duration` is built from notifications a
+ * native image never sends. `docs/design/telemetry.md` says why nothing else is exported.
  */
 @Context
 @Requires(property = TELEMETRY_ENABLED, notEquals = "false")
@@ -33,10 +33,10 @@ class RuntimeMetrics(
     private val garbageCollectors = ManagementFactory.getGarbageCollectorMXBeans()
 
     private val instruments: List<AutoCloseable> = listOf(
-        heapMemory("jvm.memory.used", "Measure of memory used.") { it.used },
-        heapMemory("jvm.memory.committed", "Measure of memory committed.") { it.committed },
-        heapMemory("jvm.memory.limit", "Measure of max obtainable memory.") { it.max.takeIf { max -> max >= 0 } },
-        meter.upDownCounterBuilder("jvm.thread.count")
+        heapMemory(JVM_MEMORY_USED, "Measure of memory used.") { it.used },
+        heapMemory(JVM_MEMORY_COMMITTED, "Measure of memory committed.") { it.committed },
+        heapMemory(JVM_MEMORY_LIMIT, "Measure of max obtainable memory.") { it.max.takeIf { max -> max >= 0 } },
+        meter.upDownCounterBuilder(JVM_THREAD_COUNT)
             .setDescription("Number of executing platform threads.")
             .setUnit("{thread}")
             .buildWithCallback { measurement ->
@@ -44,7 +44,7 @@ class RuntimeMetrics(
                 measurement.record(daemon, Attributes.of(JVM_THREAD_DAEMON, true))
                 measurement.record(threads.threadCount - daemon, Attributes.of(JVM_THREAD_DAEMON, false))
             },
-        meter.counterBuilder("jvm.cpu.time")
+        meter.counterBuilder(JVM_CPU_TIME)
             .ofDoubles()
             .setDescription("CPU time used by the process as reported by the JVM.")
             .setUnit("s")
@@ -52,29 +52,26 @@ class RuntimeMetrics(
                 val nanos = operatingSystem?.processCpuTime ?: -1
                 if (nanos >= 0) measurement.record(nanos / NANOS_PER_SECOND)
             },
-        meter.upDownCounterBuilder("jvm.cpu.count")
+        meter.upDownCounterBuilder(JVM_CPU_COUNT)
             .setDescription("Number of processors available to the Java virtual machine.")
             .setUnit("{cpu}")
             .buildWithCallback { it.record(Runtime.getRuntime().availableProcessors().toLong()) },
-        meter.counterBuilder("sympauthy.gc.collection.count")
-            .setDescription("Number of collections each garbage collector has run.")
-            .setUnit("{collection}")
+        meter.counterBuilder(JVM_GC_COLLECTIONS_COUNT)
+            .setDescription("The total number of garbage collections that have occurred.")
+            .setUnit("1")
             .buildWithCallback { measurement ->
                 garbageCollectors.forEach { collector ->
                     val count = collector.collectionCount
-                    if (count >= 0) measurement.record(count, Attributes.of(JVM_GC_NAME, collector.name))
+                    if (count >= 0) measurement.record(count, Attributes.of(GC_NAME, collector.name))
                 }
             },
-        meter.counterBuilder("sympauthy.gc.collection.time")
-            .ofDoubles()
-            .setDescription("Time each garbage collector has spent collecting, in total.")
-            .setUnit("s")
+        meter.counterBuilder(JVM_GC_COLLECTIONS_ELAPSED)
+            .setDescription("The approximate accumulated collection elapsed time.")
+            .setUnit("ms")
             .buildWithCallback { measurement ->
                 garbageCollectors.forEach { collector ->
                     val millis = collector.collectionTime
-                    if (millis >= 0) {
-                        measurement.record(millis / MILLIS_PER_SECOND, Attributes.of(JVM_GC_NAME, collector.name))
-                    }
+                    if (millis >= 0) measurement.record(millis, Attributes.of(GC_NAME, collector.name))
                 }
             },
     )
@@ -103,14 +100,22 @@ class RuntimeMetrics(
     }
 
     companion object {
+        const val JVM_MEMORY_USED = "jvm.memory.used"
+        const val JVM_MEMORY_COMMITTED = "jvm.memory.committed"
+        const val JVM_MEMORY_LIMIT = "jvm.memory.limit"
+        const val JVM_THREAD_COUNT = "jvm.thread.count"
+        const val JVM_CPU_TIME = "jvm.cpu.time"
+        const val JVM_CPU_COUNT = "jvm.cpu.count"
+        const val JVM_GC_COLLECTIONS_COUNT = "jvm.gc.collections.count"
+        const val JVM_GC_COLLECTIONS_ELAPSED = "jvm.gc.collections.elapsed"
+
         private const val INSTRUMENTATION_SCOPE = "com.sympauthy.runtime"
         private const val HEAP = "heap"
         private const val NANOS_PER_SECOND = 1_000_000_000.0
-        private const val MILLIS_PER_SECOND = 1_000.0
 
         private val JVM_MEMORY_TYPE = AttributeKey.stringKey("jvm.memory.type")
         private val JVM_MEMORY_POOL_NAME = AttributeKey.stringKey("jvm.memory.pool.name")
         private val JVM_THREAD_DAEMON = AttributeKey.booleanKey("jvm.thread.daemon")
-        private val JVM_GC_NAME = AttributeKey.stringKey("jvm.gc.name")
+        private val GC_NAME = AttributeKey.stringKey("name")
     }
 }

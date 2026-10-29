@@ -6,13 +6,18 @@ import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SECOND_FACTOR
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.TOTP
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
 @Singleton
 class InteractiveFlowSessionTotpChallengeManager(
     @Inject private val totpManager: TotpManager,
-    @Inject private val sessionManager: InteractiveFlowSessionManager
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
 ) {
 
     /**
@@ -29,13 +34,13 @@ class InteractiveFlowSessionTotpChallengeManager(
         session: OnGoingInteractiveFlowSession,
         user: User,
         code: String?
-    ): InteractiveFlowSession {
+    ): InteractiveFlowSession = authenticationMetrics.recordAttempt(TOTP, null, SECOND_FACTOR, Throwable::toOutcome) {
         if (code.isNullOrBlank() || !totpManager.isCodeValidForUser(user, code)) {
             throw recoverableBusinessExceptionOf(
                 detailsId = "flow.mfa.totp.challenge.invalid_code",
                 descriptionId = "description.flow.mfa.totp.challenge.invalid_code"
             )
         }
-        return sessionManager.setMfaPassed(session)
+        return@recordAttempt sessionManager.setMfaPassed(session)
     }
 }

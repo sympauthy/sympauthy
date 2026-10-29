@@ -33,7 +33,8 @@ the other half — [how the system works](../design/index.md).
 - **[Logging standard](logging-standard.md)** — the level a line is written at, how its message
   is built, what it may never carry, and how a dependency's failure is reported instead of logged.
 - **[Telemetry standard](telemetry-standard.md)** — what the server exports to a collector and
-  through what, what an exported attribute may carry, and how an instrument is named.
+  through what, what an exported attribute may carry, how an instrument is named, and how an event
+  a metric counts says how it ended.
 - **[Comment standard](comment-standard.md)** — what a KDoc carries, and where the rationale that
   does not belong in one goes instead.
 - **[Testing standard](testing-standard.md)** — what each kind of subject is tested with, where its
