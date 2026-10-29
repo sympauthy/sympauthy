@@ -18,8 +18,12 @@ import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.Insufficient
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.security.UserAuthentication
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -34,6 +38,7 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -65,9 +70,14 @@ class UserClaimControllerTest {
 
     private val userId: UUID = UUID.randomUUID()
 
-    private val user = mockk<User> { every { id } returns userId }
+    private val user = User(
+        id = userId,
+        status = UserStatus.ENABLED,
+        creationDate = LocalDateTime.of(2026, 6, 1, 12, 0, 0),
+        sessionId = null
+    )
 
-    private val audience = mockk<Audience> { every { id } returns AUDIENCE }
+    private val audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE)
 
     private val client = Client(
         id = "client",
@@ -109,7 +119,10 @@ class UserClaimControllerTest {
         // The ACL pass and the write are left unstubbed: reaching the assertion is proof the identifier was
         // refused before either of them, whatever the deployment opened over the claim.
         val exception = assertThrows<BusinessException> {
-            controller.updateClaims(authentication(), mapOf(UNKNOWN_CLAIM to "whatever", EMAIL_CLAIM to EMAIL))
+            controller.updateClaims(
+                authentication(reachesTheAcl = false),
+                mapOf(UNKNOWN_CLAIM to "whatever", EMAIL_CLAIM to EMAIL)
+            )
         }
 
         assertEquals("user.identifier_claim", exception.detailsId)
@@ -123,7 +136,7 @@ class UserClaimControllerTest {
         every { claimManager.findByIdOrNull(UNKNOWN_CLAIM) } returns null
 
         val exception = assertThrows<BusinessException> {
-            controller.updateClaims(authentication(), mapOf(UNKNOWN_CLAIM to "whatever"))
+            controller.updateClaims(authentication(reachesTheAcl = false), mapOf(UNKNOWN_CLAIM to "whatever"))
         }
 
         assertEquals("user.invalid_claim", exception.detailsId)
@@ -132,13 +145,13 @@ class UserClaimControllerTest {
 
     @Test
     fun `updateClaims - Refuse a claim of another audience rather than ignore it`() = runTest {
-        val billingClaim = claim(TIER_CLAIM, belongsToAudience = false)
+        val billingClaim = claim(TIER_CLAIM, audienceId = "billing")
         coEvery { userManager.findById(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns emptyList()
         every { claimManager.findByIdOrNull(TIER_CLAIM) } returns billingClaim
 
         val exception = assertThrows<BusinessException> {
-            controller.updateClaims(authentication(), mapOf(TIER_CLAIM to "gold"))
+            controller.updateClaims(authentication(reachesTheAcl = false), mapOf(TIER_CLAIM to "gold"))
         }
 
         assertEquals("user.invalid_claim", exception.detailsId)
@@ -199,7 +212,7 @@ class UserClaimControllerTest {
         val generatedClaimValues = mapOf<String, Any?>("sub" to userId.toString())
         val resource = mockk<UserClaimResource>()
 
-        stubClaims(doors)
+        stubClaims(doors, nameClaim)
         every { collectedClaimUpdateMapper.toUpdates(body) } returns updates
         coEvery {
             consentAwareCollectedClaimManager.updateByPerson(user, audience, updates, doors)
@@ -214,33 +227,41 @@ class UserClaimControllerTest {
 
     /**
      * The person's authentication, through a bearer token issued to the [client] under a grant of the [user].
+     * What the ACL reads off it is stubbed only where the call [reachesTheAcl].
      */
-    private fun authentication(): UserAuthentication {
+    private fun authentication(reachesTheAcl: Boolean = true): UserAuthentication {
         val grant = mockk<Grant> {
             every { userId } returns this@UserClaimControllerTest.userId
-            every { authenticationDate } returns null
+            if (reachesTheAcl) every { authenticationDate } returns null
         }
         val token = mockk<AuthenticationToken> {
             every { this@mockk.grant } returns grant
-            every { dpopJkt } returns null
+            if (reachesTheAcl) every { dpopJkt } returns null
         }
         return UserAuthentication(token, client, emptyList(), emptyList())
     }
 
-    private fun claim(id: String, belongsToAudience: Boolean = true): EnabledClaim = mockk {
-        every { this@mockk.id } returns id
-        every { belongsToAudience(AUDIENCE) } returns belongsToAudience
-    }
+    private fun claim(id: String, audienceId: String? = null): EnabledClaim = PersonalClaim(
+        id = id,
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        group = null,
+        required = false,
+        allowedValues = null,
+        audienceId = audienceId,
+        publishedIn = emptySet(),
+        publishedInWhenRequested = emptySet(),
+        acl = ClaimAcl.SHUT
+    )
 
     /**
-     * What every call reaching the ACL reads first: the account, no identifier claim, the two claims of the
-     * audience by their ids, and the [doors] they are asked through.
+     * What every call reaching the ACL reads first: the account, no identifier claim, the [claims] the body
+     * names by their ids, and the [doors] they are asked through.
      */
-    private fun stubClaims(doors: ClaimAclTokenDoors) {
+    private fun stubClaims(doors: ClaimAclTokenDoors, vararg claims: EnabledClaim = arrayOf(nameClaim, nicknameClaim)) {
         coEvery { userManager.findById(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns emptyList()
-        every { claimManager.findByIdOrNull(NAME_CLAIM) } returns nameClaim
-        every { claimManager.findByIdOrNull(NICKNAME_CLAIM) } returns nicknameClaim
+        claims.forEach { claim -> every { claimManager.findByIdOrNull(claim.id) } returns claim }
         every { claimAclManager.getTokenDoors(any(), any()) } returns doors
     }
 

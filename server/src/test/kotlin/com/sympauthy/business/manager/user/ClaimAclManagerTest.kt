@@ -29,8 +29,8 @@ class ClaimAclManagerTest {
 
     private val client = mockk<Client>()
 
-    private fun claim(acl: ClaimAcl) = PersonalClaim(
-        id = "phone_number",
+    private fun claim(acl: ClaimAcl, id: String = "phone_number") = PersonalClaim(
+        id = id,
         verifiedId = null,
         dataType = ClaimDataType.STRING,
         group = null,
@@ -261,9 +261,9 @@ class ClaimAclManagerTest {
 
     @Test
     fun `getPersonWriteChallenges - Name a scope two claims share once`() {
-        val claim = claim(ClaimAcl.SHUT.copy(writableByPerson = consentedTo("profile:write")))
+        val acl = ClaimAcl.SHUT.copy(writableByPerson = consentedTo("profile:write"))
 
-        val challenges = manager.getPersonWriteChallenges(listOf(claim, claim.copy(id = "name")), context(), NOW)
+        val challenges = manager.getPersonWriteChallenges(listOf(claim(acl), claim(acl, id = "name")), context(), NOW)
 
         assertEquals(listOf(WwwAuthenticateChallenge.InsufficientScope(listOf("profile:write"))), challenges)
     }
