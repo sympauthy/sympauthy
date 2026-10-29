@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.flow.TimeZoneResourceMapper
 import com.sympauthy.api.resource.provider.TimeZoneResource
 import com.sympauthy.business.exception.BusinessException
@@ -10,9 +11,11 @@ import com.sympauthy.business.manager.user.TimeZoneClaimValueProvider
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.security.observedRequestOf
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.TimeZone
 import com.sympauthy.security.StateAuthentication
+import io.micronaut.http.HttpStatus
 import io.mockk.Called
 import io.mockk.coEvery
 import io.mockk.every
@@ -65,6 +68,7 @@ class TimeZoneControllerTest {
                 mockk(), mockk()
             )
         }
+        every { claim.dataType } returns ClaimDataType.TIMEZONE
         every { claimManager.findByIdOrNull("zoneinfo") } returns claim
         coEvery { timeZoneProvider.listAvailableTimezones(claim) } returns timeZones
         every { timeZoneResourceMapper.toResources(timeZones) } returns resources
@@ -72,6 +76,30 @@ class TimeZoneControllerTest {
         val result = controller.listTimeZones(StateAuthentication("encoded-state"), observed, "zoneinfo")
 
         assertSame(resources, result)
+    }
+
+    @Test
+    fun `listTimeZones - Answer not found for a claim that is not of type timezone`() = runTest {
+        val claim = mockk<EnabledClaim> {
+            every { dataType } returns ClaimDataType.EMAIL
+        }
+        coEvery {
+            interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenRun<List<TimeZoneResource>>(
+                any(), any(), any()
+            )
+        } coAnswers {
+            arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> List<TimeZoneResource>>(2)(
+                mockk(), mockk()
+            )
+        }
+        every { claimManager.findByIdOrNull("email") } returns claim
+
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.listTimeZones(StateAuthentication("encoded-state"), observed, "email")
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+        verify { timeZoneProvider wasNot Called }
     }
 
     @Test

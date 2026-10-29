@@ -11,6 +11,7 @@ import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.TimeZoneClaimValueProvider
 import com.sympauthy.business.model.security.ObservedRequest
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Controller
@@ -48,7 +49,10 @@ class TimeZoneController(
                 description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_ONGOING_SESSION_BAD_REQUEST_DESCRIPTION
             ),
             ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION),
-            ApiResponse(responseCode = "404", description = "- `not_found`: `claimId` names no enabled claim.")
+            ApiResponse(
+                responseCode = "404",
+                description = "- `not_found`: `claimId` names no enabled claim of type `timezone`."
+            )
         ],
         tags = ["flow"]
     )
@@ -60,7 +64,9 @@ class TimeZoneController(
         state = authentication.stateOrNull,
         observedRequest = observedRequest
     ) { _, _ ->
-        val claim = claimManager.findByIdOrNull(claimId).orNotFound()
+        val claim = claimManager.findByIdOrNull(claimId)
+            ?.takeIf { it.dataType == ClaimDataType.TIMEZONE }
+            .orNotFound()
         val timeZones = timeZoneProvider.listAvailableTimezones(claim)
         timeZoneResourceMapper.toResources(timeZones)
     }
