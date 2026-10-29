@@ -1,10 +1,10 @@
 package com.sympauthy.security
 
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import com.sympauthy.business.model.oauth2.ClientScope
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.mockk.every

@@ -14,10 +14,10 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
@@ -485,4 +485,35 @@ class GrantManagerTest {
         every { this@mockk.id } returns id
         every { audience.id } returns audienceId
     }
+
+    /** A grant asked for nothing but the account it names. */
+    private fun grantNaming(userId: UUID?): Grant = mockk { every { this@mockk.userId } returns userId }
+
+    @Test
+    fun `checkUserPromoted - Accept a grant naming an account a sign-up finished`() = runTest {
+        val userId = UUID.randomUUID()
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+
+        grantManager().checkUserPromoted(grantNaming(userId))
+    }
+
+    @Test
+    fun `checkUserPromoted - Refuse a grant naming an account no sign-up finished`() = runTest {
+        val userId = UUID.randomUUID()
+        coEvery { userManager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<OAuth2Exception> { grantManager().checkUserPromoted(grantNaming(userId)) }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("grant.invalid_user", exception.detailsId)
+        assertEquals("description.grant.invalid_user", exception.descriptionId)
+    }
+
+    @Test
+    fun `checkUserPromoted - Accept a grant naming no user without reading an account`() = runTest {
+        grantManager().checkUserPromoted(grantNaming(userId = null))
+
+        coVerify(exactly = 0) { userManager.findByIdOrNull(any()) }
+    }
+
 }

@@ -10,6 +10,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
+import com.sympauthy.business.model.oauth2.UncheckedAuthorizationRequest
 import com.sympauthy.business.model.security.observedRequestOf
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -163,16 +164,20 @@ class AuthorizeControllerTest {
 
         coEvery {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "client",
-                uncheckedClientState = "my-state",
-                uncheckedClientNonce = null,
-                uncheckedScopes = "openid profile",
-                uncheckedRedirectUri = "https://example.com/callback",
-                uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null,
-                uncheckedMaxAge = null,
-                uncheckedClaims = null
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = "https://example.com/callback",
+                    scopes = "openid profile",
+                    state = "my-state",
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
             )
         } returns (session to flow)
 
@@ -206,13 +211,20 @@ class AuthorizeControllerTest {
 
         coEvery {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "my-client",
-                uncheckedClientState = "my-state",
-                uncheckedClientNonce = "my-nonce",
-                uncheckedScopes = "openid email",
-                uncheckedRedirectUri = "https://example.com/cb",
-                uncheckedCodeChallenge = "challenge123",
-                uncheckedCodeChallengeMethod = "S256"
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = "https://example.com/cb",
+                    scopes = "openid email",
+                    state = "my-state",
+                    nonce = "my-nonce",
+                    codeChallenge = "challenge123",
+                    codeChallengeMethod = "S256",
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
             )
         } returns (session to flow)
 
@@ -235,13 +247,20 @@ class AuthorizeControllerTest {
 
         coVerify(exactly = 1) {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "my-client",
-                uncheckedClientState = "my-state",
-                uncheckedClientNonce = "my-nonce",
-                uncheckedScopes = "openid email",
-                uncheckedRedirectUri = "https://example.com/cb",
-                uncheckedCodeChallenge = "challenge123",
-                uncheckedCodeChallengeMethod = "S256"
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = "https://example.com/cb",
+                    scopes = "openid email",
+                    state = "my-state",
+                    nonce = "my-nonce",
+                    codeChallenge = "challenge123",
+                    codeChallengeMethod = "S256",
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
             )
         }
     }
@@ -254,15 +273,20 @@ class AuthorizeControllerTest {
 
         coEvery {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "my-client",
-                uncheckedClientState = null,
-                uncheckedClientNonce = null,
-                uncheckedScopes = null,
-                uncheckedRedirectUri = null,
-                uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null,
-                uncheckedRequest = "eyJhbGciOiJub25lIn0.e30.",
-                uncheckedRequestUri = "https://client.example.com/request.jwt"
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = "eyJhbGciOiJub25lIn0.e30.",
+                    requestObjectUri = "https://client.example.com/request.jwt"
+                )
             )
         } returns (session to flow)
 
@@ -287,15 +311,20 @@ class AuthorizeControllerTest {
 
         coVerify(exactly = 1) {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "my-client",
-                uncheckedClientState = null,
-                uncheckedClientNonce = null,
-                uncheckedScopes = null,
-                uncheckedRedirectUri = null,
-                uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null,
-                uncheckedRequest = "eyJhbGciOiJub25lIn0.e30.",
-                uncheckedRequestUri = "https://client.example.com/request.jwt"
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = "eyJhbGciOiJub25lIn0.e30.",
+                    requestObjectUri = "https://client.example.com/request.jwt"
+                )
             )
         }
     }
@@ -308,16 +337,20 @@ class AuthorizeControllerTest {
 
         coEvery {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "client",
-                uncheckedClientState = null,
-                uncheckedClientNonce = null,
-                uncheckedScopes = null,
-                uncheckedRedirectUri = null,
-                uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null,
-                uncheckedMaxAge = null,
-                uncheckedClaims = null
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
             )
         } returns (session to flow)
 
@@ -340,16 +373,20 @@ class AuthorizeControllerTest {
 
         coVerify(exactly = 1) {
             interactiveAuthFlowSessionManager.startAuthorizationWith(
-                uncheckedClientId = "client",
-                uncheckedClientState = null,
-                uncheckedClientNonce = null,
-                uncheckedScopes = null,
-                uncheckedRedirectUri = null,
-                uncheckedCodeChallenge = null,
-                uncheckedCodeChallengeMethod = null,
-                uncheckedInvitationToken = null,
-                uncheckedMaxAge = null,
-                uncheckedClaims = null
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
             )
         }
     }

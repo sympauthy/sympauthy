@@ -9,11 +9,11 @@ import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jose.util.Base64URL
 import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.DpopProof
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri

@@ -1,23 +1,23 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.RequestedClaimsManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
+import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
-import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.UncheckedAuthorizationRequest
+import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.EnabledClientTemplatesConfig
@@ -378,11 +378,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = null,
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = null
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = null,
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("client.parse_requested.missing", errorSlot.captured?.detailsId)
@@ -410,11 +419,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "unknown",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = null
+            UncheckedAuthorizationRequest(
+                clientId = "unknown",
+                redirectUri = null,
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("client.invalid_client_id", errorSlot.captured?.detailsId)
@@ -445,11 +463,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback"
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertSame(defaultFlow, flowSlot.captured)
@@ -489,11 +516,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = "invalid_scope",
-            uncheckedRedirectUri = "https://example.com/callback"
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = "invalid_scope",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("scope.unsupported", errorSlot.captured?.detailsId)
@@ -521,11 +557,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = null,
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = "openid",
-            uncheckedRedirectUri = null
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = null,
+                scopes = "openid",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         coVerify(exactly = 0) { scopeManager.parseRequestedScopes(any(), any()) }
@@ -560,11 +605,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = ""
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("client.redirect_uri.missing", errorSlot.captured?.detailsId)
@@ -600,12 +654,20 @@ class InteractiveAuthFlowSessionManagerTest {
             } returns mockk()
 
             manager.startAuthorizationWith(
-                uncheckedClientId = "client",
-                uncheckedClientState = null,
-                uncheckedClientNonce = null,
-                uncheckedScopes = null,
-                uncheckedRedirectUri = null,
-                uncheckedRequestUri = "https://client.example.com/request.jwt"
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = "https://client.example.com/request.jwt"
+                )
             )
 
             assertEquals("authorize.request_uri.unsupported", errorSlot.captured?.detailsId)
@@ -633,11 +695,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = null,
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback"
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         verify(exactly = 0) { clientRedirectUriManager.parseRequestedRedirectUri(any(), any(), any()) }
@@ -672,13 +743,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback",
-            uncheckedCodeChallenge = null,
-            uncheckedCodeChallengeMethod = null
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("authorize.pkce.missing_code_challenge", errorSlot.captured?.detailsId)
@@ -710,13 +788,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback",
-            uncheckedCodeChallenge = "my-challenge",
-            uncheckedCodeChallengeMethod = "S256"
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = "my-challenge",
+                codeChallengeMethod = "S256",
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("my-challenge", challengeSlot.captured)
@@ -746,11 +831,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = null,
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = "invalid",
-            uncheckedRedirectUri = ""
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = "",
+                scopes = "invalid",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("client.parse_requested.missing", errorSlot.captured?.detailsId)
@@ -790,11 +884,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = "invalid",
-            uncheckedRedirectUri = ""
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "",
+                scopes = "invalid",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         // Scope error comes before redirect_uri error in the listOfNotNull
@@ -826,11 +929,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = "my-state-value",
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback"
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = "my-state-value",
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("my-state-value", stateSlot.captured)
@@ -865,12 +977,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback",
-            uncheckedClaims = claims
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = claims,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals(requested, requestedSlot.captured)
@@ -905,13 +1025,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = null,
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback",
-            uncheckedCodeChallenge = "challenge",
-            uncheckedClaims = "not-json"
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = "challenge",
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = "not-json",
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("claim.parse_requested.invalid", errorSlot.captured?.detailsId)
@@ -942,11 +1069,20 @@ class InteractiveAuthFlowSessionManagerTest {
         } returns mockk()
 
         manager.startAuthorizationWith(
-            uncheckedClientId = "client",
-            uncheckedClientState = null,
-            uncheckedClientNonce = "my-nonce-value",
-            uncheckedScopes = null,
-            uncheckedRedirectUri = "https://example.com/callback"
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = "my-nonce-value",
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
         )
 
         assertEquals("my-nonce-value", nonceSlot.captured)

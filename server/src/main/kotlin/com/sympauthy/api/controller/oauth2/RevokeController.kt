@@ -7,9 +7,8 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.controller.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
-import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.api.controller.oauth2.util.getRequiredParam
+import com.sympauthy.business.manager.token.TokenManager
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
@@ -90,10 +89,8 @@ class RevokeController(
         clientSecret: String?,
     ): HttpResponse<Unit> {
         val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
-        if (token.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to TOKEN_PARAM)
-        }
-        tokenManager.revokeTokenByEncodedToken(client, token)
+        val requiredToken = getRequiredParam(token, TOKEN_PARAM)
+        tokenManager.revokeTokenByEncodedToken(client, requiredToken)
         return HttpResponse.ok()
     }
 

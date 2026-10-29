@@ -8,9 +8,9 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager.Companion.DPOP_HEADER
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
+import com.sympauthy.business.manager.token.TokenManager
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof

@@ -12,8 +12,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
@@ -92,6 +92,20 @@ open class GrantManager(
             grant.revoked -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
             grant.expired -> throw oauth2ExceptionOf(INVALID_GRANT, "grant.expired", "description.grant.expired")
         }
+    }
+
+    /**
+     * Refuse [grant] where it names a user that is not an account this server has finished creating, as an
+     * `OAuth2Exception` carrying `invalid_grant` and `grant.invalid_user`. A grant naming no user passes.
+     *
+     * A token is what turns an account into one another system will act on, so none is issued under a grant
+     * whose account a sign-up has not finished, however the request reached this point. The account is read
+     * through the reader of committed accounts alone, which answers an unfinished one as no account at all.
+     */
+    suspend fun checkUserPromoted(grant: Grant) {
+        val userId = grant.userId ?: return
+        userManager.findByIdOrNull(userId)
+            ?: throw oauth2ExceptionOf(INVALID_GRANT, "grant.invalid_user", "description.grant.invalid_user")
     }
 
     /**

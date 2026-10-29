@@ -1,14 +1,13 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.oauth2.RequestedClaimsManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
+import com.sympauthy.business.manager.flow.AuthorizationFlowManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
@@ -84,45 +83,34 @@ class InteractiveAuthFlowSessionManager(
     }
 
     /**
-     * Create a new [InteractiveFlowSession] for the end-user.
+     * Create a new [InteractiveFlowSession] for the end-user, answering [authorizationRequest].
      *
      * This method is in charge of:
-     * - validating the [uncheckedClientId]. Redirect the user to the error page of the default interactive auth flow in
+     * - validating the client id. Redirect the user to the error page of the default interactive auth flow in
      *   case of error.
      * - selecting the flow: Either the one provided by the [Client] or the default one.
-     * - refusing a request object, in [uncheckedRequest] or behind [uncheckedRequestUri], which
-     *   [checkRequestObject] explains.
-     * - validating the [uncheckedScopes]. Redirect the user to the error page of the selected flow in case of error.
-     * - validating the [uncheckedRedirectUri]. Redirect the user to the error page of the selected flow in case of
+     * - refusing a request object, carried by the request or behind its URL, which [checkRequestObject]
+     *   explains.
+     * - validating the scopes. Redirect the user to the error page of the selected flow in case of error.
+     * - validating the redirect URI. Redirect the user to the error page of the selected flow in case of
      *   error.
-     * - validating the [uncheckedInvitationToken] if provided: checks that the invitation exists, is pending, and
+     * - validating the invitation token if provided: checks that the invitation exists, is pending, and
      *   belongs to the same audience as the client. The invitation ID is stored on the session's OAuth2 record.
-     * - validating the [uncheckedMaxAge] if provided, which [checkMaxAge] explains is all this server has to
+     * - validating the `max_age` if provided, which [checkMaxAge] explains is all this server has to
      *   do with it.
-     * - parsing the [uncheckedClaims] if provided, dropping every name no enabled claim answers to, so the
+     * - parsing the `claims` if provided, dropping every name no enabled claim answers to, so the
      *   session records claim ids. What a name there is allowed to add is the claim's own
      *   `published-in-when-requested`.
      * - creating the [InteractiveFlowSession].
      *
-     * Parameters are expected to be non-validated as this method will perform the validation and assign default values
-     * if necessary.
+     * The parameters of [authorizationRequest] are expected to be non-validated as this method will perform the
+     * validation and assign default values if necessary.
      */
     suspend fun startAuthorizationWith(
-        uncheckedClientId: String?,
-        uncheckedClientState: String?,
-        uncheckedClientNonce: String?,
-        uncheckedScopes: String?,
-        uncheckedRedirectUri: String?,
-        uncheckedCodeChallenge: String? = null,
-        uncheckedCodeChallengeMethod: String? = null,
-        uncheckedInvitationToken: String? = null,
-        uncheckedMaxAge: String? = null,
-        uncheckedClaims: String? = null,
-        uncheckedRequest: String? = null,
-        uncheckedRequestUri: String? = null
+        authorizationRequest: UncheckedAuthorizationRequest
     ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
-            val client = clientManager.parseRequestedClient(uncheckedClientId)
+            val client = clientManager.parseRequestedClient(authorizationRequest.clientId)
             if (!client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
                 throw businessExceptionOf(
                     detailsId = "authorize.unauthorized_grant_type",
@@ -146,13 +134,16 @@ class InteractiveAuthFlowSessionManager(
             defaultFlow to null
         }
 
-        val requestObjectException = checkRequestObject(uncheckedRequest, uncheckedRequestUri)
+        val requestObjectException = checkRequestObject(
+            uncheckedRequest = authorizationRequest.requestObject,
+            uncheckedRequestUri = authorizationRequest.requestObjectUri
+        )
 
         val (scopes, scopeException) = if (client != null) {
             try {
                 scopeManager.parseRequestedScopes(
                     client = client,
-                    uncheckedScopes = uncheckedScopes
+                    uncheckedScopes = authorizationRequest.scopes
                 ) to null
             } catch (e: BusinessException) {
                 emptyList<EnabledScope>() to e
@@ -165,7 +156,7 @@ class InteractiveAuthFlowSessionManager(
             try {
                 clientRedirectUriManager.parseRequestedRedirectUri(
                     client = client,
-                    uncheckedRedirectUri = uncheckedRedirectUri,
+                    uncheckedRedirectUri = authorizationRequest.redirectUri,
                     recoverable = false
                 ) to null
             } catch (e: BusinessException) {
@@ -176,21 +167,22 @@ class InteractiveAuthFlowSessionManager(
         }
 
         val (requestedClaims, requestedClaimsException) = try {
-            requestedClaimsManager.parseRequestedClaims(uncheckedClaims) to null
+            requestedClaimsManager.parseRequestedClaims(authorizationRequest.claims) to null
         } catch (e: BusinessException) {
             RequestedClaims.NONE to e
         }
 
         val (codeChallenge, codeChallengeMethod, pkceException) = parseCodeChallenge(
-            uncheckedCodeChallenge = uncheckedCodeChallenge,
-            uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod
+            uncheckedCodeChallenge = authorizationRequest.codeChallenge,
+            uncheckedCodeChallengeMethod = authorizationRequest.codeChallengeMethod
         )
 
-        val maxAgeException = checkMaxAge(uncheckedMaxAge)
+        val maxAgeException = checkMaxAge(authorizationRequest.maxAge)
 
-        val (invitation, invitationException) = if (!uncheckedInvitationToken.isNullOrBlank() && client != null) {
+        val invitationToken = authorizationRequest.invitationToken
+        val (invitation, invitationException) = if (!invitationToken.isNullOrBlank() && client != null) {
             try {
-                invitationManager.validateToken(uncheckedInvitationToken, client.audience) to null
+                invitationManager.validateToken(invitationToken, client.audience) to null
             } catch (e: BusinessException) {
                 null to e
             }
@@ -200,8 +192,8 @@ class InteractiveAuthFlowSessionManager(
 
         val session = oauth2Manager.startOAuth2Session(
             client = client,
-            clientState = uncheckedClientState,
-            clientNonce = uncheckedClientNonce,
+            clientState = authorizationRequest.state,
+            clientNonce = authorizationRequest.nonce,
             flow = flow,
             scopes = scopes,
             requestedClaims = requestedClaims,

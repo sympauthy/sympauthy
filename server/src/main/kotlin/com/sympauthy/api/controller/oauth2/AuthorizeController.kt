@@ -1,14 +1,15 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
-import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
 import com.sympauthy.business.model.oauth2.ResponseType
+import com.sympauthy.business.model.oauth2.UncheckedAuthorizationRequest
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.util.enumValueOfWireNameOrNull
 import io.micronaut.http.HttpResponse
@@ -230,18 +231,20 @@ open class AuthorizeController(
         return when (enumValueOfWireNameOrNull<ResponseType>(responseType)) {
             ResponseType.CODE -> authorizeWithCodeFlow(
                 observedRequest = observedRequest,
-                uncheckedClientId = uncheckedClientId,
-                uncheckedClientState = uncheckedClientState,
-                uncheckedClientNonce = uncheckedClientNonce,
-                uncheckedScopes = uncheckedScopes,
-                uncheckedRedirectUri = uncheckedRedirectUri,
-                uncheckedCodeChallenge = uncheckedCodeChallenge,
-                uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
-                uncheckedInvitationToken = uncheckedInvitationToken,
-                uncheckedMaxAge = uncheckedMaxAge,
-                uncheckedClaims = uncheckedClaims,
-                uncheckedRequest = uncheckedRequest,
-                uncheckedRequestUri = uncheckedRequestUri
+                authorizationRequest = UncheckedAuthorizationRequest(
+                    clientId = uncheckedClientId,
+                    redirectUri = uncheckedRedirectUri,
+                    scopes = uncheckedScopes,
+                    state = uncheckedClientState,
+                    nonce = uncheckedClientNonce,
+                    codeChallenge = uncheckedCodeChallenge,
+                    codeChallengeMethod = uncheckedCodeChallengeMethod,
+                    invitationToken = uncheckedInvitationToken,
+                    maxAge = uncheckedMaxAge,
+                    claims = uncheckedClaims,
+                    requestObject = uncheckedRequest,
+                    requestObjectUri = uncheckedRequestUri
+                )
             )
 
             null -> throw oauth2ExceptionOf(
@@ -253,33 +256,9 @@ open class AuthorizeController(
 
     private suspend fun authorizeWithCodeFlow(
         observedRequest: ObservedRequest,
-        uncheckedClientId: String?,
-        uncheckedClientState: String?,
-        uncheckedClientNonce: String?,
-        uncheckedScopes: String?,
-        uncheckedRedirectUri: String?,
-        uncheckedCodeChallenge: String?,
-        uncheckedCodeChallengeMethod: String?,
-        uncheckedInvitationToken: String?,
-        uncheckedMaxAge: String?,
-        uncheckedClaims: String?,
-        uncheckedRequest: String?,
-        uncheckedRequestUri: String?
+        authorizationRequest: UncheckedAuthorizationRequest
     ): HttpResponse<*> {
-        val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(
-            uncheckedClientId = uncheckedClientId,
-            uncheckedClientState = uncheckedClientState,
-            uncheckedClientNonce = uncheckedClientNonce,
-            uncheckedScopes = uncheckedScopes,
-            uncheckedRedirectUri = uncheckedRedirectUri,
-            uncheckedCodeChallenge = uncheckedCodeChallenge,
-            uncheckedCodeChallengeMethod = uncheckedCodeChallengeMethod,
-            uncheckedInvitationToken = uncheckedInvitationToken,
-            uncheckedMaxAge = uncheckedMaxAge,
-            uncheckedClaims = uncheckedClaims,
-            uncheckedRequest = uncheckedRequest,
-            uncheckedRequestUri = uncheckedRequestUri
-        )
+        val (session, flow) = interactiveAuthFlowSessionManager.startAuthorizationWith(authorizationRequest)
         interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 
         val (steppedSession, step) = engine.advance(session)

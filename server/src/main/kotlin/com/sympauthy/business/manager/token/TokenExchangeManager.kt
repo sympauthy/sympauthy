@@ -1,22 +1,22 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.token
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.api.exception.toOAuth2Exception
-import com.sympauthy.business.exception.InvalidJwtException
+import com.sympauthy.api.exception.withRefusalAs
 import com.sympauthy.business.manager.actas.ActAsRuleManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ClaimAclManager
+import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
+import com.sympauthy.business.model.token.AuthenticationToken
+import com.sympauthy.business.model.token.EncodedAuthenticationToken
+import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.config.model.AudiencesConfig
 import com.sympauthy.config.model.orThrow
@@ -47,49 +47,32 @@ open class TokenExchangeManager(
 ) {
 
     /**
-     * Exchange the acting client's own client-credentials [subjectToken] for an identity-only access token that acts on
-     * behalf of the user whose id [requestedSubject] carries (Phase 1). [actingClient] is the authenticated
-     * confidential client presenting that token and is the actor the issued token records; [subjectTokenType] says
-     * what [subjectToken] is, and must be [ACCESS_TOKEN_TYPE].
+     * Exchange the acting client's own client-credentials access token [request] carries as its subject token
+     * for an identity-only access token that acts on behalf of the user whose id it names as the requested
+     * subject (Phase 1). [actingClient] is the authenticated confidential client presenting that token and is
+     * the actor the issued token records.
      *
-     * [audience] and [resource] are the two ways RFC 8693 lets a client name where the token is going, and only the
-     * first is honoured here. [audience] is the logical name of the target service and the only input that resolves
-     * the issued token's audience; [resource] is a URI the server would map to a policy, which this server does not
-     * implement, so it is rejected when present rather than ignored. Passing [dpopJkt] binds the issued token to that
-     * JWK thumbprint, and leaving it null issues a bearer token.
+     * The audience [request] names is the logical name of the target service and the only input that resolves
+     * the issued token's audience. Passing [dpopJkt] binds the issued token to that JWK thumbprint, and leaving
+     * it null issues a bearer token.
      *
-     * The token is issued under a grant the exchange opens, which records the grant of [subjectToken]: revoking
-     * that grant revokes this one, and a token of this one is refused once that grant is no longer live. It
-     * expires no later than [subjectToken] does.
+     * The token is issued under a grant the exchange opens, which records the grant of the subject token:
+     * revoking that grant revokes this one, and a token of this one is refused once that grant is no longer
+     * live. It expires no later than the subject token does.
      */
     @Transactional
     open suspend fun exchangeForActAsToken(
         actingClient: Client,
-        subjectToken: String,
-        subjectTokenType: String,
-        requestedSubject: String,
-        resource: String? = null,
-        audience: String? = null,
+        request: TokenRequest.TokenExchange,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
-        if (subjectTokenType != ACCESS_TOKEN_TYPE) {
-            throw oauth2ExceptionOf(
-                INVALID_REQUEST, "token_exchange.unsupported_subject_token_type", "type" to subjectTokenType
-            )
-        }
-        // `resource` selects a policy for a target URI, which this server does not implement yet; it must never be
-        // silently ignored (it would change where the client believes the token is usable), so reject it when present.
-        if (!resource.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.unsupported_resource")
-        }
+        val actorToken = validateActorSubjectToken(actingClient, request.subjectToken)
 
-        val actorToken = validateActorSubjectToken(actingClient, subjectToken)
-
-        val targetUser = resolveTargetUser(requestedSubject)
+        val targetUser = resolveTargetUser(request.requestedSubject)
         // Resolved before the rule runs, because the audience the token is being issued for is what decides
         // which of the target user's claims a rule may be keyed on: that audience is where the token goes and
         // where what the rule decides ends up, and it is not always the acting client's own.
-        val targetAudience = resolveTargetAudience(actingClient, audience)
+        val targetAudience = resolveTargetAudience(actingClient, request.audience)
         val targetClaims = collectedClaimManager.findByUserIdAndAudience(targetUser, targetAudience.id)
 
         // RFC 8693 §2.2.2 answers a subject unacceptable by policy with `invalid_request`.
@@ -117,10 +100,8 @@ open class TokenExchangeManager(
         actingClient: Client,
         subjectToken: String
     ): AuthenticationToken {
-        val decodedToken = try {
+        val decodedToken = withRefusalAs(INVALID_GRANT) {
             jwtManager.decodeAndVerify(ACCESS_KEY, subjectToken)
-        } catch (e: InvalidJwtException) {
-            throw e.toOAuth2Exception(INVALID_GRANT)
         }
 
         // getAuthenticationToken throws if the token is unknown, its grant revoked or its subject does not match.
@@ -178,12 +159,5 @@ open class TokenExchangeManager(
         val audiences = uncheckedAudiencesConfig.orThrow().audiences
         return audiences.firstOrNull { it.tokenAudience == audience || it.id == audience }
             ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to audience)
-    }
-
-    companion object {
-        /**
-         * RFC 8693 token type identifier for an OAuth 2.0 access token.
-         */
-        const val ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token"
     }
 }

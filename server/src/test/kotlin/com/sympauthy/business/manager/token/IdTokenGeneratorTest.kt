@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.token
 
 import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.GeneratedClaimsManager
@@ -9,26 +9,26 @@ import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.BuiltInGrantableScopeId
-import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
-import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
+import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.EnabledAuthConfig

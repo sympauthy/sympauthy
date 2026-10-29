@@ -3,10 +3,10 @@ package com.sympauthy.security
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.GrantableUserScope
 import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
@@ -14,11 +14,11 @@ import io.micronaut.http.HttpStatus
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import java.time.LocalDateTime
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
