@@ -48,7 +48,13 @@ class MonitoredConnectionFactoryListener(
 }
 
 /**
- * The connection factory the driver created, under the [MonitoredConnectionFactory] in front of it.
+ * The connection factory the driver created, under every factory wrapped in front of it.
  */
 val ConnectionFactory.driverConnectionFactory: ConnectionFactory
-    get() = (this as? MonitoredConnectionFactory)?.unwrap() ?: this
+    get() {
+        var factory = this
+        while (factory is Wrapped<*>) {
+            factory = factory.unwrap() as? ConnectionFactory ?: break
+        }
+        return factory
+    }

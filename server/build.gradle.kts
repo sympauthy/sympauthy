@@ -115,6 +115,12 @@ dependencies {
     // Named by logback.xml, which places it beside the console's queue rather than behind it, and detached by
     // the server when telemetry is off.
     implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0")
+    // A query's span, opened from r2dbc-proxy's callbacks by an instrumenter of the server's own, and its
+    // statement sanitized by the instrumentation's own analyzer.
+    implementation(libs.r2dbc.proxy)
+    implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api")
+    implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-incubator")
+    implementation("io.opentelemetry.semconv:opentelemetry-semconv")
 
     // Expression evaluation: for scope granting rules
     implementation(libs.evalex)

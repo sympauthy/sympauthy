@@ -1,8 +1,9 @@
 # Telemetry
 
-What the server exports about itself to an OpenTelemetry collector: a span per request it serves
-and per call it makes, the metrics that come with them and with the runtime, the metrics an
-authorization server is run by, and every log record stamped with the trace it was written under.
+What the server exports about itself to an OpenTelemetry collector: a span per request it serves,
+per call it makes and per query a request sends its database, the metrics that come with them and
+with the runtime, the metrics an authorization server is run by, and every log record stamped with
+the trace it was written under.
 All of it leaves through one SDK, over one exporter, to one collector a deployment names, and none
 of it leaves until one is named.
 
@@ -54,21 +55,46 @@ ships:
 - `/health.*` excluded from tracing, since a liveness probe every few seconds would otherwise be the
   most-traced route in a deployment.
 
-**An exclusion a deployment writes replaces the shipped one rather than adding to it.**
-`otel.exclusions` is a list of regular expressions, and a list in a deployment's file replaces the
-list it overrides, so a deployment excluding a route of its own keeps `/health.*` by writing it
-again.
+## Logs
 
-| Signal | What arrives |
-| --- | --- |
-| traces | a server span per request, named by its route; a client span per call to a provider or a webhook, under the span of the request it was made for |
-| metrics | the duration of every request served and every call made, keyed by route, method and status; [what an authorization server counts](#what-an-authorization-server-counts); the runtime metrics below |
-| logs | every record logback is handed, at every level, carrying the trace and span it was written under |
+**Every record logback is handed is exported, at every level, carrying the trace and span it was
+written under.** A line written while a request was served is read at the collector beside that
+request's spans.
 
-**The HTTP instrumentation is the framework's own.** What it cannot say about an authorization
-server, the server counts itself.
+### What a record carries
 
-## What an authorization server counts
+**A log record carries what the line carries.** The record is the line, its level and its logger,
+held to [the logging standard](../standards/logging-standard.md)'s rule that no line carries a
+credential.
+
+### How a record reaches the SDK
+
+**The appender is OpenTelemetry's, and `logback.xml` places it beside the console's queue, not
+behind it.** The tracing module installs the SDK into it once the application has started. The
+trace a record is stamped with is read from the thread that logged it, so a record handed to the queue's thread
+first would carry none. What it costs the caller is the record built there, with a logged
+throwable's stack trace rendered as text, and one add to the SDK's queue. The same file
+silences the SDK's own loggers, which write through `java.util.logging`, by setting the levels
+logback propagates to them.
+
+**With telemetry off, the server detaches the appender at startup.** `logback.xml` is read before
+the flag can be, so the appender is always attached; with no SDK ever installed into it, it would
+hold every record it is handed until its queue of a thousand filled, then say so on stderr.
+
+## Metrics
+
+**The duration of every request served and every call made arrives keyed by route, method and
+status**, beside [what an authorization server counts](#what-an-authorization-server-counts) and
+[the runtime metrics](#only-the-runtime-metrics-a-native-image-can-fill). Each is exported as its
+running total, every ten seconds.
+
+### What the framework measures
+
+**The HTTP instrumentation is the framework's own.** The request durations come from the
+instrumenters that open the spans, on the same resource and under the same attributes. What they
+cannot say about an authorization server, the server counts itself.
+
+### What an authorization server counts
 
 **A request's duration by route does not answer what an operator is asked.** One route serves every
 grant at the token endpoint, a flow page answers `200` whether the person moved on or was sent
@@ -125,10 +151,12 @@ always reached by a call — see [the design
 FAQ](design-faq.md#are-a-condition-and-the-calls-reported-to-it-one-metric). `error` is exactly a
 call that degraded its condition, and `refused` an answer to what was sent, which recovers it as a
 success does; either is typed by `timeout`, `connection` or the status. The collector's exports
-report to its condition alone, since it recovers only once every signal has; the database is only a
-condition, and no call to it is timed. A provider's id token is checked locally, and only the fetch
-of its key set is a call, `jwks`, which the JWT library makes outside the HTTP client the framework
-instruments.
+report to its condition alone, since it recovers only once every signal has. A provider's id token
+is checked locally, and only the fetch of its key set is a call, `jwks`, which the JWT library makes
+outside the HTTP client the framework instruments.
+
+**The database is only a condition, and no metric times a query.** A query's span says how long it
+took; whether a histogram over every query earns its series is left open below.
 
 **A scheduled job's run ends `success`, `error`, or `skipped` where another instance holds its
 lease, and a failing run is reported rather than thrown.** Thrown, it ended in the default handler
@@ -145,35 +173,7 @@ loop stalls only its own share. The thread count says nothing, since every pool 
 idle; the pool `suspend` routes resume on is measured by the tasks running on it, as Micrometer's
 `executor.active` under `name` `request`.
 
-## What leaves with it
-
-**No query string leaves.** A query is replaced whole with `REDACTED`, both in `url.query` and in
-the query half of `url.full`. This server's URLs carry credentials there — the invitation token an
-authorization request binds to a flow, the code and the state a provider redirects back with — and
-a list of the parameters safe to keep would go stale the next time a specification adds one, in
-silence. Nothing is lost that matters: the route names the endpoint, and the path says what was
-asked for. See [the design FAQ](design-faq.md#is-a-query-string-redacted-parameter-by-parameter).
-
-**It is redacted where the request's attributes are gathered, not where spans are exported.** The
-span and the request's duration are both recorded from those attributes, and a histogram's
-exemplar keeps the ones its series is not keyed by: a rule applied to spans alone still exports the
-query, inside the metric.
-
-**The path stays, and the distinction is the point.** A path under `/api/v1/admin/users/{userId}`
-names a person, and it is kept: an identifier names somebody the operator can already look up in
-their own database, while a credential lets whoever reads it act as them. An operator running the
-collector already holds the users table; they should not also hold a working authorization code.
-
-**A header is exported only when a deployment names it.** `otel.http.server.request-headers` and
-its client and response twins copy a named header onto every span, and on this server the
-interesting-looking ones are `Authorization`, `Cookie` and `DPoP`. None is named by default.
-
-**A log record and an exception carry what the line carries.** The record is the line, its level
-and its logger, held to [the logging standard](../standards/logging-standard.md)'s rule that no line
-carries a credential; an exception a failed request recorded on its span carries its message and
-stack trace, written by this server under the same rule.
-
-## Only the runtime metrics a native image can fill
+### Only the runtime metrics a native image can fill
 
 **The production artifact is a native image, and most of what the platform's management beans
 report is empty there.** A probe built with GraalVM 25, its Serial collector and no monitoring
@@ -204,6 +204,121 @@ only GC metric is the per-pause duration.
 instrumentation registers all of its readings or none, and the empty non-heap pool is a series of
 the heap metrics rather than an instrument that could be left out — see [the design
 FAQ](design-faq.md#are-the-runtime-metrics-read-through-opentelemetrys-runtime-instrumentation).
+
+### Where the instruments live
+
+**The instruments are in `monitoring/telemetry/`, one class per subject.** They are built on the
+`OpenTelemetry` bean, OpenTelemetry's no-op while telemetry is off, so the code recording them has
+one path either way. `Throwable.toOutcome()`, in `exception/`, is the one place a failure becomes an
+`outcome` and an `error.type`; `RemoteCallMonitor`, in `monitoring/`, is the one place a remote call
+is timed and reported to `ConditionMonitor`. The runtime metrics are read beside the customizer that
+wraps the exporters.
+
+## Traces
+
+**A server span arrives per request, named by its route, with a client span under it per call to a
+provider or a webhook and per query sent to the database.** A request reads as one timeline, from
+its route down to every call and query it waited on.
+
+### What a trace holds
+
+**`/health.*` is excluded, and an exclusion a deployment writes replaces the shipped one rather than
+adding to it.** `otel.exclusions` is a list of regular expressions, and a list in a deployment's
+file replaces the list it overrides, so a deployment excluding a route of its own keeps `/health.*`
+by writing it again.
+
+**A trace survives the `suspend` boundaries of a request.** The tracing module carries it on
+Micronaut's propagated context rather than in a thread local, and that is what puts the client span
+of a webhook call under the server span of the request that made it; a flat trace is the symptom of
+it breaking.
+
+### The queries a request makes
+
+**Every query a request makes is a client span under the span of that request.** A sign-in then
+reads as its route, the queries it waited on in the order it made them, and the provider or webhook
+calls between them, on one timeline. See [the design
+FAQ](design-faq.md#is-a-query-traced-as-a-span-or-read-from-the-databases-statistics).
+
+**A span carries what the semantic conventions name for a database call, under their names.**
+`db.system.name` is `postgresql`, or `h2database` for H2; `db.namespace` is the database's name,
+`server.address` and `server.port` its server's; `db.query.text` is the statement and
+`db.query.summary` the operation and the tables it names, which the span is named by. A query the
+database refuses carries its SQL state as `db.response.status_code` and `error.type`. The database's
+user is not exported.
+
+**A query made outside a request opens no span.** A scheduled job's sweep and the work the server
+does at startup have no request around them, so each would open a trace of its own, and a job
+sweeping a table every few seconds would be the most-traced thing at the collector — the reason
+`/health` is excluded. What a job does is [counted](#what-an-authorization-server-counts) instead.
+See [the design FAQ](design-faq.md#is-a-query-made-outside-a-request-traced).
+
+**The migration is not traced.** It runs before the server serves anything, over a JDBC connection
+of its own, and its outcome is the startup log's.
+
+**A deployment turns database spans off alone with `otel.instrumentation.r2dbc.enabled: false`**,
+the key OpenTelemetry's own R2DBC instrumentation is turned off by, and keeps the rest of the
+telemetry on. With telemetry off, nothing stands between a repository and its driver, as nothing
+stands in front of a request. The database's condition is reported alike, telemetry on or off.
+
+### What a span carries
+
+**No query string leaves.** A query is replaced whole with `REDACTED`, both in `url.query` and in
+the query half of `url.full`. This server's URLs carry credentials there — the invitation token an
+authorization request binds to a flow, the code and the state a provider redirects back with — and
+a list of the parameters safe to keep would go stale the next time a specification adds one, in
+silence. Nothing is lost that matters: the route names the endpoint, and the path says what was
+asked for. See [the design FAQ](design-faq.md#is-a-query-string-redacted-parameter-by-parameter).
+
+**It is redacted where the request's attributes are gathered, not where spans are exported.** The
+span and the request's duration are both recorded from those attributes, and a histogram's
+exemplar keeps the ones its series is not keyed by: a rule applied to spans alone still exports the
+query, inside the metric.
+
+**A statement leaves with every value in it replaced by `?`.** The server binds its values, so what
+it sends the database holds none; a literal written into a statement is replaced too, since a
+token's hash, an email address and a claim's value are what a query compares against, and nothing
+tells a value written there apart from one of them. A quoted identifier is kept, so a statement
+still says what it read. See [the design
+FAQ](design-faq.md#is-a-statement-exported-with-a-query-span).
+
+**The statement is kept rather than dropped.** It is what says which query a slow span was, and
+with its values replaced it says nothing the server's source does not.
+
+**It is replaced before the span is started**, when the query is described, so the statement as
+sent never reaches the SDK.
+
+**The path stays, and the distinction is the point.** A path under `/api/v1/admin/users/{userId}`
+names a person, and it is kept: an identifier names somebody the operator can already look up in
+their own database, while a credential lets whoever reads it act as them. An operator running the
+collector already holds the users table; they should not also hold a working authorization code.
+
+**A header is exported only when a deployment names it.** `otel.http.server.request-headers` and
+its client and response twins copy a named header onto every span, and on this server the
+interesting-looking ones are `Authorization`, `Cookie` and `DPoP`. None is named by default.
+
+**An exception carries what a log line carries.** An exception a failed request recorded on its
+span carries its message and stack trace, written by this server under [the logging
+standard](../standards/logging-standard.md)'s rule that no line carries a credential.
+
+### How the spans are opened
+
+**The tracing module's filters open the spans of the HTTP server and client, and the server's own
+extractors redact their query.** There are two, one for the server and one for the client, ordered
+after the framework's own, and they overwrite rather than remove because the builder they
+are handed cannot remove an attribute once it is set.
+
+**A query is traced by an instrumenter of the server's own, over r2dbc-proxy.**
+`QueryTracingConnectionFactoryFactory` replaces the framework's connection factory, under the flag
+and `otel.instrumentation.r2dbc.enabled`, with the driver's factory behind a proxy that calls back
+before and after each query. The span is opened through OpenTelemetry's instrumentation API, and the
+statement replaced by OpenTelemetry's own SQL analyzer. Neither Micronaut's R2DBC tracing module nor
+OpenTelemetry's R2DBC library is used — see [the design
+FAQ](design-faq.md#are-database-spans-opentelemetrys-r2dbc-instrumentation-or-the-servers-own). The
+migration's data source is built from the driver's factory, which `driverConnectionFactory` reads
+through every factory wrapped in front of it.
+
+**A query reads its trace from the thread it is sent from**, and where that is one of the PostgreSQL
+driver's event loops, which holds none, from the propagated context the reactive chain carries.
 
 ## When the collector does not answer
 
@@ -244,49 +359,45 @@ change of state does.
 
 ## What implements it
 
-**Micronaut's tracing module builds the SDK and instruments the HTTP server and client.** Its
-factory reads every `otel` key and hands the result to the SDK's own autoconfiguration; its filters
-open the spans, and the request durations come from the same instrumenters. The log appender is
-OpenTelemetry's, installed by the module once the application has started. Every bean of it is
-conditioned on `micronaut.otel.enabled` not being `false`, and so is every bean the server adds.
-
-**The instruments are in `monitoring/telemetry/`, one class per subject.** They are built on the
-`OpenTelemetry` bean, OpenTelemetry's no-op while telemetry is off, so the code recording them has
-one path either way. `Throwable.toOutcome()`, in `exception/`, is the one place a failure becomes an
-`outcome` and an `error.type`; `RemoteCallMonitor`, in `monitoring/`, is the one place a remote call
-is timed and reported to `ConditionMonitor`.
+**Micronaut's tracing module builds the SDK.** Its factory reads every `otel` key and hands the
+result to the SDK's own autoconfiguration. Every bean of it is conditioned on
+`micronaut.otel.enabled` not being `false`, and so is every bean the server adds.
 
 **What the server adds to the framework's integration is in `monitoring/telemetry/`, beside the
-conditions it reports to.** Two
-attribute extractors, one for the server and one for the client, redact the query; they are ordered
-after the framework's own, and they overwrite rather than remove because the builder they are handed
-cannot remove an attribute once it is set. A customizer wraps every exporter the SDK builds so that
-each export is reported to the collector's condition, and the runtime metrics are read there too. A
-second customizer adds the instance's id to the resource the SDK builds.
-They report on the server rather than serve anything, which by [the architecture's
-test](architecture.md#beside-the-layers) puts them beside the layers.
-
-**`logback.xml` places the appender beside the console's queue, not behind it.** The trace a record
-is stamped with is read from the thread that logged it, so a record handed to the queue's thread
-first would carry none. What it costs the caller is the record built there, with a logged
-throwable's stack trace rendered as text, and one add to the SDK's queue. The same file
-silences the SDK's own loggers, which write through `java.util.logging`, by setting the levels
-logback propagates to them.
-
-**With telemetry off, the server detaches the appender at startup.** `logback.xml` is read before
-the flag can be, so the appender is always attached; with no SDK ever installed into it, it would
-hold every record it is handed until its queue of a thousand filled, then say so on stderr.
+conditions it reports to.** A customizer wraps every exporter the SDK builds so that each export is
+reported to the collector's condition, and a second adds the instance's id to the resource the SDK
+builds; the signals' own additions are under each of them above. They report on the server rather
+than serve anything, which by [the architecture's test](architecture.md#beside-the-layers) puts them
+beside the layers.
 
 **The exporter sends over the JDK's HTTP client.** The default sender is OkHttp, a second HTTP stack
 and a second Kotlin runtime in a distroless image for one POST the JDK already makes. It speaks
 `http/protobuf` alone: no sender for `grpc` ships with the server.
 
-**A trace survives the `suspend` boundaries of a request.** The tracing module carries it on
-Micronaut's propagated context rather than in a thread local, and that is what puts the client span
-of a webhook call under the server span of the request that made it; a flat trace is the symptom of
-it breaking.
-
 ## What this document does not settle
+
+### Every signal
+
+**A key under `otel` written wrong.** It is ignored in silence, where a key under a prefix the
+server declares takes readiness down — [the `config` layer
+standard](../standards/config-layer-code-standard.md) says why the framework's keys cannot be held
+to that.
+
+**A record of security events.** An audit trail is a different object, with a different retention
+and a different audience, from the operational records exported here.
+
+**A scenario exporting to a collector.** The integration suite runs no server against one. The
+unit tests prove the redaction, a query's span and the reports to the collector's condition, piece
+by piece; what the server assembled sends — the trace across a webhook call, nothing at all with the
+flag off — no test checks.
+
+### Logs
+
+**The appender after a refresh.** A context refresh reloads `logback.xml` and attaches an appender
+that is neither handed the SDK nor detached, so until a restart its records stop reaching the
+collector, or are held until its queue fills. Nothing in the server refreshes its context.
+
+### Metrics
 
 **The database's connection pool.** The server opens none, so `db.client.connection.*` waits for
 one.
@@ -294,8 +405,22 @@ one.
 **The metrics left for later.** Consents and grants opened, the mail queue's depth, signing times,
 refused claim writes, invitations, and the introspection and revocation endpoints.
 
-**Spans for database queries.** Micronaut's R2DBC tracing wraps the connection factory through a
-proxy, which is a decision about the `data` layer and about the native image, taken on its own.
+**A metric of query duration.** No hook could time a query without wrapping the connection factory,
+and it is now wrapped to trace each one. Whether a histogram over every query earns its series is a
+decision of its own, and until it is taken the database stays only a condition.
+
+**A scrape endpoint.** A metrics endpoint would be a new surface, with an audience and a gate of its
+own; this server pushes, so there is nothing new to gate.
+
+**A GraalVM release filling different readings.** The exported set is the one the probe found on
+GraalVM 25 with the Serial collector, and nothing notices a reading that falls silent after an
+upgrade.
+
+### Traces
+
+**A query whose trace was lost.** A query started in a coroutine of its own, with nothing carried
+into it — the signing keys' first load, through an RxJava bridge — has no request around it as far
+as the tracing can tell, so it opens no span, and nothing notices the gap.
 
 **A sampling policy.** The SDK's default stands: a trace is sampled whenever its parent was, and
 always when it has none. A deployment that needs a ratio sets `otel.traces.sampler`.
@@ -303,30 +428,6 @@ always when it has none. A deployment that needs a ratio sets `otel.traces.sampl
 **Whether a trace context a client sends is trusted.** The SDK's default stands: a `traceparent`
 header makes the request's span the child of the caller's. On a server whose callers include the
 public, that is a choice to make rather than a default to inherit, and it has not been made.
-
-**A scrape endpoint.** A metrics endpoint would be a new surface, with an audience and a gate of its
-own; this server pushes, so there is nothing new to gate.
-
-**A record of security events.** An audit trail is a different object, with a different retention
-and a different audience, from the operational records exported here.
-
-**A key under `otel` written wrong.** It is ignored in silence, where a key under a prefix the
-server declares takes readiness down — [the `config` layer
-standard](../standards/config-layer-code-standard.md) says why the framework's keys cannot be held
-to that.
-
-**A GraalVM release filling different readings.** The exported set is the one the probe found on
-GraalVM 25 with the Serial collector, and nothing notices a reading that falls silent after an
-upgrade.
-
-**The appender after a refresh.** A context refresh reloads `logback.xml` and attaches an appender
-that is neither handed the SDK nor detached, so until a restart its records stop reaching the
-collector, or are held until its queue fills. Nothing in the server refreshes its context.
-
-**A scenario exporting to a collector.** The integration suite runs no server against one. The
-unit tests prove the redaction and the reports to the collector's condition, piece by piece; what
-the server assembled sends — the trace across a webhook call, nothing at all with the flag off — no
-test checks.
 
 ---
 

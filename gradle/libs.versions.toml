@@ -11,6 +11,7 @@ json-path = "3.0.0"
 bouncycastle = "1.86"
 freemarker = "2.3.35"
 evalex = "3.8.0"
+r2dbc-proxy = "1.1.7.RELEASE"
 jakarta-persistence = "3.2.0"
 detekt = "1.23.8"
 kover = "0.9.11"
@@ -41,6 +42,7 @@ bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref 
 freemarker = { module = "org.freemarker:freemarker", version.ref = "freemarker" }
 json-path = { module = "com.jayway.jsonpath:json-path", version.ref = "json-path" }
 evalex = { module = "com.ezylang:EvalEx", version.ref = "evalex" }
+r2dbc-proxy = { module = "io.r2dbc:r2dbc-proxy", version.ref = "r2dbc-proxy" }
 detekt-cli = { module = "io.gitlab.arturbosch.detekt:detekt-cli", version.ref = "detekt" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }

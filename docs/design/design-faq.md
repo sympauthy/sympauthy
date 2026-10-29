@@ -1484,6 +1484,83 @@ and degrades by dropping lines. Under one name, the queue reads as a dependency 
 never is, and the calls read as covering every condition when they cover only the remote ones. Both
 key on `condition`, so a failing call and the condition it degraded are still read under one name.
 
+### Is a query traced as a span, or read from the database's statistics?
+
+**Decision:** A span per statement, a child of the span of the request it was made for.
+
+**Options considered:**
+
+- **No database spans, and `pg_stat_statements` for query latency.**
+- **A span per repository call**, named in the server's own vocabulary.
+- **A span per statement sent.**
+
+**Rationale:**
+
+`pg_stat_statements` says which statement is slow across the whole database and never which request
+was waiting on it, so the operator matches the two by timestamp; H2 offers no equivalent. A span per
+repository call names the call the way the code does, but a call sending several statements hides
+which one was slow, and it is a span the semantic conventions do not describe. A span per statement
+is what the conventions name, and a collector reads it with what it already knows.
+
+### Are database spans OpenTelemetry's R2DBC instrumentation, or the server's own?
+
+**Decision:** The server's own instrumenter, built on OpenTelemetry's instrumentation API and
+called back by r2dbc-proxy, with the statement replaced by OpenTelemetry's SQL analyzer.
+
+**Options considered:**
+
+- **Micronaut's R2DBC tracing module.**
+- **OpenTelemetry's R2DBC library, wired by the server.**
+- **An instrumenter of the server's own over r2dbc-proxy**, the library OpenTelemetry's builds on.
+
+**Rationale:**
+
+Micronaut's module is conditioned on its own key alone, so with telemetry off it still wraps every
+connection, around the no-op `OpenTelemetry`; and it takes no extractor. OpenTelemetry's library
+describes a query by the conventions' current names only under a process-wide opt-in, read from a
+system property once, when its class loads. Under that opt-in it leaves a bound statement as it was
+sent, so a literal written into one leaves with it; it reads every double-quoted fragment as a
+literal, so a generated statement reads `SELECT user_.? FROM ?`; it registers
+`db.client.operation.duration`, a metric this server has not decided to export; and it opens a root
+span for every query a job makes. Each could be worked around, by a system property set before the
+framework starts, an extractor, a view and a sampler; the instrumenter that needs none of them is
+smaller than the four.
+
+### Is a query made outside a request traced?
+
+**Decision:** No. A query opens a span only under a span already open.
+
+**Options considered:**
+
+- **Each scheduled job's queries as a trace of its own.**
+- **A span only under a request.**
+
+**Rationale:**
+
+A job's own trace shows its queries at the cost of a trace per run, per instance, for the life of
+the deployment, which would make the cleanup jobs the most-traced thing at the collector. Their
+metrics already say what each run did and how long it took. The work at startup has no request to
+belong to either, and the migration runs over a connection the tracing does not wrap.
+
+### Is a statement exported with a query span?
+
+**Decision:** Yes, with every value in it replaced by `?`, the values written into it as well as the
+ones it binds.
+
+**Options considered:**
+
+- **The statement left out.**
+- **The statement as sent**, since every value the server sends is bound.
+- **The statement with every value replaced.**
+
+**Rationale:**
+
+Leaving it out removes the question of what a statement may carry, and with it the one attribute
+that says which query a slow span was. Sent as it is, a statement carries whatever literal its
+query writes, and nothing guarantees that every literal the next query writes is harmless — a
+token's hash, an email address and a claim's value are what a query compares against. Replaced, it
+says nothing the server's source does not, and still says which query it was.
+
 ---
 
 ← [How the system works](index.md)

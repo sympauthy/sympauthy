@@ -150,7 +150,7 @@ orders them; holding an ERROR until the queue drained would undo the reason it d
 **`logback.xml` is where the two paths are wired**: the queue every level below ERROR goes through,
 in front of the console, and the console written to directly for ERROR. The OpenTelemetry appender
 sits beside both, on the caller's thread, for [the reason telemetry
-gives](telemetry.md#what-implements-it). The queue's size, its drop
+gives](telemetry.md#how-a-record-reaches-the-sdk). The queue's size, its drop
 thresholds and its drain on shutdown are fixed there rather than in the server's configuration — a
 deployment supplying its own logback file in place of the shipped one keeps whichever of these
 guarantees it reproduces.
