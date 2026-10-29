@@ -164,10 +164,6 @@ its `allowed-redirect-uris`.** Swagger UI derives that address from the page it 
 why `/swagger-ui` and `/swagger-ui/` both land on `/swagger-ui/index.html`. The other scheme the
 documentation declares, `client`, is client credentials and takes a client id and a secret instead.
 
-**A Bruno collection in `bruno/` drives the API by hand.** Select the **Local** environment, set
-`clientId`, and set `login` and `password` as secret variables — Bruno keeps secret values out of
-the collection files, so nothing is committed.
-
 ### Watching the telemetry
 
 **[otel-tui](https://github.com/ymtdzzz/otel-tui) is a collector and a viewer in one terminal**, so
