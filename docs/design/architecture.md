@@ -189,7 +189,6 @@ sympauthy/
 │       ├── *_messages.properties    a bundle per audience
 │       └── application*.yml    defaults and the environment overlays
 ├── integration-tests/          the server in a container, over real HTTP
-├── bruno/                      a request collection for exercising it by hand
 ├── config/                     the local deployment's configuration
 └── docs/
     ├── design/                 a document per part of the server
