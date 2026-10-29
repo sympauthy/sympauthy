@@ -1,4 +1,4 @@
-package com.sympauthy.business.model.oauth2
+package com.sympauthy.business.model.token
 
 import com.sympauthy.business.model.MaybeExpirable
 import java.time.LocalDateTime

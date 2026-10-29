@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
@@ -9,19 +8,18 @@ import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.AuthorizationFlow
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import io.micronaut.transaction.annotation.Transactional
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
@@ -32,7 +30,6 @@ import java.util.*
  * - start an OAuth2 session (the session + its attached OAuth2 record, atomically).
  * - fetch the OAuth2 record of a session.
  * - modify the OAuth2 record: consented scopes, granted scopes.
- * - detect an OAuth2 request replay by its state.
  *
  * It builds on top of [InteractiveFlowSessionManager] for the flow-generic session lifecycle.
  */
@@ -158,21 +155,6 @@ open class InteractiveFlowSessionOAuth2Manager(
      */
     suspend fun getAudience(oauth2: InteractiveFlowSessionOAuth2): Audience {
         return getClient(oauth2).audience
-    }
-
-    /**
-     * Throw an [OAuth2Exception] if an OAuth2 session already exists with the given [uncheckedClientState],
-     * which would indicate a replay of the authorize request.
-     */
-    suspend fun checkIsExistingOAuth2WithState(
-        uncheckedClientState: String?
-    ) {
-        val existing = uncheckedClientState?.let {
-            oauth2Repository.findByState(it)
-        }
-        if (existing != null) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "authorize.existing_state", "description.oauth2.replay")
-        }
     }
 
     /**

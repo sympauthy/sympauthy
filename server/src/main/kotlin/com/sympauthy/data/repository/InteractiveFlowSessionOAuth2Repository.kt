@@ -11,8 +11,6 @@ interface InteractiveFlowSessionOAuth2Repository :
 
     suspend fun findBySessionId(sessionId: UUID): InteractiveFlowSessionOAuth2Entity?
 
-    suspend fun findByState(state: String): InteractiveFlowSessionOAuth2Entity?
-
     /**
      * Write the moment a credential of the session's account was proven, and answer how many rows that
      * moved — zero where the session has no OAuth2 record.

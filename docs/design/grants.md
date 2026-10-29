@@ -172,8 +172,9 @@ from is what settles two completions racing: the one refused there never reaches
 
 **`GrantManager` opens a grant, checks one presented to it and revokes one**, and is where every
 revocation above is written: whether a grant is live, and whether it was opened for the client and
-the audience presenting it, are asked of it by a refresh and a code exchange alike. `TokenManager`
-issues the tokens under a grant; `ActorGrantValidator` is the check an act-as token adds.
+the audience presenting it, are asked of it by a refresh and a code exchange alike. The use case of
+each grant type in `business.manager.token` issues the tokens under a grant, and `TokenManager` reads
+one back once issued; `ActorGrantValidator` is the check an act-as token adds.
 
 **A refresh, a code exchange and a revocation of the same person's grants take turns.** A token
 issued under a grant is revoked with it whichever commits first, because a token's liveness is read

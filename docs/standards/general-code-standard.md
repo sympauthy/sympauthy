@@ -54,9 +54,10 @@ change to this table before it is a class.
 | `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
 | `monitoring` | logback, SLF4J, the R2DBC SPI, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
 
-**`business` may import `api` in exactly one case**: a manager in `business.manager.auth` throws the
-protocol's own error type, which lives in `api` because an OAuth2 error code is a wire format. [The
-exception standard](exception-code-standard.md) argues that carve-out, and nothing else uses it.
+**`business` may import `api` in exactly one case**: a manager in `business.manager.auth` or
+`business.manager.token` throws the protocol's own error type, which lives in `api` because an
+OAuth2 error code is a wire format. [The exception standard](exception-code-standard.md) argues that
+carve-out, and nothing else uses it.
 
 **`config` may import `business.model`.** A validated configuration is a domain value, and these two
 model packages are one layer with two names.

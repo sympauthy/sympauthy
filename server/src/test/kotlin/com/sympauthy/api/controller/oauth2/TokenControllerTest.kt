@@ -3,15 +3,20 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.mapper.TokenResourceMapper
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
-import com.sympauthy.business.manager.auth.oauth2.GenerateTokenResult
-import com.sympauthy.business.manager.auth.oauth2.TokenRequestManager
+import com.sympauthy.business.manager.token.TokenRequestManager
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
-import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
+import com.sympauthy.business.model.token.EncodedAuthenticationToken
+import com.sympauthy.business.model.token.IssuedTokens
+import com.sympauthy.business.model.token.TokenRequest
+import com.sympauthy.business.model.token.TokenRequest.TokenExchange.Companion.ACCESS_TOKEN_TYPE
 import com.sympauthy.config.model.*
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
@@ -19,15 +24,14 @@ import io.micronaut.http.HttpRequest
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
-import java.time.LocalDateTime
 
 @ExtendWith(MockKExtension::class)
 class TokenControllerTest {
@@ -37,6 +41,9 @@ class TokenControllerTest {
 
     @MockK
     lateinit var tokenRequestManager: TokenRequestManager
+
+    @SpyK
+    var tokenResourceMapper = TokenResourceMapper()
 
     @MockK
     lateinit var dpopManager: DpopManager
@@ -77,30 +84,61 @@ class TokenControllerTest {
         }
     }
 
-    /** A token the response only carries the encoded form of. */
-    private fun mockEncodedToken(token: String): EncodedAuthenticationToken = mockk {
-        every { this@mockk.token } returns token
+    /** A token the response is built around: it carries no scope, and it never expires. */
+    private fun mockAccessToken(): EncodedAuthenticationToken = mockk {
+        every { token } returns "access-jwt"
+        every { scopes } returns emptyList()
+        every { expirationDate } returns null
     }
 
-    /** A token the response is built around: its scopes are reported, and it never expires. */
-    private fun mockAccessToken(
-        token: String,
-        scopes: List<String> = emptyList()
-    ): EncodedAuthenticationToken = mockk {
-        every { this@mockk.token } returns token
-        every { this@mockk.scopes } returns scopes
-        every { this@mockk.expirationDate } returns null
+    /**
+     * Stubs [client] as the one [request] authenticates, through the resolution [grantType] admits, and the
+     * token request manager as reading the request the controller hands it, then answering it with an access
+     * token. Answers what was read, once the call has read it.
+     */
+    private fun stubIssuance(request: HttpRequest<*>, client: Client, grantType: GrantType): () -> TokenRequest? {
+        if (grantType.publicClientAllowed) {
+            coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
+        } else {
+            coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+        }
+        var read: TokenRequest? = null
+        coEvery { tokenRequestManager.issueTokens(client, grantType, null, any()) } answers {
+            val tokenRequest = arg<() -> TokenRequest>(3)().also { read = it }
+            TokenRequestManager.Issuance(tokenRequest, IssuedTokens(mockAccessToken()))
+        }
+        return { read }
     }
 
-    /** An access token that expires, whose lifetime is measured from the date it was issued. */
-    private fun mockExpiringAccessToken(
-        token: String,
-        issueDate: LocalDateTime,
-        expirationDate: LocalDateTime
-    ): EncodedAuthenticationToken = mockAccessToken(token).also {
-        every { it.issueDate } returns issueDate
-        every { it.expirationDate } returns expirationDate
-    }
+    private suspend fun getTokens(
+        request: HttpRequest<*>,
+        grantType: String?,
+        code: String? = null,
+        refreshToken: String? = null,
+        scope: String? = null,
+        codeVerifier: String? = null,
+        subjectToken: String? = null,
+        subjectTokenType: String? = null,
+        requestedSubject: String? = null,
+        requestedTokenType: String? = null,
+        resource: String? = null,
+        audience: String? = null
+    ) = controller.getTokens(
+        request = request,
+        grantType = grantType,
+        code = code,
+        refreshToken = refreshToken,
+        scope = scope,
+        clientId = "client",
+        clientSecret = null,
+        codeVerifier = codeVerifier,
+        subjectToken = subjectToken,
+        subjectTokenType = subjectTokenType,
+        requestedSubject = requestedSubject,
+        requestedTokenType = requestedTokenType,
+        resource = resource,
+        audience = audience
+    )
 
     @Test
     fun `getTokens - client_credentials uses resolveClient, not resolveClientAllowingPublic`() = runTest {
@@ -109,18 +147,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClient(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong")
 
-        assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "client_credentials",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = "any-client",
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        assertThrows<OAuth2Exception> { getTokens(request, "client_credentials") }
 
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
     }
@@ -132,18 +159,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClient(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong")
 
-        assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = "any-client",
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        assertThrows<OAuth2Exception> { getTokens(request, TOKEN_EXCHANGE) }
 
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
     }
@@ -155,18 +171,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong")
 
-        assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "refresh_token",
-                code = null,
-                refreshToken = "some-token",
-                scope = null,
-                clientId = "any-client",
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        assertThrows<OAuth2Exception> { getTokens(request, "refresh_token", refreshToken = "some-token") }
 
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
     }
@@ -178,18 +183,7 @@ class TokenControllerTest {
             clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
         } throws oauth2ExceptionOf(INVALID_CLIENT, "authentication.wrong")
 
-        assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = "some-code",
-                refreshToken = null,
-                scope = null,
-                clientId = "any-client",
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        assertThrows<OAuth2Exception> { getTokens(request, "authorization_code", code = "some-code") }
 
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClient(any(), any(), any()) }
     }
@@ -198,18 +192,7 @@ class TokenControllerTest {
     fun `getTokens - Binds the proof validation to the DPoP header, method and uri of the request`() = runTest {
         val request = mockRequest(dpopHeaders = listOf("a-proof"))
 
-        assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "unknown",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = null,
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        assertThrows<OAuth2Exception> { getTokens(request, "unknown") }
 
         coVerify {
             dpopManager.validateDpopProof(
@@ -221,175 +204,149 @@ class TokenControllerTest {
 
     @Test
     fun `getTokens - Throws unsupported_grant_type for unknown grant`() = runTest {
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = mockRequest(),
-                grantType = "unknown",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = null,
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        val exception = assertThrows<OAuth2Exception> { getTokens(mockRequest(), "unknown") }
+
         assertEquals(UNSUPPORTED_GRANT_TYPE, exception.errorCode)
+        assertEquals("token.unsupported_grant_type", exception.detailsId)
     }
 
     @Test
     fun `getTokens - Throws invalid_request when grant_type is missing`() = runTest {
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = mockRequest(),
-                grantType = null,
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = null,
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
+        val exception = assertThrows<OAuth2Exception> { getTokens(mockRequest(), null) }
+
         assertEquals(INVALID_REQUEST, exception.errorCode)
         assertEquals("token.missing_param", exception.detailsId)
         assertEquals(mapOf("param" to "grant_type"), exception.values)
     }
 
     @Test
-    fun `getTokensUsingAuthorizationCode - Returns tokens on success`() = runTest {
+    fun `getTokens - Reads the authorization_code grant into the code and its verifier`() = runTest {
         val request = mockRequest()
-        val client = mockk<Client>()
-        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery {
-            tokenRequestManager.exchangeAuthorizationCode(client, "the-code", "the-verifier", null)
-        } returns GenerateTokenResult(
-            accessToken = mockAccessToken("access-jwt", listOf("openid")),
-            refreshToken = mockEncodedToken("refresh-jwt"),
-            idToken = mockEncodedToken("id-jwt")
-        )
+        val read = stubIssuance(request, mockk(), GrantType.AUTHORIZATION_CODE)
 
-        val result = controller.getTokens(
-            request = request,
-            grantType = "authorization_code",
-            code = "the-code",
-            refreshToken = null,
-            scope = null,
-            clientId = "client",
-            clientSecret = "secret",
-            codeVerifier = "the-verifier"
-        )
+        val result = getTokens(request, "authorization_code", code = "the-code", codeVerifier = "the-verifier")
 
+        assertEquals(TokenRequest.AuthorizationCode("the-code", "the-verifier"), read())
         assertEquals("access-jwt", result.accessToken)
-        assertEquals("bearer", result.tokenType)
-        assertEquals("openid", result.scope)
-        assertEquals("refresh-jwt", result.refreshToken)
-        assertEquals("id-jwt", result.idToken)
     }
 
     @Test
-    fun `getTokensUsingRefreshToken - Returns tokens with refreshed refresh token`() = runTest {
+    fun `getTokens - Refuses the authorization_code grant without code`() = runTest {
         val request = mockRequest()
-        val client = mockk<Client>()
-        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenRequestManager.refreshTokens(client, "old-refresh", null) } returns GenerateTokenResult(
-            accessToken = mockAccessToken("new-access", listOf("openid")),
-            refreshToken = mockEncodedToken("new-refresh"),
-            idToken = mockEncodedToken("new-id")
-        )
+        stubIssuance(request, mockk(), GrantType.AUTHORIZATION_CODE)
 
-        val result = controller.getTokens(
-            request = request,
-            grantType = "refresh_token",
-            code = null,
-            refreshToken = "old-refresh",
-            scope = null,
-            clientId = "client",
-            clientSecret = "secret",
-            codeVerifier = null
-        )
+        val exception = assertThrows<OAuth2Exception> { getTokens(request, "authorization_code") }
 
-        assertEquals("new-access", result.accessToken)
-        assertEquals("new-refresh", result.refreshToken)
-        assertEquals("new-id", result.idToken)
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        assertEquals("token.missing_param", exception.detailsId)
+        assertEquals(mapOf("param" to "code"), exception.values)
     }
 
     @Test
-    fun `getTokensUsingRefreshToken - Falls back to original refresh token when not refreshed`() = runTest {
+    fun `getTokens - Refuses the refresh_token grant without refresh_token`() = runTest {
         val request = mockRequest()
-        val client = mockk<Client>()
-        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenRequestManager.refreshTokens(client, "old-refresh", null) } returns GenerateTokenResult(
-            accessToken = mockAccessToken("new-access"),
-            refreshToken = null,
-            idToken = null
-        )
+        stubIssuance(request, mockk(), GrantType.REFRESH_TOKEN)
 
-        val result = controller.getTokens(
-            request = request,
-            grantType = "refresh_token",
-            code = null,
-            refreshToken = "old-refresh",
-            scope = null,
-            clientId = "client",
-            clientSecret = "secret",
-            codeVerifier = null
-        )
+        val exception = assertThrows<OAuth2Exception> { getTokens(request, "refresh_token") }
 
-        assertEquals("new-access", result.accessToken)
-        assertEquals("old-refresh", result.refreshToken)
-        assertNull(result.idToken)
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        assertEquals("token.missing_param", exception.detailsId)
+        assertEquals(mapOf("param" to "refresh_token"), exception.values)
     }
 
     @Test
-    fun `getTokensUsingClientCredentials - Returns access token without refresh or id token`() = runTest {
+    fun `getTokens - Reads the client_credentials grant into the scope it asks for`() = runTest {
         val request = mockRequest()
-        val client = mockk<Client>()
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-        coEvery {
-            tokenRequestManager.generateClientToken(client, "read", null)
-        } returns mockAccessToken("cc-access", listOf("read"))
+        val read = stubIssuance(request, mockk(), GrantType.CLIENT_CREDENTIALS)
 
-        val result = controller.getTokens(
-            request = request,
-            grantType = "client_credentials",
-            code = null,
-            refreshToken = null,
-            scope = "read",
-            clientId = "my-client",
-            clientSecret = "secret",
-            codeVerifier = null
-        )
+        getTokens(request, "client_credentials", scope = "read")
 
-        assertEquals("cc-access", result.accessToken)
-        assertEquals("bearer", result.tokenType)
-        assertEquals("read", result.scope)
-        assertNull(result.refreshToken)
-        assertNull(result.idToken)
-        assertNull(result.expiresIn, "a token without an expiration date has no lifetime to report")
+        assertEquals(TokenRequest.ClientCredentials("read"), read())
     }
 
     @Test
-    fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {
+    fun `getTokens - Reads the token exchange grant into its subject and audience`() = runTest {
         val request = mockRequest()
-        val client = mockk<Client>()
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-        coEvery { tokenRequestManager.generateClientToken(client, null, null) } returns mockExpiringAccessToken(
-            token = "cc-access",
-            issueDate = LocalDateTime.of(2024, 1, 1, 12, 0, 0),
-            expirationDate = LocalDateTime.of(2024, 1, 1, 13, 0, 0)
+        val read = stubIssuance(request, mockk(), GrantType.TOKEN_EXCHANGE)
+
+        val result = getTokens(
+            request, TOKEN_EXCHANGE,
+            subjectToken = "a-token", subjectTokenType = ACCESS_TOKEN_TYPE, requestedSubject = "a-subject",
+            requestedTokenType = ACCESS_TOKEN_TYPE, audience = "backend"
         )
 
-        val result = controller.getTokens(
-            request = request,
-            grantType = "client_credentials",
-            code = null,
-            refreshToken = null,
-            scope = null,
-            clientId = "my-client",
-            clientSecret = "secret",
-            codeVerifier = null
-        )
+        assertEquals(TokenRequest.TokenExchange("a-token", "a-subject", "backend"), read())
+        assertEquals(ACCESS_TOKEN_TYPE, result.issuedTokenType)
+    }
 
-        assertEquals(3600, result.expiresIn)
+    @Test
+    fun `getTokens - Refuses the token exchange grant without subject_token`() = runTest {
+        val request = mockRequest()
+        stubIssuance(request, mockk(), GrantType.TOKEN_EXCHANGE)
+
+        val exception = assertThrows<OAuth2Exception> {
+            getTokens(request, TOKEN_EXCHANGE, subjectTokenType = ACCESS_TOKEN_TYPE, requestedSubject = "a-subject")
+        }
+
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        assertEquals("token.missing_param", exception.detailsId)
+        assertEquals(mapOf("param" to "subject_token"), exception.values)
+    }
+
+    @Test
+    fun `getTokens - Refuses a requested token type other than an access token before the subject token type`() =
+        runTest {
+            val request = mockRequest()
+            stubIssuance(request, mockk(), GrantType.TOKEN_EXCHANGE)
+
+            val exception = assertThrows<OAuth2Exception> {
+                getTokens(
+                    request, TOKEN_EXCHANGE,
+                    subjectToken = "a-token", subjectTokenType = "unexpected", requestedSubject = "a-subject",
+                    requestedTokenType = "urn:ietf:params:oauth:token-type:id_token"
+                )
+            }
+
+            assertEquals(INVALID_REQUEST, exception.errorCode)
+            assertEquals("token_exchange.unsupported_requested_token_type", exception.detailsId)
+        }
+
+    @Test
+    fun `getTokens - Refuses a subject token type other than an access token before a resource`() = runTest {
+        val request = mockRequest()
+        stubIssuance(request, mockk(), GrantType.TOKEN_EXCHANGE)
+
+        val exception = assertThrows<OAuth2Exception> {
+            getTokens(
+                request, TOKEN_EXCHANGE,
+                subjectToken = "a-token", subjectTokenType = "unexpected", requestedSubject = "a-subject",
+                resource = "https://backend.example.com"
+            )
+        }
+
+        assertEquals(INVALID_REQUEST, exception.errorCode)
+        assertEquals("token_exchange.unsupported_subject_token_type", exception.detailsId)
+        assertEquals(mapOf("type" to "unexpected"), exception.values)
+    }
+
+    @Test
+    fun `getTokens - Refuses a token exchange carrying resource`() = runTest {
+        val request = mockRequest()
+        stubIssuance(request, mockk(), GrantType.TOKEN_EXCHANGE)
+
+        val exception = assertThrows<OAuth2Exception> {
+            getTokens(
+                request, TOKEN_EXCHANGE,
+                subjectToken = "a-token", subjectTokenType = ACCESS_TOKEN_TYPE, requestedSubject = "a-subject",
+                resource = "https://backend.example.com", audience = "backend"
+            )
+        }
+
+        assertEquals(INVALID_TARGET, exception.errorCode)
+        assertEquals("token_exchange.unsupported_resource", exception.detailsId)
+    }
+
+    private companion object {
+        const val TOKEN_EXCHANGE = "urn:ietf:params:oauth:grant-type:token-exchange"
     }
 }

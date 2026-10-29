@@ -8,14 +8,13 @@ import com.sympauthy.api.controller.oauth2.util.INVALID_CLIENT_UNAUTHORIZED_DESC
 import com.sympauthy.api.controller.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
-import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.controller.oauth2.util.getRequiredParam
 import com.sympauthy.api.resource.oauth2.IntrospectionResource
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.token.TokenManager
 import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.publishedMembers
@@ -90,12 +89,10 @@ class IntrospectionController(
         clientSecret: String?,
     ): IntrospectionResource {
         val client = clientAuthenticationUtil.resolveClient(request, clientId, clientSecret)
-        if (token.isNullOrBlank()) {
-            throw oauth2ExceptionOf(INVALID_REQUEST, "token.missing_param", "param" to TOKEN_PARAM)
-        }
+        val requiredToken = getRequiredParam(token, TOKEN_PARAM)
 
         val authConfig = uncheckedAuthConfig.orThrow()
-        val authenticationToken = tokenManager.introspectToken(client, token, type = null)
+        val authenticationToken = tokenManager.introspectToken(client, requiredToken, type = null)
             ?: return IntrospectionResource(active = false)
 
         val grant = authenticationToken.grant

@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.token
 
 import com.nimbusds.jwt.JWTClaimsSet
 import com.sympauthy.business.manager.jwt.JwtManager
@@ -8,14 +8,14 @@ import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.TokenConfig

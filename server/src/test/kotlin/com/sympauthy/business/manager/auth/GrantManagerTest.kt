@@ -14,10 +14,10 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig

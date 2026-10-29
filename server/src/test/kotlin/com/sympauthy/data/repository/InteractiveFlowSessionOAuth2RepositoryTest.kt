@@ -95,19 +95,6 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `findByState - Finds the record bearing the state`(database: Database) = withFixture(database) {
-        val records = repository<InteractiveFlowSessionOAuth2Repository>()
-        val session = newSession()
-        saveRecord(session.id!!, state = "interactive-flow-session-oauth2-repository-test-state")
-
-        val found = records.findByState("interactive-flow-session-oauth2-repository-test-state")
-
-        assertEquals(session.id, found?.sessionId)
-        assertNull(records.findByState("interactive-flow-session-oauth2-repository-test-absent"))
-    }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
     fun `updateConsentedScopes - Writes the list into the array column`(database: Database) =
         withFixture(database) {
             val records = repository<InteractiveFlowSessionOAuth2Repository>()
@@ -178,8 +165,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
         sessionId: UUID,
         requestedScopes: Array<String> = arrayOf("openid"),
         requestedIdTokenClaims: Array<String> = emptyArray(),
-        requestedUserinfoClaims: Array<String> = emptyArray(),
-        state: String? = null
+        requestedUserinfoClaims: Array<String> = emptyArray()
     ) {
         val records = repository<InteractiveFlowSessionOAuth2Repository>()
         records.save(
@@ -190,7 +176,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
                 requestedScopes = requestedScopes,
                 requestedIdTokenClaims = requestedIdTokenClaims,
                 requestedUserinfoClaims = requestedUserinfoClaims,
-                state = state,
+                state = null,
                 nonce = "nonce",
                 codeChallenge = "challenge",
                 codeChallengeMethod = "S256"

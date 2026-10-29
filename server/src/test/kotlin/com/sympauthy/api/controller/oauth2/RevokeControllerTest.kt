@@ -2,7 +2,7 @@ package com.sympauthy.api.controller.oauth2
 
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.business.manager.auth.oauth2.TokenManager
+import com.sympauthy.business.manager.token.TokenManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import io.micronaut.http.HttpRequest
@@ -10,11 +10,11 @@ import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.InjectMockKs
-import io.mockk.just
-import io.mockk.runs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

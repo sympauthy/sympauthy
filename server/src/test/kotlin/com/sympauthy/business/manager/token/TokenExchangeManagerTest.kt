@@ -1,4 +1,4 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.token
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.exception.BusinessException
@@ -13,13 +13,14 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.jwt.DecodedJwt
-import com.sympauthy.business.model.oauth2.AuthenticationToken
-import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
+import com.sympauthy.business.model.token.AuthenticationToken
+import com.sympauthy.business.model.token.EncodedAuthenticationToken
+import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
@@ -56,7 +57,6 @@ class TokenExchangeManagerTest {
     private val actingClient = mockk<Client>()
 
     private val userId = UUID.randomUUID()
-    private val accessTokenType = TokenExchangeManager.ACCESS_TOKEN_TYPE
 
     private fun manager(audiences: List<Audience> = listOf(defaultAudience, backendAudience)) =
         TokenExchangeManager(
@@ -142,18 +142,10 @@ class TokenExchangeManagerTest {
     }
 
     @Test
-    fun `unsupported subject_token_type is rejected`() = runTest {
-        val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, "unexpected", userId.toString(), null)
-        }
-        assertEquals(INVALID_REQUEST, ex.errorCode)
-    }
-
-    @Test
     fun `subject_token that does not verify is rejected`() = runTest {
         coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, SUBJECT_TOKEN) } throws InvalidJwtException("jwt.expired")
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
         assertEquals(INVALID_GRANT, ex.errorCode)
         assertEquals("jwt.expired", ex.detailsId)
@@ -170,7 +162,7 @@ class TokenExchangeManagerTest {
         coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, SUBJECT_TOKEN) } throws keyFailure
 
         val ex = assertFailsWith<BusinessException> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
 
         assertSame(keyFailure, ex)
@@ -182,7 +174,7 @@ class TokenExchangeManagerTest {
         // The owner is checked first, so nothing else about the token is read.
         stubValidSubjectToken(mockSubjectToken(mockk { every { clientId } returns "another-client" }))
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
         assertEquals(INVALID_GRANT, ex.errorCode)
     }
@@ -195,7 +187,7 @@ class TokenExchangeManagerTest {
             every { userId } returns UUID.randomUUID()
         }))
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
         assertEquals(INVALID_GRANT, ex.errorCode)
     }
@@ -209,7 +201,7 @@ class TokenExchangeManagerTest {
             every { actorGrantId } returns UUID.randomUUID()
         }))
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
         assertEquals(INVALID_GRANT, ex.errorCode)
         assertEquals("token_exchange.subject_token_has_actor", ex.detailsId)
@@ -219,7 +211,7 @@ class TokenExchangeManagerTest {
     fun `malformed requested_subject is rejected`() = runTest {
         stubValidSubjectToken(mockActorToken())
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, "not-a-uuid", null)
+            manager().exchangeForActAsToken(actingClient, exchange("not-a-uuid"))
         }
         assertEquals(INVALID_TARGET, ex.errorCode)
     }
@@ -229,7 +221,7 @@ class TokenExchangeManagerTest {
         stubValidSubjectToken(mockActorToken())
         coEvery { userManager.findByIdOrNull(userId) } returns null
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
         assertEquals(INVALID_TARGET, ex.errorCode)
     }
@@ -242,7 +234,7 @@ class TokenExchangeManagerTest {
         stubTargetAudienceClaims("default")
         coEvery { actAsRuleManager.isActAsAllowed(actingClient, emptyList()) } returns false
         val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), null)
+            manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
         }
         assertEquals(INVALID_REQUEST, ex.errorCode)
     }
@@ -253,7 +245,7 @@ class TokenExchangeManagerTest {
         stubKnownUser()
         val ex = assertFailsWith<OAuth2Exception> {
             manager().exchangeForActAsToken(
-                actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "unknown"
+                actingClient, exchange(userId.toString(), audience = "unknown")
             )
         }
         assertEquals(INVALID_TARGET, ex.errorCode)
@@ -270,13 +262,7 @@ class TokenExchangeManagerTest {
         val encoded = mockk<EncodedAuthenticationToken>()
         stubIssuance(actorToken, defaultAudience, encoded)
 
-        val result = manager().exchangeForActAsToken(
-            actingClient,
-            SUBJECT_TOKEN,
-            accessTokenType,
-            userId.toString(),
-            null
-        )
+        val result = manager().exchangeForActAsToken(actingClient, exchange(userId.toString()))
 
         assertEquals(encoded, result)
     }
@@ -292,7 +278,7 @@ class TokenExchangeManagerTest {
         stubIssuance(actorToken, backendAudience, encoded)
 
         val result = manager().exchangeForActAsToken(
-            actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "backend"
+            actingClient, exchange(userId.toString(), audience = "backend")
         )
 
         assertSame(encoded, result)
@@ -309,24 +295,18 @@ class TokenExchangeManagerTest {
             stubIssuance(actorToken, backendAudience)
 
             manager().exchangeForActAsToken(
-                actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(), audience = "backend"
+                actingClient, exchange(userId.toString(), audience = "backend")
             )
 
             coVerify { collectedClaimManager.findByUserIdAndAudience(userId, "backend") }
             coVerify(exactly = 0) { collectedClaimManager.findByUserIdAndAudience(userId, "default") }
         }
 
-    @Test
-    fun `resource parameter is rejected as unsupported and never resolves the audience`() = runTest {
-        // resource is rejected up front: no subject-token / rule / audience resolution should be attempted.
-        val ex = assertFailsWith<OAuth2Exception> {
-            manager().exchangeForActAsToken(
-                actingClient, SUBJECT_TOKEN, accessTokenType, userId.toString(),
-                resource = "https://backend.example.com", audience = "backend"
-            )
-        }
-        assertEquals(INVALID_TARGET, ex.errorCode)
-    }
+    private fun exchange(requestedSubject: String, audience: String? = null) = TokenRequest.TokenExchange(
+        subjectToken = SUBJECT_TOKEN,
+        requestedSubject = requestedSubject,
+        audience = audience
+    )
 
     companion object {
         private const val CLIENT_ID = "discord-bot"

@@ -5,9 +5,9 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
 import com.sympauthy.security.UserAuthentication
 import io.micronaut.http.HttpStatus

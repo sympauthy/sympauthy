@@ -1,13 +1,13 @@
-package com.sympauthy.business.manager.auth.oauth2
+package com.sympauthy.business.manager.token
 
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
-import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.token.AuthenticationTokenType.ACCESS
+import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
