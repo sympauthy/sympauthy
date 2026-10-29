@@ -12,10 +12,10 @@ import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
-import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.AuthenticationToken
+import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.user.User
@@ -30,6 +30,8 @@ import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.data.exceptions.DataIntegrityViolationException
 import io.micronaut.data.exceptions.EntityExistsException
 import io.mockk.CapturingSlot
@@ -40,6 +42,9 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.spyk
+import io.mockk.verify
+import io.opentelemetry.api.OpenTelemetry
 import io.r2dbc.spi.R2dbcDataIntegrityViolationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertArrayEquals
@@ -62,12 +67,15 @@ class GrantManagerTest {
     /** Relaxed: every account a grant names here is a promoted one, unless a test says otherwise. */
     private val userManager = mockk<UserManager>(relaxed = true)
 
+    private val tokenMetrics = spyk(TokenMetrics(OpenTelemetry.noop()))
+
     private fun grantManager(grantExpiration: Duration? = null) = GrantManager(
         grantRepository = grantRepository,
         grantMapper = GrantMapper(),
-        lockManager = LockManager(objectLockRepository, HeldStripes()),
+        lockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop())),
         userManager = userManager,
-        uncheckedAuthConfig = authConfig(grantExpiration)
+        uncheckedAuthConfig = authConfig(grantExpiration),
+        tokenMetrics = tokenMetrics
     )
 
     private fun authConfig(grantExpiration: Duration?): AuthConfig = EnabledAuthConfig(
@@ -117,6 +125,7 @@ class GrantManagerTest {
     private fun mockGrant(userId: UUID?): Grant = mockk {
         every { id } returns UUID.randomUUID()
         every { this@mockk.userId } returns userId
+        every { clientId } returns "client"
     }
 
     @Test
@@ -313,6 +322,22 @@ class GrantManagerTest {
         grantManager().revokeGrant(grant, GrantRevokedBy.CLIENT, null)
 
         coVerify(exactly = 0) { objectLockRepository.lock(any()) }
+    }
+
+    @Test
+    fun `revokeGrant - Counts the grant under its client, and the grants exchanged from it under none`() = runTest {
+        val grant = mockGrant(null)
+        coEvery { grantRepository.updateRevokedAt(grant.id, any(), "AUTHORIZATION_CODE_REPLAYED", null) } returns 1
+        coEvery {
+            grantRepository.updateRevokedAtByActorGrantId(grant.id, any(), "AUTHORIZATION_CODE_REPLAYED", null)
+        } returns 2
+
+        grantManager().revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, null)
+
+        verify {
+            tokenMetrics.recordRevocations("authorization_code_replayed", "client", 1)
+            tokenMetrics.recordRevocations("authorization_code_replayed", null, 2)
+        }
     }
 
     @Test

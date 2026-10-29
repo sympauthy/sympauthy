@@ -13,12 +13,13 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
-import java.net.URI
+import com.sympauthy.monitoring.telemetry.FlowMetrics.SessionEnding.COMPLETED
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
+import io.mockk.justRun
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -117,6 +119,7 @@ class InteractiveFlowEngineTest {
         val effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
         coEvery { handler.prepareTerminalEffect(marked) } returns effect
         coEvery { sessionManager.markAsCompleted(marked) } returns completed
+        justRun { sessionManager.recordEnded(completed, any(), COMPLETED, null) }
 
         val result = engine.advance(session)
 
@@ -396,6 +399,7 @@ class InteractiveFlowEngineTest {
         coEvery { oauth2Handler.prepareTerminalEffect(afterSecond) } returns oauth2Effect
         coEvery { mfaHandler.prepareTerminalEffect(afterSecond) } returns mfaEffect
         coEvery { sessionManager.markAsCompleted(afterSecond) } returns completed
+        justRun { sessionManager.recordEnded(completed, any(), COMPLETED, null) }
 
         val result = engine.advance(session)
 
@@ -468,6 +472,7 @@ class InteractiveFlowEngineTest {
             val effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
             coEvery { handler.prepareTerminalEffect(marked) } returns effect
             coEvery { sessionManager.markAsCompleted(marked) } returns completed
+            justRun { sessionManager.recordEnded(completed, any(), COMPLETED, null) }
 
             assertSame(completed, engine.advance(session).session)
 
@@ -518,6 +523,7 @@ class InteractiveFlowEngineTest {
         coEvery { handler.followUpPurposes(marked) } returns emptyList()
         coEvery { handler.prepareTerminalEffect(marked) } returns PreparedTerminalEffect.None
         coEvery { sessionManager.markAsCompleted(marked) } returns completed
+        justRun { sessionManager.recordEnded(completed, any(), COMPLETED, null) }
 
         val result = engine.advance(session)
 

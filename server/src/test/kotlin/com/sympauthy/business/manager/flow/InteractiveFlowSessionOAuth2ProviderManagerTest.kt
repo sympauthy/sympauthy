@@ -10,12 +10,10 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
-import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionLinkProvider
 import com.sympauthy.business.model.flow.InteractiveFlowSessionProvider
@@ -25,17 +23,26 @@ import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
-import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.client.oauth2.TokenEndpointClient
-import com.sympauthy.data.repository.ObjectLockRepository
-import com.sympauthy.monitoring.ConditionMonitor
-import io.mockk.*
-import io.mockk.impl.annotations.InjectMockKs
-import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.model.security.observedRequestOf
+import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
+import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.attributes
+import io.mockk.*
+import io.mockk.coJustRun
+import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -103,10 +110,15 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
      * `withLock` would run that block whether or not anything was ever locked.
      */
     @SpyK
-    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
 
     @MockK
-    lateinit var conditionMonitor: ConditionMonitor
+    lateinit var remoteCallMonitor: RemoteCallMonitor
+
+    private val metrics = InMemoryMetrics()
+
+    @SpyK
+    var authenticationMetrics = AuthenticationMetrics(metrics.openTelemetry)
 
     @SpyK
     @InjectMockKs
@@ -183,6 +195,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val tokens = mockk<ProviderOAuth2Tokens>()
         val rawUserInfo = RawProviderClaims(subject = subject, email = assertedEmail)
         coEvery { providerManager.fetchProviderOrNull(session) } returns sessionProvider
+        every { providerConfigManager.isDeclared(provider.id) } returns true
         coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
         coEvery { manager.fetchTokens(provider, provider.auth, "code", redirectUri) } returns tokens
         coEvery { providerManager.buildProviderNonceOrNull(sessionProvider) } returns null
@@ -315,6 +328,38 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
         assertSame(session, result)
         coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
+        assertTrue(metrics.pointsOrEmpty(AUTHENTICATION_ATTEMPTS).isEmpty(), "linking a provider signs nobody in")
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Counts a callback that created the account as a sign-up`() = runTest {
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { userId } returns null }
+        val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+        val createdId = UUID.randomUUID()
+        coEvery { establisher.establishNewProviderUser(session, provider, rawUserInfo) } returns
+            ProviderUserEstablishment(userId = createdId, signedUp = true)
+        val updatedSession = mockk<OnGoingInteractiveFlowSession> { every { id } returns UUID.randomUUID() }
+        coEvery { sessionManager.setAuthenticatedUserId(session, createdId, signedUp = true) } returns updatedSession
+        coJustRun { userSecurityContextManager.markProven(any(), any()) }
+        coJustRun { oauth2Manager.setAuthenticationDate(updatedSession) }
+
+        manager.signInOrSignUpUsingProvider(
+            session, provider.id, redirectUri, authorizeCode = "code", observedRequest = observedRequestOf()
+        )
+
+        assertEquals(
+            1,
+            metrics.value(
+                AUTHENTICATION_ATTEMPTS,
+                attributes(
+                    "method" to "provider",
+                    "provider_id" to provider.id,
+                    "kind" to "sign_up",
+                    "outcome" to "success"
+                )
+            )
+        )
     }
 
     @Test

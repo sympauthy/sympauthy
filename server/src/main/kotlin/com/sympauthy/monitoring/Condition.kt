@@ -24,6 +24,12 @@ sealed class Condition {
     abstract val name: String
 
     /**
+     * The value the condition is recorded under on a metric's `condition`: its [name], prefixed with its kind
+     * where `/health` publishes that kind under a key of its own, since a provider and a client may share an id.
+     */
+    open val metricName: String get() = name
+
+    /**
      * What a line about the condition opens with.
      */
     internal abstract val subject: String
@@ -107,10 +113,12 @@ sealed class Condition {
     data class Provider(val providerId: String) : Condition() {
         override val name get() = providerId
         override val subject get() = "Provider '$providerId'"
+        override val metricName get() = "provider:$providerId"
     }
 
     data class AuthorizationWebhook(val clientId: String) : Condition() {
         override val name get() = clientId
         override val subject get() = "The authorization webhook of client '$clientId'"
+        override val metricName get() = "webhook:$clientId"
     }
 }

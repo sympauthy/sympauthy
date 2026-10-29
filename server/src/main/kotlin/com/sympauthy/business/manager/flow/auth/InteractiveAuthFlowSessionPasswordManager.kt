@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.manager.flow.recordAttemptOfDeclaredKind
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -26,6 +27,11 @@ import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PASSWORD
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -51,7 +57,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
     @Inject private val userManager: UserManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
 ) {
 
     /**
@@ -93,67 +100,71 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * below that establish or confirm **this session's** user. The password is verified against whatever
      * account matches [login], which is not necessarily the session's, so marking it any earlier would let
      * anybody holding the session's state write their own address into somebody else's history.
+     *
+     * Recorded as a sign-in attempt, a re-authentication included since it proves a credential, unless it
+     * reached a step where signing in no longer applies: that authenticates nobody, and is not an attempt.
      */
     suspend fun signInWithPassword(
         session: OnGoingInteractiveFlowSession,
         login: String?,
         password: String?,
         observedRequest: ObservedRequest
-    ): InteractiveFlowSession {
-        if (!signInEnabled) {
-            throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
-        }
-        if (login.isNullOrBlank() || password.isNullOrBlank()) {
-            throw recoverableBusinessExceptionOf(
-                detailsId = "flow.password.sign_in.invalid",
-                descriptionId = "description.flow.password.sign_in.invalid"
-            )
-        }
-
-        val user = findByAnyIdentifierClaimValue(login)
-        // The user does not exist or has been created using a third-party provider.
-        if (user == null || user.status != UserStatus.ENABLED) {
-            throw recoverableBusinessExceptionOf(
-                detailsId = "flow.password.sign_in.invalid",
-                descriptionId = "description.flow.password.sign_in.invalid"
-            )
-        }
-
-        if (!passwordManager.arePasswordMatching(user, password)) {
-            throw recoverableBusinessExceptionOf(
-                detailsId = "flow.password.sign_in.invalid",
-                descriptionId = "description.flow.password.sign_in.invalid"
-            )
-        }
-
-        // Bind the authenticated user to the session — but NEVER switch an already-fixed session user:
-        // - no user yet -> normal sign-in ESTABLISHES identity.
-        // - user already fixed under a re-authentication gate -> CONFIRM it (assert it is that same user).
-        // - user already fixed but a later purpose is now active (e.g. an MFA challenge appended after the
-        //   primary credential was proven, or a CONFIRM gate still pending) -> sign-in no longer applies;
-        //   return the session unchanged so the flow redirects to its current step, without switching identity.
-        // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
-        return when {
-            session.userId == null -> {
-                // Stamped before the flow advances, because completing it is what folds the observation
-                // into the person's record — one stamped afterwards would arrive a completion too late.
-                userSecurityContextManager.markProven(session.id, observedRequest)
-                val authenticated = sessionManager.setAuthenticatedUserId(session, user.id)
-                // Stamped once the session's user is this person's, which is the condition the
-                // authentication date is written under.
-                oauth2Manager.setAuthenticationDate(authenticated)
-                authenticated
+    ): InteractiveFlowSession =
+        authenticationMetrics.recordAttemptOfDeclaredKind(PASSWORD, null, SIGN_IN) { declareKind ->
+            if (!signInEnabled) {
+                throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
+            }
+            if (login.isNullOrBlank() || password.isNullOrBlank()) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.password.sign_in.invalid",
+                    descriptionId = "description.flow.password.sign_in.invalid"
+                )
             }
 
-            engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
-                confirmReauthenticatedUser(session, user, observedRequest)
+            val user = findByAnyIdentifierClaimValue(login)
+            // The user does not exist or has been created using a third-party provider.
+            if (user == null || user.status != UserStatus.ENABLED) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.password.sign_in.invalid",
+                    descriptionId = "description.flow.password.sign_in.invalid"
+                )
+            }
 
-            // A credential that verified for an account this session's user is already fixed as somebody
-            // else, or at a step where signing in no longer applies. Nothing is recorded: it proves who the
-            // poster is, not who this flow belongs to.
-            else -> session
+            if (!passwordManager.arePasswordMatching(user, password)) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.password.sign_in.invalid",
+                    descriptionId = "description.flow.password.sign_in.invalid"
+                )
+            }
+
+            // Bind the authenticated user to the session — but NEVER switch an already-fixed session user:
+            // - no user yet -> normal sign-in ESTABLISHES identity.
+            // - user already fixed under a re-authentication gate -> CONFIRM it (assert it is that same user).
+            // - user already fixed but a later purpose is now active (e.g. an MFA challenge appended after the
+            //   primary credential was proven, or a CONFIRM gate still pending) -> sign-in no longer applies;
+            //   return the session unchanged so the flow redirects to its current step, without switching identity.
+            // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
+            return@recordAttemptOfDeclaredKind when {
+                session.userId == null -> {
+                    // Stamped before the flow advances, because completing it is what folds the observation
+                    // into the person's record — one stamped afterwards would arrive a completion too late.
+                    userSecurityContextManager.markProven(session.id, observedRequest)
+                    val authenticated = sessionManager.setAuthenticatedUserId(session, user.id)
+                    // Stamped once the session's user is this person's, which is the condition the
+                    // authentication date is written under.
+                    oauth2Manager.setAuthenticationDate(authenticated)
+                    authenticated
+                }
+
+                engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
+                    confirmReauthenticatedUser(session, user, observedRequest)
+
+                // A credential that verified for an account this session's user is already fixed as somebody
+                // else, or at a step where signing in no longer applies. Nothing is recorded: it proves who the
+                // poster is, not who this flow belongs to.
+                else -> session.also { declareKind(null) }
+            }
         }
-    }
 
     /**
      * Re-authentication path: the [user] just authenticated with a password must be the session's
@@ -184,6 +195,9 @@ open class InteractiveAuthFlowSessionPasswordManager(
      *
      * Only identifier claims are saved on the created account. Any other claim present in [unfilteredUpdates] is
      * discarded.
+     *
+     * Recorded as a sign-up attempt, except a post that finds the session already signed up, which creates
+     * nothing.
      */
     suspend fun signUpWithClaimsAndPassword(
         session: OnGoingInteractiveFlowSession,
@@ -196,7 +210,17 @@ open class InteractiveAuthFlowSessionPasswordManager(
         // session to it, orphaning the first with its password and identifier claims. The provider path
         // guards the same way in signInOrSignUpUsingProvider.
         if (session.userId != null) return session
+        return authenticationMetrics.recordAttempt(PASSWORD, null, SIGN_UP, Throwable::toOutcome) {
+            signUp(session, unfilteredUpdates, password, observedRequest)
+        }
+    }
 
+    private suspend fun signUp(
+        session: OnGoingInteractiveFlowSession,
+        unfilteredUpdates: List<CollectedClaimUpdate>,
+        password: String,
+        observedRequest: ObservedRequest
+    ): InteractiveFlowSession {
         val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
         userSecurityContextManager.markProven(updatedSession.id, observedRequest)
         // Creating the account is proving a credential of it: the password written above is the one this

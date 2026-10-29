@@ -1,10 +1,12 @@
 package com.sympauthy.business.manager.security
 
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.UserSecurityContextRepository
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -24,19 +26,24 @@ import java.time.LocalDateTime
 @Singleton
 open class UserSecurityContextCleaner(
     @Inject private val contextRepository: UserSecurityContextRepository,
-    @Inject private val uncheckedAdvancedConfig: AdvancedConfig
+    @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
+    @Inject private val jobMetrics: JobMetrics
 ) {
 
     private val logger = loggerForClass()
 
     /**
-     * Delete what has expired and answer how many rows went.
+     * Delete what has expired and answer how many rows went, recorded under [CLEAN_EXPIRED_USER_SECURITY_CONTEXTS].
      *
      * Answers zero without touching the table where the configuration did not parse — the retention is the
      * only thing that says what expired means, and guessing one would delete somebody's history on a number
      * no operator chose — and says so, because a sweep that never runs keeps addresses indefinitely.
      */
-    suspend fun clean(): Int {
+    suspend fun clean(): Int = deleteExpired().also {
+        jobMetrics.recordDeletions(CLEAN_EXPIRED_USER_SECURITY_CONTEXTS.leaseName, "user_security_context", it.toLong())
+    }
+
+    private suspend fun deleteExpired(): Int {
         val retention = (uncheckedAdvancedConfig as? EnabledAdvancedConfig)
             ?.securityContext
             ?.knownUserRetention

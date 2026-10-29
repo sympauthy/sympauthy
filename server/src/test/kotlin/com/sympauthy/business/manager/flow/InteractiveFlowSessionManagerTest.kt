@@ -14,6 +14,8 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.monitoring.telemetry.FlowMetrics
+import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -23,7 +25,7 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.just
 import io.mockk.mockk
-import io.mockk.Runs
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -52,6 +54,8 @@ class InteractiveFlowSessionManagerTest {
     lateinit var uncheckedAuthConfig: AuthConfig
 
     @SpyK
+    var flowMetrics = FlowMetrics(OpenTelemetry.noop())
+
     @InjectMockKs
     lateinit var interactiveFlowSessionManager: InteractiveFlowSessionManager
 

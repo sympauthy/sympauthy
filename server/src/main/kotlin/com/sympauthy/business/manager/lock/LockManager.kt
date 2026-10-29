@@ -2,9 +2,12 @@ package com.sympauthy.business.manager.lock
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.Outcome
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 
 /**
  * Takes the lock two transactions have to agree on before either of them may act on what it names.
@@ -19,7 +22,8 @@ import jakarta.inject.Singleton
 @Singleton
 open class LockManager(
     @Inject private val objectLockRepository: ObjectLockRepository,
-    @Inject private val heldStripes: HeldStripes
+    @Inject private val heldStripes: HeldStripes,
+    @Inject private val lockMetrics: LockMetrics
 ) {
 
     /**
@@ -59,10 +63,30 @@ open class LockManager(
             return block()
         }
 
-        stripes.forEach {
-            objectLockRepository.lock(it)
-            heldStripes.hold(it)
+        if (stripes.isNotEmpty()) {
+            takeStripes(keys, stripes)
         }
         return block()
+    }
+
+    /**
+     * Take [stripes] in ascending order, recording how long the wait for them took and how it ended: every one
+     * taken, or taking one failed. A cancelled wait is not recorded.
+     */
+    private suspend fun takeStripes(keys: List<LockKey>, stripes: List<Int>) {
+        val lock = keys.map(LockKey::kind).distinct().sorted().joinToString("+")
+        val start = System.nanoTime()
+        try {
+            stripes.forEach {
+                objectLockRepository.lock(it)
+                heldStripes.hold(it)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Throwable) {
+            lockMetrics.recordWait(lock, System.nanoTime() - start, LockMetrics.failedWait(failure))
+            throw failure
+        }
+        lockMetrics.recordWait(lock, System.nanoTime() - start, Outcome.Success)
     }
 }

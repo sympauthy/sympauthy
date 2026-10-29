@@ -8,11 +8,13 @@ import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.UserSecurityContextRepository
+import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -28,6 +30,8 @@ import java.util.*
  */
 @ExtendWith(MockKExtension::class)
 class UserSecurityContextCleanerTest {
+
+    private val jobMetrics = JobMetrics(OpenTelemetry.noop())
 
     private val contextRepository = mockk<UserSecurityContextRepository>(relaxed = true)
 
@@ -66,7 +70,7 @@ class UserSecurityContextCleanerTest {
      */
     @Test
     fun `clean - Touches nothing where the configuration did not parse`() = runTest {
-        val cleaner = UserSecurityContextCleaner(contextRepository, DisabledAdvancedConfig(emptyList()))
+        val cleaner = UserSecurityContextCleaner(contextRepository, DisabledAdvancedConfig(emptyList()), jobMetrics)
 
         assertEquals(0, cleaner.clean())
 
@@ -119,7 +123,8 @@ class UserSecurityContextCleanerTest {
                 geo = SecurityContextGeoConfig(false, emptyList(), noNamedGeoHeaders()),
                 knownUserRetention = retention
             )
-        )
+        ),
+        jobMetrics
     )
 
     private fun rows(count: Int) = List(count) {

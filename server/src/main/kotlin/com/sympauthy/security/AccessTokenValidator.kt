@@ -15,6 +15,10 @@ import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.measureOutcome
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
@@ -51,7 +55,8 @@ class AccessTokenValidator(
     @Inject private val tokenManager: TokenManager,
     @Inject private val dpopManager: DpopManager,
     @Inject private val jwtManager: JwtManager,
-    @Inject private val dpopTokenReader: DpopTokenReader
+    @Inject private val dpopTokenReader: DpopTokenReader,
+    @Inject private val tokenMetrics: TokenMetrics
 ) : TokenValidator<HttpRequest<*>> {
 
     override fun validateToken(token: String, request: HttpRequest<*>?): Publisher<Authentication> = publish {
@@ -62,7 +67,28 @@ class AccessTokenValidator(
         }
 
         val scheme = if (dpopTokenReader.isPresentedWith(request, token)) DPOP else BEARER
+        val authentication = measureOutcome(
+            onSuccess = { elapsed, authentication ->
+                tokenMetrics.recordValidation(scheme.metricName, authentication.clientId, elapsed, Outcome.Success)
+            },
+            // A refusal is recorded without a client: the client is read from the configuration last.
+            onFailure = { elapsed, failure ->
+                tokenMetrics.recordValidation(scheme.metricName, null, elapsed, failure.toOutcome())
+            }
+        ) {
+            authenticate(token, request, scheme)
+        }
+        send(authentication)
+    }
 
+    /**
+     * The authentication [token], presented under [scheme], stands for.
+     */
+    private suspend fun authenticate(
+        token: String,
+        request: HttpRequest<*>,
+        scheme: AccessTokenScheme
+    ): Authentication {
         val decodedToken = try {
             jwtManager.decodeAndVerify(ACCESS_KEY, token)
         } catch (e: InvalidJwtException) {
@@ -101,7 +127,7 @@ class AccessTokenValidator(
                 challenges = listOf(InvalidToken)
             )
 
-        val authentication = if (grant.userId != null) {
+        return if (grant.userId != null) {
             val consentedScopes = grant.consentedScopes.mapNotNull {
                 scopeManager.find(it)
             }
@@ -124,6 +150,21 @@ class AccessTokenValidator(
                 scopes = scopes
             )
         }
-        send(authentication)
     }
+
+    /**
+     * The scheme a check is recorded under.
+     */
+    private val AccessTokenScheme.metricName: String
+        get() = name.lowercase()
+
+    /**
+     * The client the token authenticating this was issued to, which a check is recorded under.
+     */
+    private val Authentication.clientId: String?
+        get() = when (this) {
+            is UserAuthentication -> authenticationToken.grant.clientId
+            is ClientAuthentication -> authenticationToken.grant.clientId
+            else -> null
+        }
 }

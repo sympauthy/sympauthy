@@ -13,10 +13,15 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.FlowMetrics
+import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.telemetry.nanosToSeconds
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import io.micronaut.transaction.annotation.Transactional
 import java.net.URI
+import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
@@ -40,7 +45,8 @@ open class InteractiveFlowSessionManager(
     @Inject private val jwtManager: JwtManager,
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
     @Inject private val sessionMapper: InteractiveFlowSessionMapper,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val flowMetrics: FlowMetrics
 ) {
 
     /**
@@ -87,6 +93,9 @@ open class InteractiveFlowSessionManager(
             errorValues = error?.values,
         )
         sessionRepository.save(entity)
+        flowMetrics.recordStarted(
+            initiatingPurpose.metricName, initiatingClientId, error?.toOutcome() ?: Outcome.Success
+        )
 
         return sessionMapper.toInteractiveFlowSession(entity)
     }
@@ -238,6 +247,7 @@ open class InteractiveFlowSessionManager(
                 errorDescriptionId = error.descriptionId,
                 errorValues = error.values
             )
+            recordEnded(session, errorDate, FlowMetrics.SessionEnding.FAILED, error.detailsId)
         }
         return FailedInteractiveFlowSession(
             id = session.id,
@@ -282,6 +292,7 @@ open class InteractiveFlowSessionManager(
             expectedVersion = session.version
         )
         if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        recordEnded(session, cancelDate, FlowMetrics.SessionEnding.CANCELLED)
         return CancelledInteractiveFlowSession(
             id = session.id,
             purposes = session.purposes,
@@ -321,6 +332,30 @@ open class InteractiveFlowSessionManager(
         )
         if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
         return session.copy(completedPurposes = completedPurposes, version = session.version + 1)
+    }
+
+    /**
+     * Record that the [session] started at its session date ended at [endDate] as [ending], failed with the
+     * error code [errorType] if it failed.
+     */
+    fun recordEnded(
+        session: InteractiveFlowSession,
+        endDate: LocalDateTime,
+        ending: FlowMetrics.SessionEnding,
+        errorType: String? = null
+    ) {
+        val sessionDate = when (session) {
+            is OnGoingInteractiveFlowSession -> session.sessionDate
+            is CompletedInteractiveFlowSession -> session.sessionDate
+            else -> return
+        }
+        flowMetrics.recordEnded(
+            purpose = session.initiatingPurpose.metricName,
+            clientId = session.initiatingClientId,
+            elapsedSeconds = Duration.between(sessionDate, endDate).toNanos().nanosToSeconds(),
+            ending = ending,
+            errorType = errorType
+        )
     }
 
     /**
@@ -431,3 +466,9 @@ class FailedVerifyEncodedStateResult(
     val descriptionId: String? = null,
     val values: Map<String, String> = emptyMap()
 ) : VerifyEncodedStateResult()
+
+/**
+ * What a purpose is recorded under on a metric's `purpose`.
+ */
+internal val InteractiveFlowPurpose.metricName: String
+    get() = name.lowercase()

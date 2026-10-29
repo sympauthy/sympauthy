@@ -1369,6 +1369,121 @@ set is the same calls, written out once, and it is the one an operator gets on t
 native image alike. The instrumentation's GC duration is built from notifications a native image
 never sends, which is why the collectors' own count and time are read in its place.
 
+### Is a technical metric named by this server or by an existing convention?
+
+**Decision:** By an existing convention, with its unit and attributes: OpenTelemetry's semantic
+conventions first, then OpenTelemetry's own instrumentation and JMX metrics, then a major library's,
+such as Micrometer's. `sympauthy.` names the business metrics and those about this server's own
+notions — a condition, a flow, a scheduled job.
+
+**Options considered:**
+
+- **`sympauthy.` for everything the semantic conventions do not name.**
+- **The most used existing convention, falling back to `sympauthy.`.**
+
+**Rationale:**
+
+An operator who has read Netty's allocator or an executor's active threads before reads them here
+with what they already know, and a dashboard built for the convention works unchanged. A name of
+this server's own would be one more vocabulary for a reading that already has one. A business
+metric has no convention to take, and an operator expects this server's own notions under its own
+prefix.
+
+### Is each kind of event a metric of its own, or one metric with an `event` attribute?
+
+**Decision:** A metric per kind of event — token requests, access-token checks, flow sessions,
+authentication attempts — each with the attributes that event has.
+
+**Options considered:**
+
+- **One counter for every event, with an `event` attribute**, as Keycloak counts them.
+- **A metric per kind of event.**
+
+**Rationale:**
+
+A token request carries a grant type, a sign-in a method and a session a purpose. In one metric,
+each of those attributes would mean nothing for most of its series, and a duration could not be
+recorded at all, since a counter and a histogram are different instruments.
+
+### Does a metric count its failures beside its successes, or under an attribute?
+
+**Decision:** Under an attribute. `outcome` is `success`, `refused` or `error`, and `error.type` is
+the error code the caller was answered with.
+
+**Options considered:**
+
+- **Paired counters**, one for the events and one for their errors, as the community Keycloak
+  extension and Janssen count them.
+- **Reasons of the metric's own**, such as an unknown account apart from a wrong password.
+- **`outcome` and `error.type` on one metric.**
+
+**Rationale:**
+
+Summing either of two paired counters says nothing about the total, where the semantic conventions
+ask that summing a metric over its attributes count every event. `error.type` is the semantic
+conventions' own attribute, so a backend groups by it unprompted, and the error codes are a closed
+set the bundle test already holds closed. Reasons that are not error codes would be a second
+vocabulary for one metric, and the one place they were wanted — the refusals of a password sign-in
+— is where the server answers alike on purpose.
+
+### Is `client_id` an attribute every deployment gets?
+
+**Decision:** Yes, with no key to turn it off and no cap. It is recorded once the client has been
+found in the configuration, and left out otherwise.
+
+**Options considered:**
+
+- **Off by default and capped**, as Keycloak keeps it, because a realm's clients can be created
+  through its API.
+- **Always recorded, the id a request sent included.**
+- **Always recorded, once the client has been found.**
+
+**Rationale:**
+
+Here every client is declared in the configuration file, so the set is as large as the deployment
+wrote it and changes only when the file does; a cap guards against a growth this server cannot
+have. The id a request sent is chosen by whoever sent it, and recording it would let a scan create
+a series per guess — what Ory Hydra and Zitadel each found when they let a request's path become
+an attribute, and reverted.
+
+### Is a use case counted by its controller or by its manager?
+
+**Decision:** By its manager. The token endpoint's work past the HTTP layer moved into
+`TokenRequestManager` so that a token request is counted there.
+
+**Options considered:**
+
+- **The controller**, which sees the whole request, the refusals of the HTTP layer included.
+- **The manager running the use case.**
+
+**Rationale:**
+
+A manager is callable without an HTTP request, and a use case counted there is counted whichever
+caller runs it; a controller is routing and status codes, and a metric recorded in it is one more
+thing it does. What the manager never sees — a client that fails to authenticate, a refused DPoP
+proof, a grant type the server does not support, a malformed authorization request — is answered by
+the HTTP layer, and `http.server.request.duration` already counts it by route and status. What is
+lost is the grant type and the client on those refusals, and neither is known when the request is
+refused for not naming them.
+
+### Are a condition and the calls reported to it one metric?
+
+**Decision:** Two. `sympauthy.condition.degraded` publishes every condition, and
+`sympauthy.remote_call.duration` times the calls made outside the process, each carrying the
+`condition` it reported to.
+
+**Options considered:**
+
+- **One `sympauthy.dependency.*` family**, the gauge and the call histogram under one name.
+- **A condition's metric and a remote call's metric.**
+
+**Rationale:**
+
+A condition is not always a dependency reached by a call: the console's queue is this server's own,
+and degrades by dropping lines. Under one name, the queue reads as a dependency that is called and
+never is, and the calls read as covering every condition when they cover only the remote ones. Both
+key on `condition`, so a failing call and the condition it degraded are still read under one name.
+
 ---
 
 ← [How the system works](index.md)

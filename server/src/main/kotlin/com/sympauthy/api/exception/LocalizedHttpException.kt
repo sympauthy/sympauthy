@@ -43,6 +43,8 @@ open class LocalizedHttpException(
     throwable = throwable
 ) {
 
+    override val answeredStatus: HttpStatus get() = status
+
     /**
      * The headers this refusal answers with beside its body, by name, which is none for most of them:
      * a `WWW-Authenticate` challenge telling a client what credential would have been accepted, or the

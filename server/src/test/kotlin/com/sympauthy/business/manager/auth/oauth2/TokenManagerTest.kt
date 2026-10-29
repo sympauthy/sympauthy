@@ -7,8 +7,6 @@ import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.auth.ActorGrantValidator
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.consent.ConsentManager
-import com.sympauthy.business.manager.user.ClaimAclManager
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
@@ -16,10 +14,14 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
+import com.sympauthy.business.manager.user.ClaimAclManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.AuthenticationToken
 import com.sympauthy.business.model.oauth2.AuthenticationTokenType.ACCESS
@@ -27,8 +29,6 @@ import com.sympauthy.business.model.oauth2.AuthenticationTokenType.REFRESH
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
-import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
@@ -36,6 +36,8 @@ import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coJustRun
@@ -48,6 +50,7 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.verify
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -102,12 +105,12 @@ class TokenManagerTest {
      * stubbing an answer to them.
      */
     @SpyK
-    var grantManager = GrantManager(mockk(), mockk(), mockk(), mockk(), mockk())
+    var grantManager = GrantManager(mockk(), mockk(), mockk(), mockk(), mockk(), TokenMetrics(OpenTelemetry.noop()))
 
     private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
 
     /** The real manager over the stripe table, so a test can say which row was taken before what. */
-    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes())
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
 
     @MockK
     lateinit var tokenRepository: AuthenticationTokenRepository

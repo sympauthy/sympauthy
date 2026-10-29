@@ -3,18 +3,25 @@ package com.sympauthy.business.manager.lock
 import com.sympauthy.business.manager.lock.JobLeaseManager.Companion.GRACE_PERIOD
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.data.repository.JobLeaseRepository
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.telemetry.JobMetrics
+import com.sympauthy.monitoring.telemetry.JobMetrics.JobRunOutcome
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.verify
+import io.opentelemetry.api.OpenTelemetry
+import io.r2dbc.spi.R2dbcNonTransientResourceException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 
@@ -23,6 +30,12 @@ class JobLeaseManagerTest {
 
     @MockK
     lateinit var jobLeaseRepository: JobLeaseRepository
+
+    @SpyK
+    var jobMetrics = JobMetrics(OpenTelemetry.noop())
+
+    @SpyK
+    var conditionMonitor = ConditionMonitor()
 
     @InjectMockKs
     lateinit var manager: JobLeaseManager
@@ -101,17 +114,46 @@ class JobLeaseManagerTest {
     }
 
     @Test
-    fun `withLease - Releases the lease when the block fails, and lets the failure through`() = runTest {
+    fun `withLease - Releases the lease when the block fails, and records the run as failed`() = runTest {
         coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
         coEvery { jobLeaseRepository.release(any(), any()) } returns 1
 
-        assertThrows<IllegalStateException> {
-            manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { error("the run failed") }
-        }
+        assertTrue(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { error("the run failed") })
 
         coVerify(exactly = 1) {
             jobLeaseRepository.release("clean_abandoned_accounts", any())
         }
+        verify { jobMetrics.recordRun("clean_abandoned_accounts", any(), JobRunOutcome.ERROR) }
+    }
+
+    @Test
+    fun `withLease - Hands a failure of the database to its condition rather than throwing it`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } throws
+            R2dbcNonTransientResourceException("Connection refused")
+
+        assertFalse(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { error("the run must not start") })
+
+        assertTrue(conditionMonitor.isDegraded(Condition.Database))
+        verify { jobMetrics.recordRun("clean_abandoned_accounts", any(), JobRunOutcome.ERROR) }
+    }
+
+    @Test
+    fun `withLease - Records a run another instance holds the lease for as skipped`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 0
+
+        manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
+
+        verify { jobMetrics.recordRun("clean_abandoned_accounts", any(), JobRunOutcome.SKIPPED) }
+    }
+
+    @Test
+    fun `renewLeases - Records a run that failed, and renews nothing`() = runTest {
+        coEvery { jobLeaseRepository.renew(any(), any(), any()) } throws
+            R2dbcNonTransientResourceException("Connection refused")
+
+        assertEquals(0, manager.renewLeases())
+
+        verify { jobMetrics.recordRun(JobLeaseManager.RENEW_JOB_LEASES, any(), JobRunOutcome.ERROR) }
     }
 
     @Test

@@ -1,9 +1,10 @@
 # Telemetry
 
 What the server exports about itself to an OpenTelemetry collector: a span per request it serves
-and per call it makes, the metrics that come with them and with the runtime, and every log record
-stamped with the trace it was written under. All of it leaves through one SDK, over one exporter,
-to one collector a deployment names, and none of it leaves until one is named.
+and per call it makes, the metrics that come with them and with the runtime, the metrics an
+authorization server is run by, and every log record stamped with the trace it was written under.
+All of it leaves through one SDK, over one exporter, to one collector a deployment names, and none
+of it leaves until one is named.
 
 The rules a change is held to — what an exported attribute may carry, how an instrument is named
 — are [the telemetry standard](../standards/telemetry-standard.md). What the server says on its
@@ -38,6 +39,10 @@ single backend of the deployment's choosing sits behind the collector, and this 
 integration with any of them — see [the design
 FAQ](design-faq.md#why-the-opentelemetry-sdk-rather-than-micrometer).
 
+**Each process exports as an instance of its own**, under a `service.instance.id` drawn at startup
+unless `otel.resource.attributes` names one. Under one identical resource the instances' series
+would merge at the collector, a gauge reading as whichever exported last.
+
 **What does not depend on the deployment ships in `application.yml` with the flag.** The file
 ships:
 
@@ -57,12 +62,88 @@ again.
 | Signal | What arrives |
 | --- | --- |
 | traces | a server span per request, named by its route; a client span per call to a provider or a webhook, under the span of the request it was made for |
-| metrics | the duration of every request served and every call made, keyed by route, method and status; the runtime metrics below |
+| metrics | the duration of every request served and every call made, keyed by route, method and status; [what an authorization server counts](#what-an-authorization-server-counts); the runtime metrics below |
 | logs | every record logback is handed, at every level, carrying the trace and span it was written under |
 
-**The instrumentation is the framework's own, and no manager is instrumented.** What an
-authorization server counts — tokens issued, sign-ins refused, mail queued — and under which
-attributes is a design of its own, and this one leaves it open.
+**The HTTP instrumentation is the framework's own.** What it cannot say about an authorization
+server, the server counts itself.
+
+## What an authorization server counts
+
+**A request's duration by route does not answer what an operator is asked.** One route serves every
+grant at the token endpoint, a flow page answers `200` whether the person moved on or was sent
+back, and a password being guessed or a cleanup job that stopped leaves no trace in it. The server
+counts each kind of event an operator watches with a metric of its own.
+
+| Metric | What it answers |
+| --- | --- |
+| `sympauthy.token.request.duration` | which client is misconfigured; refreshes refused after a consent was revoked; a client failing once it starts using DPoP |
+| `sympauthy.access_token.validation.duration` | what checking a token costs; a wave of revoked tokens presented |
+| `sympauthy.grant.revocations` | grants revoked, and by what |
+| `sympauthy.flow.sessions.started` | authorization requests refused before a person sees a page |
+| `sympauthy.flow.session.duration` | how long a flow takes, and how often one fails or is cancelled |
+| `sympauthy.flow.sessions.expired` | where people give up |
+| `sympauthy.authentication.attempts` | password and second-factor guessing; sign-up waves; failures per provider |
+| `sympauthy.validation_code.checks` | a validation code being guessed |
+| `sympauthy.password.hash.duration`, `.active` | the CPU sign-ins cost, and the size of an attack |
+| `sympauthy.condition.degraded` | what `/health` reports, as a number an alert can watch |
+| `sympauthy.remote_call.duration` | a slow or failing provider, authorization webhook or mail server |
+| `sympauthy.job.run.duration`, `sympauthy.job.deletions` | a cleanup job that fails or never runs; how fast its tables grow |
+| `sympauthy.lock.wait.duration` | contention on the lock a change to one account takes |
+| `netty.eventexecutor.tasks.pending` | a Netty event loop falling behind, on the server's side or the database's |
+| `executor.active` | how busy the pool `suspend` routes resume on is |
+| `netty.allocator.memory.used` | the memory Netty holds off the heap, which a native image reports nowhere else |
+
+**Every metric says how its event ended the same way**: `outcome` is `success`, `refused` where the
+caller caused it, or `error` where the server or a dependency failed, and `error.type` is the error
+code the caller was answered with — see [the design
+FAQ](design-faq.md#does-a-metric-count-its-failures-beside-its-successes-or-under-an-attribute).
+What an attribute may carry is [the telemetry standard](../standards/telemetry-standard.md)'s:
+never a value a request sent, and `client_id` only once the client has been found.
+
+**A flow session ends `completed`, `failed` or `cancelled`; an expired one is counted apart**, once
+it is collected, under `stalled_purpose`, the first purpose it had not finished.
+
+**A password sign-in's refusals stay one code.** An unknown identifier and a wrong password are
+answered alike so that a response does not say which accounts exist, and the metric keeps to the
+codes. A sign-up is an attempt under `kind` `sign_up`, a provider's callback included when it
+created the account.
+
+**A use case is counted by its manager, never by a controller**, so that it is counted whichever
+caller ran it; the token endpoint's work past the HTTP layer is `TokenRequestManager`'s for that
+reason. A request refused before a manager is called, such as a client that fails to authenticate
+or an unsupported grant type, is left to `http.server.request.duration` — see [the design
+FAQ](design-faq.md#is-a-use-case-counted-by-its-controller-or-by-its-manager). An access token's
+check is the exception, counted by the validator in `security`, which makes it before any route.
+
+**A condition is published by its state, and a remote call by its report.**
+`sympauthy.condition.degraded` is `1` exactly while `/health` lists the condition, under its name
+there — a provider's as `provider:<id>`, a webhook's as `webhook:<client id>`. A call made outside
+the process goes through `RemoteCallMonitor`, which times it and reports how it ended to its
+condition: a remote call is always a condition's, and a condition such as the console's queue is not
+always reached by a call — see [the design
+FAQ](design-faq.md#are-a-condition-and-the-calls-reported-to-it-one-metric). `error` is exactly a
+call that degraded its condition, and `refused` an answer to what was sent, which recovers it as a
+success does; either is typed by `timeout`, `connection` or the status. The collector's exports
+report to its condition alone, since it recovers only once every signal has; the database is only a
+condition, and no call to it is timed. A provider's id token is checked locally, and only the fetch
+of its key set is a call, `jwks`, which the JWT library makes outside the HTTP client the framework
+instruments.
+
+**A scheduled job's run ends `success`, `error`, or `skipped` where another instance holds its
+lease, and a failing run is reported rather than thrown.** Thrown, it ended in the default handler
+of the coroutine the job was launched in, where neither the log nor a metric saw it.
+
+**A technical metric takes the name an existing convention gives it**, so that an operator reads it
+with what they already know: OpenTelemetry's first, then a major library's — see [the design
+FAQ](design-faq.md#is-a-technical-metric-named-by-this-server-or-by-an-existing-convention). The
+`sympauthy.` metrics are the business ones and those about this server's own notions.
+
+**Where work waits is measured where it queues.** Each event loop reports its backlog under its
+thread's name, as Micrometer's binder does; a loop keeps its connections for life, so one blocked
+loop stalls only its own share. The thread count says nothing, since every pool reaches its size at
+idle; the pool `suspend` routes resume on is measured by the tasks running on it, as Micrometer's
+`executor.active` under `name` `request`.
 
 ## What leaves with it
 
@@ -103,7 +184,7 @@ options, compared each reading against a JVM run:
 | heap usage, per pool | real values | `jvm.memory.used`, `.committed`, `.limit` |
 | non-heap pools | always `0`: code is compiled into the image | no |
 | garbage-collection notifications | registered, never sent | no `jvm.gc.duration` |
-| each collector's count and accumulated time | real values | `sympauthy.gc.collection.count`, `.time` |
+| each collector's count and accumulated time | real values | `jvm.gc.collections.count`, `.elapsed` |
 | thread count, daemon or not | real values | `jvm.thread.count` |
 | threads per state | nothing | no |
 | classes loaded, JIT compilation | always `0`, or absent | no |
@@ -116,8 +197,8 @@ production are read the same way.
 
 **Garbage collection is read from the collectors themselves.** It says how many collections there
 were and how long they took in total, and never how long one pause took: nothing a native image
-fills can say more. The names are the server's own because the semantic conventions' only GC
-metric is the per-pause duration.
+fills can say more. The names are OpenTelemetry's JMX metrics', since the semantic conventions'
+only GC metric is the per-pause duration.
 
 **The server reads these itself rather than through OpenTelemetry's runtime instrumentation.** That
 instrumentation registers all of its readings or none, and the empty non-heap pool is a series of
@@ -146,20 +227,16 @@ that failed. A metric loses nothing worth counting, since each is exported as it
 the next export that succeeds carries what a failed one did not.
 
 **What the SDK's own queues drop is not counted on the console.** The SDK calls nothing back when a
-queue is full; it records the drop in metrics of its own, which are exported with the rest, and the
-one line the span queue writes about it is on a logger silenced for its failure reports. A queue
-dropping while the collector answers is therefore visible at the collector and nowhere on the
-console.
+queue is full; the drop is in its own metrics, visible at the collector and nowhere on the console.
 
 **The SDK's own report of a failed export is silenced.** It writes one per failure, to stderr, on
 its own schedule, which is a second and unbounded account of an outage the condition states once.
 
-**Nothing the collector does can slow a request.** A span and a log record are added to the SDK's
-bounded queues, which drop rather than wait, and exported by its own threads; a metric aggregates in
-memory until it is read. Those threads compete for the CPU as equals of the ones serving requests,
-for [the same reason the console's writer
-does](logging.md#what-this-document-does-not-settle), so what bounds their share is the volume they
-are handed: the sampling ratio and the export interval.
+**Nothing the collector does can slow a request.** A span and a log record go to the SDK's bounded
+queues, which drop rather than wait, and a metric aggregates in memory until it is read. The
+exporting threads compete for the CPU as equals, [as the console's writer
+does](logging.md#what-this-document-does-not-settle), bounded by the sampling ratio and the export
+interval.
 
 **The ERROR about the collector cannot feed itself.** It is exported like any record and lost with
 the rest while the collector is down, and the failure to export it writes nothing, because only a
@@ -173,11 +250,19 @@ open the spans, and the request durations come from the same instrumenters. The 
 OpenTelemetry's, installed by the module once the application has started. Every bean of it is
 conditioned on `micronaut.otel.enabled` not being `false`, and so is every bean the server adds.
 
-**What the server adds is in `monitoring/telemetry/`, beside the conditions it reports to.** Two
+**The instruments are in `monitoring/telemetry/`, one class per subject.** They are built on the
+`OpenTelemetry` bean, OpenTelemetry's no-op while telemetry is off, so the code recording them has
+one path either way. `Throwable.toOutcome()`, in `exception/`, is the one place a failure becomes an
+`outcome` and an `error.type`; `RemoteCallMonitor`, in `monitoring/`, is the one place a remote call
+is timed and reported to `ConditionMonitor`.
+
+**What the server adds to the framework's integration is in `monitoring/telemetry/`, beside the
+conditions it reports to.** Two
 attribute extractors, one for the server and one for the client, redact the query; they are ordered
 after the framework's own, and they overwrite rather than remove because the builder they are handed
 cannot remove an attribute once it is set. A customizer wraps every exporter the SDK builds so that
-each export is reported to the collector's condition, and the runtime metrics are read there too.
+each export is reported to the collector's condition, and the runtime metrics are read there too. A
+second customizer adds the instance's id to the resource the SDK builds.
 They report on the server rather than serve anything, which by [the architecture's
 test](architecture.md#beside-the-layers) puts them beside the layers.
 
@@ -203,8 +288,11 @@ it breaking.
 
 ## What this document does not settle
 
-**What an authorization server counts.** No manager is instrumented, and the instruments a domain
-event deserves — and what their attributes may carry — are a design of their own.
+**The database's connection pool.** The server opens none, so `db.client.connection.*` waits for
+one.
+
+**The metrics left for later.** Consents and grants opened, the mail queue's depth, signing times,
+refused claim writes, invitations, and the introspection and revocation endpoints.
 
 **Spans for database queries.** Micronaut's R2DBC tracing wraps the connection factory through a
 proxy, which is a decision about the `data` layer and about the native image, taken on its own.

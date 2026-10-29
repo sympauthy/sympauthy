@@ -8,11 +8,13 @@ import com.sympauthy.config.model.ProviderOpenIdConnectInputConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.mockk.coEvery
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -52,7 +54,7 @@ class ProviderManagerTest {
             )
         ),
         openIdConnectDiscoveryClient = discoveryClient,
-        conditionMonitor = conditionMonitor
+        remoteCallMonitor = RemoteCallMonitor(conditionMonitor, OpenTelemetry.noop())
     )
 
     @AfterEach

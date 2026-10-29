@@ -28,7 +28,9 @@ open class BusinessException(
     descriptionId = descriptionId,
     values = values,
     throwable
-)
+) {
+    override val answeredStatus: HttpStatus? get() = recommendedStatus
+}
 
 /**
  * Factory method to create a business exception that cannot be recovered by an end-user action

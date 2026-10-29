@@ -1,9 +1,13 @@
 package com.sympauthy.business.manager.lock
 
 import com.sympauthy.data.repository.JobLeaseRepository
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.telemetry.JobMetrics
+import com.sympauthy.monitoring.telemetry.JobMetrics.JobRunOutcome
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import java.time.Duration
 import java.time.Duration.ofMinutes
 import java.util.*
@@ -27,11 +31,18 @@ import java.util.*
  * process. It is the only one every instance shares, and a lease timed by each instance's own would let
  * one running fast hold past its grace period and one running slow take a lease that is still live.
  *
+ * **A run never throws.** Each one is recorded on `sympauthy.job.run.duration` as it ended — run, failed, or
+ * skipped for another instance's lease — and a failure is handed to [ConditionMonitor.absorb], then written at
+ * WARN if no condition took it. Thrown, it would end in the default handler of the coroutine the job was
+ * launched in, which neither logs it nor counts it.
+ *
  * [LockManager] is the mechanism for the other thing, where two writers must not both proceed.
  */
 @Singleton
 class JobLeaseManager(
-    @Inject private val jobLeaseRepository: JobLeaseRepository
+    @Inject private val jobLeaseRepository: JobLeaseRepository,
+    @Inject private val jobMetrics: JobMetrics,
+    @Inject private val conditionMonitor: ConditionMonitor
 ) {
 
     private val logger = loggerForClass()
@@ -53,29 +64,43 @@ class JobLeaseManager(
      * one transaction. So a crash mid-run leaves the lease taken until it stops being renewed, which is
      * what the grace period is for.
      *
-     * The lease is released whatever [block] does, and the failure it threw travels on to the caller —
-     * for a scheduled job, to whatever Micronaut does with a task that threw.
+     * The lease is released whatever [block] does. A failure, of [block] or of the lease itself, is reported
+     * as the class says and not thrown; a run that failed after taking the lease still answers true.
      */
     suspend fun withLease(job: LeasedJob, block: suspend () -> Unit): Boolean {
+        val start = System.nanoTime()
+        var acquired = false
+        val outcome = try {
+            acquired = acquire(job)
+            if (acquired) {
+                try {
+                    block()
+                } finally {
+                    jobLeaseRepository.release(job.leaseName, holder)
+                }
+                JobRunOutcome.SUCCESS
+            } else {
+                logger.debug { "Skipping ${job.leaseName}: another instance holds its lease." }
+                JobRunOutcome.SKIPPED
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            report(job.leaseName, failure)
+            JobRunOutcome.ERROR
+        }
+        jobMetrics.recordRun(job.leaseName, System.nanoTime() - start, outcome)
+        return acquired
+    }
+
+    private suspend fun acquire(job: LeasedJob): Boolean {
         val now = jobLeaseRepository.now()
-        val acquired = jobLeaseRepository.acquire(
+        return jobLeaseRepository.acquire(
             name = job.leaseName,
             holder = holder,
             now = now,
             expiresAt = now.plus(GRACE_PERIOD)
         ) == 1
-
-        if (!acquired) {
-            logger.debug { "Skipping ${job.leaseName}: another instance holds its lease." }
-            return false
-        }
-
-        try {
-            block()
-        } finally {
-            jobLeaseRepository.release(job.leaseName, holder)
-        }
-        return true
     }
 
     /**
@@ -91,12 +116,32 @@ class JobLeaseManager(
      * lost.
      */
     suspend fun renewLeases(): Int {
-        val now = jobLeaseRepository.now()
-        return jobLeaseRepository.renew(
-            holder = holder,
-            now = now,
-            expiresAt = now.plus(GRACE_PERIOD)
-        )
+        val start = System.nanoTime()
+        val (renewed, outcome) = try {
+            val now = jobLeaseRepository.now()
+            val renewed = jobLeaseRepository.renew(
+                holder = holder,
+                now = now,
+                expiresAt = now.plus(GRACE_PERIOD)
+            )
+            renewed to JobRunOutcome.SUCCESS
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            report(RENEW_JOB_LEASES, failure)
+            0 to JobRunOutcome.ERROR
+        }
+        jobMetrics.recordRun(RENEW_JOB_LEASES, System.nanoTime() - start, outcome)
+        return renewed
+    }
+
+    /**
+     * Hand the [failure] of a run of [job] to the condition it says is failing, or write it at WARN.
+     */
+    private fun report(job: String, failure: Exception) {
+        if (!conditionMonitor.absorb(failure)) {
+            logger.warn(failure) { "The run of $job failed." }
+        }
     }
 
     companion object {
@@ -110,5 +155,10 @@ class JobLeaseManager(
 
         /** How often [renewLeases] runs, named here because `@Scheduled` needs a literal to read. */
         const val RENEWAL_PERIOD = "1m"
+
+        /**
+         * The name a run of [renewLeases] is recorded under, beside the names of the jobs that take a lease.
+         */
+        const val RENEW_JOB_LEASES = "renew_job_leases"
     }
 }

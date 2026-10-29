@@ -7,11 +7,10 @@ import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProvid
 import com.sympauthy.business.manager.flow.reauth.InteractiveFlowSessionReauthenticationManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
-import com.sympauthy.business.manager.security.UserSecurityContextManager
-import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderClaimsResolver
 import com.sympauthy.business.manager.provider.ProviderManager
+import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -27,12 +26,17 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
+import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.client.isRemoteFailure
 import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PROVIDER
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
 import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -69,7 +73,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val conditionMonitor: ConditionMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
 ) {
 
     private val logger = loggerForClass()
@@ -154,6 +159,33 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         observedRequest: ObservedRequest,
         providerError: String? = null,
         providerErrorDescription: String? = null
+    ): InteractiveFlowSession = authenticationMetrics.recordAttemptOfDeclaredKind(
+        method = PROVIDER,
+        // An id the configuration does not declare is the caller's to choose, and is not recorded.
+        providerId = providerId?.takeIf(providerConfigManager::isDeclared),
+        kind = SIGN_IN
+    ) { declareKind ->
+        signInOrSignUpUsingProvider(
+            session, providerId, redirectUri, authorizeCode, observedRequest, providerError, providerErrorDescription,
+            declareKind
+        )
+    }
+
+    /**
+     * What the public [signInOrSignUpUsingProvider] does, handing [declareKind] the kind of attempt the branch it
+     * takes is: a sign-up from the moment it creates an account, a sign-in where that resolves to an existing one,
+     * and none where it links a provider or reaches a step where signing in no longer applies. A re-authentication
+     * stays a sign-in, since it proves a credential.
+     */
+    private suspend fun signInOrSignUpUsingProvider(
+        session: OnGoingInteractiveFlowSession,
+        providerId: String?,
+        redirectUri: URI,
+        authorizeCode: String?,
+        observedRequest: ObservedRequest,
+        providerError: String?,
+        providerErrorDescription: String?,
+        declareKind: (String?) -> Unit
     ): InteractiveFlowSession {
         // Check if the provider returned an error instead of a code.
         if (!providerError.isNullOrBlank()) {
@@ -204,14 +236,19 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             return when (engine.currentPurposeOrNull(session)) {
                 InteractiveFlowPurpose.REAUTHENTICATION ->
                     confirmReauthenticatedProviderUser(session, existingUserInfo, rawUserInfo, observedRequest)
-                InteractiveFlowPurpose.LINK_PROVIDER ->
+                InteractiveFlowPurpose.LINK_PROVIDER -> {
+                    declareKind(null)
                     linkProviderToSessionUser(session, provider, rawUserInfo)
-                else -> session
+                }
+                else -> session.also { declareKind(null) }
             }
         }
 
         val (userId, signedUp) = if (existingUserInfo == null) {
+            declareKind(SIGN_UP)
             val establishment = establisher.establishNewProviderUser(session, provider, rawUserInfo)
+            // Resolved to an account that already held the asserted identity, rather than creating one.
+            if (!establishment.signedUp) declareKind(SIGN_IN)
             establishment.userId to establishment.signedUp
         } else {
             providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo)
@@ -456,7 +493,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             authorizeCode = authorizeCode,
             redirectUri = redirectUri
         )
-        val response = conditionMonitor.observe(Condition.Provider(provider.id), Throwable::isRemoteFailure) {
+        val response = remoteCallMonitor.observe(Condition.Provider(provider.id), "token", Throwable::remoteOutcome) {
             tokenEndpointClient.fetchTokens(request)
         }
 

@@ -7,11 +7,13 @@ import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.client.isRemoteFailure
+import com.sympauthy.client.remoteOutcome
 import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
@@ -40,7 +42,7 @@ import java.util.concurrent.ConcurrentHashMap
 open class ProviderManager(
     @Inject private val providersConfig: ProvidersConfig,
     @Inject private val openIdConnectDiscoveryClient: OpenIdConnectDiscoveryClient,
-    @Inject private val conditionMonitor: ConditionMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor
 ) {
 
     /**
@@ -58,12 +60,11 @@ open class ProviderManager(
         for (config in enabledConfig.providers) {
             providers[config.id] = scope.async {
                 try {
-                    resolveProvider(config).also { conditionMonitor.reportSuccess(Condition.Provider(config.id)) }
+                    resolveProvider(config)
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
                     if (e.isRemoteFailure()) {
-                        conditionMonitor.reportFailure(Condition.Provider(config.id), e)
                         retryResolution(config)
                     } else {
                         reportUnusable(config, e)
@@ -85,26 +86,23 @@ open class ProviderManager(
      *
      * A provider whose discovery cannot be fetched at startup is otherwise disabled until the server is
      * restarted, and its condition reported degraded with nothing that could ever see it recover. Every
-     * attempt that cannot fetch it is reported to its condition, which counts it. An attempt that fetches
-     * something this server cannot use ends the retries: the provider answered, so its condition recovers,
-     * and it stays disabled with the ERROR it would have had at startup.
+     * attempt is reported to its condition by [resolveProvider]. An attempt that fetches something this
+     * server cannot use ends the retries: the provider answered, so its condition recovers, and it stays
+     * disabled with the ERROR it would have had at startup.
      */
     private fun retryResolution(config: ProviderConfig) = scope.launch {
         while (true) {
             delay(RESOLUTION_RETRY_INTERVAL.toMillis())
             try {
                 providers[config.id] = CompletableDeferred(resolveProvider(config))
-                conditionMonitor.reportSuccess(Condition.Provider(config.id))
                 return@launch
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Exception) {
                 if (!e.isRemoteFailure()) {
                     reportUnusable(config, e)
-                    conditionMonitor.reportSuccess(Condition.Provider(config.id))
                     return@launch
                 }
-                conditionMonitor.reportFailure(Condition.Provider(config.id), e)
             }
         }
     }
@@ -122,6 +120,11 @@ open class ProviderManager(
             values = mapOf("issuer" to config.id),
             throwable = this
         )
+
+    /**
+     * Whether the configuration declares a provider identified by [id], resolved or not.
+     */
+    fun isDeclared(id: String): Boolean = providers.containsKey(id)
 
     suspend fun listProviders(): List<Provider> {
         return providers.values.awaitAll()
@@ -151,6 +154,10 @@ open class ProviderManager(
             )
     }
 
+    /**
+     * Resolve the provider [config] declares, fetching its discovery document as a call to its condition where it
+     * is an OpenID Connect provider.
+     */
     internal suspend fun resolveProvider(config: ProviderConfig): EnabledProvider {
         val auth = when (val input = config.auth) {
             is ProviderOAuth2InputConfig -> ProviderOAuth2Config(
@@ -162,7 +169,11 @@ open class ProviderManager(
             )
 
             is ProviderOpenIdConnectInputConfig -> {
-                val discovery = openIdConnectDiscoveryClient.fetchDiscovery(input.issuer)
+                val discovery = remoteCallMonitor.observe(
+                    Condition.Provider(config.id), DISCOVERY_OPERATION, Throwable::remoteOutcome
+                ) {
+                    openIdConnectDiscoveryClient.fetchDiscovery(input.issuer)
+                }
                 ProviderOpenIdConnectConfig(
                     clientId = input.clientId,
                     clientSecret = input.clientSecret,
@@ -183,6 +194,11 @@ open class ProviderManager(
     }
 
     companion object {
+        /**
+         * The operation a provider's discovery is timed under.
+         */
+        private const val DISCOVERY_OPERATION = "discovery"
+
         /**
          * How long a provider that could not be resolved waits before it is tried again. It reuses the
          * conditions' quiet period rather than adding a number of its own to the ones the design fixes.

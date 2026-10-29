@@ -1,8 +1,10 @@
 package com.sympauthy.business.manager.auth
 
+import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_FINISHED_GRANTS
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.GrantRepository
+import com.sympauthy.monitoring.telemetry.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -34,9 +36,13 @@ import java.time.LocalDateTime
 open class GrantCleaner(
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
-    @Inject private val grantRepository: GrantRepository
+    @Inject private val grantRepository: GrantRepository,
+    @Inject private val jobMetrics: JobMetrics
 ) {
 
+    /**
+     * Delete what is finished, and record each kind of row deleted under [CLEAN_FINISHED_GRANTS].
+     */
     @Transactional
     open suspend fun clean(): CleanResult {
         val cutoff = LocalDateTime.now().minus(EXPIRATION_GRACE)
@@ -44,6 +50,10 @@ open class GrantCleaner(
         val revokedTokenCount = tokenRepository.deleteUnderRevokedGrants()
         val authorizationCodeCount = authorizationCodeRepository.deleteByExpirationDateLessThan(cutoff)
         val grantCount = grantRepository.deleteFinished()
+        val job = CLEAN_FINISHED_GRANTS.leaseName
+        jobMetrics.recordDeletions(job, "token", (expiredTokenCount + revokedTokenCount).toLong())
+        jobMetrics.recordDeletions(job, "authorization_code", authorizationCodeCount.toLong())
+        jobMetrics.recordDeletions(job, "grant", grantCount.toLong())
         return CleanResult(
             tokenCount = expiredTokenCount + revokedTokenCount,
             authorizationCodeCount = authorizationCodeCount,

@@ -12,6 +12,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
+import com.sympauthy.monitoring.telemetry.FlowMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -160,6 +161,7 @@ open class InteractiveFlowEngine(
             }
         }
         val completed = commitCompletion(session, effects)
+        sessionManager.recordEnded(completed, completed.completeDate, FlowMetrics.SessionEnding.COMPLETED)
         // Once that transaction has committed, in one of its own. The account is real by then, so nothing
         // in user_security_contexts ever names one the abandoned-account sweep may delete — and a write
         // that can violate a unique index is kept out of a transaction whose rollback would answer a

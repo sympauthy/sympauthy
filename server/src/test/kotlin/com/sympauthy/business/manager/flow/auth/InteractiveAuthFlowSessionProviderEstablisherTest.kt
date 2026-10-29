@@ -22,11 +22,13 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -71,7 +73,9 @@ class InteractiveAuthFlowSessionProviderEstablisherTest {
      * the block whether or not anything was ever locked.
      */
     @SpyK
-    var lockManager: LockManager = LockManager(mockk<ObjectLockRepository>(relaxed = true), HeldStripes())
+    var lockManager: LockManager = LockManager(
+        mockk<ObjectLockRepository>(relaxed = true), HeldStripes(), LockMetrics(OpenTelemetry.noop())
+    )
 
     @InjectMockKs
     lateinit var establisher: InteractiveAuthFlowSessionProviderEstablisher

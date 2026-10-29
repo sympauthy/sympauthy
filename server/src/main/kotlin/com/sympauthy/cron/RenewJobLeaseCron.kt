@@ -15,9 +15,8 @@ import kotlinx.coroutines.launch
  * duration: a lease stands for as long as this keeps running and is free to be taken shortly after it
  * stops. See [JobLeaseManager.renewLeases].
  *
- * Nothing is logged. A run that renews nothing is what an instance running no job looks like, which is
- * most minutes of most days. It is dispatched the way the two cleaners are, so whichever change gives
- * them a failure that reaches a log gives this one the same.
+ * Nothing is logged of a run that succeeds. A run that renews nothing is what an instance running no job
+ * looks like, which is most minutes of most days. A run that fails is reported as a leased job's is.
  */
 @Singleton
 class RenewJobLeaseCron(

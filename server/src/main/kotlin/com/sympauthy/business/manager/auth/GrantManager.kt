@@ -20,6 +20,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
+import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.wireName
 import io.micronaut.transaction.annotation.Transactional
@@ -47,7 +48,8 @@ open class GrantManager(
     @Inject private val grantMapper: GrantMapper,
     @Inject private val lockManager: LockManager,
     @Inject private val userManager: UserManager,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val tokenMetrics: TokenMetrics
 ) {
 
     /**
@@ -268,18 +270,21 @@ open class GrantManager(
     open suspend fun revokeGrant(grant: Grant, revokedBy: GrantRevokedBy, revokedById: UUID?) {
         lockManager.withLock(listOfNotNull(grant.userId?.let(LockKey::User))) {
             val now = LocalDateTime.now()
-            grantRepository.updateRevokedAt(
+            val revoked = grantRepository.updateRevokedAt(
                 id = grant.id,
                 revokedAt = now,
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-            grantRepository.updateRevokedAtByActorGrantId(
+            val actorGrantsRevoked = grantRepository.updateRevokedAtByActorGrantId(
                 actorGrantId = grant.id,
                 revokedAt = now,
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
+            tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked)
+            // An act-as grant is opened for whichever client acted, so the ones opened from this grant span clients.
+            tokenMetrics.recordRevocations(revokedBy.metricName, null, actorGrantsRevoked)
         }
     }
 
@@ -296,7 +301,7 @@ open class GrantManager(
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-        }
+        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
     }
 
     /**
@@ -318,7 +323,7 @@ open class GrantManager(
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-        }
+        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, client.id, it) }
     }
 
     /**
@@ -344,6 +349,12 @@ open class GrantManager(
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-        }
+        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
     }
 }
+
+/**
+ * What a revocation is recorded under on `revoked_by`.
+ */
+private val GrantRevokedBy.metricName: String
+    get() = name.lowercase()

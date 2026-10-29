@@ -3,22 +3,14 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.ClientGrantScopesResult
-import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.oauth2.*
-import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.auth.oauth2.GenerateTokenResult
+import com.sympauthy.business.manager.auth.oauth2.TokenRequestManager
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.EncodedAuthenticationToken
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_SCOPE
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
 import com.sympauthy.config.model.*
 import io.micronaut.http.HttpHeaders
@@ -41,25 +33,10 @@ import java.time.LocalDateTime
 class TokenControllerTest {
 
     @MockK
-    lateinit var authorizationCodeManager: AuthorizationCodeManager
-
-    @MockK
-    lateinit var tokenManager: TokenManager
-
-    @MockK
-    lateinit var scopeManager: ScopeManager
-
-    @MockK
     lateinit var clientAuthenticationUtil: ClientAuthenticationUtil
 
     @MockK
-    lateinit var pkceManager: PkceManager
-
-    @MockK
-    lateinit var clientScopeGrantingManager: ClientScopeGrantingManager
-
-    @MockK
-    lateinit var tokenExchangeManager: TokenExchangeManager
+    lateinit var tokenRequestManager: TokenRequestManager
 
     @MockK
     lateinit var dpopManager: DpopManager
@@ -98,15 +75,6 @@ class TokenControllerTest {
         }.also {
             coEvery { dpopManager.validateDpopProof(any(), any()) } returns null
         }
-    }
-
-    private fun mockClient(): Client = mockk {
-        every { supportsGrantType(any()) } returns true
-    }
-
-    private fun mockCode(): AuthorizationCode = mockk {
-        every { codeChallenge } returns "stored-challenge"
-        every { codeChallengeMethod } returns CodeChallengeMethod.S256
     }
 
     /** A token the response only carries the encoded form of. */
@@ -178,31 +146,6 @@ class TokenControllerTest {
         }
 
         coVerify(exactly = 0) { clientAuthenticationUtil.resolveClientAllowingPublic(any(), any(), any()) }
-    }
-
-    @Test
-    fun `getTokens - token-exchange without subject_token throws invalid_request`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = "any-client",
-                clientSecret = null,
-                codeVerifier = null
-            )
-        }
-
-        assertEquals(INVALID_REQUEST, exception.errorCode)
-        coVerify(exactly = 0) {
-            tokenExchangeManager.exchangeForActAsToken(any(), any(), any(), any(), any(), any())
-        }
     }
 
     @Test
@@ -313,109 +256,16 @@ class TokenControllerTest {
     }
 
     @Test
-    fun `getTokensUsingAuthorizationCode - Throws when code is missing`() = runTest {
-        val request = mockRequest()
-        coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
-        }
-        assertEquals(INVALID_REQUEST, exception.errorCode)
-        assertEquals("token.missing_param", exception.detailsId)
-    }
-
-    @Test
-    fun `getTokensUsingAuthorizationCode - Refuses the code as the check does, before reading the verifier`() =
-        runTest {
-            val request = mockRequest()
-            coEvery {
-                clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-            } returns mockClient()
-            coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns null
-            coEvery {
-                authorizationCodeManager.checkCanExchange(null, any())
-            } throws oauth2ExceptionOf(INVALID_GRANT, "token.expired")
-
-            val exception = assertThrows<OAuth2Exception> {
-                controller.getTokens(
-                    request = request,
-                    grantType = "authorization_code",
-                    code = "the-code",
-                    refreshToken = null,
-                    scope = null,
-                    clientId = "client",
-                    clientSecret = "secret",
-                    codeVerifier = "the-verifier"
-                )
-            }
-            assertEquals(INVALID_GRANT, exception.errorCode)
-            assertEquals("token.expired", exception.detailsId)
-            verify(exactly = 0) { pkceManager.verifyCodeVerifier(any(), any(), any()) }
-            coVerify(exactly = 0) { tokenManager.generateTokensForUser(any(), any(), any(), any()) }
-        }
-
-    @Test
-    fun `getTokensUsingAuthorizationCode - Throws when PKCE verification fails`() = runTest {
-        val request = mockRequest()
-        val code = mockCode()
-        val grant = mockk<Grant>()
-        coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-        coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns code
-        coEvery { authorizationCodeManager.checkCanExchange(code, any()) } returns (code to grant)
-        every {
-            pkceManager.verifyCodeVerifier("wrong-verifier", "stored-challenge", CodeChallengeMethod.S256)
-        } throws businessExceptionOf(detailsId = "token.pkce.invalid_code_verifier")
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "authorization_code",
-                code = "the-code",
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = "wrong-verifier"
-            )
-        }
-        assertEquals(INVALID_GRANT, exception.errorCode)
-        assertEquals("token.pkce.invalid_code_verifier", exception.detailsId)
-        coVerify(exactly = 0) { tokenManager.generateTokensForUser(any(), any(), any(), any()) }
-    }
-
-    @Test
     fun `getTokensUsingAuthorizationCode - Returns tokens on success`() = runTest {
         val request = mockRequest()
-        val accessToken = mockAccessToken("access-jwt", listOf("openid"))
-        val refreshToken = mockEncodedToken("refresh-jwt")
-        val idToken = mockEncodedToken("id-jwt")
-        val code = mockCode()
-        val grant = mockk<Grant>()
+        val client = mockk<Client>()
+        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
         coEvery {
-            clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any())
-        } returns mockClient()
-        coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns code
-        coEvery { authorizationCodeManager.checkCanExchange(code, any()) } returns (code to grant)
-        every {
-            pkceManager.verifyCodeVerifier("the-verifier", "stored-challenge", CodeChallengeMethod.S256)
-        } just runs
-        coEvery { tokenManager.generateTokensForUser(code, grant, any(), dpopJkt = null) } returns GenerateTokenResult(
-            accessToken = accessToken,
-            refreshToken = refreshToken,
-            idToken = idToken
+            tokenRequestManager.exchangeAuthorizationCode(client, "the-code", "the-verifier", null)
+        } returns GenerateTokenResult(
+            accessToken = mockAccessToken("access-jwt", listOf("openid")),
+            refreshToken = mockEncodedToken("refresh-jwt"),
+            idToken = mockEncodedToken("id-jwt")
         )
 
         val result = controller.getTokens(
@@ -431,45 +281,20 @@ class TokenControllerTest {
 
         assertEquals("access-jwt", result.accessToken)
         assertEquals("bearer", result.tokenType)
+        assertEquals("openid", result.scope)
         assertEquals("refresh-jwt", result.refreshToken)
         assertEquals("id-jwt", result.idToken)
     }
 
     @Test
-    fun `getTokensUsingRefreshToken - Throws when refresh_token is missing`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
-        coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "refresh_token",
-                code = null,
-                refreshToken = null,
-                scope = null,
-                clientId = "client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
-        }
-        assertEquals(INVALID_REQUEST, exception.errorCode)
-        assertEquals("token.missing_param", exception.detailsId)
-    }
-
-    @Test
     fun `getTokensUsingRefreshToken - Returns tokens with refreshed refresh token`() = runTest {
         val request = mockRequest()
-        val client = mockClient()
-        val accessToken = mockAccessToken("new-access", listOf("openid"))
-        val newRefreshToken = mockEncodedToken("new-refresh")
-        val idToken = mockEncodedToken("new-id")
-
+        val client = mockk<Client>()
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns GenerateTokenResult(
-            accessToken = accessToken,
-            refreshToken = newRefreshToken,
-            idToken = idToken
+        coEvery { tokenRequestManager.refreshTokens(client, "old-refresh", null) } returns GenerateTokenResult(
+            accessToken = mockAccessToken("new-access", listOf("openid")),
+            refreshToken = mockEncodedToken("new-refresh"),
+            idToken = mockEncodedToken("new-id")
         )
 
         val result = controller.getTokens(
@@ -491,12 +316,10 @@ class TokenControllerTest {
     @Test
     fun `getTokensUsingRefreshToken - Falls back to original refresh token when not refreshed`() = runTest {
         val request = mockRequest()
-        val client = mockClient()
-        val accessToken = mockAccessToken("new-access")
-
+        val client = mockk<Client>()
         coEvery { clientAuthenticationUtil.resolveClientAllowingPublic(request, any(), any()) } returns client
-        coEvery { tokenManager.refreshToken(client, "old-refresh", dpopJkt = null) } returns GenerateTokenResult(
-            accessToken = accessToken,
+        coEvery { tokenRequestManager.refreshTokens(client, "old-refresh", null) } returns GenerateTokenResult(
+            accessToken = mockAccessToken("new-access"),
             refreshToken = null,
             idToken = null
         )
@@ -520,23 +343,11 @@ class TokenControllerTest {
     @Test
     fun `getTokensUsingClientCredentials - Returns access token without refresh or id token`() = runTest {
         val request = mockRequest()
-        val client = mockClient()
-        val scope = mockk<com.sympauthy.business.model.oauth2.ClientScope> { every { this@mockk.scope } returns "read" }
-        val accessToken = mockAccessToken("cc-access", listOf("read"))
-
+        val client = mockk<Client>()
         coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-        coEvery { scopeManager.parseRequestedClientScopes(client, "read") } returns listOf(scope)
-        coEvery { clientScopeGrantingManager.grantClientScopes(client, listOf(scope)) } returns ClientGrantScopesResult(
-            requestedScopes = listOf(scope),
-            results = listOf(ScopeGrantingMethodResult(grantedScopes = listOf(scope), declinedScopes = emptyList()))
-        )
         coEvery {
-            tokenManager.generateAccessTokenForClient(
-                client = client,
-                clientScopes = listOf("read"),
-                dpopJkt = null
-            )
-        } returns accessToken
+            tokenRequestManager.generateClientToken(client, "read", null)
+        } returns mockAccessToken("cc-access", listOf("read"))
 
         val result = controller.getTokens(
             request = request,
@@ -551,62 +362,22 @@ class TokenControllerTest {
 
         assertEquals("cc-access", result.accessToken)
         assertEquals("bearer", result.tokenType)
+        assertEquals("read", result.scope)
         assertNull(result.refreshToken)
         assertNull(result.idToken)
         assertNull(result.expiresIn, "a token without an expiration date has no lifetime to report")
     }
 
     @Test
-    fun `getTokensUsingClientCredentials - Throws invalid_scope when a requested scope is refused`() = runTest {
-        val request = mockRequest()
-        val client = mockClient()
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-        coEvery {
-            scopeManager.parseRequestedClientScopes(client, "doesnotexist")
-        } throws businessExceptionOf("scope.unsupported", "scope" to "doesnotexist")
-
-        val exception = assertThrows<OAuth2Exception> {
-            controller.getTokens(
-                request = request,
-                grantType = "client_credentials",
-                code = null,
-                refreshToken = null,
-                scope = "doesnotexist",
-                clientId = "my-client",
-                clientSecret = "secret",
-                codeVerifier = null
-            )
-        }
-
-        assertEquals(INVALID_SCOPE, exception.errorCode)
-        assertEquals("scope.unsupported", exception.detailsId)
-        assertEquals(mapOf("scope" to "doesnotexist"), exception.values)
-        coVerify(exactly = 0) { tokenManager.generateAccessTokenForClient(any(), any(), any()) }
-    }
-
-    @Test
     fun `getTokens - Returns the lifetime of the access token in seconds`() = runTest {
         val request = mockRequest()
-        val client = mockClient()
-        val accessToken = mockExpiringAccessToken(
+        val client = mockk<Client>()
+        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
+        coEvery { tokenRequestManager.generateClientToken(client, null, null) } returns mockExpiringAccessToken(
             token = "cc-access",
             issueDate = LocalDateTime.of(2024, 1, 1, 12, 0, 0),
             expirationDate = LocalDateTime.of(2024, 1, 1, 13, 0, 0)
         )
-
-        coEvery { clientAuthenticationUtil.resolveClient(request, any(), any()) } returns client
-        coEvery { scopeManager.parseRequestedClientScopes(client, null) } returns emptyList()
-        coEvery { clientScopeGrantingManager.grantClientScopes(client, emptyList()) } returns ClientGrantScopesResult(
-            requestedScopes = emptyList(),
-            results = emptyList()
-        )
-        coEvery {
-            tokenManager.generateAccessTokenForClient(
-                client = client,
-                clientScopes = emptyList(),
-                dpopJkt = null
-            )
-        } returns accessToken
 
         val result = controller.getTokens(
             request = request,

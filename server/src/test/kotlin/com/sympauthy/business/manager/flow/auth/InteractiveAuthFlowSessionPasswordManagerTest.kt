@@ -22,6 +22,9 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.InMemoryMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -91,6 +94,11 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
 
     @MockK
     lateinit var uncheckedAuthConfig: AuthConfig
+
+    private val metrics = InMemoryMetrics()
+
+    @SpyK
+    var authenticationMetrics = AuthenticationMetrics(metrics.openTelemetry)
 
     @SpyK
     @InjectMockKs
@@ -189,6 +197,19 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         assertSame(session, result)
         coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
         coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
+        assertTrue(
+            metrics.pointsOrEmpty(AUTHENTICATION_ATTEMPTS).isEmpty(), "a step that no longer signs in is no attempt"
+        )
+    }
+
+    @Test
+    fun `signUpWithClaimsAndPassword - Counts no attempt for a session already signed up`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession> { every { userId } returns UUID.randomUUID() }
+
+        val result = manager.signUpWithClaimsAndPassword(session, emptyList(), password, observedRequestOf())
+
+        assertSame(session, result)
+        assertTrue(metrics.pointsOrEmpty(AUTHENTICATION_ATTEMPTS).isEmpty(), "a retried sign-up creates nothing")
     }
 
     @Test

@@ -37,8 +37,9 @@ to change it, and why it was settled that way. The rules a change is held to are
   means, the dependencies `/health` reports degraded, and why a log line never makes its caller
   wait.
 - **[Telemetry](telemetry.md)** — what the server exports to an OpenTelemetry collector: the
-  signals that leave and the query string that never does, the runtime metrics a native image can
-  fill, and what the collector failing costs.
+  signals that leave and the query string that never does, what an authorization server counts and
+  under which attributes, the runtime metrics a native image can fill, and what the collector
+  failing costs.
 
 ## Neither a design document nor a rule
 

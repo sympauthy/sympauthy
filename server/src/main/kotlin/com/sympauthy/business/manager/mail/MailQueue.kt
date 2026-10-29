@@ -3,18 +3,21 @@ package com.sympauthy.business.manager.mail
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.MAIL_BACKLOG
 import com.sympauthy.business.model.mail.QueuedMail
+import com.sympauthy.client.remoteErrorType
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
 import com.sympauthy.data.repository.MailQueueRepository
 import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.telemetry.Outcome
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.*
 import jakarta.mail.AuthenticationFailedException
+import jakarta.mail.SendFailedException
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import java.net.SocketException
 import java.net.SocketTimeoutException
@@ -59,7 +62,7 @@ class MailQueue(
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
     @Inject private val mailQueueRepository: MailQueueRepository,
     @Inject private val jobLeaseManager: JobLeaseManager,
-    @Inject private val conditionMonitor: ConditionMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -177,12 +180,9 @@ class MailQueue(
                     localizedSubject(mail.subjectKey)
                 }
             logger.trace { "Sending mail template=${mail.template} to=${mail.receiver}." }
-            mailSender!!.send(builder.builder)
-            conditionMonitor.reportSuccess(Condition.Mail)
+            send(builder)
         } catch (e: Exception) {
-            if (e.isMailServerFailure()) {
-                conditionMonitor.reportFailure(Condition.Mail, e)
-            } else {
+            if (!e.isMailServerFailure()) {
                 logger.warn(e) {
                     "Failed to send mail ${mail.id} (template=${mail.template}, receiver=${mail.receiver})."
                 }
@@ -190,6 +190,39 @@ class MailQueue(
         } finally {
             mailQueueRepository.deleteById(mail.id)
         }
+    }
+
+    /**
+     * Hand the mail [builder] built to the mail server, and report the call to the mail sender's condition, as
+     * [mailOutcomeOrNull] judges what it threw.
+     */
+    private suspend fun send(builder: TemplatedMailBuilder) {
+        val start = System.nanoTime()
+        try {
+            mailSender!!.send(builder.builder)
+        } catch (e: Exception) {
+            e.mailOutcomeOrNull()?.let { outcome ->
+                remoteCallMonitor.reportCall(Condition.Mail, SEND_OPERATION, System.nanoTime() - start, outcome, e)
+            }
+            throw e
+        }
+        remoteCallMonitor.reportCall(Condition.Mail, SEND_OPERATION, System.nanoTime() - start, Outcome.Success)
+    }
+
+    /**
+     * How a send that failed with this is recorded as a call to the mail server: an error where the server is
+     * unwell, as [isMailServerFailure] says, a refusal where it answered by refusing the mail or its recipients,
+     * and null where it was never asked — the mail failed to build.
+     *
+     * The sender wraps whatever JavaMail threw, sending or composing alike, so a refusal is told by the
+     * [SendFailedException] only the server's answer raises, not by any [jakarta.mail.MessagingException].
+     */
+    private fun Exception.mailOutcomeOrNull(): Outcome? {
+        if (isMailServerFailure()) return Outcome.Error(mailServerErrorType())
+        return generateSequence<Throwable>(this) { it.cause }
+            .filterIsInstance<SendFailedException>()
+            .firstOrNull()
+            ?.let { Outcome.Refused(it.javaClass.name) }
     }
 
     /**
@@ -206,6 +239,17 @@ class MailQueue(
                 it is SSLException || it is AuthenticationFailedException
         }
 
+    /**
+     * What a failure [isMailServerFailure] holds for is typed by on a metric: `authentication` where the server
+     * refused this server's credentials, and what [remoteErrorType] types any other remote call's by otherwise.
+     */
+    private fun Exception.mailServerErrorType(): String =
+        if (generateSequence<Throwable>(this) { it.cause }.any { it is AuthenticationFailedException }) {
+            AUTHENTICATION
+        } else {
+            remoteErrorType()
+        }
+
     private fun MailQueueEntity.toQueuedMail() = QueuedMail(
         id = id!!,
         template = template,
@@ -214,4 +258,16 @@ class MailQueue(
         subjectKey = subjectKey,
         parameters = parameters
     )
+
+    companion object {
+        /**
+         * The operation a call to the mail server is recorded under.
+         */
+        private const val SEND_OPERATION = "send"
+
+        /**
+         * What a send the mail server refused this server's credentials for is typed by.
+         */
+        private const val AUTHENTICATION = "authentication"
+    }
 }

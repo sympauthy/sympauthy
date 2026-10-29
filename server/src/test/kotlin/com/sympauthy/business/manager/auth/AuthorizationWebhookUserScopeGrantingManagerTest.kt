@@ -18,6 +18,7 @@ import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResp
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.mockk.coEvery
@@ -25,6 +26,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -61,7 +63,7 @@ class AuthorizationWebhookUserScopeGrantingManagerTest {
             scopeManager = scopeManager,
             authorizationWebhookClient = authorizationWebhookClient,
             oauth2Manager = oauth2Manager,
-            conditionMonitor = conditionMonitor
+            remoteCallMonitor = RemoteCallMonitor(conditionMonitor, OpenTelemetry.noop())
         )
     }
 

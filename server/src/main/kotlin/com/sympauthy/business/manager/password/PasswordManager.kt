@@ -37,7 +37,7 @@ class PasswordManager(
         validatePassword(password)
 
         val salt = randomGenerator.generate(hashConfig.saltLengthInBytes)
-        val hashedPassword = hashGenerator.hash(password, salt)
+        val hashedPassword = hashGenerator.hash(password, salt, PasswordHashGenerator.CREATE)
 
         val entity = PasswordEntity(
             userId = user.id,
@@ -83,7 +83,7 @@ class PasswordManager(
      * Then the resulting hash and the hashed password stored in the [entity] are compared.
      */
     internal suspend fun isPasswordMatching(entity: PasswordEntity, password: String): Boolean {
-        val hashPassword = hashGenerator.hash(password, entity.salt)
+        val hashPassword = hashGenerator.hash(password, entity.salt, PasswordHashGenerator.VERIFY)
         return hashPassword.contentEquals(entity.hashedPassword)
     }
 }

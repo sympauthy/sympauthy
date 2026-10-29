@@ -11,14 +11,17 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -45,6 +48,9 @@ class InteractiveFlowSessionTotpEnrollmentManagerTest {
 
     @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
+
+    @SpyK
+    var authenticationMetrics = AuthenticationMetrics(OpenTelemetry.noop())
 
     @InjectMockKs
     lateinit var manager: InteractiveFlowSessionTotpEnrollmentManager

@@ -7,7 +7,6 @@ import io.r2dbc.spi.R2dbcBadGrammarException
 import io.r2dbc.spi.R2dbcNonTransientResourceException
 import io.r2dbc.spi.R2dbcPermissionDeniedException
 import io.r2dbc.spi.R2dbcTimeoutException
-import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -15,7 +14,6 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.slf4j.LoggerFactory
 import java.io.IOException
 import java.time.Instant
@@ -172,35 +170,10 @@ class ConditionMonitorTest {
     }
 
     @Test
-    fun `observe - Reports a success when the block returns`() = runTest {
-        conditionMonitor.reportFailure(Condition.Provider("google"), null, start)
+    fun `listObserved - Names every condition that answered or failed, with whether it is degraded`() {
+        conditionMonitor.reportSuccess(Condition.Mail, start)
+        conditionMonitor.reportFailure(Condition.Database, null, start)
 
-        val result = conditionMonitor.observe(Condition.Provider("google"), { true }) { "answer" }
-
-        assertEquals("answer", result)
-        // The success started the quiet period, which a failure would have reset.
-        conditionMonitor.endQuietPeriods(Instant.now().plus(ConditionMonitor.QUIET_PERIOD))
-        assertFalse(conditionMonitor.isDegraded(Condition.Provider("google")))
-    }
-
-    @Test
-    fun `observe - Reports a failure the classifier says is the dependency's, and rethrows it`() = runTest {
-        val failure = IOException("Connection refused")
-
-        val thrown = assertThrows<IOException> {
-            conditionMonitor.observe(Condition.Provider("google"), { it is IOException }) { throw failure }
-        }
-
-        assertSame(failure, thrown)
-        assertTrue(conditionMonitor.isDegraded(Condition.Provider("google")))
-    }
-
-    @Test
-    fun `observe - Reports nothing for a failure the classifier says is not the dependency's`() = runTest {
-        assertThrows<IllegalStateException> {
-            conditionMonitor.observe(Condition.Provider("google"), { it is IOException }) { error("invalid_grant") }
-        }
-
-        assertFalse(conditionMonitor.isDegraded(Condition.Provider("google")))
+        assertEquals(mapOf(Condition.Mail to false, Condition.Database to true), conditionMonitor.listObserved())
     }
 }
