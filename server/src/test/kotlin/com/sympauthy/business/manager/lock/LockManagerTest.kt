@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.lock
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.Outcome
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -12,10 +13,13 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.just
 import io.mockk.runs
+import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
+import io.r2dbc.spi.R2dbcTimeoutException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -108,6 +112,31 @@ class LockManagerTest {
 
         assertEquals("answered", answer)
         assertEquals(1, runs)
+    }
+
+    @Test
+    fun `withLock - Records the wait for the stripes it took as a success`() = runTest {
+        coEvery { heldStripes.held() } returns emptyList()
+        coEvery { heldStripes.hold(any()) } just runs
+        coEvery { objectLockRepository.lock(any()) } returns 0
+
+        manager.withLock(listOf(user, identifier)) { }
+
+        verify { lockMetrics.recordWait("identifier_value+user", any(), Outcome.Success) }
+    }
+
+    @Test
+    fun `withLock - Records a wait that failed under the SQLSTATE the database answered with`() = runTest {
+        val timeout = R2dbcTimeoutException("canceling statement due to lock timeout", "55P03")
+        coEvery { heldStripes.held() } returns emptyList()
+        coEvery { objectLockRepository.lock(11) } throws timeout
+        var ran = false
+
+        val thrown = assertThrows<R2dbcTimeoutException> { manager.withLock(listOf(user)) { ran = true } }
+
+        assertSame(timeout, thrown)
+        assertFalse(ran)
+        verify { lockMetrics.recordWait("user", any(), Outcome.Error("55P03")) }
     }
 
     @Test

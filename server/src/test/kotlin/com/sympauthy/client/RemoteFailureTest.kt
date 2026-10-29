@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 
@@ -62,5 +63,10 @@ class RemoteFailureTest {
         assertEquals("timeout", ReadTimeoutException.TIMEOUT_EXCEPTION.remoteErrorType())
         assertEquals("timeout", IllegalStateException("wrapped", SocketTimeoutException()).remoteErrorType())
         assertEquals("connection", ConnectException("Connection refused").remoteErrorType())
+    }
+
+    @Test
+    fun `remoteErrorType - Types a timeout a connection failure wraps as the timeout`() {
+        assertEquals("timeout", IOException("Read failed", SocketTimeoutException()).remoteErrorType())
     }
 }

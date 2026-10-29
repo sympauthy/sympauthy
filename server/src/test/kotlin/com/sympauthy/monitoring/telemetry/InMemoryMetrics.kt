@@ -39,6 +39,11 @@ class InMemoryMetrics : MetricReader {
     fun metric(name: String): MetricData = registration.collectAllMetrics().single { it.name == name }
 
     /**
+     * Whether anything has been recorded on the metric named [name].
+     */
+    fun isRecorded(name: String): Boolean = registration.collectAllMetrics().any { it.name == name }
+
+    /**
      * The attributes of every point the metric named [name] holds now.
      */
     fun points(name: String): List<Attributes> = metric(name).data.points.map { it.attributes }

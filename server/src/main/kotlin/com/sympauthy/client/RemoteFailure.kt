@@ -43,17 +43,21 @@ fun Throwable.remoteOutcome(): Outcome {
  * What a failed call to another server is typed by on a metric: the status it answered with, `timeout` where
  * it did not answer in time, `connection` where it could not be reached or the connection broke, and the class
  * of the failure where it is none of these.
+ *
+ * Each is looked for along the whole chain before the next, so that a timeout a connection failure wraps is
+ * typed as the timeout it is.
  */
 fun Throwable.remoteErrorType(): String {
-    for (failure in generateSequence(this) { it.cause }) {
-        when (failure) {
-            is HttpClientResponseException -> return failure.status.code.toString()
-            is ReadTimeoutException, is TimeoutException, is SocketTimeoutException,
-            is TimeoutCancellationException -> return TIMEOUT
-            is HttpClientException, is IOException -> return CONNECTION
-        }
+    val chain = generateSequence(this) { it.cause }.toList()
+    chain.filterIsInstance<HttpClientResponseException>().firstOrNull()?.let { return it.status.code.toString() }
+    return when {
+        chain.any {
+            it is ReadTimeoutException || it is TimeoutException || it is SocketTimeoutException ||
+                it is TimeoutCancellationException
+        } -> TIMEOUT
+        chain.any { it is HttpClientException || it is IOException } -> CONNECTION
+        else -> javaClass.name
     }
-    return javaClass.name
 }
 
 private const val TIMEOUT = "timeout"

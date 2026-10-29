@@ -3,9 +3,11 @@ package com.sympauthy.business.manager.lock
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.Outcome
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 
 /**
  * Takes the lock two transactions have to agree on before either of them may act on what it names.
@@ -62,14 +64,29 @@ open class LockManager(
         }
 
         if (stripes.isNotEmpty()) {
-            val start = System.nanoTime()
+            takeStripes(keys, stripes)
+        }
+        return block()
+    }
+
+    /**
+     * Take [stripes] in ascending order, recording how long the wait for them took and how it ended: every one
+     * taken, or taking one failed. A cancelled wait is not recorded.
+     */
+    private suspend fun takeStripes(keys: List<LockKey>, stripes: List<Int>) {
+        val lock = keys.map(LockKey::kind).distinct().sorted().joinToString("+")
+        val start = System.nanoTime()
+        try {
             stripes.forEach {
                 objectLockRepository.lock(it)
                 heldStripes.hold(it)
             }
-            val lock = keys.map(LockKey::kind).distinct().sorted().joinToString("+")
-            lockMetrics.recordWait(lock, System.nanoTime() - start)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Throwable) {
+            lockMetrics.recordWait(lock, System.nanoTime() - start, LockMetrics.failedWait(failure))
+            throw failure
         }
-        return block()
+        lockMetrics.recordWait(lock, System.nanoTime() - start, Outcome.Success)
     }
 }

@@ -57,16 +57,13 @@ class ProviderClaimsResolver(
         val openIdConnectConfig = provider.auth as? ProviderOpenIdConnectConfig
 
         val idTokenClaims = if (openIdConnectConfig != null) {
-            // The provider's key set is fetched to verify the token, and a key set that cannot be fetched is the
-            // provider failing. A token that fails verification is not.
-            remoteCallMonitor.observe(Condition.Provider(provider.id), "id_token", Throwable::remoteOutcome) {
-                providerIdTokenManager.validateAndExtractClaims(
-                    openIdConnectConfig = openIdConnectConfig,
-                    idTokenRaw = idTokenRaw,
-                    accessToken = tokens.accessToken,
-                    expectedNonce = expectedNonce
-                )
-            }
+            providerIdTokenManager.validateAndExtractClaims(
+                providerId = provider.id,
+                openIdConnectConfig = openIdConnectConfig,
+                idTokenRaw = idTokenRaw,
+                accessToken = tokens.accessToken,
+                expectedNonce = expectedNonce
+            )
         } else {
             // For OAuth2 providers that unexpectedly return an ID token,
             // we still extract claims but skip signature validation.

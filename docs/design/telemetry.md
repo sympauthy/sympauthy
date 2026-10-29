@@ -126,8 +126,9 @@ FAQ](design-faq.md#are-a-condition-and-the-calls-reported-to-it-one-metric). `er
 call that degraded its condition, and `refused` an answer to what was sent, which recovers it as a
 success does; either is typed by `timeout`, `connection` or the status. The collector's exports
 report to its condition alone, since it recovers only once every signal has; the database is only a
-condition, and no call to it is timed; a provider's id token is timed with the key-set fetch its
-check makes, which shows nowhere else.
+condition, and no call to it is timed. A provider's id token is checked locally, and only the fetch
+of its key set is a call, `jwks`, which the JWT library makes outside the HTTP client the framework
+instruments.
 
 **A scheduled job's run ends `success`, `error`, or `skipped` where another instance holds its
 lease, and a failing run is reported rather than thrown.** Thrown, it ended in the default handler

@@ -4,6 +4,8 @@ import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.source.JWKSourceBuilder
 import com.nimbusds.jose.proc.JWSVerificationKeySelector
 import com.nimbusds.jose.proc.SecurityContext
+import com.nimbusds.jose.util.DefaultResourceRetriever
+import com.nimbusds.jose.util.ResourceRetriever
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier
@@ -11,6 +13,11 @@ import com.nimbusds.jwt.proc.DefaultJWTProcessor
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.jwt.HashAlgorithm
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
+import com.sympauthy.client.remoteOutcome
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.telemetry.Outcome
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -20,13 +27,19 @@ import kotlinx.coroutines.withContext
  *
  * Verification includes signature validation against the provider's JWKS, and standard claim checks:
  * issuer, audience, expiration, and nonce (if provided).
+ *
+ * The check itself is local. Only the fetch of the provider's key set leaves the process, and it is reported to
+ * the provider's condition as a call of its own: the JWT library makes it outside the HTTP client the framework
+ * instruments, so nothing else would show it.
  */
 @Singleton
-class ProviderIdTokenManager {
+class ProviderIdTokenManager(
+    @Inject private val remoteCallMonitor: RemoteCallMonitor
+) {
 
     /**
-     * Verify [idTokenRaw] against [openIdConnectConfig] — its signature against the provider's JWKS, then its
-     * issuer, audience and expiry — and return the claims it carries.
+     * Verify [idTokenRaw] against [openIdConnectConfig] — its signature against the JWKS of the provider [providerId]
+     * names, then its issuer, audience and expiry — and return the claims it carries.
      *
      * [expectedNonce] is matched against the token's `nonce` claim, and passing one also makes that claim
      * required rather than optional. [accessToken] is the one from the same token response, and is read only to
@@ -37,13 +50,16 @@ class ProviderIdTokenManager {
      * `provider.openid_connect.invalid_at_hash`.
      */
     suspend fun validateAndExtractClaims(
+        providerId: String,
         openIdConnectConfig: ProviderOpenIdConnectConfig,
         idTokenRaw: String,
         accessToken: String,
         expectedNonce: String?
     ): Map<String, Any> = withContext(Dispatchers.IO) {
         try {
-            val jwkSource = JWKSourceBuilder.create<SecurityContext>(openIdConnectConfig.jwksUri.toURL()).build()
+            val jwkSource = JWKSourceBuilder
+                .create<SecurityContext>(openIdConnectConfig.jwksUri.toURL(), keySetRetriever(providerId))
+                .build()
 
             val jwtProcessor = DefaultJWTProcessor<SecurityContext>()
             jwtProcessor.jwsKeySelector = JWSVerificationKeySelector(
@@ -114,7 +130,37 @@ class ProviderIdTokenManager {
         }
     }
 
+    /**
+     * What fetches the key set of the provider [providerId] names for the JWT library, reporting each fetch as a
+     * call to that provider's condition.
+     */
+    private fun keySetRetriever(providerId: String): ResourceRetriever {
+        val delegate = DefaultResourceRetriever(
+            JWKSourceBuilder.DEFAULT_HTTP_CONNECT_TIMEOUT,
+            JWKSourceBuilder.DEFAULT_HTTP_READ_TIMEOUT,
+            JWKSourceBuilder.DEFAULT_HTTP_SIZE_LIMIT
+        )
+        val condition = Condition.Provider(providerId)
+        return ResourceRetriever { url ->
+            val start = System.nanoTime()
+            val resource = try {
+                delegate.retrieveResource(url)
+            } catch (failure: Exception) {
+                val outcome = failure.remoteOutcome()
+                remoteCallMonitor.reportCall(condition, JWKS_OPERATION, System.nanoTime() - start, outcome, failure)
+                throw failure
+            }
+            remoteCallMonitor.reportCall(condition, JWKS_OPERATION, System.nanoTime() - start, Outcome.Success)
+            resource
+        }
+    }
+
     companion object {
+        /**
+         * The operation the fetch of a provider's key set is timed under.
+         */
+        private const val JWKS_OPERATION = "jwks"
+
         private val SUPPORTED_ALGORITHMS = setOf(
             JWSAlgorithm.RS256,
             JWSAlgorithm.RS384,
