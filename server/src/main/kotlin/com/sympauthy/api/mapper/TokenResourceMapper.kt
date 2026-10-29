@@ -1,8 +1,8 @@
 package com.sympauthy.api.mapper
 
 import com.sympauthy.api.resource.oauth2.TokenResource
-import com.sympauthy.business.manager.token.TokenRequestManager
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
+import com.sympauthy.business.model.token.TokenIssuance
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.util.nullIfBlank
 import jakarta.inject.Singleton
@@ -19,7 +19,7 @@ class TokenResourceMapper {
      * only a token exchange names the type of the token it issued.
      */
     fun toResource(
-        issuance: TokenRequestManager.Issuance,
+        issuance: TokenIssuance,
         dpopJkt: String?
     ): TokenResource {
         val request = issuance.request

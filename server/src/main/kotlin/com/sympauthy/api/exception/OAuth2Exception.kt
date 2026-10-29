@@ -5,9 +5,9 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
 import com.sympauthy.exception.AnsweredFailure
 import com.sympauthy.exception.LocalizedException
+import com.sympauthy.exception.mapper.answeredHttpStatus
 import com.sympauthy.security.AccessTokenScheme
 import io.micronaut.http.HttpStatus
-import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
 
@@ -92,15 +92,14 @@ fun LocalizedException.toOAuth2Exception(
  * Run [block], and answer the refusal of a business rule it throws as [errorCode], keeping the details code,
  * the description and the values of that refusal.
  *
- * A failure of this server — a [BusinessException] answered with a `5xx`, as a key that will not load is —
- * travels out as itself, and is answered `500`.
+ * A failure of this server — one [answeredHttpStatus] answers with a `5xx`, such as a key that will not load —
+ * travels out as itself.
  */
 inline fun <T> withRefusalAs(errorCode: OAuth2ErrorCode, block: () -> T): T {
     return try {
         block()
     } catch (e: BusinessException) {
-        val status = e.recommendedStatus ?: if (e.recoverable) BAD_REQUEST else INTERNAL_SERVER_ERROR
-        if (status.code >= INTERNAL_SERVER_ERROR.code) throw e
+        if (e.answeredHttpStatus().code >= INTERNAL_SERVER_ERROR.code) throw e
         throw e.toOAuth2Exception(errorCode)
     }
 }

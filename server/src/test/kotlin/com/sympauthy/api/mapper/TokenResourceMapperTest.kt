@@ -1,9 +1,9 @@
 package com.sympauthy.api.mapper
 
-import com.sympauthy.business.manager.token.TokenRequestManager
 import com.sympauthy.business.model.token.AuthenticationTokenType
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.IssuedTokens
+import com.sympauthy.business.model.token.TokenIssuance
 import com.sympauthy.business.model.token.TokenRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -31,7 +31,7 @@ class TokenResourceMapperTest {
 
     @Test
     fun `toResource - Answers every token the code exchange issued`() {
-        val issuance = TokenRequestManager.Issuance(
+        val issuance = TokenIssuance(
             request = TokenRequest.AuthorizationCode("the-code", "the-verifier"),
             tokens = IssuedTokens(
                 accessToken = token("access-jwt", scopes = listOf("openid", "profile")),
@@ -52,7 +52,7 @@ class TokenResourceMapperTest {
 
     @Test
     fun `toResource - Answers a refresh issuing no refresh token with the one presented`() {
-        val issuance = TokenRequestManager.Issuance(
+        val issuance = TokenIssuance(
             request = TokenRequest.RefreshToken("old-refresh"),
             tokens = IssuedTokens(accessToken = token("new-access"))
         )
@@ -65,7 +65,7 @@ class TokenResourceMapperTest {
 
     @Test
     fun `toResource - Answers a refresh with the refresh token it issued`() {
-        val issuance = TokenRequestManager.Issuance(
+        val issuance = TokenIssuance(
             request = TokenRequest.RefreshToken("old-refresh"),
             tokens = IssuedTokens(
                 accessToken = token("new-access"),
@@ -78,7 +78,7 @@ class TokenResourceMapperTest {
 
     @Test
     fun `toResource - Answers a token exchange with the type of the token it issued`() {
-        val issuance = TokenRequestManager.Issuance(
+        val issuance = TokenIssuance(
             request = TokenRequest.TokenExchange("a-token", "a-subject", audience = null),
             tokens = IssuedTokens(accessToken = token("act-as"))
         )
@@ -91,7 +91,7 @@ class TokenResourceMapperTest {
 
     @Test
     fun `toResource - Answers a token bound to a key as a DPoP token`() {
-        val issuance = TokenRequestManager.Issuance(
+        val issuance = TokenIssuance(
             request = TokenRequest.ClientCredentials(scope = null),
             tokens = IssuedTokens(accessToken = token("cc-access"))
         )
@@ -105,7 +105,7 @@ class TokenResourceMapperTest {
 
     @Test
     fun `toResource - Answers the lifetime of the access token in seconds from its issue`() {
-        val issuance = TokenRequestManager.Issuance(
+        val issuance = TokenIssuance(
             request = TokenRequest.ClientCredentials(scope = null),
             tokens = IssuedTokens(accessToken = token("cc-access", expirationDate = ISSUE_DATE.plusHours(1)))
         )

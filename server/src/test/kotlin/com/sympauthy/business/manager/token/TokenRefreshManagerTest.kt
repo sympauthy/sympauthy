@@ -442,4 +442,26 @@ class TokenRefreshManagerTest {
 
         assertFalse(manager.shouldRefreshToken(refreshToken, accessToken))
     }
+
+    @Test
+    fun `refresh - Refuses an account no sign-up finished, and issues nothing`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockClient("test-client")
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val refreshToken = mockRefreshableToken("test-client", userId)
+
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        coEvery { userManager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<OAuth2Exception> {
+            manager.refresh(client, TokenRequest.RefreshToken("token"))
+        }
+
+        assertEquals(INVALID_GRANT, exception.errorCode)
+        assertEquals("grant.invalid_user", exception.detailsId)
+        coVerify(exactly = 0) { consentManager.findActiveConsentByAudienceOrNull(any(), any()) }
+        coVerify(exactly = 0) { accessTokenGenerator.generateAccessToken(any(), any(), any(), any(), any()) }
+    }
+
 }

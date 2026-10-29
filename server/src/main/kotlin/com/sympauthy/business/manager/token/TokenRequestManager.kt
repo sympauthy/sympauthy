@@ -1,10 +1,12 @@
 package com.sympauthy.business.manager.token
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNAUTHORIZED_CLIENT
 import com.sympauthy.business.model.token.IssuedTokens
+import com.sympauthy.business.model.token.TokenIssuance
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.Outcome
@@ -36,7 +38,11 @@ class TokenRequestManager(
      *
      * Throws an `OAuth2Exception` carrying `unauthorized_client` and `token.unauthorized_grant_type` where
      * [client] does not support [grantType], before [readRequest] is called. Then whatever [readRequest] throws,
-     * and whatever the use case of the grant throws.
+     * `token.mismatching_grant_type`, internal, where it read a request for another grant than [grantType], and
+     * whatever the use case of the grant throws.
+     *
+     * The request is checked against [grantType] because that is the grant the client was checked for and the
+     * request is recorded under: a request for another one would be served to a client never allowed it.
      *
      * A request [readRequest] refuses is recorded like any other, under [grantType] and [client]: a client
      * sending malformed requests is one an operator is looking for.
@@ -46,9 +52,16 @@ class TokenRequestManager(
         grantType: GrantType,
         dpopJkt: String?,
         readRequest: () -> TokenRequest
-    ): Issuance = record(grantType, client, dpopJkt) {
+    ): TokenIssuance = record(grantType, client, dpopJkt) {
         checkClientSupportsGrantType(client, grantType)
         val request = readRequest()
+        if (request.grantType != grantType) {
+            throw internalBusinessExceptionOf(
+                "token.mismatching_grant_type",
+                "grantType" to grantType.wireName,
+                "requestGrantType" to request.grantType.wireName
+            )
+        }
         val tokens = when (request) {
             is TokenRequest.AuthorizationCode -> codeExchangeManager.exchange(client, request, dpopJkt)
             is TokenRequest.RefreshToken -> tokenRefreshManager.refresh(client, request, dpopJkt)
@@ -57,7 +70,7 @@ class TokenRequestManager(
                 accessToken = tokenExchangeManager.exchangeForActAsToken(client, request, dpopJkt)
             )
         }
-        Issuance(request = request, tokens = tokens)
+        TokenIssuance(request = request, tokens = tokens)
     }
 
     /**
@@ -92,14 +105,6 @@ class TokenRequestManager(
             )
         }
     }
-
-    /**
-     * The tokens issued in answer to [request].
-     */
-    data class Issuance(
-        val request: TokenRequest,
-        val tokens: IssuedTokens
-    )
 
     private companion object {
         /**

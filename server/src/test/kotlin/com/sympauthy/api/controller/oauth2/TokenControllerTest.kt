@@ -15,6 +15,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_GRANT_TYPE
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.IssuedTokens
+import com.sympauthy.business.model.token.TokenIssuance
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.token.TokenRequest.TokenExchange.Companion.ACCESS_TOKEN_TYPE
 import com.sympauthy.config.model.*
@@ -105,7 +106,7 @@ class TokenControllerTest {
         var read: TokenRequest? = null
         coEvery { tokenRequestManager.issueTokens(client, grantType, null, any()) } answers {
             val tokenRequest = arg<() -> TokenRequest>(3)().also { read = it }
-            TokenRequestManager.Issuance(tokenRequest, IssuedTokens(mockAccessToken()))
+            TokenIssuance(tokenRequest, IssuedTokens(mockAccessToken()))
         }
         return { read }
     }

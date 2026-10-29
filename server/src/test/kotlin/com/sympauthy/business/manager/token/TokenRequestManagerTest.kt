@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.token
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -12,6 +13,7 @@ import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.TokenMetrics
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -165,6 +167,28 @@ class TokenRequestManagerTest {
 
         assertEquals(IssuedTokens(accessToken = accessToken), issuance.tokens)
     }
+
+
+    @Test
+    fun `issueTokens - Refuses a request read for another grant than the one checked, and serves none`() =
+        runTest {
+            val client = mockClient()
+
+            val exception = assertThrows<BusinessException> {
+                manager.issueTokens(client, GrantType.CLIENT_CREDENTIALS, null) {
+                    TokenRequest.AuthorizationCode("the-code", "the-verifier")
+                }
+            }
+
+            assertEquals("token.mismatching_grant_type", exception.detailsId)
+            assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+            assertEquals(
+                mapOf("grantType" to "client_credentials", "requestGrantType" to "authorization_code"),
+                exception.values
+            )
+            coVerify(exactly = 0) { codeExchangeManager.exchange(any(), any(), any()) }
+            coVerify(exactly = 0) { clientCredentialsManager.issue(any(), any(), any()) }
+        }
 
     private companion object {
         const val CLIENT_ID = "client"
