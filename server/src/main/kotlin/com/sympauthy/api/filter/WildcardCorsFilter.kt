@@ -1,5 +1,8 @@
 package com.sympauthy.api.filter
 
+import com.sympauthy.api.controller.OAUTH2_SURFACE
+import com.sympauthy.api.controller.OPENID_SURFACE
+import com.sympauthy.api.controller.USER_SURFACE
 import io.micronaut.core.order.Ordered
 import io.micronaut.http.*
 import io.micronaut.http.annotation.Filter
@@ -10,8 +13,6 @@ import io.reactivex.rxjava3.core.Flowable
 import jakarta.inject.Inject
 import org.reactivestreams.Publisher
 import kotlin.jvm.optionals.getOrNull
-
-private const val USER_PATH = "/api/v1/user"
 
 /**
  * Wildcard CORS filter for endpoints that allow all origins (`Access-Control-Allow-Origin: *`).
@@ -43,9 +44,9 @@ private const val USER_PATH = "/api/v1/user"
  */
 @Filter(
     "/.well-known/**",
-    "/api/oauth2/**",
-    "/api/openid/**",
-    "$USER_PATH/**"
+    "$OAUTH2_SURFACE/**",
+    "$OPENID_SURFACE/**",
+    "$USER_SURFACE/**"
 )
 class WildcardCorsFilter(
     @Inject private val corsPreflightHeaders: CorsPreflightHeaders
@@ -73,7 +74,7 @@ class WildcardCorsFilter(
     }
 
     private fun allowedMethodsOf(request: HttpRequest<*>): String =
-        if (request.path.startsWith("$USER_PATH/")) USER_ALLOWED_METHODS else ALLOWED_METHODS
+        if (request.path.startsWith("$USER_SURFACE/")) USER_ALLOWED_METHODS else ALLOWED_METHODS
 
     /**
      * A preflight advertises [allowedMethods]. A response that is not one, where they are null, exposes

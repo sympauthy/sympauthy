@@ -1,5 +1,6 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.api.controller.CLIENT_SURFACE
 import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
@@ -158,7 +159,7 @@ class ExceptionNormalizerTest {
     @Test
     fun `normalize - Answer a method the route does not answer with method unsupported and the Allow header`() {
         val exception = normalizer.normalize(
-            NotAllowedException("PUT", URI.create("/api/v1/client/invitations"), linkedSetOf("GET", "POST"))
+            NotAllowedException("PUT", URI.create("$CLIENT_SURFACE/invitations"), linkedSetOf("GET", "POST"))
         )
 
         assertInstanceOf(UnsupportedMethodException::class.java, exception)
@@ -252,7 +253,7 @@ class ExceptionNormalizerTest {
 
     @Test
     fun `normalize - Answer a failure of the routes themselves with internal server error`() {
-        val exception = normalizer.normalize(DuplicateRouteException("/api/v1/client/users", emptyList()))
+        val exception = normalizer.normalize(DuplicateRouteException("$CLIENT_SURFACE/users", emptyList()))
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.status)
         assertEquals("internal_server_error", exception.detailsId)

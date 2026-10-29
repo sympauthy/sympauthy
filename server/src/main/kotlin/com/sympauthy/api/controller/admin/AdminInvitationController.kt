@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminInvitationResourceMapper
@@ -48,7 +49,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/invitations")
+@Controller("$ADMIN_SURFACE/invitations")
 class AdminInvitationController(
     @Inject private val audienceManager: AudienceManager,
     @Inject private val invitationManager: InvitationManager,
@@ -110,7 +111,7 @@ class AdminInvitationController(
         description = "Retrieve the invitations, whoever created them. " +
                 "Invitations are ordered by creation date, oldest first, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/invitations/capabilities.",
+                "$ADMIN_SURFACE/invitations/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

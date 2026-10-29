@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
@@ -164,7 +165,7 @@ class ProvidersController(
     )
 
     companion object {
-        const val FLOW_PROVIDER_ENDPOINTS = "/api/v1/flow/providers/{providerId}"
+        const val FLOW_PROVIDER_ENDPOINTS = "$FLOW_SURFACE/providers/{providerId}"
         const val FLOW_PROVIDER_AUTHORIZE_ENDPOINT = "/authorize"
         const val FLOW_PROVIDER_CALLBACK_ENDPOINT = "/callback"
     }

@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
@@ -53,7 +54,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 import java.util.Locale
 
-@Controller("/api/v1/flow/sign-in")
+@Controller("$FLOW_SURFACE/sign-in")
 @Secured(HAS_STATE)
 class SignInController(
     @Inject private val claimManager: ClaimManager,

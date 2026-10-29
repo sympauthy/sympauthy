@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
@@ -27,7 +28,7 @@ import jakarta.inject.Inject
  * standalone flow).
  */
 @Secured(HAS_STATE)
-@Controller("/api/v1/flow/cancel")
+@Controller("$FLOW_SURFACE/cancel")
 class CancelController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil

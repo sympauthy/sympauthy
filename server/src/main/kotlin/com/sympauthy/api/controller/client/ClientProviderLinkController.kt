@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.controller.CLIENT_SURFACE
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
@@ -154,6 +155,6 @@ class ClientProviderLinkController(
     }
 
     companion object {
-        const val CLIENT_PROVIDER_LINK_ENDPOINT = "/api/v1/client/providers/{providerId}/link"
+        const val CLIENT_PROVIDER_LINK_ENDPOINT = "$CLIENT_SURFACE/providers/{providerId}/link"
     }
 }

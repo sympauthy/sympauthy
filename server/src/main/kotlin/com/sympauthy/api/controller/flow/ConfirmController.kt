@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.ConfirmFlowResource
@@ -31,7 +32,7 @@ import jakarta.inject.Inject
  * [com.sympauthy.business.model.flow.InteractiveFlowPurpose.CONFIRM] gate)
  * before the rest of the flow runs. Denial is handled by cancelling the flow via `POST /api/v1/flow/cancel`.
  */
-@Controller("/api/v1/flow/confirm")
+@Controller("$FLOW_SURFACE/confirm")
 @Secured(HAS_STATE)
 class ConfirmController(
     @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,

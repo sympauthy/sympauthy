@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
@@ -41,7 +42,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/users/{userId}/consents")
+@Controller("$ADMIN_SURFACE/users/{userId}/consents")
 class AdminConsentController(
     @Inject private val userManager: UserManager,
     @Inject private val consentManager: ConsentManager,
@@ -56,7 +57,7 @@ class AdminConsentController(
                 "Consents are ordered by the date they were given, oldest first, unless another order is " +
                 "asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/users/{userId}/consents/capabilities.",
+                "$ADMIN_SURFACE/users/{userId}/consents/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

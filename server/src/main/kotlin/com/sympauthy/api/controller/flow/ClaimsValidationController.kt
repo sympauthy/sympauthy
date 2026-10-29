@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
@@ -35,7 +36,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Secured(HAS_STATE)
-@Controller("/api/v1/flow/claims/validation")
+@Controller("$FLOW_SURFACE/claims/validation")
 class ClaimsValidationController(
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,

@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.user
 
+import com.sympauthy.api.controller.USER_SURFACE
 import com.sympauthy.api.exception.accessTokenChallengeExceptionOf
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.user.UserClaimResourceMapper
@@ -31,7 +32,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.time.LocalDateTime
 
-@Controller("/api/v1/user/claims")
+@Controller("$USER_SURFACE/claims")
 @Secured(IS_USER)
 @SecurityRequirement(name = "user")
 class UserClaimController(

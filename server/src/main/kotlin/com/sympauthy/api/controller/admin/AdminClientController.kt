@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientListResource
@@ -40,7 +41,7 @@ import jakarta.inject.Inject
 private const val FORBIDDEN_DESCRIPTION =
     "- `forbidden`: the access token does not carry the scope `admin:config:read`."
 
-@Controller("/api/v1/admin/clients")
+@Controller("$ADMIN_SURFACE/clients")
 @Secured(ADMIN_CONFIG_READ)
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.CONFIG_READ])
 class AdminClientController(
@@ -55,7 +56,7 @@ class AdminClientController(
         description = "Retrieve the clients the configuration declares, without their secrets. " +
                 "Clients are ordered by identifier, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/clients/capabilities.",
+                "$ADMIN_SURFACE/clients/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

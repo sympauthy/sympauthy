@@ -1,6 +1,9 @@
 package com.sympauthy.api.filter
 
 import com.sympauthy.api.AbstractFlowIntegrationTest
+import com.sympauthy.api.controller.OAUTH2_SURFACE
+import com.sympauthy.api.controller.OPENID_SURFACE
+import com.sympauthy.api.controller.USER_SURFACE
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
@@ -15,10 +18,10 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     private val localOrigin = "http://localhost:5173"
     private val discoveryPath = "/.well-known/openid-configuration"
     private val jwksPath = "/.well-known/public.jwk"
-    private val tokenPath = "/api/oauth2/token"
-    private val revokePath = "/api/oauth2/revoke"
-    private val userInfoPath = "/api/openid/userinfo"
-    private val userClaimsPath = "/api/v1/user/claims"
+    private val tokenPath = "$OAUTH2_SURFACE/token"
+    private val revokePath = "$OAUTH2_SURFACE/revoke"
+    private val userInfoPath = "$OPENID_SURFACE/userinfo"
+    private val userClaimsPath = "$USER_SURFACE/claims"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"

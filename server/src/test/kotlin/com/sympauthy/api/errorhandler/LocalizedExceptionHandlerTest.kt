@@ -1,5 +1,8 @@
 package com.sympauthy.api.errorhandler
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
+import com.sympauthy.api.controller.FLOW_SURFACE
+import com.sympauthy.api.controller.OPENID_SURFACE
 import com.sympauthy.api.controller.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
 import com.sympauthy.api.controller.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
 import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
@@ -216,7 +219,7 @@ class LocalizedExceptionHandlerTest {
         val resource = stubResource(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
 
         val response = handler.handle(
-            request("/api/v1/flow/sign-in"),
+            request("$FLOW_SURFACE/sign-in"),
             recoverableHttpExceptionOf(
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE, "content_type.unsupported", "description.content_type.unsupported"
             )
@@ -242,13 +245,13 @@ class LocalizedExceptionHandlerTest {
         return resource
     }
 
-    private fun request(path: String = "/api/v1/admin/users") = mockk<HttpRequest<*>> {
+    private fun request(path: String = "$ADMIN_SURFACE/users") = mockk<HttpRequest<*>> {
         every { locale } returns Optional.of(Locale.ENGLISH)
         every { this@mockk.path } returns path
     }
 
     private fun requestToRouteSecuredBy(vararg roles: String): HttpRequest<*> {
-        val request = HttpRequest.GET<Any>("/api/openid/userinfo")
+        val request = HttpRequest.GET<Any>("$OPENID_SURFACE/userinfo")
         RouteAttributes.setRouteMatch(
             request,
             mockk<MethodBasedRouteMatch<Any, Any>> {

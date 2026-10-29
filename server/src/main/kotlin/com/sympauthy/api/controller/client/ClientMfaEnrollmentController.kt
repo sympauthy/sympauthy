@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.controller.CLIENT_SURFACE
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
@@ -150,6 +151,6 @@ class ClientMfaEnrollmentController(
     }
 
     companion object {
-        const val CLIENT_MFA_ENROLLMENT_ENDPOINT = "/api/v1/client/mfa/enrollment"
+        const val CLIENT_MFA_ENROLLMENT_ENDPOINT = "$CLIENT_SURFACE/mfa/enrollment"
     }
 }

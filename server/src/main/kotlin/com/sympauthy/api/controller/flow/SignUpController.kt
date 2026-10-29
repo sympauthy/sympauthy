@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.flow.CollectableClaimResourceMapper
@@ -39,7 +40,7 @@ import jakarta.inject.Inject
 import java.util.Locale
 
 @Secured(HAS_STATE)
-@Controller("/api/v1/flow/sign-up")
+@Controller("$FLOW_SURFACE/sign-up")
 class SignUpController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val passwordFlowManager: InteractiveAuthFlowSessionPasswordManager,

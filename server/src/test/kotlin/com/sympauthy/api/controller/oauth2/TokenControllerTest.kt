@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.oauth2
 
+import com.sympauthy.api.controller.OAUTH2_SURFACE
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
@@ -79,7 +80,7 @@ class TokenControllerTest {
         return mockk<HttpRequest<*>> {
             every { this@mockk.headers } returns headers
             every { method } returns HttpMethod.POST
-            every { uri } returns URI.create("/api/oauth2/token")
+            every { uri } returns URI.create("$OAUTH2_SURFACE/token")
         }.also {
             coEvery { dpopManager.validateDpopProof(any(), any()) } returns null
         }
@@ -198,7 +199,7 @@ class TokenControllerTest {
         coVerify {
             dpopManager.validateDpopProof(
                 listOf("a-proof"),
-                DpopBoundRequest(method = "POST", uri = URI.create("/api/oauth2/token"), accessToken = null)
+                DpopBoundRequest(method = "POST", uri = URI.create("$OAUTH2_SURFACE/token"), accessToken = null)
             )
         }
     }

@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.flow
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.resource.flow.SimpleFlowResource
@@ -25,7 +26,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 @Secured(HAS_STATE)
-@Controller("/api/v1/flow/mfa/totp")
+@Controller("$FLOW_SURFACE/mfa/totp")
 class TotpChallengeController(
     @Inject private val challengeManager: InteractiveFlowSessionTotpChallengeManager,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil

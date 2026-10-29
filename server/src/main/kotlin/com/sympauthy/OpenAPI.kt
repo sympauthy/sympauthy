@@ -1,5 +1,7 @@
 package com.sympauthy
 
+import com.sympauthy.api.controller.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
+import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import io.swagger.v3.oas.annotations.ExternalDocumentation
@@ -101,9 +103,9 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
             type = OAUTH2,
             flows = OAuthFlows(
                 authorizationCode = OAuthFlow(
-                    authorizationUrl = "{rootUrl}/api/oauth2/authorize",
-                    tokenUrl = "{rootUrl}/api/oauth2/token",
-                    refreshUrl = "{rootUrl}/api/oauth2/token",
+                    authorizationUrl = "{rootUrl}$OAUTH2_AUTHORIZE_ENDPOINT",
+                    tokenUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
+                    refreshUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
                     scopes = [
                         OAuthScope(name = AdminScopeId.CONFIG_READ),
                         OAuthScope(name = AdminScopeId.USERS_READ),
@@ -125,7 +127,7 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
             type = OAUTH2,
             flows = OAuthFlows(
                 clientCredentials = OAuthFlow(
-                    tokenUrl = "{rootUrl}/api/oauth2/token",
+                    tokenUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
                     scopes = [
                         OAuthScope(name = BuiltInClientScopeId.USERS_READ),
                         OAuthScope(name = BuiltInClientScopeId.USERS_CLAIMS_READ),
@@ -147,9 +149,9 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
             type = OAUTH2,
             flows = OAuthFlows(
                 authorizationCode = OAuthFlow(
-                    authorizationUrl = "{rootUrl}/api/oauth2/authorize",
-                    tokenUrl = "{rootUrl}/api/oauth2/token",
-                    refreshUrl = "{rootUrl}/api/oauth2/token"
+                    authorizationUrl = "{rootUrl}$OAUTH2_AUTHORIZE_ENDPOINT",
+                    tokenUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT",
+                    refreshUrl = "{rootUrl}$OAUTH2_TOKEN_ENDPOINT"
                 )
             )
         )

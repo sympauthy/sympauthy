@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.admin
 
+import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
@@ -38,7 +39,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import jakarta.inject.Inject
 import java.util.*
 
-@Controller("/api/v1/admin/users/{userId}/claims")
+@Controller("$ADMIN_SURFACE/users/{userId}/claims")
 @SecurityRequirement(name = "admin", scopes = [AdminScopeId.USERS_READ])
 class AdminUserClaimController(
     @Inject private val userManager: UserManager,
@@ -53,7 +54,7 @@ class AdminUserClaimController(
                 "A claim saying whether another was verified is not listed: `verified_at` carries it. " +
                 "Claims are ordered by identifier, unless another order is asked for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +
-                "/api/v1/admin/users/{userId}/claims/capabilities.",
+                "$ADMIN_SURFACE/users/{userId}/claims/capabilities.",
         tags = ["admin"],
         parameters = [
             Parameter(

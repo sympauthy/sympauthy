@@ -1,5 +1,6 @@
 package com.sympauthy.api.controller.client
 
+import com.sympauthy.api.controller.CLIENT_SURFACE
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.client.ClientUserClaimResourceMapper
 import com.sympauthy.api.resource.client.ClientUserClaimResource
@@ -32,7 +33,7 @@ import java.util.*
  * Gated on a client token alone rather than on a scope of the client surface, because what a client reads
  * and writes here is decided claim by claim, by each claim's ACL — see `docs/design/claims.md`.
  */
-@Controller("/api/v1/client/users/{userId}/claims")
+@Controller("$CLIENT_SURFACE/users/{userId}/claims")
 @Secured(IS_CLIENT)
 @SecurityRequirement(name = "client")
 class ClientUserClaimController(

@@ -1,5 +1,6 @@
 package com.sympauthy.api.filter
 
+import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.model.AuthorizationFlowsConfig
 import com.sympauthy.config.model.EnabledAuthorizationFlowsConfig
@@ -46,7 +47,7 @@ import kotlin.jvm.optionals.getOrNull
  * Runs at [ServerFilterPhase.FIRST].before(), i.e. before Micronaut Security, so that OPTIONS preflights
  * are handled before the security filter can reject unauthenticated requests.
  */
-@Filter("/api/v1/flow/**")
+@Filter("$FLOW_SURFACE/**")
 class FlowCorsFilter(
     @Inject private val authorizationFlowsConfig: AuthorizationFlowsConfig,
     @Inject private val corsPreflightHeaders: CorsPreflightHeaders

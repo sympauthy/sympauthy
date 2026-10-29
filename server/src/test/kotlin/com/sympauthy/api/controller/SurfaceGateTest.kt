@@ -22,11 +22,12 @@ import java.lang.reflect.Method
 class SurfaceGateTest {
 
     private val surfaces = mapOf(
-        "/api/v1/admin" to AdminScope.entries.map { "SCOPE_${it.scope}" }.toSet(),
-        "/api/v1/client" to BuiltInClientScope.entries.map { "SCOPE_${it.scope}" }.toSet(),
-        "/api/v1/flow" to setOf(HAS_STATE),
-        "/api/oauth2" to setOf(IS_ANONYMOUS),
-        "/api/openid" to setOf(IS_ANONYMOUS),
+        "$ADMIN_SURFACE" to AdminScope.entries.map { "SCOPE_${it.scope}" }.toSet(),
+        "$CLIENT_SURFACE" to BuiltInClientScope.entries.map { "SCOPE_${it.scope}" }.toSet(),
+        "$FLOW_SURFACE" to setOf(HAS_STATE),
+        "$USER_SURFACE" to setOf(IS_USER),
+        "$OAUTH2_SURFACE" to setOf(IS_ANONYMOUS),
+        "$OPENID_SURFACE" to setOf(IS_ANONYMOUS),
     )
 
     /**
@@ -34,9 +35,9 @@ class SurfaceGateTest {
      * the controller declaring it.
      */
     private val departures = mapOf(
-        "/api/v1/client/users/{userId}/claims" to setOf(IS_CLIENT),
-        "/api/v1/flow/providers/{providerId}/callback" to setOf(IS_ANONYMOUS),
-        "/api/openid/userinfo" to setOf(IS_USER),
+        "$CLIENT_SURFACE/users/{userId}/claims" to setOf(IS_CLIENT),
+        "$FLOW_SURFACE/providers/{providerId}/callback" to setOf(IS_ANONYMOUS),
+        "$OPENID_SURFACE/userinfo" to setOf(IS_USER),
     )
 
     private val outsideSurfaces = mapOf(

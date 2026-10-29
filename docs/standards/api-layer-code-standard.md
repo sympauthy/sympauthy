@@ -90,6 +90,10 @@ route nothing else references inline.
 **A route something below the `api` layer builds a URL for declares its constant with the concept**,
 and the controller names its route from that constant.
 
+**A route is written from its surface's prefix constant**, declared in `api/controller/Surfaces.kt`,
+and so is every filter path and test naming one. A prefix spelled in each controller is renamed in
+each, and the one that is missed is a route on no surface.
+
 **Security is declared on the class where its routes share a gate, and on the route where they do
 not**, always naming a gate the surface admits. Take the roles and scopes from the constants in
 `security/`, and put anything narrower than a scope in a manager check.
