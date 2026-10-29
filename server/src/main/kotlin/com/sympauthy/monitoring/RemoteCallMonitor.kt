@@ -1,13 +1,13 @@
 package com.sympauthy.monitoring
 
 import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.telemetry.measureOutcome
 import com.sympauthy.monitoring.telemetry.nanosToSeconds
 import com.sympauthy.monitoring.telemetry.putOutcome
 import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CancellationException
 
 /**
  * Every call this server makes outside its process: timed on `sympauthy.remote_call.duration`, and reported to
@@ -43,19 +43,10 @@ class RemoteCallMonitor(
         operation: String,
         judge: (Throwable) -> Outcome,
         block: suspend () -> T
-    ): T {
-        val start = System.nanoTime()
-        val result = try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
-            reportCall(condition, operation, System.nanoTime() - start, judge(failure), failure)
-            throw failure
-        }
-        reportCall(condition, operation, System.nanoTime() - start, Outcome.Success)
-        return result
-    }
+    ): T = measureOutcome(
+        onSuccess = { elapsed, _ -> reportCall(condition, operation, elapsed, Outcome.Success) },
+        onFailure = { elapsed, failure -> reportCall(condition, operation, elapsed, judge(failure), failure) }
+    ) { block() }
 
     /**
      * Report a call made to [condition] for [operation], which ended with [outcome] after [elapsedNanos], with

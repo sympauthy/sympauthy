@@ -15,10 +15,10 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNAUTHORIZED_CLIENT
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.measureOutcome
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CancellationException
 
 /**
  * Issues the tokens a request to the token endpoint asks for, once its client has authenticated, one method per
@@ -166,21 +166,18 @@ class TokenRequestManager(
         dpopJkt: String?,
         block: suspend () -> T
     ): T {
-        val start = System.nanoTime()
         val scheme = if (dpopJkt != null) DPOP_SCHEME else BEARER_SCHEME
-        val result = try {
+        return measureOutcome(
+            onSuccess = { elapsed, _ ->
+                tokenMetrics.recordRequest(grantType.wireName, scheme, client.id, elapsed, Outcome.Success)
+            },
+            onFailure = { elapsed, failure ->
+                tokenMetrics.recordRequest(grantType.wireName, scheme, client.id, elapsed, failure.toOutcome())
+            }
+        ) {
             checkClientSupportsGrantType(client, grantType)
             block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
-            tokenMetrics.recordRequest(
-                grantType.wireName, scheme, client.id, System.nanoTime() - start, failure.toOutcome()
-            )
-            throw failure
         }
-        tokenMetrics.recordRequest(grantType.wireName, scheme, client.id, System.nanoTime() - start, Outcome.Success)
-        return result
     }
 
     /**

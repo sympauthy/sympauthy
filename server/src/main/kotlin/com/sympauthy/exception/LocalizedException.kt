@@ -1,5 +1,7 @@
 package com.sympauthy.exception
 
+import io.micronaut.http.HttpStatus
+
 /**
  * Base class for exceptions where the message is localized in a resource bundle.
  */
@@ -8,7 +10,7 @@ open class LocalizedException(
      * Whether the error is caused by a user action or a system issue.
      * If recoverable, the user can take action to resolve the issue.
      */
-    val recoverable: Boolean = false,
+    override val recoverable: Boolean = false,
     /**
      * Identifier of the message detailing the issue in a technical way.
      *
@@ -16,7 +18,7 @@ open class LocalizedException(
      *
      * This is also used as an identifier for the error reported to the user.
      */
-    val detailsId: String,
+    override val detailsId: String,
     /**
      * Identifier of the message displayed to the end user.
      *
@@ -32,7 +34,10 @@ open class LocalizedException(
      * Underlying cause of this exception.
      */
     val throwable: Throwable? = null
-) : Exception(formatMessage(detailsId, values), throwable) {
+) : Exception(formatMessage(detailsId, values), throwable), AnsweredFailure {
+
+    override val answeredStatus: HttpStatus? get() = null
+
     companion object {
         private fun formatMessage(detailsId: String, values: Map<String, String>): String {
             return if (values.isEmpty()) {

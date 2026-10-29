@@ -4,7 +4,6 @@ import io.opentelemetry.api.OpenTelemetry
 import io.opentelemetry.api.common.AttributeKey
 import io.opentelemetry.api.common.Attributes
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CancellationException
 
 /**
  * The attempts to get into the server, the validation codes checked, and the passwords hashed.
@@ -53,18 +52,10 @@ class AuthenticationMetrics(
         judge: (Throwable) -> Outcome,
         successKind: (T) -> String = { kind },
         block: suspend () -> T
-    ): T {
-        val result = try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
-            recordAttempt(method, providerId, kind, judge(failure))
-            throw failure
-        }
-        recordAttempt(method, providerId, successKind(result), Outcome.Success)
-        return result
-    }
+    ): T = measureOutcome(
+        onSuccess = { _, result -> recordAttempt(method, providerId, successKind(result), Outcome.Success) },
+        onFailure = { _, failure -> recordAttempt(method, providerId, kind, judge(failure)) }
+    ) { block() }
 
     private fun recordAttempt(method: String, providerId: String?, kind: String, outcome: Outcome) {
         attempts.add(
@@ -82,18 +73,11 @@ class AuthenticationMetrics(
      * Run [block] as a check of a validation code sent by [media], and record how it ended: a success if it
      * returns, and what [judge] says of what it throws otherwise. What [block] throws is rethrown.
      */
-    suspend fun <T> recordValidationCodeCheck(media: String, judge: (Throwable) -> Outcome, block: suspend () -> T): T {
-        val result = try {
-            block()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
-            recordValidationCodeCheck(media, judge(failure))
-            throw failure
-        }
-        recordValidationCodeCheck(media, Outcome.Success)
-        return result
-    }
+    suspend fun <T> recordValidationCodeCheck(media: String, judge: (Throwable) -> Outcome, block: suspend () -> T): T =
+        measureOutcome(
+            onSuccess = { _, _ -> recordValidationCodeCheck(media, Outcome.Success) },
+            onFailure = { _, failure -> recordValidationCodeCheck(media, judge(failure)) }
+        ) { block() }
 
     private fun recordValidationCodeCheck(media: String, outcome: Outcome) {
         validationCodeChecks.add(1, Attributes.builder().put(MEDIA, media).putOutcome(outcome).build())

@@ -18,6 +18,7 @@ import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.measureOutcome
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
@@ -25,7 +26,6 @@ import io.micronaut.security.authentication.Authentication
 import io.micronaut.security.token.validator.TokenValidator
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.reactive.publish
 import org.reactivestreams.Publisher
 
@@ -66,23 +66,18 @@ class AccessTokenValidator(
             return@publish
         }
 
-        val start = System.nanoTime()
         val scheme = if (dpopTokenReader.isPresentedWith(request, token)) DPOP else BEARER
-        val authentication = try {
-            authenticate(token, request, scheme)
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Throwable) {
+        val authentication = measureOutcome(
+            onSuccess = { elapsed, authentication ->
+                tokenMetrics.recordValidation(scheme.metricName, authentication.clientId, elapsed, Outcome.Success)
+            },
             // A refusal is recorded without a client: the client is read from the configuration last.
-            tokenMetrics.recordValidation(scheme.metricName, null, System.nanoTime() - start, failure.toOutcome())
-            throw failure
+            onFailure = { elapsed, failure ->
+                tokenMetrics.recordValidation(scheme.metricName, null, elapsed, failure.toOutcome())
+            }
+        ) {
+            authenticate(token, request, scheme)
         }
-        val clientId = when (authentication) {
-            is UserAuthentication -> authentication.authenticationToken.grant.clientId
-            is ClientAuthentication -> authentication.authenticationToken.grant.clientId
-            else -> null
-        }
-        tokenMetrics.recordValidation(scheme.metricName, clientId, System.nanoTime() - start, Outcome.Success)
         send(authentication)
     }
 
@@ -162,4 +157,14 @@ class AccessTokenValidator(
      */
     private val AccessTokenScheme.metricName: String
         get() = name.lowercase()
+
+    /**
+     * The client the token authenticating this was issued to, which a check is recorded under.
+     */
+    private val Authentication.clientId: String?
+        get() = when (this) {
+            is UserAuthentication -> authenticationToken.grant.clientId
+            is ClientAuthentication -> authenticationToken.grant.clientId
+            else -> null
+        }
 }

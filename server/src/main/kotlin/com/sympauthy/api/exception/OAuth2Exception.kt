@@ -2,6 +2,7 @@ package com.sympauthy.api.exception
 
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
+import com.sympauthy.exception.AnsweredFailure
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.security.AccessTokenScheme
 import io.micronaut.http.HttpStatus
@@ -9,7 +10,7 @@ import io.micronaut.http.HttpStatus.UNAUTHORIZED
 
 class OAuth2Exception(
     val errorCode: OAuth2ErrorCode,
-    val detailsId: String,
+    override val detailsId: String,
     val descriptionId: String? = null,
     val values: Map<String, String> = emptyMap(),
     /**
@@ -20,9 +21,16 @@ class OAuth2Exception(
      * challenge is sent with, RFC 9110 §15.5.2.
      */
     val challenge: String? = null
-) : Exception(formatMessage(errorCode, detailsId)) {
+) : Exception(formatMessage(errorCode, detailsId)), AnsweredFailure {
 
     val status: HttpStatus = if (challenge != null) UNAUTHORIZED else errorCode.status
+
+    /**
+     * Never: the protocol's error body carries no such flag, and a client branches on [errorCode].
+     */
+    override val recoverable: Boolean get() = false
+
+    override val answeredStatus: HttpStatus get() = status
 
     companion object {
         private fun formatMessage(errorCode: OAuth2ErrorCode, detailsId: String?): String {
