@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test
 import java.lang.reflect.Method
 
 /**
- * Holds the gate of every route to the surface its prefix names, and every route gated otherwise to a
- * departure listed here with its reason.
+ * Holds the gate of every route a controller declares to the surface its prefix names, and every route
+ * gated otherwise, or on no surface, to the gate listed here for it.
  */
 class SurfaceGateTest {
 
@@ -29,30 +29,25 @@ class SurfaceGateTest {
         "/api/openid" to setOf(IS_ANONYMOUS),
     )
 
-    private val departures = listOf(
-        Departure(
-            "/api/v1/client/users/{userId}/claims", setOf(IS_CLIENT),
-            "each claim's ACL decides what a client reads and writes there"
-        ),
-        Departure(
-            "/api/v1/flow/providers/{providerId}/callback", setOf(IS_ANONYMOUS),
-            "the provider redirects the browser there, so the state arrives as a parameter and is verified there"
-        ),
-        Departure(
-            "/api/openid/userinfo", setOf(IS_USER),
-            "OpenID Connect Core §5.3 has it called with an access token"
-        ),
-        Departure("/.well-known/openid-configuration", setOf(IS_ANONYMOUS), "discovery is public by specification"),
-        Departure("/.well-known/public.jwk", setOf(IS_ANONYMOUS), "discovery is public by specification"),
-        Departure("/openapi.yml", setOf(IS_ANONYMOUS), "the API description is public"),
-        Departure("/version", setOf(IS_ANONYMOUS), "the version is public"),
-        Departure(
-            "/flow/{path:[^\\.]*}", emptySet(),
-            "it is a page, opened to anyone by the security configuration"
-        ),
-        Departure("/admin", setOf(IS_ANONYMOUS), "it is a page, signing in on its own"),
-        Departure("/admin/{path:[^\\.]*}", setOf(IS_ANONYMOUS), "it is a page, signing in on its own"),
-        Departure("/swagger-ui", setOf(IS_ANONYMOUS), "it is a page, reading the public API description"),
+    /**
+     * The routes on a surface gated otherwise than it admits, each with its gate. Why is the documentation of
+     * the controller declaring it.
+     */
+    private val departures = mapOf(
+        "/api/v1/client/users/{userId}/claims" to setOf(IS_CLIENT),
+        "/api/v1/flow/providers/{providerId}/callback" to setOf(IS_ANONYMOUS),
+        "/api/openid/userinfo" to setOf(IS_USER),
+    )
+
+    private val outsideSurfaces = mapOf(
+        "/.well-known/openid-configuration" to setOf(IS_ANONYMOUS),
+        "/.well-known/public.jwk" to setOf(IS_ANONYMOUS),
+        "/openapi.yml" to setOf(IS_ANONYMOUS),
+        "/version" to setOf(IS_ANONYMOUS),
+        "/flow/{path:[^\\.]*}" to emptySet(),
+        "/admin" to setOf(IS_ANONYMOUS),
+        "/admin/{path:[^\\.]*}" to setOf(IS_ANONYMOUS),
+        "/swagger-ui" to setOf(IS_ANONYMOUS),
     )
 
     private val routes: List<Route> by lazy {
@@ -62,16 +57,21 @@ class SurfaceGateTest {
     }
 
     @Test
-    fun `Every route is gated as its surface admits, or as the departure listing it says`() {
+    fun `Every route is gated as its surface admits, or as the list naming it says`() {
         assertTrue(routes.isNotEmpty(), "no controller declares a route, so this test reads nothing")
 
         val misgated = routes.mapNotNull { route ->
-            val departure = departures.firstOrNull { it.path == route.path }
+            val departure = departures[route.path]
+            val outside = outsideSurfaces[route.path]
             val admitted = surfaces.entries.firstOrNull { route.path.isUnder(it.key) }?.value
             when {
-                departure != null -> if (route.gate == departure.gate) null else
-                    "$route is listed as gated on ${departure.gate} because ${departure.reason}"
-                admitted == null -> "$route is on no surface, and no departure lists it"
+                departure != null -> if (route.gate == departure) null else
+                    "$route is listed as a departure gated on $departure"
+                admitted == null -> when (outside) {
+                    null -> "$route is on no surface, and is not listed outside one"
+                    route.gate -> null
+                    else -> "$route is listed outside the surfaces gated on $outside"
+                }
                 route.gate.isNotEmpty() && admitted.containsAll(route.gate) -> null
                 else -> "$route is not gated on one of its surface's $admitted"
             }
@@ -80,9 +80,9 @@ class SurfaceGateTest {
     }
 
     @Test
-    fun `Every listed departure excuses a route`() {
-        val unused = departures.filter { departure -> routes.none { it.path == departure.path } }
-        assertEquals(emptyList<Departure>(), unused)
+    fun `Every listed route is declared by a controller`() {
+        val unused = (departures.keys + outsideSurfaces.keys).filter { path -> routes.none { it.path == path } }
+        assertEquals(emptyList<String>(), unused)
     }
 
     private fun routesOf(controller: Class<*>): List<Route> {
@@ -108,6 +108,4 @@ class SurfaceGateTest {
     private data class Route(val method: String, val path: String, val gate: Set<String>) {
         override fun toString() = "$method $path (gated on $gate)"
     }
-
-    private data class Departure(val path: String, val gate: Set<String>, val reason: String)
 }

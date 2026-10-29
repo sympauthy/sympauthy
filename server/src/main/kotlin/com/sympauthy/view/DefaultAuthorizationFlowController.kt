@@ -14,6 +14,9 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * Serve the index.html of sympauthy-flow that have been added in the resources by the CI, or answer
  * `not_found` from a build it was not added to.
+ *
+ * It carries no `@Secured`: `micronaut.security.intercept-url-map` opens every `GET` under `/flow` to
+ * anyone, which the page's static assets need as well.
  */
 @Hidden
 @Controller(DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT)

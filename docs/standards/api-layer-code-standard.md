@@ -94,8 +94,9 @@ and the controller names its route from that constant.
 not**, always naming a gate the surface admits. Take the roles and scopes from the constants in
 `security/`, and put anything narrower than a scope in a manager check.
 
-**A route gated otherwise than its surface admits is a departure, listed with its reason** in
-`SurfaceGateTest`, which reads every controller and fails on a departure nobody wrote down.
+**A route gated otherwise than its surface admits is a departure, and its controller says why** in
+its own documentation. `SurfaceGateTest` reads every controller and fails on a departure it does not
+list, so the route and its gate are added there too.
 
 **A parameter is documented on the parameter**, in an annotation on the method argument itself. The
 type, whether it is required and its format are inferred from the Kotlin.
