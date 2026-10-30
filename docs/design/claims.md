@@ -257,9 +257,11 @@ Consent is recorded per user and audience, so a set of consented scopes is alway
 and whoever holds them knows which. A reader taking the scopes and not the audience would be
 modelling a state that cannot arise.
 
-**What a client is told about is its own audience, resolved from the credential.** The id token, the
-`/userinfo` response and the client API each take it from the client that authenticated, never from
-anything the request carried, because a client belongs to exactly one audience.
+**What a client is told about is the audience of its credential, never one the request carried.**
+The id token, the client API and the introspection response take it from the client that
+authenticated, because a client belongs to exactly one audience; introspection answers a token
+issued for another audience as inactive rather than describe it. `/userinfo` is handed a token and
+no client, so it takes it from the token's grant, which is the audience the token was issued for.
 
 **The audience is the one the decision lands in, which is not always the caller's own.** An
 authorization grants scopes to the client that started the flow, so the flow's audience is the

@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -311,9 +312,9 @@ class TokenManagerTest {
 
     @Test
     fun `introspectToken - Returns token for active access token`() = runTest {
-        val client = mockk<Client> { every { id } returns "test-client" }
+        val client = client("test-client")
         val decodedJwt = DecodedJwt(id = UUID.randomUUID().toString(), subject = null, keyId = null)
-        val grant = mockk<Grant> { every { clientId } returns "test-client" }
+        val grant = grant("test-client", AUDIENCE)
         val token = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }
 
         every { jwtManager.getKeyIdOrNull("encoded-token") } returns ACCESS_KEY
@@ -327,9 +328,9 @@ class TokenManagerTest {
 
     @Test
     fun `introspectToken - Returns token for active refresh token`() = runTest {
-        val client = mockk<Client> { every { id } returns "test-client" }
+        val client = client("test-client")
         val decodedJwt = DecodedJwt(id = UUID.randomUUID().toString(), subject = null, keyId = null)
-        val grant = mockk<Grant> { every { clientId } returns "test-client" }
+        val grant = grant("test-client", AUDIENCE)
         val token = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }
 
         every { jwtManager.getKeyIdOrNull("encoded-token") } returns REFRESH_KEY
@@ -395,9 +396,25 @@ class TokenManagerTest {
 
     @Test
     fun `introspectToken - Returns null when client does not match`() = runTest {
-        val client = mockk<Client> { every { id } returns "other-client" }
+        val client = client("other-client")
         val decodedJwt = DecodedJwt(id = UUID.randomUUID().toString(), subject = null, keyId = null)
-        val grant = mockk<Grant> { every { clientId } returns "test-client" }
+        val grant = grant("test-client")
+        val token = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }
+
+        every { jwtManager.getKeyIdOrNull("encoded-token") } returns ACCESS_KEY
+        coEvery { jwtManager.decodeAndVerifyOrNull(ACCESS_KEY, "encoded-token") } returns decodedJwt
+        coEvery { tokenManager.getAuthenticationToken(decodedJwt) } returns token
+
+        val result = tokenManager.introspectToken(client, "encoded-token", type = null)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `introspectToken - Returns null for a token of another audience than the client's`() = runTest {
+        val client = client("test-client")
+        val decodedJwt = DecodedJwt(id = UUID.randomUUID().toString(), subject = null, keyId = null)
+        val grant = grant("test-client", "another-audience")
         val token = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }
 
         every { jwtManager.getKeyIdOrNull("encoded-token") } returns ACCESS_KEY
@@ -418,5 +435,23 @@ class TokenManagerTest {
         assertNull(result)
         coVerify(exactly = 0) { jwtManager.decodeAndVerifyOrNull(any(), any()) }
     }
-}
 
+    /** A client of the [AUDIENCE]. */
+    private fun client(id: String) = Client(
+        id = id,
+        secret = null,
+        audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE),
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null
+    )
+
+    /** A grant opened for the client [clientId], for the audience [audienceId] where a test reaches it. */
+    private fun grant(clientId: String, audienceId: String? = null): Grant = mockk {
+        every { this@mockk.clientId } returns clientId
+        audienceId?.let { every { this@mockk.audienceId } returns it }
+    }
+
+    private companion object {
+        const val AUDIENCE = "default"
+    }
+}

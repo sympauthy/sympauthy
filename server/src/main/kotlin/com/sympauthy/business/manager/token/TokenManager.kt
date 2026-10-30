@@ -80,9 +80,13 @@ open class TokenManager(
     /**
      * Introspect the [encodedToken] and return the stored [AuthenticationToken] if the token is active,
      * or `null` if the token is invalid, expired, issued under a grant that is revoked or past its lifetime,
-     * not owned by [client], or not of [type].
+     * not opened for [client] and the audience it belongs to now, or not of [type].
      *
      * A null [type] accepts an access token and a refresh token alike.
+     *
+     * A token issued for another audience than the one [client] belongs to is answered as inactive rather than
+     * described: what an answer said of its audience and of the person's claims would be told to a client
+     * outside that audience.
      */
     suspend fun introspectToken(
         client: Client,
@@ -97,7 +101,11 @@ open class TokenManager(
             return null
         }
         if (type != null && token.type != type) return null
-        if (token.grant.clientId != client.id) return null
+        try {
+            grantManager.checkOpenedFor(token.grant, client)
+        } catch (_: OAuth2Exception) {
+            return null
+        }
         return token
     }
 

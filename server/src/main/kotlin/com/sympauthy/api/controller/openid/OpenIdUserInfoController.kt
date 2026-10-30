@@ -63,12 +63,13 @@ class OpenIdUserInfoController(
         authentication: Authentication
     ): UserInfoResource {
         val grant = authentication.userAuthentication.authenticationToken.grant
-        val client = authentication.userAuthentication.client
         // The person's own read rather than the client's: this endpoint is protected by a bearer token
         // alone, with no client authentication, so consent is the whole of what it may go on.
+        // The audience the grant was opened for, which is the one the token was issued for, rather than the
+        // one the configuration declares for the client now.
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = authentication.userId,
-            audienceId = client.audience.id,
+            audienceId = grant.audienceId,
             doors = claimAclManager.getTokenDoors(authentication.userAuthentication.claimAclContext())
         )
         // Off the grant rather than off a session: the authorization that carried the `claims` parameter
