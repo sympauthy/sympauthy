@@ -115,6 +115,8 @@ private const val ACCESS_TOKEN_PRESENTATION_DESCRIPTION = "The access token is s
                         OAuthScope(name = AdminScopeId.CONSENT_WRITE),
                         OAuthScope(name = AdminScopeId.INVITATIONS_READ),
                         OAuthScope(name = AdminScopeId.INVITATIONS_WRITE),
+                        OAuthScope(name = AdminScopeId.GRANTS_READ),
+                        OAuthScope(name = AdminScopeId.GRANTS_WRITE),
                         OAuthScope(name = AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ)
                     ]
                 )

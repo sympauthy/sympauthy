@@ -2,11 +2,11 @@
 
 A grant is what a client was allowed, and every token this server issues is issued under one. This
 document is the grant: what opens one and what it records, what a token under it keeps of its own,
-how a revocation and a lifetime reach it, and what collects it once it is finished. How a token is
-checked when it is presented — its signature, the key it is bound to, the `auth_time` it states,
-the id token — is [security's](security.md#tokens); the authorization that opens a grant before
-handing out its code is [the OAuth2 authorization](oauth2-authorization.md), and whom a client may
-act as is
+how a revocation and a lifetime reach it, what an administrator sees of it, and what collects it
+once it is finished. How a token is checked when it is presented — its signature, the key it is
+bound to, the `auth_time` it states, the id token — is [security's](security.md#tokens); the
+authorization that opens a grant before handing out its code is [the OAuth2
+authorization](oauth2-authorization.md), and whom a client may act as is
 [security's](security.md#acting-as-a-person) too.
 
 ## What a grant is
@@ -56,11 +56,11 @@ FAQ](design-faq.md#does-a-grant-outlive-its-client) argues the alternatives.
 
 ## How a revocation reaches a grant
 
-**Every revocation revokes grants, never a single token.** A force logout by an administrator, a
-consent revoked, an authorization code replayed and a client's call to the revocation endpoint each
-name the grants they reach, and every token under them stops working at once. A revocation almost
-always means everything an authorization was issued, and that is one row however often its client
-refreshed.
+**Every revocation revokes grants, never a single token.** An administrator revoking the grants a
+request names, a consent revoked, an authorization code replayed and a client's call to the
+revocation endpoint each name the grants they reach, and every token under them stops working at
+once. A revocation almost always means everything an authorization was issued, and that is one row
+however often its client refreshed.
 
 **The revocation endpoint revokes the grant of whichever token it is given**, a refresh token or an
 access token. RFC 7009 §2.1 lets a server revoke the refresh token when it is presented an access
@@ -117,8 +117,8 @@ expired or a code still to be exchanged — so a row goes on saying who revoked 
 grant that lapsed on its own is not recorded as revoked afterwards. A revocation reaching many
 grants therefore counts the ones it took out of service, and repeating it finds none.
 
-**A force logout answers how many grants it revoked.** A grant is what was taken out of service, and
-how many tokens stood under one depends only on how often its client refreshed.
+**An administrator's revocation answers how many grants it revoked.** A grant is what was taken out
+of service, and how many tokens stood under one depends only on how often its client refreshed.
 
 ## How long a grant lives
 
@@ -149,15 +149,63 @@ grant left with neither; a grant whose code was never exchanged therefore goes o
 refresh adds an access token to its grant every time, so a grant refreshed for months would
 otherwise keep every one of them.
 
-**A revoked grant is deleted on the next run, with its tokens.** Nothing reads who revoked a grant
-or when once it is written, and a token whose grant is gone is refused as surely as one whose grant
-is revoked; a record kept in case somebody wants it would be an audit trail with no surface. A
-refresh token without an expiry keeps its grant for as long as it is not revoked. [The design
+**A revoked grant is deleted on the next run, with its tokens.** Until then an administrator reads
+who revoked it and when; afterwards it is answered as a grant this server does not hold, and a token
+whose grant is gone is refused as surely as one whose grant is revoked. A record kept past that in
+case somebody wants it would be an audit trail, which no surface shows. A refresh token without an
+expiry keeps its grant for as long as it is not revoked. [The design
 FAQ](design-faq.md#is-a-revoked-grant-kept) holds the retention that lost.
 
 **A provisional account is not collected while a grant names it**, as [the provisional
 user](provisional-user.md#collecting-one-that-never-will) has it of every row that refers to an
 account and is not the account's own.
+
+## What an administrator sees of a grant
+
+**Grants are a collection of their own on the administration surface, and a person's grants are the
+ones filtered on the person.** A `client_credentials` grant has no person behind it, so a collection
+nested under a person could never show one, and could not answer what a client or an audience holds
+either. An act-as grant is among the grants of the person it acts as. [The design
+FAQ](design-faq.md#where-does-an-administrator-read-a-grant) weighs the nesting that lost.
+
+**A grant is found by typing the person's address or the client's identifier.** The free text
+matches the identifier claims of the person, the client and the audience, and a client or an
+audience is filtered by its identifier while the filter shows it under its display name, which
+depends on the reader's language. One the configuration no longer declares is offered too, under its
+identifier, since its grants are still stored and still revocable. [The design
+FAQ](design-faq.md#what-does-the-free-text-of-the-grant-collection-match) holds the names that lost.
+
+**Every grant still stored is listed, each with where it stands.** A grant is *live* while a
+revocation made now would reach it, *revoked* once one has, *expired* past its lifetime, and
+*lapsed* when it is neither revoked nor past its lifetime but is left with no token that has not
+expired and no code still to be exchanged. A revoked grant is revoked whatever else holds of it,
+because the revocation is what somebody acted on, and a grant past its lifetime is expired rather
+than lapsed, since every token under it has expired by then too. An administrator who has just
+revoked a grant therefore sees that it took, until the grant is collected; [the design
+FAQ](design-faq.md#does-the-grant-collection-list-a-grant-that-is-no-longer-live) holds why the
+collection is not of live grants only.
+
+**An administrator revokes the grants a request names, and leaves the rest.** A person's stolen
+phone and their laptop are two grants of the same client, and signing the person out would take
+both. The request names grants by identifier, by the person holding them, and by the client and the
+audience they were opened for, each set narrowing the others, so one route revokes a grant, a
+person's grants — signing them out — a person's grants on one client and everything a client holds.
+Each grant records that an administrator revoked it and which one, the grants exchanged from it go
+with it, and one no longer live is left as it was, as every revocation does. A request naming no set
+is refused rather than read as every grant, and an empty set reaches none. It is an action rather
+than a deletion, since the grants stay readable; [the design
+FAQ](design-faq.md#how-does-an-administrator-revoke-grants) argues the shape.
+
+**Reading grants and revoking them take scopes of their own.** A `client_credentials` grant has
+nothing to do with a consent, and a grant says more than a consent does — when the person
+authenticated, and the claims an authorization asked for. Revoking a consent stays under the consent
+scope and still revokes the grants it reaches: the scope gates the action rather than what follows
+from it. [The design FAQ](design-faq.md#are-grants-read-and-revoked-under-the-consent-scopes) holds
+the reuse that lost.
+
+**Nothing an administrator reads of a grant is about the tokens under it.** When it was last
+refreshed and when its last token expires are the tokens' own, and listing them is left open below.
+[The design FAQ](design-faq.md#what-does-the-detail-of-a-grant-show) holds what the detail weighed.
 
 ## What implements it
 
@@ -174,7 +222,7 @@ transaction already holds the lock over the account, which the consent saved bef
 the promotion of a sign-up named beside its identities. A unique index over the session a grant came
 from is what settles two completions racing: the one refused there never reaches its code.
 
-**`GrantManager` opens a grant, checks one presented to it and revokes one**, and is where every
+**`GrantManager` opens a grant, checks one presented to it and revokes grants**, and is where every
 revocation above is written: whether a grant is live, and whether it was opened for the client and
 the audience presenting it, are asked of it by a refresh and a code exchange alike. The use case of
 each grant type in `business.manager.token` issues the tokens under a grant, and `TokenManager` reads
@@ -192,6 +240,12 @@ therefore take the lock over the account first, as [the locking
 standard](../standards/locking-standard.md#the-named-lock) describes. Whichever goes second sees
 what the first committed: a refresh or an exchange reads its grant revoked and is refused, or a
 revocation finds their tokens and revokes their grant.
+
+**`GrantStatus` is where a grant stands, and `GrantManager` reads it.** A grant is live when it
+passes the condition every revocation in `GrantRepository` writes under, read at the same moment,
+so a grant listed live is one a revocation then would take out of service. The rest is read off the
+grant itself. `GrantCollectionManager` is the administrator's collection, read in memory like every
+other one there, and it reads the identifier claims its free text matches only when one was sent.
 
 **`GrantCleaner` is the collecting job**, run by `CleanFinishedGrantCron` under a
 [lease](../standards/locking-standard.md#the-lease) like every job one instance is enough for. It
@@ -217,6 +271,10 @@ leaves room for it.
 **It does not keep a record of revocations.** A revoked grant is deleted on the next run, and with
 it who revoked it and when; an audit trail is a gap
 [security](security.md#what-this-document-does-not-settle) names of its own.
+
+**It does not list the tokens under a grant.** An administrator reads a grant and what it records,
+and nothing of the tokens issued under it: how often it was refreshed, and when its last token
+expires, wait for a collection of their own.
 
 ---
 

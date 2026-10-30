@@ -13,7 +13,10 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantOpenedForResult
+import com.sympauthy.business.model.grant.GrantRevocationCriteria
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantStatus
+import com.sympauthy.business.model.grant.GrantWithStatus
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
@@ -22,12 +25,15 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
+import com.sympauthy.data.repository.findMatching
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.wireName
+import io.micronaut.transaction.TransactionDefinition
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import java.util.*
 
@@ -59,6 +65,62 @@ open class GrantManager(
      */
     suspend fun findByIdOrNull(id: UUID): Grant? {
         return grantRepository.findById(id)?.let(grantMapper::toGrant)
+    }
+
+    /**
+     * Return the [Grant] identified by [id] with where it stands now, null where there is none — which
+     * includes a grant the cleanup job has already collected.
+     *
+     * The grant and whether it is live are read from one snapshot, so a revocation committing between the two
+     * reads cannot have the grant read as neither live nor revoked.
+     */
+    @Transactional(readOnly = true, isolation = TransactionDefinition.Isolation.REPEATABLE_READ)
+    open suspend fun findWithStatusByIdOrNull(id: UUID): GrantWithStatus? {
+        val now = LocalDateTime.now()
+        val grant = findByIdOrNull(id) ?: return null
+        val live = grantRepository.findLiveByIdAt(id, now) != null
+        return GrantWithStatus(grant, getStatus(grant, live, now))
+    }
+
+    /**
+     * List every grant this server still holds, revoked, expired and lapsed ones included, each with where it
+     * stands now.
+     *
+     * The grants and the ones still live are read from one snapshot, so a grant opened or revoked between the
+     * two reads cannot be read as lapsed.
+     */
+    @Transactional(readOnly = true, isolation = TransactionDefinition.Isolation.REPEATABLE_READ)
+    open suspend fun listWithStatus(): List<GrantWithStatus> {
+        val now = LocalDateTime.now()
+        val grants = grantRepository.findAll().toList().map(grantMapper::toGrant)
+        val liveIds = grantRepository.findLiveIdsAt(now).toSet()
+        return grants.map { GrantWithStatus(it, getStatus(it, it.id in liveIds, now)) }
+    }
+
+    /**
+     * List the identifiers of the clients the stored grants were opened for, whether the configuration still
+     * declares them or not.
+     */
+    suspend fun listClientIds(): List<String> = grantRepository.findDistinctClientIds()
+
+    /**
+     * List the identifiers of the audiences the stored grants were opened for, whether the configuration still
+     * declares them or not.
+     */
+    suspend fun listAudienceIds(): List<String> = grantRepository.findDistinctAudienceIds()
+
+    /**
+     * Where [grant] stands at [now], given whether it is [live] — whether a revocation written at [now] would
+     * reach it.
+     *
+     * A grant read as not live is told apart by what is recorded on it, in the order [GrantStatus] gives: revoked
+     * first, then past its lifetime, and lapsed otherwise.
+     */
+    internal fun getStatus(grant: Grant, live: Boolean, now: LocalDateTime): GrantStatus = when {
+        live -> GrantStatus.LIVE
+        grant.revoked -> GrantStatus.REVOKED
+        grant.expirationDate?.isBefore(now) == true -> GrantStatus.EXPIRED
+        else -> GrantStatus.LAPSED
     }
 
     /**
@@ -314,42 +376,47 @@ open class GrantManager(
     }
 
     /**
-     * Revoke every grant of [user] that is still live, regardless of client, and return how many there
-     * were.
+     * Revoke every grant [criteria] reach, and every grant a token exchange opened from one of their tokens,
+     * and return how many of them were still live.
+     *
+     * A grant already revoked, past its lifetime or lapsed is left as it is and not counted, as
+     * [revokeGrant] leaves it; the grants opened from it are reached all the same.
+     *
+     * The grants are read again once the lock over their accounts is held, and those of an account it does
+     * not cover — opened since the first read — are left to a revocation made after them. The accounts
+     * [GrantRevocationCriteria.userIds] names are locked whether they hold a grant yet or not, so a grant
+     * opened for one of them before the lock is taken is reached.
+     *
+     * It takes identifiers rather than the records they name, and resolves none of them: a client or an
+     * audience the configuration no longer declares still has grants to revoke, which resolving it would
+     * refuse, and an identifier no grant carries reaches nothing.
      */
     @Transactional
-    open suspend fun revokeGrantsByUser(user: User, revokedBy: GrantRevokedBy, revokedById: UUID?): Int {
-        return lockManager.withLock(listOf(LockKey.User(user.id))) {
-            grantRepository.updateRevokedAtByUserId(
-                userId = user.id,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
-        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
-    }
-
-    /**
-     * Revoke every grant of [user] opened for [client] that is still live, and return how many there
-     * were.
-     */
-    @Transactional
-    open suspend fun revokeGrantsByUserAndClient(
-        user: User,
-        client: Client,
+    open suspend fun revokeGrants(
+        criteria: GrantRevocationCriteria,
         revokedBy: GrantRevokedBy,
         revokedById: UUID?
     ): Int {
-        return lockManager.withLock(listOf(LockKey.User(user.id))) {
-            grantRepository.updateRevokedAtByUserIdAndClientId(
-                userId = user.id,
-                clientId = client.id,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
-        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, client.id, it) }
+        val users = (criteria.userIds.orEmpty() + findMatching(criteria).mapNotNull(GrantEntity::userId)).toSet()
+        return lockManager.withLock(users.map(LockKey::User)) {
+            val ids = findMatching(criteria)
+                .filter { it.userId == null || it.userId in users }
+                .mapNotNull(GrantEntity::id)
+            val now = LocalDateTime.now()
+            ids.chunked(REVOCATION_CHUNK_SIZE).sumOf { chunk ->
+                grantRepository.updateRevokedAtByIdIn(chunk, now, revokedBy.name, revokedById) +
+                    grantRepository.updateRevokedAtByActorGrantIdIn(chunk, now, revokedBy.name, revokedById)
+            }
+        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
     }
+
+    private suspend fun findMatching(criteria: GrantRevocationCriteria): List<GrantEntity> =
+        grantRepository.findMatching(
+            ids = criteria.grantIds,
+            userIds = criteria.userIds,
+            clientIds = criteria.clientIds,
+            audienceIds = criteria.audienceIds
+        )
 
     /**
      * Revoke every grant of [userId] opened for the audience identified by [audienceId] that is still live,
@@ -377,6 +444,12 @@ open class GrantManager(
         }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
     }
 }
+
+/**
+ * How many grants one statement of a revocation names, which keeps a revocation reaching every grant of a
+ * client under the number of parameters a statement may bind.
+ */
+private const val REVOCATION_CHUNK_SIZE = 1000
 
 /**
  * What a revocation is recorded under on `revoked_by`.

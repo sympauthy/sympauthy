@@ -14,7 +14,9 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantOpenedForResult
+import com.sympauthy.business.model.grant.GrantRevocationCriteria
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantStatus
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -35,6 +37,7 @@ import com.sympauthy.monitoring.telemetry.LockMetrics
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.data.exceptions.DataIntegrityViolationException
 import io.micronaut.data.exceptions.EntityExistsException
+import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -47,6 +50,8 @@ import io.mockk.spyk
 import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
 import io.r2dbc.spi.R2dbcDataIntegrityViolationException
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -341,36 +346,87 @@ class GrantManagerTest {
         }
     }
 
+    /** An `authorization_code` row of [userId], opened for [clientId]. */
+    private fun authorizationCodeEntity(userId: UUID, clientId: String) = GrantEntity(
+        userId = userId,
+        clientId = clientId,
+        audienceId = "audience",
+        grantType = "authorization_code",
+        grantedScopes = emptyArray(),
+        consentedScopes = arrayOf("openid"),
+        clientScopes = emptyArray(),
+        sessionId = UUID.randomUUID(),
+        creationDate = LocalDateTime.now().minusDays(1)
+    ).apply { id = UUID.randomUUID() }
+
+    /** Answer [first] to the first read of the grants a revocation matches, and [again] to the read under the lock. */
+    private fun matching(first: List<GrantEntity>, again: List<GrantEntity>) {
+        coEvery { grantRepository.findAll(any<PredicateSpecification<GrantEntity>>()) } returnsMany
+            listOf(first.asFlow(), again.asFlow())
+    }
+
     @Test
-    fun `revokeGrantsByUser - Revokes holding the lock over the account`() = runTest {
-        val userId = UUID.randomUUID()
-        val user = mockk<User> { every { id } returns userId }
+    fun `revokeGrants - Revokes the grants matched under the lock over every account named or found`() = runTest {
+        val ana = UUID.randomUUID()
+        val bob = UUID.randomUUID()
         val adminId = UUID.randomUUID()
-        coEvery { grantRepository.updateRevokedAtByUserId(userId, any(), "ADMIN", adminId) } returns 2
+        val anaWeb = authorizationCodeEntity(ana, "web")
+        // Opened for an account the criteria name between the first read and the lock, so reached all the same.
+        val bobWeb = authorizationCodeEntity(bob, "web")
+        matching(first = listOf(anaWeb), again = listOf(anaWeb, bobWeb))
+        val ids = listOf(anaWeb.id!!, bobWeb.id!!)
+        coEvery { grantRepository.updateRevokedAtByIdIn(ids, any(), "ADMIN", adminId) } returns 2
+        coEvery { grantRepository.updateRevokedAtByActorGrantIdIn(ids, any(), "ADMIN", adminId) } returns 1
 
-        assertEquals(2, grantManager().revokeGrantsByUser(user, GrantRevokedBy.ADMIN, adminId))
+        val count = grantManager().revokeGrants(
+            GrantRevocationCriteria(userIds = setOf(ana, bob), clientIds = setOf("web")),
+            GrantRevokedBy.ADMIN,
+            adminId
+        )
 
+        assertEquals(3, count)
+        coVerify {
+            objectLockRepository.lock(LockKey.User(ana).stripe)
+            objectLockRepository.lock(LockKey.User(bob).stripe)
+        }
         coVerifyOrder {
-            objectLockRepository.lock(LockKey.User(userId).stripe)
-            grantRepository.updateRevokedAtByUserId(userId, any(), "ADMIN", adminId)
+            objectLockRepository.lock(any())
+            grantRepository.updateRevokedAtByIdIn(ids, any(), "ADMIN", adminId)
         }
     }
 
     @Test
-    fun `revokeGrantsByUserAndClient - Revokes holding the lock over the account`() = runTest {
-        val userId = UUID.randomUUID()
-        val user = mockk<User> { every { id } returns userId }
-        val client = mockk<Client> { every { id } returns "client" }
-        coEvery {
-            grantRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
-        } returns 1
+    fun `revokeGrants - Leaves a grant of an account opened since the first read to a later revocation`() = runTest {
+        val ana = UUID.randomUUID()
+        val anaWeb = authorizationCodeEntity(ana, "web")
+        val clientCredentials = clientCredentialsEntity()
+        val carlWeb = authorizationCodeEntity(UUID.randomUUID(), "web")
+        matching(first = listOf(anaWeb, clientCredentials), again = listOf(anaWeb, clientCredentials, carlWeb))
+        val ids = listOf(anaWeb.id!!, clientCredentials.id!!)
+        coEvery { grantRepository.updateRevokedAtByIdIn(ids, any(), "ADMIN", null) } returns 2
+        coEvery { grantRepository.updateRevokedAtByActorGrantIdIn(ids, any(), "ADMIN", null) } returns 0
 
-        assertEquals(1, grantManager().revokeGrantsByUserAndClient(user, client, GrantRevokedBy.ADMIN, null))
+        val count = grantManager().revokeGrants(
+            GrantRevocationCriteria(clientIds = setOf("web", "client")),
+            GrantRevokedBy.ADMIN,
+            null
+        )
 
-        coVerifyOrder {
-            objectLockRepository.lock(LockKey.User(userId).stripe)
-            grantRepository.updateRevokedAtByUserIdAndClientId(userId, "client", any(), "ADMIN", null)
-        }
+        assertEquals(2, count)
+    }
+
+    @Test
+    fun `revokeGrants - Revokes nothing where no grant matches`() = runTest {
+        matching(first = emptyList(), again = emptyList())
+
+        val count = grantManager().revokeGrants(
+            GrantRevocationCriteria(grantIds = setOf(UUID.randomUUID())),
+            GrantRevokedBy.ADMIN,
+            null
+        )
+
+        assertEquals(0, count)
+        coVerify(exactly = 0) { grantRepository.updateRevokedAtByIdIn(any(), any(), any(), any()) }
     }
 
     @Test
@@ -416,6 +472,89 @@ class GrantManagerTest {
         coEvery { grantRepository.findById(created.id) } returns saved.captured
 
         assertEquals(created, grantManager().findByIdOrNull(created.id))
+    }
+
+    /** A `client_credentials` row, revoked where [revokedAt] is given and ending at [expirationDate]. */
+    private fun clientCredentialsEntity(
+        expirationDate: LocalDateTime? = null,
+        revokedAt: LocalDateTime? = null
+    ) = GrantEntity(
+        userId = null,
+        clientId = "client",
+        audienceId = "audience",
+        grantType = "client_credentials",
+        grantedScopes = emptyArray(),
+        consentedScopes = emptyArray(),
+        clientScopes = emptyArray(),
+        creationDate = LocalDateTime.now().minusDays(1),
+        expirationDate = expirationDate,
+        revokedAt = revokedAt,
+        revokedBy = revokedAt?.let { GrantRevokedBy.ADMIN.name }
+    ).apply { id = UUID.randomUUID() }
+
+    @Test
+    fun `getStatus - Read a grant a revocation would reach as live`() {
+        val grant = GrantMapper().toGrant(clientCredentialsEntity())
+
+        assertEquals(GrantStatus.LIVE, grantManager().getStatus(grant, live = true, LocalDateTime.now()))
+    }
+
+    @Test
+    fun `getStatus - Read a revoked grant as revoked, even past its lifetime`() {
+        val now = LocalDateTime.now()
+        val grant = GrantMapper().toGrant(
+            clientCredentialsEntity(expirationDate = now.minusMinutes(1), revokedAt = now.minusHours(1))
+        )
+
+        assertEquals(GrantStatus.REVOKED, grantManager().getStatus(grant, live = false, now))
+    }
+
+    @Test
+    fun `getStatus - Read a grant past its lifetime as expired rather than lapsed`() {
+        val now = LocalDateTime.now()
+        val grant = GrantMapper().toGrant(clientCredentialsEntity(expirationDate = now.minusMinutes(1)))
+
+        assertEquals(GrantStatus.EXPIRED, grantManager().getStatus(grant, live = false, now))
+    }
+
+    @Test
+    fun `getStatus - Read a grant neither revoked nor past its lifetime, holding nothing, as lapsed`() {
+        val now = LocalDateTime.now()
+        val grant = GrantMapper().toGrant(clientCredentialsEntity(expirationDate = now.plusDays(1)))
+
+        assertEquals(GrantStatus.LAPSED, grantManager().getStatus(grant, live = false, now))
+    }
+
+    @Test
+    fun `listWithStatus - Read every grant, each live where a revocation now would reach it`() = runTest {
+        val live = clientCredentialsEntity()
+        val lapsed = clientCredentialsEntity()
+        coEvery { grantRepository.findAll() } returns flowOf(live, lapsed)
+        coEvery { grantRepository.findLiveIdsAt(any()) } returns listOf(live.id!!)
+
+        val result = grantManager().listWithStatus()
+
+        assertEquals(
+            mapOf(live.id to GrantStatus.LIVE, lapsed.id to GrantStatus.LAPSED),
+            result.associate { it.grant.id to it.status }
+        )
+    }
+
+    @Test
+    fun `findWithStatusByIdOrNull - Return null where there is no grant`() = runTest {
+        val id = UUID.randomUUID()
+        coEvery { grantRepository.findById(id) } returns null
+
+        assertNull(grantManager().findWithStatusByIdOrNull(id))
+    }
+
+    @Test
+    fun `findWithStatusByIdOrNull - Read the grant live where a revocation now would reach it`() = runTest {
+        val entity = clientCredentialsEntity()
+        coEvery { grantRepository.findById(entity.id!!) } returns entity
+        coEvery { grantRepository.findLiveByIdAt(entity.id!!, any()) } returns entity
+
+        assertEquals(GrantStatus.LIVE, grantManager().findWithStatusByIdOrNull(entity.id!!)?.status)
     }
 
     @Test

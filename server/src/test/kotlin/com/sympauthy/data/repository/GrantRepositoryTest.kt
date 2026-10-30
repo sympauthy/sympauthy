@@ -16,8 +16,10 @@ import org.junit.jupiter.params.provider.EnumSource
 import java.util.*
 
 /**
- * The arrays a grant carries, the five updates that revoke one — each reached by a different key, and each
- * leaving a grant already revoked or lapsed as it was — and the delete collecting the finished ones.
+ * The arrays a grant carries, the two reads telling a live grant from one that is not, the reads a revocation
+ * and the administrator's collection select by, the five updates that revoke one — each reached by a different
+ * key, and each leaving a grant already revoked or lapsed as it was — and the delete collecting the finished
+ * ones.
  */
 class GrantRepositoryTest {
 
@@ -116,6 +118,46 @@ class GrantRepositoryTest {
         assertNotNull(grants.findById(first))
         assertNotNull(grants.findById(second))
     }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findLiveIdsAt - Reads the grants a revocation at that moment would reach, and no other`(database: Database) =
+        withFixture(database) {
+            val grants = repository<GrantRepository>()
+            val userId = newUser()
+            val live = saveLiveGrant(userId)
+            val pending = newGrant(userId, clientId = clientId, audienceId = audienceId)
+                .also { newCode(it, "grant-repository-test-find-live-code", expirationDate = liveUntil) }
+            val revokedEarlier = saveRevokedEarlierGrant(userId)
+            val lapsed = saveLapsedGrant(userId)
+            val pastItsLifetime = newGrant(
+                userId,
+                clientId = clientId,
+                audienceId = audienceId,
+                expirationDate = revokedAt.minusMinutes(1)
+            ).also { newToken(it, expirationDate = null, type = "REFRESH") }
+
+            val found = grants.findLiveIdsAt(revokedAt).toSet()
+
+            assertEquals(
+                setOf(live, pending),
+                found.intersect(setOf(live, pending, revokedEarlier, lapsed, pastItsLifetime))
+            )
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findLiveByIdAt - Reads the grant only where a revocation at that moment would reach it`(database: Database) =
+        withFixture(database) {
+            val grants = repository<GrantRepository>()
+            val userId = newUser()
+            val live = saveLiveGrant(userId)
+            val lapsed = saveLapsedGrant(userId)
+
+            assertEquals(live, grants.findLiveByIdAt(live, revokedAt)?.id)
+            assertNull(grants.findLiveByIdAt(lapsed, revokedAt))
+            assertNull(grants.findLiveByIdAt(UUID.randomUUID(), revokedAt))
+        }
 
     @ParameterizedTest
     @EnumSource(Database::class)
@@ -232,24 +274,100 @@ class GrantRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateRevokedAtByUserIdAndClientId - Revokes the live grants on both keys at once`(database: Database) =
+    fun `updateRevokedAtByIdIn - Revokes the live grants among those it names and counts them`(database: Database) =
+        withFixture(database) {
+            val grants = repository<GrantRepository>()
+            val userId = newUser()
+            val first = saveLiveGrant(userId)
+            val second = saveLiveGrant(userId, clientId = otherClientId)
+            val revokedEarlier = saveRevokedEarlierGrant(userId)
+            val lapsed = saveLapsedGrant(userId)
+            val unnamed = saveLiveGrant(userId)
+
+            val count = grants.updateRevokedAtByIdIn(
+                listOf(first, second, revokedEarlier, lapsed), revokedAt, "ADMIN", userId
+            )
+
+            assertEquals(2, count)
+            assertEquals(revokedAt, grants.findById(first)?.revokedAt)
+            assertEquals(revokedAt, grants.findById(second)?.revokedAt)
+            assertNull(grants.findById(unnamed)!!.revokedAt)
+            grants.assertLeftAsTheyWere(revokedEarlier, lapsed)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateRevokedAtByActorGrantIdIn - Revokes the live grants exchanged from any of them`(database: Database) =
+        withFixture(database) {
+            val grants = repository<GrantRepository>()
+            val userId = newUser()
+            val firstActor = saveLiveGrant(userId = null, grantType = "client_credentials", sessionId = null)
+            val secondActor = saveLiveGrant(userId = null, grantType = "client_credentials", sessionId = null)
+            val fromFirst = saveLiveGrant(userId, actorGrantId = firstActor)
+            val fromSecond = saveLiveGrant(userId, actorGrantId = secondActor)
+            val lapsed = saveLapsedGrant(userId, actorGrantId = firstActor)
+
+            val count = grants.updateRevokedAtByActorGrantIdIn(
+                listOf(firstActor, secondActor), revokedAt, "ADMIN", null
+            )
+
+            assertEquals(2, count)
+            assertEquals(revokedAt, grants.findById(fromFirst)?.revokedAt)
+            assertEquals(revokedAt, grants.findById(fromSecond)?.revokedAt)
+            assertNull(grants.findById(firstActor)!!.revokedAt)
+            assertNull(grants.findById(lapsed)!!.revokedAt)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findMatching - Finds the grants every set given holds, live or not`(database: Database) =
         withFixture(database) {
             val grants = repository<GrantRepository>()
             val userId = newUser()
             val otherUserId = newUser()
-            val revoked = saveLiveGrant(userId)
-            val revokedEarlier = saveRevokedEarlierGrant(userId)
+            val live = saveLiveGrant(userId)
             val lapsed = saveLapsedGrant(userId)
-            val otherClient = saveLiveGrant(userId, clientId = otherClientId)
-            val otherUser = saveLiveGrant(otherUserId)
+            saveLiveGrant(userId, clientId = otherClientId)
+            saveLiveGrant(otherUserId)
+            saveLiveGrant(userId = null, grantType = "client_credentials", sessionId = null)
 
-            val count = grants.updateRevokedAtByUserIdAndClientId(userId, clientId, revokedAt, "ADMIN", userId)
+            val found = grants.findMatching(
+                ids = null,
+                userIds = listOf(userId),
+                clientIds = listOf(clientId),
+                audienceIds = null
+            )
 
-            assertEquals(1, count)
-            assertEquals(revokedAt, grants.findById(revoked)?.revokedAt)
-            assertNull(grants.findById(otherClient)!!.revokedAt)
-            assertNull(grants.findById(otherUser)!!.revokedAt)
-            grants.assertLeftAsTheyWere(revokedEarlier, lapsed)
+            assertEquals(setOf(live, lapsed), found.mapNotNull { it.id }.toSet())
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findMatching - Finds no grant through an empty set`(database: Database) = withFixture(database) {
+        val grants = repository<GrantRepository>()
+        val userId = newUser()
+        saveLiveGrant(userId)
+
+        assertTrue(grants.findMatching(null, listOf(userId), emptyList(), null).isEmpty())
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findDistinctClientIds - Reads each client the stored grants were opened for once`(database: Database) =
+        withFixture(database) {
+            val grants = repository<GrantRepository>()
+            val userId = newUser()
+            saveLiveGrant(userId)
+            saveLiveGrant(userId)
+            saveLiveGrant(userId, clientId = otherClientId, audienceId = otherAudienceId)
+
+            val clientIds = grants.findDistinctClientIds()
+            val audienceIds = grants.findDistinctAudienceIds()
+
+            assertEquals(1, clientIds.count { it == clientId })
+            assertTrue(otherClientId in clientIds)
+            assertEquals(1, audienceIds.count { it == audienceId })
+            assertTrue(otherAudienceId in audienceIds)
         }
 
     @ParameterizedTest
@@ -295,28 +413,6 @@ class GrantRepositoryTest {
         assertEquals(0, count)
         assertNull(grants.findById(actAs)!!.revokedAt)
     }
-
-    @ParameterizedTest
-    @EnumSource(Database::class)
-    fun `updateRevokedAtByUserId - Revokes every live grant of the user and counts them`(database: Database) =
-        withFixture(database) {
-            val grants = repository<GrantRepository>()
-            val userId = newUser()
-            val otherUserId = newUser()
-            val first = saveLiveGrant(userId)
-            val second = saveLiveGrant(userId, clientId = otherClientId)
-            val revokedEarlier = saveRevokedEarlierGrant(userId)
-            val lapsed = saveLapsedGrant(userId)
-            val other = saveLiveGrant(otherUserId)
-
-            val count = grants.updateRevokedAtByUserId(userId, revokedAt, "ADMIN", userId)
-
-            assertEquals(2, count)
-            assertEquals(revokedAt, grants.findById(first)?.revokedAt)
-            assertEquals(revokedAt, grants.findById(second)?.revokedAt)
-            assertNull(grants.findById(other)!!.revokedAt)
-            grants.assertLeftAsTheyWere(revokedEarlier, lapsed)
-        }
 
     @ParameterizedTest
     @EnumSource(Database::class)

@@ -517,11 +517,13 @@ the next run after the revocation — once no stored authorization code names it
 
 **Rationale:**
 
-Nothing reads who revoked a grant or when once it is written. A token whose grant is gone is a token
-this server does not know, which every surface refuses already, so keeping the row changes nothing
-any caller observes. A retention period would be a configuration key and a second rule for a record
-nothing shows: an audit trail with no surface, which
-[security](security.md#what-this-document-does-not-settle) leaves to a feature of its own.
+Who revoked a grant and when is read only while the grant is stored: an administrator sees it on the
+grant until the next run, which is long enough to see that a revocation took. A token whose grant is
+gone is a token this server does not know, which every surface refuses already, so keeping the row
+longer changes nothing a caller's tokens observe. A retention period would be a configuration key
+and a second rule for a record kept after it stopped mattering to anything it governs: an audit
+trail, which [security](security.md#what-this-document-does-not-settle) leaves to a feature of its
+own.
 
 The code is the exception, and not for the record's sake: a grant a stored code names is kept so
 that a later replay of the code reaches it, and is collected once the code is.
@@ -636,6 +638,159 @@ computed per algorithm — machinery bought for a client that cannot verify ES25
 its `kid` is unaffected. A client registering no algorithm and holding to the RS256 default OpenID
 Connect Core §3.1.3.7 gives it rejects the id token, and a deployment serving one sets
 `advanced.jwt.public-alg: rs256`, which the document then lists.
+
+---
+
+## Grants on the administration surface
+
+### Where does an administrator read a grant?
+
+**Decision:** In a collection of its own, `/api/v1/admin/grants`, where a person's grants are the
+ones filtered on `user_id`.
+
+**Options considered:**
+
+- **A collection of its own** — every grant, filtered on the person, the client or the audience.
+- **Nested under the person, `/users/{userId}/grants`, as consents are.**
+
+**Rationale:**
+
+A `client_credentials` grant has no person behind it. Nested under a person, it could never be
+shown, and neither could what a client or an audience holds, which are questions an administrator
+asks of grants as often as who holds them. A console's page for a person gets that person's grants
+by filtering, which costs it nothing.
+
+---
+
+### Does the grant collection list a grant that is no longer live?
+
+**Decision:** Yes. Every grant still stored is listed with its status — `live`, `revoked`,
+`expired` or `lapsed` — until the cleanup job collects it.
+
+**Options considered:**
+
+- **Every stored grant, with its status.**
+- **Live grants only** — what a revocation could still reach.
+
+**Rationale:**
+
+An administrator who has just revoked a grant would see it vanish from a collection of live grants,
+which reads the same as the revocation failing and the grant being deleted. Shown as `revoked`, the
+revocation is seen to have taken, and so is what took it — its client, a consent revoked, a replayed
+code, an administrator. `status=live` is one criterion away for a console that wants the other
+reading.
+
+---
+
+### How does an administrator revoke grants?
+
+**Decision:** `POST /api/v1/admin/grants/revoke`, its body naming the grants by `grant_ids`,
+`user_ids`, `client_ids` and `audience_ids`, which narrow together. It answers `200` with how many
+grants it revoked. A body sending none of them is refused with `grant.revoke.no_criterion`, and an
+empty list leaves no grant to revoke.
+
+**Options considered:**
+
+- **One route on the collection, a body naming the grants.**
+- **`POST /api/v1/admin/grants/{grantId}/revoke`, answering the grant** — one grant per call, the
+  force logout's paths under the person, `/users/{userId}/logout` and `…/logout/{clientId}`, kept
+  beside it.
+- **`DELETE /api/v1/admin/grants/{grantId}`, answering `204`** — the shape consents are revoked
+  with.
+- **Revoking what the collection's criteria keep** — a bulk revocation over a filter.
+- **Answering the grants revoked** rather than how many.
+
+**Rationale:**
+
+What an administrator revokes differs only in which grants it reaches: a stolen phone, a person, a
+person on one client, a client withdrawn. One route with a set for each is one shape for all of
+them. The force logout's two paths were narrower spellings of it, so they are removed rather than
+kept as siblings to hold in step; no release had shipped them under the grant scopes, and a console
+signing a person out sends their `user_ids`.
+
+The body names identifiers only. The collection's criteria also hold the free text, which matches
+identifier claims partially, and ranges of dates, so a revocation over them reaches grants nobody
+named. An absent set narrows nothing and an empty one reaches nothing, so a console sending an empty
+selection revokes no grant rather than every one; a body sending no set is refused for the same
+reason. A client or an audience is not checked against the configuration, because the grants of one
+no longer declared are still stored, and revoking them is a reason to call.
+
+A revoked grant is not deleted: it stays readable as `revoked` until the cleanup job collects it.
+Under [the API standard](../standards/api-standard.md#verbs-and-status-codes) a `DELETE` says the
+row is gone, which this one would not be.
+
+A revocation may reach many grants, so it answers their number, as the force logout did, and the
+grant an administrator wants to see is read at `/api/v1/admin/grants/{grantId}`. A grant is revoked
+once and keeps the revocation that came first, so a retry is not an error to refuse but a call
+answering `0`, and a grant that expired or lapsed is left as it is rather than recorded as revoked
+afterwards, which is what every revocation already does.
+
+---
+
+### Are grants read and revoked under the consent scopes?
+
+**Decision:** No. Grants are read under `admin:grants:read` and revoked under `admin:grants:write`.
+Revoking a consent stays under `admin:consent:write`.
+
+**Options considered:**
+
+- **Scopes of their own.**
+- **`admin:consent:read` and `admin:consent:write`** — what force logout was already gated by.
+
+**Rationale:**
+
+A `client_credentials` grant has nothing to do with a consent, and a grant says more than a consent
+does: when a person authenticated, and the claims an authorization requested. An administrator
+allowed to manage consents is not thereby one allowed to read that.
+
+Revoking a consent still revokes the grants of its audience, because the scope gates the action an
+administrator takes rather than what follows from it — the way a client revoking a token holds no
+admin scope at all.
+
+An administrator signed in before the change holds a grant opened without the new scopes, and a
+refresh adds none, so they sign in again. No release had shipped, so nothing eases that.
+
+---
+
+### What does the free text of the grant collection match?
+
+**Decision:** The person's identifier claims, the client identifier and the audience identifier,
+each partially and ignoring case. The client and the audience are filtered by identifier, and the
+capability document shows each under its display name.
+
+**Options considered:**
+
+- **The identifiers, with display names in the capability document.**
+- **A name configured on every client and every audience**, to filter and search on.
+- **The display names of the client and the audience.**
+
+**Rationale:**
+
+A display name depends on the reader's language, so the same `q` would answer one collection to a
+French reader and another to an English one. A name configured on every client and audience would be
+a new key everywhere to answer a question the capability document already answers: a console's
+filter reads as names while the collection matches on what does not change with the reader.
+
+---
+
+### What does the detail of a grant show?
+
+**Decision:** Everything the grant records — its scope sets and how each was obtained, when the
+person authenticated, the claims requested, who revoked it — and nothing of the tokens under it. A
+list item is a summary: every field the collection filters on, `scope` aside.
+
+**Options considered:**
+
+- **The grant's own record.**
+- **That, with the last refresh and when the last token expires.**
+- **A list item carrying the detail whole.**
+
+**Rationale:**
+
+When a grant was last refreshed and when its last token expires are the tokens' own information,
+and they get a collection of their own rather than a summary of it squeezed into the grant. The
+scope sets and the requested claims are what an administrator reads once they have found the grant,
+which is one request away from the list.
 
 ---
 
