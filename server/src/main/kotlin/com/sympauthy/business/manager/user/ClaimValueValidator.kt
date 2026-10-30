@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.user
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 import java.math.BigDecimal

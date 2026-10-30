@@ -1,11 +1,11 @@
 package com.sympauthy.config.parsing
 
+import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior
+import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.properties.ScopeGrantingRuleConfigurationProperties
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import jakarta.inject.Singleton
 
 data class ParsedScopeGrantingRule(

@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.claim.*
 import io.mockk.every

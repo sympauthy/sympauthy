@@ -5,9 +5,9 @@ import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.DATE_TIME
 import com.sympauthy.business.model.collection.CollectionFieldType.ENUM
+import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.collection.CollectionFields
 import com.sympauthy.business.model.collection.collectionFields
-import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo

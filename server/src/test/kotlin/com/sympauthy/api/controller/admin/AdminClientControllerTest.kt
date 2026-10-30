@@ -2,19 +2,19 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminClientResourceMapper
+import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminClientSummaryResource
-import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
-import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.collection.ClientCollectionManager
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.client.Client
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every

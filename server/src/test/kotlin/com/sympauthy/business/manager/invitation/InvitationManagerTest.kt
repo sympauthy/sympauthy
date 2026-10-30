@@ -3,12 +3,12 @@ package com.sympauthy.business.manager.invitation
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.user.ClaimValueValidator
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors

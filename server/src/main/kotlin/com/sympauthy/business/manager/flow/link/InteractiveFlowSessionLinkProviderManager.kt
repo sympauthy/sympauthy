@@ -2,8 +2,8 @@ package com.sympauthy.business.manager.flow.link
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionLinkProviderMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.ConfirmActionType

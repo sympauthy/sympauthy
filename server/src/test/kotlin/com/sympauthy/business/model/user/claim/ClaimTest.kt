@@ -1,8 +1,8 @@
 package com.sympauthy.business.model.user.claim
 
-import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
 
 class ClaimTest {
 

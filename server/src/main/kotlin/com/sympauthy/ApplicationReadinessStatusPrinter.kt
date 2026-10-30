@@ -11,12 +11,12 @@ import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.*
+import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.DEFAULT_ENVIRONMENT
 import com.sympauthy.util.getKeyAndLocalizedMessage
 import com.sympauthy.util.isDefaultActive
 import com.sympauthy.util.pluralize
-import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
 import com.sympauthy.view.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
 import io.micronaut.context.MessageSource

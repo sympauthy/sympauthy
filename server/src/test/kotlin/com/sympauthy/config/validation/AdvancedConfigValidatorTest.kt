@@ -7,10 +7,10 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.parsing.ParsedAdvancedConfig
+import com.sympauthy.config.parsing.ParsedGeoProvider
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
-import com.sympauthy.config.parsing.ParsedGeoProvider
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoHeaders

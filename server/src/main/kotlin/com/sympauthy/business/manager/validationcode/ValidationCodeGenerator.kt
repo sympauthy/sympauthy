@@ -14,9 +14,9 @@ import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.util.min
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import io.micronaut.transaction.annotation.Transactional
 import java.time.LocalDateTime
 import java.time.LocalDateTime.now
 import kotlin.math.pow

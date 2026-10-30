@@ -4,11 +4,11 @@ import com.sympauthy.business.manager.security.AkamaiEdge
 import com.sympauthy.business.manager.security.CloudflareEdge
 import com.sympauthy.business.manager.security.GcpEdge
 import com.sympauthy.business.manager.security.NginxEdge
+import com.sympauthy.business.model.security.CALLER_IP
+import com.sympauthy.business.model.security.FORGED_IP
 import com.sympauthy.business.model.security.GeoProvider
 import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.IpSource
-import com.sympauthy.business.model.security.CALLER_IP
-import com.sympauthy.business.model.security.FORGED_IP
 import com.sympauthy.business.model.security.SOCKET_PEER
 import com.sympauthy.business.model.security.headersOf
 import com.sympauthy.business.model.security.requestFromPeer
@@ -23,7 +23,6 @@ import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.config.model.trustlessSecurityContext
 import io.micronaut.http.HttpHeaders
-import java.time.Duration
 import io.mockk.junit5.MockKExtension
 import io.mockk.spyk
 import io.mockk.verify
@@ -31,6 +30,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.Duration
 
 /**
  * The trust model, end to end over a request nothing had to have sent.

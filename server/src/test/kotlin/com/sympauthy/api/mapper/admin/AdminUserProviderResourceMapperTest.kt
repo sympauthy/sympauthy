@@ -2,10 +2,10 @@ package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.RawProviderClaims
-import java.time.LocalDateTime
-import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.time.LocalDateTime
+import java.util.*
 
 class AdminUserProviderResourceMapperTest {
 

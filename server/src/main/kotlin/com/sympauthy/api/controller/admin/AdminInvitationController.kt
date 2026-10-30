@@ -27,8 +27,8 @@ import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.parseInvitationExpiresAt
 import com.sympauthy.business.manager.AudienceManager
-import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_INVITATIONS_READ

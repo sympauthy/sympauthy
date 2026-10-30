@@ -222,6 +222,7 @@ mappers, reflection or resource loading is not finished until this has run.
 ./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
 ./gradlew compileKotlin                 # compile only
 ./gradlew detekt                        # static analysis; the rule set is detekt.yml
+./gradlew detektAutoCorrect             # fix what the analysis can, e.g. the import order
 ./gradlew :server:koverHtmlReport       # coverage report; runs the tests, so it needs Docker
 ./gradlew build                         # compile, analyse, test, package
 ```

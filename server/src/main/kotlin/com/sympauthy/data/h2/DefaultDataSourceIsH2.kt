@@ -1,9 +1,9 @@
 package com.sympauthy.data.h2
 
+import com.sympauthy.data.driverConnectionFactory
 import io.micronaut.context.condition.Condition
 import io.micronaut.context.condition.ConditionContext
 import io.r2dbc.h2.H2ConnectionFactory
-import com.sympauthy.data.driverConnectionFactory
 import io.r2dbc.spi.ConnectionFactory
 
 class DefaultDataSourceIsH2 : Condition {

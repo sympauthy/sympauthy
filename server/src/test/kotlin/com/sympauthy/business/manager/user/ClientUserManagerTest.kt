@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.user
 
+import com.sympauthy.api.util.criteriaOf
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.oauth2.Consent
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.api.util.criteriaOf
+import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim

@@ -7,8 +7,8 @@ import com.sympauthy.business.model.provider.Provider
 import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.client.isRemoteFailure
-import com.sympauthy.client.remoteOutcome
 import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
+import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.monitoring.Condition

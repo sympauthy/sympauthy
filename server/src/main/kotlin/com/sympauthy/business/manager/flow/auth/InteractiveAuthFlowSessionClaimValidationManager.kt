@@ -1,14 +1,12 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.code.ValidationCodeReason
@@ -18,11 +16,12 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import io.micronaut.transaction.annotation.Transactional
 
 /**
  * Component in charge of validating the claim collected during an interactive auth flow.

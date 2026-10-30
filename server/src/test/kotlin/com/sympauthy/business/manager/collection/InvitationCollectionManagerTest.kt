@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
@@ -16,12 +16,12 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import java.time.LocalDateTime
-import java.util.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class InvitationCollectionManagerTest {

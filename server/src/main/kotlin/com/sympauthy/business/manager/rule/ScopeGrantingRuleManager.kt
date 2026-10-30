@@ -5,8 +5,8 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.rule.ScopeGrantingRule
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.DECLINE
 import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT

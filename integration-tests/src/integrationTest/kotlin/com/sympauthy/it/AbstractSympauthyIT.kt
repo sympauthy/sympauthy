@@ -17,9 +17,9 @@ import com.sympauthy.api.client.model.IntrospectionResource
 import com.sympauthy.api.client.model.OpenIdConfigurationResource
 import com.sympauthy.api.client.model.TokenResource
 import com.sympauthy.it.client.BearerTokenHolder
-import com.sympauthy.it.client.FlowStateHolder
 import com.sympauthy.it.client.FlowCall
 import com.sympauthy.it.client.FlowHttpClient
+import com.sympauthy.it.client.FlowStateHolder
 import com.sympauthy.testcontainers.Client
 import com.sympauthy.testcontainers.SympauthyContainer
 import com.sympauthy.testcontainers.flow.AuthorizationResult
@@ -27,6 +27,8 @@ import com.sympauthy.testcontainers.flow.Credentials
 import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import io.micronaut.context.ApplicationContext
 import io.micronaut.http.client.exceptions.HttpClientResponseException
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.assertThrows
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -37,8 +39,6 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.assertThrows
 
 /**
  * Shared support for the container-starting integration tests: a minimal SympAuthy configuration

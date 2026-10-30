@@ -6,10 +6,10 @@ import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow

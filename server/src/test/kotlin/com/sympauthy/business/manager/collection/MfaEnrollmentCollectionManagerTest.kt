@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.User

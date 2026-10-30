@@ -6,8 +6,8 @@ import com.sympauthy.api.mapper.admin.AdminInteractiveFlowSessionResourceMapper
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResource
-import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail

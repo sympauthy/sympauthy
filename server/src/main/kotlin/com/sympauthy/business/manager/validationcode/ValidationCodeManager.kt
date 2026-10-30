@@ -11,9 +11,9 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.exception.localizedExceptionOf
+import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import io.micronaut.transaction.annotation.Transactional
 import java.time.LocalDateTime
 
 @Singleton

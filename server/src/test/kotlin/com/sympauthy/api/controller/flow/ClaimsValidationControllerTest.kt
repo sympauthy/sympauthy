@@ -17,9 +17,9 @@ import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.business.model.user.User
 import com.sympauthy.security.StateAuthentication
 import io.micronaut.http.HttpStatus.BAD_REQUEST
+import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.Runs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.just

@@ -6,13 +6,9 @@ import com.sympauthy.api.mapper.admin.AdminScopeResourceMapper
 import com.sympauthy.api.resource.admin.AdminScopeResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
-import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.collection.ScopeCollectionManager
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
-import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.manager.collection.ScopeCollectionManager.ScopeWithClaims
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
@@ -20,6 +16,10 @@ import com.sympauthy.business.model.collection.CollectionField
 import com.sympauthy.business.model.collection.CollectionFieldType
 import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.collection.enumFieldValues
+import com.sympauthy.business.model.oauth2.ConsentableUserScope
+import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
+import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.claim.EnabledClaim
@@ -33,8 +33,8 @@ import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)

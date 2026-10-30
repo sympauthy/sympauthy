@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.GeneratedClaimsManager
@@ -22,12 +21,13 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import java.time.LocalDateTime
 import kotlinx.coroutines.flow.toList
+import java.time.LocalDateTime
 
 /**
  * Manager responsible for reading the collection of users, each with their collected claims.

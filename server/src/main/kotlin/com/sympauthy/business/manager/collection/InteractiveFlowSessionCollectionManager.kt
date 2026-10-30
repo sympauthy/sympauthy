@@ -5,17 +5,9 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
-import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
-import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
-import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.flow.interactiveFlowSessionExpiredExceptionOf
+import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN
@@ -24,10 +16,17 @@ import com.sympauthy.business.model.collection.CollectionFieldType.ENUM
 import com.sympauthy.business.model.collection.CollectionFieldType.NUMBER
 import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFieldType.TIMEZONE
-import com.sympauthy.business.model.collection.CollectionFieldType.UUID as UUID_FIELD
 import com.sympauthy.business.model.collection.CollectionFields
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
+import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
+import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.interactiveFlowSessionExpiredExceptionOf
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
@@ -43,6 +42,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import java.util.*
+import com.sympauthy.business.model.collection.CollectionFieldType.UUID as UUID_FIELD
 
 /**
  * Reads the interactive flow sessions this server currently holds, for an operator debugging one.

@@ -1,6 +1,7 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.oauth2.ScopePublicationPlace
+import com.sympauthy.business.model.user.isOpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
@@ -9,7 +10,6 @@ import com.sympauthy.config.properties.ScopeConfigurationProperties
 import com.sympauthy.config.properties.ScopeConfigurationProperties.Companion.SCOPES_KEY
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_CUSTOM
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_OPENID
-import com.sympauthy.business.model.user.isOpenIdConnectScope
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Companion.DEFAULT_TEMPLATE_NAMES
 import jakarta.inject.Singleton
 

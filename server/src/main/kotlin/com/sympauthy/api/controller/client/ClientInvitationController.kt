@@ -23,8 +23,8 @@ import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.parseInvitationExpiresAt
-import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
+import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId

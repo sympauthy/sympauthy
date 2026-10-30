@@ -1,11 +1,11 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.model.user.CollectedClaimUpdate
-import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.user.claim.PersonalClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import io.micronaut.serde.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals

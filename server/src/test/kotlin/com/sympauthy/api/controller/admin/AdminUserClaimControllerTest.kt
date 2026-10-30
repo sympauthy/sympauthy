@@ -6,9 +6,11 @@ import com.sympauthy.api.mapper.admin.AdminUserClaimResourceMapper
 import com.sympauthy.api.resource.admin.AdminUserClaimResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
-import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager
+import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
+import com.sympauthy.business.manager.collection.UserClaimCollectionManager.UserClaim
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
@@ -18,9 +20,7 @@ import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.collection.enumFieldValues
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.manager.collection.UserClaimCollectionManager.UserClaim
 import com.sympauthy.business.model.user.claim.*
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
@@ -30,12 +30,12 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
-import java.util.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class AdminUserClaimControllerTest {

@@ -1,10 +1,10 @@
 package com.sympauthy.config
 
 import com.sympauthy.api.util.SecurityContextUtil
-import com.sympauthy.business.model.security.GeoProvider
-import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.CALLER_IP
 import com.sympauthy.business.model.security.FORGED_IP
+import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.security.IpProvider
 import com.sympauthy.business.model.security.SOCKET_PEER
 import com.sympauthy.business.model.security.headersOf
 import com.sympauthy.business.model.security.requestFromPeer
@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.time.Duration
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.Duration
 
 /**
  * The word a deployment writes reaching the edge that reads its requests.

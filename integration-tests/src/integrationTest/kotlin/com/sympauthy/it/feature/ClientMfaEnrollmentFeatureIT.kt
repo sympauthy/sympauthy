@@ -9,13 +9,13 @@ import com.sympauthy.testcontainers.flow.ConfirmDecision
 import com.sympauthy.testcontainers.flow.FlowOutcome
 import com.sympauthy.testcontainers.flow.FlowStep
 import com.sympauthy.testcontainers.flow.Totp
-import java.net.URI
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.net.URI
 
 /**
  * Feature scenario — **on-demand MFA enrollment started by a client**

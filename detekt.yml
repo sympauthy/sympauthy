@@ -53,6 +53,127 @@ exceptions:
   TooGenericExceptionCaught:
     active: false
 
+# ktlint's rules, through detekt's formatting plugin. The plugin ships most of them on, and only the
+# import order is a decision this codebase has taken: the order IntelliJ IDEA's Optimize imports
+# writes with its default settings, spelled out so that an upgrade changing the rule's default cannot
+# move it. Every other rule the plugin ships on is a choice about how the code looks that nobody has
+# argued for yet, so each is switched off rather than adopted with the plugin. Turning one on is a
+# change of its own.
+formatting:
+  ImportOrdering:
+    active: true
+    layout: '*,java.**,javax.**,kotlin.**,^'
+  AnnotationOnSeparateLine:
+    active: false
+  AnnotationSpacing:
+    active: false
+  ArgumentListWrapping:
+    active: false
+  BlockCommentInitialStarAlignment:
+    active: false
+  ChainWrapping:
+    active: false
+  CommentSpacing:
+    active: false
+  CommentWrapping:
+    active: false
+  EnumEntryNameCase:
+    active: false
+  Filename:
+    active: false
+  FinalNewline:
+    active: false
+  FunKeywordSpacing:
+    active: false
+  FunctionReturnTypeSpacing:
+    active: false
+  FunctionStartOfBodySpacing:
+    active: false
+  FunctionTypeReferenceSpacing:
+    active: false
+  Indentation:
+    active: false
+  KdocWrapping:
+    active: false
+  MaximumLineLength:
+    active: false
+  ModifierListSpacing:
+    active: false
+  ModifierOrdering:
+    active: false
+  MultiLineIfElse:
+    active: false
+  NoBlankLineBeforeRbrace:
+    active: false
+  NoBlankLinesInChainedMethodCalls:
+    active: false
+  NoConsecutiveBlankLines:
+    active: false
+  NoEmptyClassBody:
+    active: false
+  NoEmptyFirstLineInMethodBlock:
+    active: false
+  NoLineBreakAfterElse:
+    active: false
+  NoLineBreakBeforeAssignment:
+    active: false
+  NoMultipleSpaces:
+    active: false
+  NoSemicolons:
+    active: false
+  NoTrailingSpaces:
+    active: false
+  NoUnitReturn:
+    active: false
+  NoUnusedImports:
+    active: false
+  NoWildcardImports:
+    active: false
+  NullableTypeSpacing:
+    active: false
+  PackageName:
+    active: false
+  ParameterListWrapping:
+    active: false
+  ParameterWrapping:
+    active: false
+  PropertyWrapping:
+    active: false
+  SpacingAroundAngleBrackets:
+    active: false
+  SpacingAroundColon:
+    active: false
+  SpacingAroundComma:
+    active: false
+  SpacingAroundCurly:
+    active: false
+  SpacingAroundDot:
+    active: false
+  SpacingAroundDoubleColon:
+    active: false
+  SpacingAroundKeyword:
+    active: false
+  SpacingAroundOperators:
+    active: false
+  SpacingAroundParens:
+    active: false
+  SpacingAroundRangeOperator:
+    active: false
+  SpacingAroundUnaryOperator:
+    active: false
+  SpacingBetweenDeclarationsWithAnnotations:
+    active: false
+  SpacingBetweenDeclarationsWithComments:
+    active: false
+  SpacingBetweenFunctionNameAndOpeningParenthesis:
+    active: false
+  StringTemplate:
+    active: false
+  UnnecessaryParenthesesBeforeTrailingLambda:
+    active: false
+  Wrapping:
+    active: false
+
 naming:
   LambdaParameterNaming:
     active: true

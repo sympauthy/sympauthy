@@ -1,5 +1,6 @@
 package com.sympauthy.api.exception
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.auth.oauth2.DpopManager.Companion.SUPPORTED_ALGORITHMS
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_USER_AUTHENTICATION
@@ -11,7 +12,6 @@ import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.Insufficient
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.UnboundToken
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpHeaders.WWW_AUTHENTICATE
