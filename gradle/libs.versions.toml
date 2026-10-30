@@ -44,6 +44,7 @@ json-path = { module = "com.jayway.jsonpath:json-path", version.ref = "json-path
 evalex = { module = "com.ezylang:EvalEx", version.ref = "evalex" }
 r2dbc-proxy = { module = "io.r2dbc:r2dbc-proxy", version.ref = "r2dbc-proxy" }
 detekt-cli = { module = "io.gitlab.arturbosch.detekt:detekt-cli", version.ref = "detekt" }
+detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 mock-webserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "mock-webserver" }

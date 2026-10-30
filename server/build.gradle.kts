@@ -1,5 +1,6 @@
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.io.OutputStream
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
@@ -272,8 +273,29 @@ artifacts {
 // deliberately out of scope: no rule here is actionable against generated code.
 val detektCli = configurations.create("detektCli")
 
+// The formatting plugin carries ktlint's rules, of which detekt.yml turns on only the import order.
 dependencies {
     detektCli(libs.detekt.cli)
+    detektCli(libs.detekt.formatting)
+}
+
+val detektSources = listOf("src/main/kotlin", "src/test/kotlin")
+
+// What the analysis and its correcting twin both run: the rule set in detekt.yml over the same
+// sources, with any further configuration layered over it.
+fun JavaExec.runDetekt(vararg extraArgs: String, layeredConfigs: List<File> = emptyList()) {
+    classpath = detektCli
+    mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
+    args(
+        "--config", (listOf(rootProject.file("detekt.yml")) + layeredConfigs)
+            .joinToString(",") { it.absolutePath },
+        "--build-upon-default-config",
+        "--input", detektSources.joinToString(",") { file(it).absolutePath },
+        // Without this the reports name every finding by absolute path, which on a CI runner is a
+        // checkout directory repeated ahead of each one.
+        "--base-path", rootProject.projectDir.absolutePath,
+        *extraArgs
+    )
 }
 
 // Two renderings of the one analysis. The HTML report is what a developer opens locally; the
@@ -285,25 +307,41 @@ val detektMarkdownReport = layout.buildDirectory.file("reports/detekt/detekt.md"
 tasks.register<JavaExec>("detekt") {
     description = "Analyses the Kotlin sources against the rule set in detekt.yml."
     group = "verification"
-    classpath = detektCli
-    mainClass.set("io.gitlab.arturbosch.detekt.cli.Main")
-    args(
-        "--config", rootProject.file("detekt.yml").absolutePath,
-        "--build-upon-default-config",
-        "--input", listOf("src/main/kotlin", "src/test/kotlin")
-            .joinToString(",") { file(it).absolutePath },
-        // Without this the reports name every finding by absolute path, which on a CI runner is a
-        // checkout directory repeated ahead of each one.
-        "--base-path", rootProject.projectDir.absolutePath,
+    runDetekt(
         "--report", "html:${detektHtmlReport.get().asFile}",
         "--report", "md:${detektMarkdownReport.get().asFile}"
     )
     // Declared so the analysis is skipped when neither the sources nor the rule set have changed.
-    inputs.dir("src/main/kotlin")
-    inputs.dir("src/test/kotlin")
+    detektSources.forEach { inputs.dir(it) }
     inputs.file(rootProject.file("detekt.yml"))
     outputs.file(detektHtmlReport)
     outputs.file(detektMarkdownReport)
+}
+
+// Rewrites the sources to clear what the analysis can correct on its own, which today is the import
+// order. What it writes is the sources it reads, so it is never up to date: it runs every time it is
+// asked.
+//
+// detekt writes no correction from a run that fails over its findings, so one finding it cannot
+// correct would keep every file it can correct as it was. The correcting run is told never to fail
+// over a finding, by one setting layered over detekt.yml, and its own listing is dropped, since it
+// still names what it has just corrected. The analysis then runs again and gives the verdict on what
+// is left.
+val detektNeverFailConfig = layout.buildDirectory.file("detekt/never-fail.yml")
+
+tasks.register<JavaExec>("detektAutoCorrect") {
+    description = "Corrects in place what the rule set in detekt.yml can correct, then analyses the rest."
+    group = "verification"
+    runDetekt("--auto-correct", layeredConfigs = listOf(detektNeverFailConfig.get().asFile))
+    standardOutput = OutputStream.nullOutputStream()
+    outputs.upToDateWhen { false }
+    doFirst {
+        detektNeverFailConfig.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("build:\n  maxIssues: -1\n")
+        }
+    }
+    finalizedBy("detekt")
 }
 
 tasks.named("check") {
