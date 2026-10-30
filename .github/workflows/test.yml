@@ -40,7 +40,7 @@ jobs:
       - name: Publish the findings to the run summary
         if: always()
         run: |
-          report=server/build/reports/detekt/detekt.md
+          report=build/reports/detekt/detekt.md
           if [[ -f "$report" ]]; then
             cat "$report" >> "$GITHUB_STEP_SUMMARY"
           else
