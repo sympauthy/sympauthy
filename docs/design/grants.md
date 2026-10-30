@@ -92,12 +92,14 @@ reach of the consent they were opened under. An act-as grant rests on the act-as
 on a consent, which [security](security.md#acting-as-a-person) argues.
 
 **A grant is the audience's it was opened for.** A client moved to another audience can no longer
-refresh the grants it was opened for, nor exchange a code issued under one: either is refused with
-`invalid_grant` and `grant.mismatching_audience`, and the person signs in again. A token issued
-under one is refused on every surface it is presented to, and answered as inactive when that client
-introspects it. Tokens issued for
-the new audience would rest on a consent whose revocation could not reach the grant they stand
-under.
+use what it was granted in the old one: a refresh and a code exchange under such a grant are refused
+with `invalid_grant` and `grant.mismatching_audience`, a token issued under one authenticates
+nothing and is answered as inactive at introspection, and a `client_credentials` token issued under
+one is not exchanged for an act-as token. Everything such a grant stands for — the `aud` of its
+tokens, the claims they carry, the consent or the rule they rest on — is the old audience's, and a
+client of the new one would answer for an audience it is no longer part of. A grant resting on a
+consent would also escape it: tokens issued for the new audience would stand under a grant that
+revoking the consent could not reach.
 
 **A code still to be exchanged is reached with its grant.** A revocation finds the grant of a code
 as surely as the grant of a token, so a person signed out, or a consent revoked, between the sign-in

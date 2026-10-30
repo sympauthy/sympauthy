@@ -77,14 +77,10 @@ class UserClaimControllerTest {
         sessionId = null
     )
 
-    // Another audience than the token's, as an act-as token issued for the audience its exchange named has: every
-    // read and write below is asserted against the token's, so none of them can be answering for the client's.
-    private val clientAudience = Audience(id = CLIENT_AUDIENCE, tokenAudience = CLIENT_AUDIENCE)
-
     private val client = Client(
         id = "client",
         secret = null,
-        audience = clientAudience,
+        audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE),
         allowedGrantTypes = emptySet(),
         authorizationFlow = null
     )
@@ -147,10 +143,10 @@ class UserClaimControllerTest {
 
     @Test
     fun `updateClaims - Refuse a claim of another audience than the token's rather than ignore it`() = runTest {
-        val clientClaim = claim(TIER_CLAIM, audienceId = CLIENT_AUDIENCE)
+        val otherAudienceClaim = claim(TIER_CLAIM, audienceId = OTHER_AUDIENCE)
         coEvery { userManager.findByIdOrNull(userId) } returns user
         every { claimManager.listIdentifierClaims() } returns emptyList()
-        every { claimManager.findByIdOrNull(TIER_CLAIM) } returns clientClaim
+        every { claimManager.findByIdOrNull(TIER_CLAIM) } returns otherAudienceClaim
 
         val exception = assertThrows<BusinessException> {
             controller.updateClaims(authentication(reachesTheAcl = false), mapOf(TIER_CLAIM to "gold"))
@@ -236,7 +232,6 @@ class UserClaimControllerTest {
     private fun authentication(reachesTheAcl: Boolean = true): UserAuthentication {
         val grant = mockk<Grant> {
             every { userId } returns this@UserClaimControllerTest.userId
-            every { audienceId } returns AUDIENCE
             if (reachesTheAcl) every { authenticationDate } returns null
         }
         val token = mockk<AuthenticationToken> {
@@ -272,7 +267,7 @@ class UserClaimControllerTest {
 
     private companion object {
         const val AUDIENCE = "default"
-        const val CLIENT_AUDIENCE = "acting-client"
+        const val OTHER_AUDIENCE = "billing"
         const val EMAIL_CLAIM = "email"
         const val EMAIL = "somebody-else@example.com"
         const val NAME_CLAIM = "name"

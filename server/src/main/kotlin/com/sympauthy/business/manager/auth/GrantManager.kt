@@ -2,7 +2,6 @@ package com.sympauthy.business.manager.auth
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.api.exception.toOAuth2Exception
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
@@ -81,6 +80,18 @@ open class GrantManager(
             clientAudienceId = client.audience.id
         )
         else -> GrantOpenedForResult.Opened
+    }
+
+    /**
+     * Refuse [grant] unless it was opened for [client], and for the audience [client] belongs to now, as an
+     * `OAuth2Exception` carrying `invalid_grant`: `token.mismatching_client` where it was opened for another
+     * client, and `grant.mismatching_audience` where [client] has since moved to another audience.
+     */
+    fun checkOpenedFor(grant: Grant, client: Client) {
+        val openedFor = verifyOpenedFor(grant, client)
+        if (openedFor is GrantOpenedForResult.Refused) {
+            throw openedFor.toOAuth2Exception()
+        }
     }
 
     /**
@@ -377,5 +388,9 @@ private val GrantRevokedBy.metricName: String
  * This refusal as the protocol error the token endpoint answers it with: `invalid_grant`, under the code, the
  * description and the values of the refusal.
  */
-fun GrantOpenedForResult.Refused.toOAuth2Exception(): OAuth2Exception =
-    toBusinessException().toOAuth2Exception(INVALID_GRANT)
+fun GrantOpenedForResult.Refused.toOAuth2Exception() = OAuth2Exception(
+    errorCode = INVALID_GRANT,
+    detailsId = detailsId,
+    descriptionId = descriptionId,
+    values = values
+)

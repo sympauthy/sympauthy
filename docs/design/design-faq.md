@@ -551,12 +551,11 @@ to clients through Grant Management without renaming anything.
 ### Does acting as a person need their consent?
 
 **Decision:** No. A token exchange is allowed or refused by the act-as rules alone and reads no
-consent, so a client may act as a person who has never signed in to the audience the exchange
-names.
+consent, so a client may act as a person who has never signed in to its audience.
 
 **Options considered:**
 
-- **Require an active consent for the audience the exchange names** — the exchange refused where
+- **Require an active consent for the acting client's audience** — the exchange refused where
   the person has none, so that revoking a consent stops every client acting for them there.
 - **The act-as rules alone** — who may be acted as is the deployment's to decide, and a consent
   stays what a person agreed to in a flow.
@@ -570,6 +569,38 @@ one would refuse exactly that case.
 What it costs is that revoking a consent does not stop a client acting as the person. Nothing an
 act-as token carries rests on the consent — it holds no scope the person consented to — so revoking
 one leaves every act-as token in service, and a client free to exchange for another.
+
+---
+
+### Can an act-as token be issued for another audience than the acting client's?
+
+**Decision:** No. The exchange issues an act-as token for the audience the acting client belongs to,
+and refuses an `audience` naming any other with `invalid_target`.
+
+**Options considered:**
+
+- **Issue it for any configured audience the exchange names** — what the exchange first did.
+- **Issue it for any audience, and leave out the claims restricted to it.**
+- **Let a client exchange another client's token, so that a client of the named audience is the one
+  acting.**
+- **Issue it for the acting client's audience alone** — what was chosen.
+
+**Rationale:**
+
+A client belongs to exactly one audience, and an audience is the set of applications entitled to its
+claims. An act-as token for another audience is held by a client outside it, which reads the claims
+restricted to that audience off the token it was handed, and the rule deciding the exchange would be
+keyed on claims of an audience the client has no part in. Leaving those claims out does not settle
+it: the token's `aud` still tells that audience's resource servers that a client outside it is one
+of theirs.
+
+Exchanging another client's token breaks [the client proving it is the actor with a token of its
+own](security.md#acting-as-a-person): the rule would be decided for the client that authenticated
+while the token named the other, and holding a bearer token of a client would be enough to act as
+people under its name.
+
+What it costs is crossing audiences, which the on-behalf-of exchange is meant to do. It will have to
+say who acts in the audience it crosses into before an act-as token may name one.
 
 ---
 
@@ -813,8 +844,8 @@ to an audience it was restricted from. Splitting the two would have left one lis
 not — a distinction the next caller of `grantScopes` has to know about and the type does not carry.
 
 The act-as rules are a second rule engine, reached from the token exchange rather than the flow, and
-they answer the same question for a different audience: the one the exchange names, which may be
-neither the acting client's nor anything the flow would have resolved. A manager narrowing on its
+they answer the same question for a different caller: the acting client, whose audience nothing the
+flow would have resolved. A manager narrowing on its
 callers' behalf would have had to guess which, so the read is the caller's — the caller is what
 knows where its decision lands. And it is a read rather than a filter, because loading a value a
 rule may not see and dropping it afterwards is one refactor away from not dropping it.
@@ -1180,8 +1211,8 @@ prefix with one audience and one gate](architecture.md#surfaces).
 
 ### Does an act-as token reach the user surface?
 
-**Decision:** Yes, and each claim's doors decide what it reads and writes, in the audience its
-exchange named. [Security](security.md#the-user-surface) holds the rule.
+**Decision:** Yes, and each claim's doors decide what it reads and writes, in the acting client's
+audience. [Security](security.md#the-user-surface) holds the rule.
 
 **Options considered:**
 

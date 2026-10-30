@@ -64,7 +64,7 @@ class UserClaimController(
         val doors = claimAclManager.getTokenDoors(userAuth.claimAclContext())
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = user.id,
-            audienceId = userAuth.authenticationToken.grant.audienceId,
+            audienceId = userAuth.client.audience.id,
             doors = doors
         )
         val generatedClaimValues = generatedClaimsManager.computeValuesReadableByPerson(user, doors)
@@ -118,9 +118,7 @@ class UserClaimController(
         @Body body: Map<String, Any?>
     ): UserClaimResource {
         val userAuth = authentication.userAuthentication
-        // The audience the token was issued for, which for an act-as token is the one the exchange named rather
-        // than the acting client's own.
-        val audienceId = userAuth.authenticationToken.grant.audienceId
+        val audienceId = userAuth.client.audience.id
         val user = userManager.findByIdOrNull(authentication.userId).orNotFound()
 
         // Asked before the ACL below, because no answer the ACL could give would change this one: nothing in a

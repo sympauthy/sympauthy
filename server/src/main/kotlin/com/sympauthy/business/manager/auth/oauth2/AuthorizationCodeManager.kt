@@ -4,13 +4,11 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.auth.toOAuth2Exception
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.AuthConfig
@@ -109,7 +107,7 @@ class AuthorizationCodeManager(
      * it, or throw an `OAuth2Exception` carrying `invalid_grant`:
      * - `token.expired` where [code] is null, which is a code this server does not hold, where it has
      *   expired, or where its grant is gone, as [fetchGrant] says.
-     * - `token.mismatching_client` or `grant.mismatching_audience`, as [GrantManager.verifyOpenedFor] says.
+     * - `token.mismatching_client` or `grant.mismatching_audience`, as [GrantManager.checkOpenedFor] says.
      *
      * Nothing here spends the code, and nothing it refuses revokes anything. Whether the grant is still live
      * is read again where the code is spent, once the lock its revocations take is held.
@@ -119,10 +117,7 @@ class AuthorizationCodeManager(
             throw oauth2ExceptionOf(INVALID_GRANT, "token.expired", "description.oauth2.expired")
         }
         val grant = fetchGrant(code)
-        val openedFor = grantManager.verifyOpenedFor(grant, client)
-        if (openedFor is GrantOpenedForResult.Refused) {
-            throw openedFor.toOAuth2Exception()
-        }
+        grantManager.checkOpenedFor(grant, client)
         return code to grant
     }
 
