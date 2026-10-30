@@ -105,11 +105,11 @@ the name.
 **Everything is `suspend`**, including the operations that await nothing today — a controller
 handler, a manager method, a repository query.
 
-**A coroutine a bridge to a reactive type starts is handed `propagatedCoroutineContext()`.**
-`publish`, `rxSingle`, `asPublisher` and their kin start a coroutine with nothing in it, so what it
-queries is traced under no request and what it logs is stamped with no trace. Hand nothing to one
-started inside a `suspend` function, which inherits its caller's, or to one a scope of the server's
-own launches outside any request — a scheduled job, a queue's consumer.
+**A coroutine a bridge to a reactive type starts for a request is handed
+`traceCoroutineContext()`.** `publish`, `rxSingle`, `asPublisher` and their kin start one with
+nothing in it, even inside a `suspend` function, so what it queries opens no span and what it logs
+carries no trace. Hand it the trace alone, never the whole propagated context, which also holds the
+caller's connection and transaction.
 
 **A blocking third-party call is made inside an IO dispatcher.** A library that fetches a key set or
 sends mail does its own I/O.

@@ -3,7 +3,6 @@ package com.sympauthy.health
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.server.ErrorMessages
 import com.sympauthy.util.getKeyAndLocalizedMessage
-import com.sympauthy.util.propagatedCoroutineContext
 import io.micronaut.context.MessageSource
 import io.micronaut.health.HealthStatus.DOWN
 import io.micronaut.health.HealthStatus.UP
@@ -40,7 +39,7 @@ open class ConfigReadinessHealthIndicator(
                 builder.details(details(configurationErrors))
             }
             emit(builder.build())
-        }.asPublisher(propagatedCoroutineContext())
+        }.asPublisher()
     }
 
     /**
