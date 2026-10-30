@@ -21,7 +21,7 @@ Which prefix belongs to which surface, and why only some carry a version, is
 words is kebab-case.
 
 **An action that is not a state change on a resource is a `POST` to a sub-path under it.** Ending a
-session, skipping a step and revoking a grant are written that way.
+session, skipping a step and revoking an invitation are written that way.
 
 **An action reaching many items is a `POST` to a sub-path of their collection, its body naming
 them.** It names them by identifier — their own, or those of what they belong to — and never by the

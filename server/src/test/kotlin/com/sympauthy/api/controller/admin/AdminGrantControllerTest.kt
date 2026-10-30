@@ -190,4 +190,18 @@ class AdminGrantControllerTest {
 
         assertEquals(0, result.grantsRevoked)
     }
+
+    @Test
+    fun `revokeGrants - Refuse a body sending no set rather than revoke every grant`() = runTest {
+        // The manager is left unstubbed on purpose: reaching the assertion is proof it was never asked.
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.revokeGrants(
+                AdminRevokeGrantsInputResource(grantIds = null, userIds = null, clientIds = null, audienceIds = null),
+                mockk<UserAuthentication>()
+            )
+        }
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.status)
+        assertEquals("grant.revoke.no_criterion", exception.detailsId)
+    }
 }

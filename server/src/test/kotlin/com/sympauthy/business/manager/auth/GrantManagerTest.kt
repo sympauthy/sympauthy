@@ -37,6 +37,7 @@ import com.sympauthy.monitoring.telemetry.LockMetrics
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.data.exceptions.DataIntegrityViolationException
 import io.micronaut.data.exceptions.EntityExistsException
+import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -49,12 +50,12 @@ import io.mockk.spyk
 import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
 import io.r2dbc.spi.R2dbcDataIntegrityViolationException
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -358,49 +359,55 @@ class GrantManagerTest {
         creationDate = LocalDateTime.now().minusDays(1)
     ).apply { id = UUID.randomUUID() }
 
-    @Test
-    fun `revokeGrants - Revokes the grants every criterion reaches, at one date, holding the lock over each account`() =
-        runTest {
-            val ana = UUID.randomUUID()
-            val bob = UUID.randomUUID()
-            val adminId = UUID.randomUUID()
-            val anaWeb = authorizationCodeEntity(ana, "web")
-            val anaMobile = authorizationCodeEntity(ana, "mobile")
-            val bobWeb = authorizationCodeEntity(bob, "web")
-            coEvery { grantRepository.findAll() } returns flowOf(anaWeb, anaMobile, bobWeb, clientCredentialsEntity())
-            val revokedAt = mutableListOf<LocalDateTime>()
-            coEvery { grantRepository.updateRevokedAt(any(), capture(revokedAt), "ADMIN", adminId) } returns 1
-            coEvery { grantRepository.updateRevokedAtByActorGrantId(any(), any(), "ADMIN", adminId) } returns 0
-
-            val count = grantManager().revokeGrants(
-                GrantRevocationCriteria(userIds = setOf(ana, bob), clientIds = setOf("web")),
-                GrantRevokedBy.ADMIN,
-                adminId
-            )
-
-            assertEquals(2, count)
-            assertEquals(1, revokedAt.distinct().size)
-            coVerify(exactly = 2) { grantRepository.updateRevokedAt(any(), any(), any(), any()) }
-            coVerifyOrder {
-                objectLockRepository.lock(any())
-                grantRepository.updateRevokedAt(anaWeb.id!!, any(), "ADMIN", adminId)
-                grantRepository.updateRevokedAt(bobWeb.id!!, any(), "ADMIN", adminId)
-            }
-            coVerify {
-                objectLockRepository.lock(LockKey.User(ana).stripe)
-                objectLockRepository.lock(LockKey.User(bob).stripe)
-            }
-        }
+    /** Answer [first] to the first read of the grants a revocation matches, and [again] to the read under the lock. */
+    private fun matching(first: List<GrantEntity>, again: List<GrantEntity>) {
+        coEvery { grantRepository.findAll(any<PredicateSpecification<GrantEntity>>()) } returnsMany
+            listOf(first.asFlow(), again.asFlow())
+    }
 
     @Test
-    fun `revokeGrants - Counts the grants exchanged from a grant reached, and none no longer live`() = runTest {
-        val grant = clientCredentialsEntity()
-        coEvery { grantRepository.findAll() } returns flowOf(grant)
-        coEvery { grantRepository.updateRevokedAt(grant.id!!, any(), "ADMIN", null) } returns 0
-        coEvery { grantRepository.updateRevokedAtByActorGrantId(grant.id!!, any(), "ADMIN", null) } returns 2
+    fun `revokeGrants - Revokes the grants matched under the lock over every account named or found`() = runTest {
+        val ana = UUID.randomUUID()
+        val bob = UUID.randomUUID()
+        val adminId = UUID.randomUUID()
+        val anaWeb = authorizationCodeEntity(ana, "web")
+        // Opened for an account the criteria name between the first read and the lock, so reached all the same.
+        val bobWeb = authorizationCodeEntity(bob, "web")
+        matching(first = listOf(anaWeb), again = listOf(anaWeb, bobWeb))
+        val ids = listOf(anaWeb.id!!, bobWeb.id!!)
+        coEvery { grantRepository.updateRevokedAtByIdIn(ids, any(), "ADMIN", adminId) } returns 2
+        coEvery { grantRepository.updateRevokedAtByActorGrantIdIn(ids, any(), "ADMIN", adminId) } returns 1
 
         val count = grantManager().revokeGrants(
-            GrantRevocationCriteria(grantIds = setOf(grant.id!!)),
+            GrantRevocationCriteria(userIds = setOf(ana, bob), clientIds = setOf("web")),
+            GrantRevokedBy.ADMIN,
+            adminId
+        )
+
+        assertEquals(3, count)
+        coVerify {
+            objectLockRepository.lock(LockKey.User(ana).stripe)
+            objectLockRepository.lock(LockKey.User(bob).stripe)
+        }
+        coVerifyOrder {
+            objectLockRepository.lock(any())
+            grantRepository.updateRevokedAtByIdIn(ids, any(), "ADMIN", adminId)
+        }
+    }
+
+    @Test
+    fun `revokeGrants - Leaves a grant of an account opened since the first read to a later revocation`() = runTest {
+        val ana = UUID.randomUUID()
+        val anaWeb = authorizationCodeEntity(ana, "web")
+        val clientCredentials = clientCredentialsEntity()
+        val carlWeb = authorizationCodeEntity(UUID.randomUUID(), "web")
+        matching(first = listOf(anaWeb, clientCredentials), again = listOf(anaWeb, clientCredentials, carlWeb))
+        val ids = listOf(anaWeb.id!!, clientCredentials.id!!)
+        coEvery { grantRepository.updateRevokedAtByIdIn(ids, any(), "ADMIN", null) } returns 2
+        coEvery { grantRepository.updateRevokedAtByActorGrantIdIn(ids, any(), "ADMIN", null) } returns 0
+
+        val count = grantManager().revokeGrants(
+            GrantRevocationCriteria(clientIds = setOf("web", "client")),
             GrantRevokedBy.ADMIN,
             null
         )
@@ -409,14 +416,17 @@ class GrantManagerTest {
     }
 
     @Test
-    fun `revokeGrants - Refuses criteria narrowing nothing, and revokes no grant`() = runTest {
-        // The repository is left unstubbed on purpose: reaching the assertion is proof it was never asked.
-        val exception = assertThrows<BusinessException> {
-            grantManager().revokeGrants(GrantRevocationCriteria(), GrantRevokedBy.ADMIN, null)
-        }
+    fun `revokeGrants - Revokes nothing where no grant matches`() = runTest {
+        matching(first = emptyList(), again = emptyList())
 
-        assertEquals("grant.revoke.no_criterion", exception.detailsId)
-        assertTrue(exception.recoverable)
+        val count = grantManager().revokeGrants(
+            GrantRevocationCriteria(grantIds = setOf(UUID.randomUUID())),
+            GrantRevokedBy.ADMIN,
+            null
+        )
+
+        assertEquals(0, count)
+        coVerify(exactly = 0) { grantRepository.updateRevokedAtByIdIn(any(), any(), any(), any()) }
     }
 
     @Test
@@ -520,7 +530,7 @@ class GrantManagerTest {
         val live = clientCredentialsEntity()
         val lapsed = clientCredentialsEntity()
         coEvery { grantRepository.findAll() } returns flowOf(live, lapsed)
-        coEvery { grantRepository.findLiveAt(any()) } returns listOf(live)
+        coEvery { grantRepository.findLiveIdsAt(any()) } returns listOf(live.id!!)
 
         val result = grantManager().listWithStatus()
 

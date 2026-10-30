@@ -85,6 +85,8 @@ class GrantCollectionManagerTest {
             mockk<EnabledScope> { every { scope } returns scopeId }
         }
         every { claimManager.listIdentifierClaims() } returns listOf(email, status)
+        coEvery { grantManager.listClientIds() } returns listOf("web", "legacy")
+        coEvery { grantManager.listAudienceIds() } returns listOf("default")
     }
 
     private fun grant(
@@ -255,6 +257,31 @@ class GrantCollectionManagerTest {
             grantType?.values?.map { it.value }
         )
     }
+
+    @Test
+    fun `capabilities - Offer a client the configuration no longer declares, since its grants are still stored`() =
+        runTest {
+            val clientId = grantCollectionManager.capabilities().fieldOrNull("client_id")
+
+            assertEquals(listOf("web", "backend", "legacy"), clientId?.values?.map { it.value })
+            assertEquals("legacy", clientId?.values?.last()?.defaultName)
+        }
+
+    @Test
+    fun `capabilities - Leave out an identifier claim named after any field or parameter of the collection`() =
+        runTest {
+            val names = grantCollectionManager.capabilities().fields
+                .filterNot { it.key.startsWith("claims.") }
+                .map { it.name } + listOf("page", "size", "sort", "q")
+            every { claimManager.listIdentifierClaims() } returns names.map { name ->
+                mockk<EnabledClaim> { every { id } returns name }
+            }
+
+            val capabilities = grantCollectionManager.capabilities()
+
+            assertEquals(names.size - 4, capabilities.fields.size)
+            assertFalse(capabilities.fields.any { it.key.startsWith("claims.") })
+        }
 
     @Test
     fun `capabilities - Refuse a filter on an identifier claim`() = runTest {

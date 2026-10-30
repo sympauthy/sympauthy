@@ -88,6 +88,10 @@ class GrantCollectionManager(
      * The fields this collection offers, ending on the grant identifier, which is unique by construction —
      * and which is therefore not one a caller may order by.
      *
+     * **A client and an audience are offered whether the configuration still declares them or not**, since a
+     * grant opened for one it no longer declares is still stored and still revocable; one no longer declared
+     * is named by its identifier.
+     *
      * **`scope` reads the three sets a grant holds**, granted, consented and given to the client, so it is
      * satisfied by a scope in any of them and `ne` excludes a grant holding it in any of them.
      *
@@ -104,13 +108,19 @@ class GrantCollectionManager(
         field(
             name = "client_id",
             type = ENUM,
-            values = fieldValues("fields.client_id", clientManager.listClients().map(Client::id)),
+            values = fieldValues(
+                "fields.client_id",
+                (clientManager.listClients().map(Client::id) + grantManager.listClientIds()).distinct()
+            ),
             searchable = true
         ) { it.grant.grant.clientId }
         field(
             name = "audience_id",
             type = ENUM,
-            values = fieldValues("fields.audience_id", audienceManager.listAudiences().map(Audience::id)),
+            values = fieldValues(
+                "fields.audience_id",
+                (audienceManager.listAudiences().map(Audience::id) + grantManager.listAudienceIds()).distinct()
+            ),
             searchable = true
         ) { it.grant.grant.audienceId }
         field(

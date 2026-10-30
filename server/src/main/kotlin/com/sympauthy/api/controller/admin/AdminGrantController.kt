@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.controller.ADMIN_SURFACE
+import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminGrantResourceMapper
 import com.sympauthy.api.resource.admin.AdminCollectionCapabilitiesResource
@@ -32,6 +33,7 @@ import com.sympauthy.security.SecurityRule.ADMIN_GRANTS_WRITE
 import com.sympauthy.security.userId
 import com.sympauthy.util.orDefault
 import io.micronaut.http.HttpRequest
+import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get
@@ -195,13 +197,25 @@ class AdminGrantController(
         @Body input: AdminRevokeGrantsInputResource,
         authentication: Authentication
     ): AdminRevokedGrantsResource {
-        val criteria = GrantRevocationCriteria(
-            grantIds = input.grantIds?.toSet(),
-            userIds = input.userIds?.toSet(),
-            clientIds = input.clientIds?.toSet(),
-            audienceIds = input.audienceIds?.toSet()
-        )
-        val grantsRevoked = grantManager.revokeGrants(criteria, GrantRevokedBy.ADMIN, authentication.userId)
+        val grantsRevoked = grantManager.revokeGrants(input.toCriteria(), GrantRevokedBy.ADMIN, authentication.userId)
         return AdminRevokedGrantsResource(grantsRevoked = grantsRevoked)
     }
+}
+
+/**
+ * The grants this body names, refused with a recoverable `grant.revoke.no_criterion` where it sends no set,
+ * rather than read as every grant.
+ */
+private fun AdminRevokeGrantsInputResource.toCriteria(): GrantRevocationCriteria {
+    if (grantIds == null && userIds == null && clientIds == null && audienceIds == null) {
+        throw recoverableHttpExceptionOf(
+            HttpStatus.BAD_REQUEST, "grant.revoke.no_criterion", "description.grant.revoke.no_criterion"
+        )
+    }
+    return GrantRevocationCriteria(
+        grantIds = grantIds?.toSet(),
+        userIds = userIds?.toSet(),
+        clientIds = clientIds?.toSet(),
+        audienceIds = audienceIds?.toSet()
+    )
 }

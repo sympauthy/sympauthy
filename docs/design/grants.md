@@ -171,7 +171,8 @@ FAQ](design-faq.md#where-does-an-administrator-read-a-grant) weighs the nesting 
 **A grant is found by typing the person's address or the client's identifier.** The free text
 matches the identifier claims of the person, the client and the audience, and a client or an
 audience is filtered by its identifier while the filter shows it under its display name, which
-depends on the reader's language. [The design
+depends on the reader's language. One the configuration no longer declares is offered too, under its
+identifier, since its grants are still stored and still revocable. [The design
 FAQ](design-faq.md#what-does-the-free-text-of-the-grant-collection-match) holds the names that lost.
 
 **Every grant still stored is listed, each with where it stands.** A grant is *live* while a
