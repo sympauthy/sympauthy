@@ -230,7 +230,8 @@ by writing it again.
 **A trace survives the `suspend` boundaries of a request.** The tracing module carries it on
 Micronaut's propagated context rather than in a thread local, and that is what puts the client span
 of a webhook call under the server span of the request that made it; a flat trace is the symptom of
-it breaking.
+it breaking. A coroutine bridged to a reactive type is handed the trace by [the general code
+standard](../standards/general-code-standard.md#concurrency).
 
 ### The queries a request makes
 
@@ -423,10 +424,6 @@ GraalVM 25 with the Serial collector, and nothing notices a reading that falls s
 upgrade.
 
 ### Traces
-
-**A query whose trace was lost.** A query started in a coroutine of its own, with nothing carried
-into it — the signing keys' first load, through an RxJava bridge — has no request around it as far
-as the tracing can tell, so it opens no span, and nothing notices the gap.
 
 **A sampling policy.** The SDK's default stands: a trace is sampled whenever its parent was, and
 always when it has none. A deployment that needs a ratio sets `otel.traces.sampler`.

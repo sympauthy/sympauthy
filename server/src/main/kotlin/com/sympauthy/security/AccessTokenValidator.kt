@@ -21,6 +21,7 @@ import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.monitoring.telemetry.measureOutcome
+import com.sympauthy.monitoring.telemetry.traceCoroutineContext
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.http.HttpRequest
@@ -63,7 +64,9 @@ class AccessTokenValidator(
     @Inject private val tokenMetrics: TokenMetrics
 ) : TokenValidator<HttpRequest<*>> {
 
-    override fun validateToken(token: String, request: HttpRequest<*>?): Publisher<Authentication> = publish {
+    override fun validateToken(token: String, request: HttpRequest<*>?): Publisher<Authentication> = publish(
+        traceCoroutineContext()
+    ) {
         // How the request presented the token is what a binding is checked against, so a token handed over
         // without one authenticates nothing.
         if (request == null) {

@@ -24,8 +24,12 @@ import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
+import io.micronaut.core.async.propagation.KotlinCoroutinePropagation
+import io.micronaut.core.propagation.PropagatedContext
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
+import io.micronaut.security.authentication.Authentication
+import io.micronaut.tracing.opentelemetry.OpenTelemetryPropagationContext
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.every
@@ -33,6 +37,8 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.api.OpenTelemetry
+import io.opentelemetry.context.Context
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
@@ -43,6 +49,7 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.reactivestreams.Publisher
 import java.net.URI
 import java.util.*
 
@@ -188,6 +195,25 @@ class AccessTokenValidatorTest {
         val authentication = validator().validateToken(ENCODED_TOKEN, bearerRequest()).asFlow().single()
 
         assertSame(client, (authentication as UserAuthentication).client)
+    }
+
+    @Test
+    fun `validateToken - Read the token under the trace of the request it was called for`() = runTest {
+        val trace = OpenTelemetryPropagationContext(Context.root())
+        val decodedToken = mockk<DecodedJwt>()
+        var readUnder: PropagatedContext? = null
+        coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, ENCODED_TOKEN) } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } coAnswers {
+            readUnder = KotlinCoroutinePropagation.findPropagatedContext(currentCoroutineContext())
+            throw oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
+        }
+
+        val publisher = PropagatedContext.empty().plus(trace).propagate<Publisher<Authentication>> {
+            validator().validateToken(ENCODED_TOKEN, bearerRequest())
+        }
+        assertThrows<AccessTokenChallengeException> { publisher.asFlow().single() }
+
+        assertSame(trace, readUnder?.find(OpenTelemetryPropagationContext::class.java)?.orElse(null))
     }
 
     @Test
