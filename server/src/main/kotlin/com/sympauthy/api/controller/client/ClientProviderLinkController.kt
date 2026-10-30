@@ -81,7 +81,8 @@ class ClientProviderLinkController(
             ApiResponse(
                 responseCode = "400",
                 description = "- `client.providers.link.invalid_access_token`: `access_token` is absent, is not an " +
-                    "active access token this server issued to this client, or was issued for no end-user.\n" +
+                    "active access token this server issued to this client, was issued for another audience " +
+                    "than the one this client belongs to, or was issued for no end-user.\n" +
                     RETURN_URI_BAD_REQUEST_DESCRIPTION + "\n" +
                     BODY_BAD_REQUEST_DESCRIPTION
             ),

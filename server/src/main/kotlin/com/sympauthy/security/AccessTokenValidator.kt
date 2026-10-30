@@ -6,11 +6,13 @@ import com.sympauthy.api.exception.toAccessTokenChallengeException
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager.Companion.DPOP_HEADER
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.token.TokenManager
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
@@ -40,6 +42,7 @@ import org.reactivestreams.Publisher
  * - to retrieve the token, the grant it was issued under and the scopes that grant holds.
  * - to check the request presents the token the way its binding to a DPoP key requires.
  * - to retrieve the client the grant of the token was opened for, which the configuration must still declare.
+ * - to check the grant was opened for the audience that client belongs to now.
  *
  * Depending on whether the token is associated with a user (authorization_code/refresh_token flows)
  * or a client only (client_credentials flow), we return a [UserAuthentication] or [ClientAuthentication].
@@ -52,6 +55,7 @@ import org.reactivestreams.Publisher
 class AccessTokenValidator(
     @Inject private val clientManager: ClientManager,
     @Inject private val scopeManager: ScopeManager,
+    @Inject private val grantManager: GrantManager,
     @Inject private val tokenManager: TokenManager,
     @Inject private val dpopManager: DpopManager,
     @Inject private val jwtManager: JwtManager,
@@ -126,6 +130,12 @@ class AccessTokenValidator(
                 scheme = scheme,
                 challenges = listOf(InvalidToken)
             )
+        // A grant is the audience's it was opened for, so every surface answers a token for the audience its
+        // client belongs to, and one issued for another is refused. See `docs/design/grants.md`.
+        val openedFor = grantManager.verifyOpenedFor(grant, client)
+        if (openedFor is GrantOpenedForResult.Refused) {
+            throw openedFor.toBusinessException().toAccessTokenChallengeException(scheme, listOf(InvalidToken))
+        }
 
         return if (grant.userId != null) {
             val consentedScopes = grant.consentedScopes.mapNotNull {

@@ -258,13 +258,16 @@ and whoever holds them knows which. A reader taking the scopes and not the audie
 modelling a state that cannot arise.
 
 **What a client is told about is its own audience, resolved from the credential.** The id token, the
-`/userinfo` response and the client API each take it from the client that authenticated, never from
-anything the request carried, because a client belongs to exactly one audience.
+`/userinfo` response, the introspection response and the client API each take it from the client
+that authenticated or that the token was issued to, never from anything the request carried, because
+a client belongs to exactly one audience. A token issued for another audience than the one its
+client belongs to now authenticates nothing and is answered as inactive at introspection, so that
+audience is always the token's own.
 
-**The audience is the one the decision lands in, which is not always the caller's own.** An
-authorization grants scopes to the client that started the flow, so the flow's audience is the
-flow's own; an act-as token is issued for the audience the exchange names, which may be neither the
-acting client's nor the default it falls back to. Read the target's claims, not the asker's.
+**The audience is the one the decision lands in.** An authorization grants scopes to the client that
+started the flow, so the flow's audience is that client's; an act-as token is issued for the acting
+client's own audience, because [a client acts as a person in its own audience
+alone](security.md#acting-as-a-person). Read the claims of that audience, and of no other.
 
 **The audience an interactive flow works in is the one its authorization is for**, the audience of
 the client that started it. It decides the whole of what that flow does with claims: which it offers
@@ -303,7 +306,7 @@ because the file it is written in is what the deployment is being told about.
 
 **A token for the person writes only the claims of the audience it was issued for, for the same
 reason.** The consent behind it is that audience's, and a claim restricted to another is refused by
-name rather than ignored. For an act-as token that is the audience its exchange named.
+name rather than ignored. For an act-as token that is the acting client's own.
 
 **No client writes an identifier claim, whatever its scopes, and no person's token does either.** An
 identifier is what an account signs in with, and nothing in a claim write verifies the value it
@@ -465,8 +468,7 @@ first three make.
 **The audience restriction holds in every one of them.** A claim restricted to another audience is
 left out wherever the value would have gone, because [the audience is asked beside the
 ACL](#what-a-restriction-means) rather than inside it — and the audience a place answers for is the
-one the token was issued for, which for an act-as token is the audience the exchange named rather
-than the acting client's own.
+one the token was issued for, which is always that of the client it was issued to.
 
 **A claim looks the same in every place that carries it.** `CollectedClaim.publishedMembers` is the
 one wire form: the value under the claim's id, the `<claim>_verified` companion beside it where the

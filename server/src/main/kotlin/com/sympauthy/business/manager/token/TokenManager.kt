@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -80,9 +81,13 @@ open class TokenManager(
     /**
      * Introspect the [encodedToken] and return the stored [AuthenticationToken] if the token is active,
      * or `null` if the token is invalid, expired, issued under a grant that is revoked or past its lifetime,
-     * not owned by [client], or not of [type].
+     * not opened for [client] and the audience it belongs to now, or not of [type].
      *
      * A null [type] accepts an access token and a refresh token alike.
+     *
+     * A token issued for another audience than the one [client] belongs to is answered as inactive rather than
+     * described: what an answer said of its audience and of the person's claims would be told to a client
+     * outside that audience.
      */
     suspend fun introspectToken(
         client: Client,
@@ -97,7 +102,7 @@ open class TokenManager(
             return null
         }
         if (type != null && token.type != type) return null
-        if (token.grant.clientId != client.id) return null
+        if (grantManager.verifyOpenedFor(token.grant, client) is GrantOpenedForResult.Refused) return null
         return token
     }
 

@@ -15,6 +15,8 @@ const val UNAUTHORIZED_RESPONSE_DESCRIPTION =
         "- `grant.revoked`: the grant the access token was issued under was revoked.\n" +
         "- `grant.client_disabled`: the client the grant of the access token was opened for is no longer " +
         "in the configuration.\n" +
+        "- `grant.mismatching_audience`: the client the access token was issued to has since moved to " +
+        "another audience than the one the token was issued for.\n" +
         "- `grant.actor_revoked`: the access token was obtained by token exchange, and the grant of the " +
         "token presented in that exchange was revoked.\n" +
         "- `grant.actor_expired`: the access token was obtained by token exchange, and the grant of the " +

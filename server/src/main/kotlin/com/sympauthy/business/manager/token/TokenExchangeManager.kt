@@ -4,6 +4,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.withRefusalAs
 import com.sympauthy.business.manager.actas.ActAsRuleManager
 import com.sympauthy.business.manager.auth.GrantManager
+import com.sympauthy.business.manager.auth.toOAuth2Exception
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.ClaimAclManager
@@ -11,6 +12,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
@@ -18,8 +20,6 @@ import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.config.model.AudiencesConfig
-import com.sympauthy.config.model.orThrow
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -42,8 +42,7 @@ open class TokenExchangeManager(
     @Inject private val claimAclManager: ClaimAclManager,
     @Inject private val userManager: UserManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
-    @Inject private val actAsRuleManager: ActAsRuleManager,
-    @Inject private val uncheckedAudiencesConfig: AudiencesConfig
+    @Inject private val actAsRuleManager: ActAsRuleManager
 ) {
 
     /**
@@ -52,9 +51,9 @@ open class TokenExchangeManager(
      * subject (Phase 1). [actingClient] is the authenticated confidential client presenting that token and is
      * the actor the issued token records.
      *
-     * The audience [request] names is the logical name of the target service and the only input that resolves
-     * the issued token's audience. Passing [dpopJkt] binds the issued token to that JWK thumbprint, and leaving
-     * it null issues a bearer token.
+     * The token is issued for the audience [actingClient] belongs to, and a [request] naming another audience is
+     * refused. Passing [dpopJkt] binds the issued token to that JWK thumbprint, and leaving it null issues a
+     * bearer token.
      *
      * The token is issued under a grant the exchange opens, which records the grant of the subject token:
      * revoking that grant revokes this one, and a token of this one is refused once that grant is no longer
@@ -69,9 +68,7 @@ open class TokenExchangeManager(
         val actorToken = validateActorSubjectToken(actingClient, request.subjectToken)
 
         val targetUser = resolveTargetUser(request.requestedSubject)
-        // Resolved before the rule runs, because the audience the token is being issued for is what decides
-        // which of the target user's claims a rule may be keyed on: that audience is where the token goes and
-        // where what the rule decides ends up, and it is not always the acting client's own.
+        // Checked before the rule runs, so that an exchange the audience refuses reads nothing about the user.
         val targetAudience = resolveTargetAudience(actingClient, request.audience)
         val targetClaims = collectedClaimManager.findByUserIdAndAudience(targetUser, targetAudience.id)
 
@@ -94,7 +91,8 @@ open class TokenExchangeManager(
     }
 
     /**
-     * Validate that [subjectToken] is a valid, non-revoked client-credentials access token issued to [actingClient].
+     * Validate that [subjectToken] is a valid, non-revoked client-credentials access token issued to [actingClient],
+     * for the audience it belongs to now.
      */
     private suspend fun validateActorSubjectToken(
         actingClient: Client,
@@ -106,8 +104,11 @@ open class TokenExchangeManager(
 
         // getAuthenticationToken throws if the token is unknown, its grant revoked or its subject does not match.
         val token = tokenManager.getAuthenticationToken(decodedToken)
-        if (token.grant.clientId != actingClient.id) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_owned")
+        when (val openedFor = grantManager.verifyOpenedFor(token.grant, actingClient)) {
+            is GrantOpenedForResult.OpenedForAnotherClient ->
+                throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_not_owned")
+            is GrantOpenedForResult.OpenedForAnotherAudience -> throw openedFor.toOAuth2Exception()
+            GrantOpenedForResult.Opened -> Unit
         }
         // An act-as token already carries an actor. Exchanging it again would chain act-as tokens, which is not
         // supported yet. Checked before the user check below because an act-as token is also bound to a user, so
@@ -141,23 +142,27 @@ open class TokenExchangeManager(
     }
 
     /**
-     * Resolve the audience the token is issued for from the RFC 8693 [audience] parameter (the logical name of the
-     * target service), matched against a configured audience by token audience or id. Defaults to the acting
-     * client's own audience when [audience] is not provided.
+     * The audience the token is issued for, which is the one [actingClient] belongs to. Throws an
+     * `OAuth2Exception` carrying `invalid_target` and `token_exchange.invalid_target` where the RFC 8693
+     * [audience] parameter names anything else, matched against that audience's token audience and identifier.
      *
-     * The whole [Audience] is returned rather than its token audience alone: the caller needs the id to read the
-     * target user's claims for it, and a second lookup to get back from one to the other would be a second
-     * chance to disagree.
+     * A client acts as a person in its own audience and nowhere else: an audience is the set of applications
+     * entitled to its claims, and a token issued for another one would hand them to a client outside it.
      */
     private fun resolveTargetAudience(
         actingClient: Client,
         audience: String?
     ): Audience {
-        if (audience.isNullOrBlank()) {
-            return actingClient.audience
+        val clientAudience = actingClient.audience
+        if (audience.isNullOrBlank() || audience == clientAudience.tokenAudience || audience == clientAudience.id) {
+            return clientAudience
         }
-        val audiences = uncheckedAudiencesConfig.orThrow().audiences
-        return audiences.firstOrNull { it.tokenAudience == audience || it.id == audience }
-            ?: throw oauth2ExceptionOf(INVALID_TARGET, "token_exchange.invalid_target", "target" to audience)
+        throw oauth2ExceptionOf(
+            INVALID_TARGET,
+            "token_exchange.invalid_target",
+            "target" to audience,
+            "audience" to clientAudience.id,
+            "clientId" to actingClient.id
+        )
     }
 }

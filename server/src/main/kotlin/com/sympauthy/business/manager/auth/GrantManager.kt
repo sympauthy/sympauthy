@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.auth
 
+import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
@@ -11,6 +12,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.AuthenticationToken
@@ -60,26 +62,35 @@ open class GrantManager(
     }
 
     /**
-     * Refuse [grant] unless it was opened for [client], and for the audience [client] belongs to now, as an
-     * `OAuth2Exception` carrying `invalid_grant`: `token.mismatching_client` where it was opened for another
-     * client, and `grant.mismatching_audience` where [client] has since moved to another audience.
+     * Whether [grant] was opened for [client], and for the audience [client] belongs to now:
+     * [GrantOpenedForResult.OpenedForAnotherClient] where it was opened for another client, and
+     * [GrantOpenedForResult.OpenedForAnotherAudience] where [client] has since moved to another audience.
      *
      * A grant is the audience's it was opened for, and that is what revoking a consent reaches it by: tokens
      * issued for an audience its client has since moved to would escape the consent they rest on.
      */
+    fun verifyOpenedFor(grant: Grant, client: Client): GrantOpenedForResult = when {
+        grant.clientId != client.id -> GrantOpenedForResult.OpenedForAnotherClient(
+            grantClientId = grant.clientId,
+            clientId = client.id
+        )
+        grant.audienceId != client.audience.id -> GrantOpenedForResult.OpenedForAnotherAudience(
+            grantAudienceId = grant.audienceId,
+            clientId = client.id,
+            clientAudienceId = client.audience.id
+        )
+        else -> GrantOpenedForResult.Opened
+    }
+
+    /**
+     * Refuse [grant] unless it was opened for [client], and for the audience [client] belongs to now, as an
+     * `OAuth2Exception` carrying `invalid_grant`: `token.mismatching_client` where it was opened for another
+     * client, and `grant.mismatching_audience` where [client] has since moved to another audience.
+     */
     fun checkOpenedFor(grant: Grant, client: Client) {
-        if (grant.clientId != client.id) {
-            throw oauth2ExceptionOf(INVALID_GRANT, "token.mismatching_client", "description.token.mismatching_client")
-        }
-        if (grant.audienceId != client.audience.id) {
-            throw oauth2ExceptionOf(
-                INVALID_GRANT,
-                "grant.mismatching_audience",
-                "description.grant.mismatching_audience",
-                "grantAudienceId" to grant.audienceId,
-                "clientId" to client.id,
-                "clientAudienceId" to client.audience.id
-            )
+        val openedFor = verifyOpenedFor(grant, client)
+        if (openedFor is GrantOpenedForResult.Refused) {
+            throw openedFor.toOAuth2Exception()
         }
     }
 
@@ -372,3 +383,14 @@ open class GrantManager(
  */
 private val GrantRevokedBy.metricName: String
     get() = name.lowercase()
+
+/**
+ * This refusal as the protocol error the token endpoint answers it with: `invalid_grant`, under the code, the
+ * description and the values of the refusal.
+ */
+fun GrantOpenedForResult.Refused.toOAuth2Exception() = OAuth2Exception(
+    errorCode = INVALID_GRANT,
+    detailsId = detailsId,
+    descriptionId = descriptionId,
+    values = values
+)

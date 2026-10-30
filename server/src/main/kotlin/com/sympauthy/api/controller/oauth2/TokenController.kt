@@ -70,14 +70,14 @@ class TokenController(
                     "does not match the authorization request; the consent of the end-user was revoked, or " +
                     "the user never " +
                     "finished signing up; or `subject_token` is not a valid `client_credentials` access token " +
-                    "of this client.\n" +
+                    "of this client, issued for the audience it belongs to.\n" +
                     "- `unauthorized_client`: the client is not allowed this `grant_type`.\n" +
                     "- `unsupported_grant_type`: `grant_type` is not supported.\n" +
                     "- `invalid_scope`: on the `client_credentials` grant, `scope` names a scope that is not " +
                     "enabled, belongs to another audience, is not a client scope, or is not allowed to the " +
                     "client.\n" +
                     "- `invalid_target`: on the token exchange grant, `resource` is sent, `requested_subject` " +
-                    "names no user, or `audience` names no configured audience.\n" +
+                    "names no user, or `audience` names another audience than the one the client belongs to.\n" +
                     "- `invalid_dpop_proof`: the `DPoP` header is sent more than once or does not validate, " +
                     "is missing while `auth.token.dpop-required` is true, or is missing or signed with " +
                     "another key on the `refresh_token` grant for a refresh token bound to a key."
@@ -191,9 +191,9 @@ class TokenController(
         @Part("audience")
         @Schema(
             name = "audience",
-            description = "Audience the token is for, RFC 8693 §2.1, matched against the token audience or " +
-                "the identifier of a configured audience. Read on the token exchange grant. When absent, " +
-                "the audience the client belongs to."
+            description = "Audience the token is for, RFC 8693 §2.1: the token audience or the identifier of " +
+                "the audience the client belongs to, which is the only audience a token exchange issues for. " +
+                "Read on the token exchange grant. When absent, the audience the client belongs to."
         )
         audience: String? = null,
     ): TokenResource {

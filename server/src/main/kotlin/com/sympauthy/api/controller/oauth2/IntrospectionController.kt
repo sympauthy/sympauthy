@@ -47,7 +47,8 @@ class IntrospectionController(
     @Operation(
         description = "Introspect a token, RFC 7662 §2. The client authenticates with HTTP Basic authentication " +
             "or with `client_id` and `client_secret` in the body. A token that does not validate, has expired " +
-            "or been revoked, or was issued to another client is answered as inactive.",
+            "or been revoked, or was issued to another client or for another audience than the one the client " +
+            "belongs to is answered as inactive.",
         tags = ["oauth2"],
         responses = [
             ApiResponse(

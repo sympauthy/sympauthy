@@ -160,14 +160,19 @@ client in its `act` claim. What the client may then do as the person is the reso
 decide from those two.
 
 **Acting as a person rests on the act-as rules, not on a consent.** A client may act as a person who
-has never signed in to the audience the exchange names, so the exchange reads no consent, and
+has never signed in to its audience, so the exchange reads no consent, and
 revoking the person's consent revokes no act-as grant and leaves a client free to exchange again.
 [The design FAQ](design-faq.md#does-acting-as-a-person-need-their-consent) argues the alternative.
 
-**The rules read the claims of the audience the token is issued for**, which is the one the exchange
-names and may be neither the acting client's nor its default. That is where the decision lands, so
-that is the audience whose claims it may be keyed on — [the
-claims](claims.md#reading-a-persons-claims) hold the rule for every reader.
+**A client acts as a person in its own audience, and nowhere else.** The token is issued for the
+audience the acting client belongs to, and an exchange naming any other is refused with
+`invalid_target`. An audience is the set of applications entitled to its claims, and a token issued
+for another would hand them to a client outside it — [the design
+FAQ](design-faq.md#can-an-act-as-token-be-issued-for-another-audience-than-the-acting-clients) holds
+the options that lost.
+
+**The rules read the claims of the acting client's audience**, which is where the decision lands —
+[the claims](claims.md#reading-a-persons-claims) hold the rule for every reader.
 
 **The client proves it is the actor with a token of its own.** The token it exchanges is one it was
 issued under `client_credentials`; a person's token, another client's, and an act-as token are
@@ -215,7 +220,10 @@ role that says only which flow is asking. The package is the source of truth for
 **An authentication made from an access token carries the client the token was issued to**, looked
 up once where the token is validated. A handler reads the client there rather than asking the
 configuration again, so a client the configuration no longer declares is refused in one place and
-with one status, because [a grant does not outlive its client](grants.md#what-a-grant-is).
+with one status, because [a grant does not outlive its client](grants.md#what-a-grant-is). So is a
+token whose grant was opened for another audience than the one that client belongs to now, because
+[a grant is the audience's it was opened for](grants.md#how-a-revocation-reaches-a-grant), and every
+handler can read the client's audience as the token's.
 
 **The user authentication carries the consented and granted scopes separately**, because they answer
 different questions: what the person agreed to share, and what the deployment's rules decided they

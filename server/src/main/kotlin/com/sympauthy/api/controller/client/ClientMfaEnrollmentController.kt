@@ -80,7 +80,8 @@ class ClientMfaEnrollmentController(
                 description = "- `client.mfa.enrollment.mfa_disabled`: `mfa.totp.enabled` is not `true` in the " +
                     "configuration.\n" +
                     "- `client.mfa.enrollment.invalid_access_token`: `access_token` is absent, is not an active " +
-                    "access token this server issued to this client, or was issued for no end-user.\n" +
+                    "access token this server issued to this client, was issued for another audience than the " +
+                    "one this client belongs to, or was issued for no end-user.\n" +
                     RETURN_URI_BAD_REQUEST_DESCRIPTION + "\n" +
                     BODY_BAD_REQUEST_DESCRIPTION
             ),
