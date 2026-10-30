@@ -80,9 +80,11 @@ or NOT REAL one is reported to the user and dropped.
 
 ## The body
 
-**It is a bug, written as [the issue standard](../../../docs/standards/issue-standard.md#bug) writes
-one, and it stops after the diagnosis.** A title, then *What is claimed*, *What happens* and *How to
-reproduce*, and no other section. The review saw the symptom, not the design: a proposed fix, a
+**Read [the issue standard](../../../docs/standards/issue-standard.md#bug) before drafting.** What
+every issue settles and what a bug carries are written there, and nowhere here.
+
+**It is a bug, and it stops after the diagnosis.** A title, then *What is claimed*, *What happens*
+and *How to reproduce*, and no other section. The review saw the symptom, not the design: a proposed fix, a
 `## Verification` list and an `## Out of scope` section belong to whoever settles the fix, and a
 review's guess at them is read as a specification it has not earned.
 
