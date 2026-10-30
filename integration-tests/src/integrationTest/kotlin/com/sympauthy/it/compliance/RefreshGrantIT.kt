@@ -19,7 +19,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * safe to accept — a stale `at_hash` would let the substitution mitigation of §3.1.3.6 pass on a token
  * pair it was never computed over.
  *
- * Source: [OpenID Connect Core 1.0 §12.2 (Successful Refresh Response)](https://openid.net/specs/openid-connect-core-1_0.html#RefreshingAccessToken).
+ * Source: [OpenID Connect Core 1.0 §12.2 (Successful Refresh Response)](
+ * https://openid.net/specs/openid-connect-core-1_0.html#RefreshingAccessToken).
  */
 @Tag("compliance")
 class RefreshGrantIT : AbstractSympauthyIT() {

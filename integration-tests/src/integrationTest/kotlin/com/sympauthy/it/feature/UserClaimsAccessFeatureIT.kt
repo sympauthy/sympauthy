@@ -18,10 +18,11 @@ import org.junit.jupiter.params.provider.EnumSource
  * access token, and writes only the claims the deployment opened to that token.**
  *
  * `name` opens its person write door on consent to `profile`; `given_name` opens it on consent to
- * `profile:write`, a scope the client is allowed and the person is never asked for; `nickname` keeps the ACL the shipped file gives it,
- * which lets the flow collect it on the same consent and opens no door to a token. A person signs up through a
- * public client — no secret anywhere — consenting to `profile` and supplying `name` and `nickname`, and the
- * access token the code exchange issues them is presented to `/api/v1/user/claims`.
+ * `profile:write`, a scope the client is allowed and the person is never asked for; `nickname` keeps the
+ * ACL the shipped file gives it, which lets the flow collect it on the same consent and opens no door to a
+ * token. A person signs up through a public client — no secret anywhere — consenting to `profile` and
+ * supplying `name` and `nickname`, and the access token the code exchange issues them is presented to
+ * `/api/v1/user/claims`.
  *
  * The write of `name` must be stored and read back by the `GET` beside it. The write of `given_name` must be
  * refused with `403` and a `Bearer` challenge carrying `insufficient_scope` for `profile:write`, which is what

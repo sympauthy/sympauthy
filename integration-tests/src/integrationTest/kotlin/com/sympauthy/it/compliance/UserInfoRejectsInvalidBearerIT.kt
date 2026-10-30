@@ -25,7 +25,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * framework's `JWT` cookie and no `Authorization` header, asserting the status and the challenge of
  * each, on each supported database.
  *
- * Source: [RFC 6750 §3 (The WWW-Authenticate Response Header Field)](https://datatracker.ietf.org/doc/html/rfc6750#section-3),
+ * Source: [RFC 6750 §3 (The WWW-Authenticate Response Header Field)](
+ * https://datatracker.ietf.org/doc/html/rfc6750#section-3),
  * [RFC 9449 §7.2 (Compatibility with the Bearer Authentication Scheme)](https://datatracker.ietf.org/doc/html/rfc9449#section-7.2)
  * and issues [#533](https://github.com/sympauthy/sympauthy/issues/533) and
  * [#598](https://github.com/sympauthy/sympauthy/issues/598).

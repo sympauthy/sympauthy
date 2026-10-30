@@ -501,7 +501,8 @@ abstract class AbstractSympauthyIT {
             HttpRequest.newBuilder(URI.create(url))
                 .header("Accept", "application/json")
                 .apply { headers.forEach { (name, value) -> header(name, value) } }
-                .GET().build(),
+                .GET()
+                .build(),
             HttpResponse.BodyHandlers.ofString(),
         )
 
