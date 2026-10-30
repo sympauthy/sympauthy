@@ -1,9 +1,9 @@
 package com.sympauthy.data.postgresql
 
+import com.sympauthy.data.driverConnectionFactory
 import io.micronaut.context.condition.Condition
 import io.micronaut.context.condition.ConditionContext
 import io.r2dbc.postgresql.PostgresqlConnectionFactory
-import com.sympauthy.data.driverConnectionFactory
 import io.r2dbc.spi.ConnectionFactory
 
 class DefaultDataSourceIsPostgreSQL : Condition {

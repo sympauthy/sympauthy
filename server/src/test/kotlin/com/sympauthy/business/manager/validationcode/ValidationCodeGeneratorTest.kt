@@ -2,25 +2,25 @@ package com.sympauthy.business.manager.validationcode
 
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.ValidationCodeMapper
-import com.sympauthy.config.model.AdvancedConfig
-import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.config.model.AdvancedConfig
+import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.mockk
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 import java.util.UUID
-import org.junit.jupiter.api.extension.ExtendWith
 
 @ExtendWith(MockKExtension::class)
 class ValidationCodeGeneratorTest {

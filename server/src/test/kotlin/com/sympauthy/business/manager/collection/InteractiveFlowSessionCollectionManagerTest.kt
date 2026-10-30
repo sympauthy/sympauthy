@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
@@ -10,20 +10,20 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository

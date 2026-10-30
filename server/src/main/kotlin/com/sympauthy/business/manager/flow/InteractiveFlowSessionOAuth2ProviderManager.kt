@@ -33,11 +33,11 @@ import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PROVIDER
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
-import com.sympauthy.monitoring.loggerForClass
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI

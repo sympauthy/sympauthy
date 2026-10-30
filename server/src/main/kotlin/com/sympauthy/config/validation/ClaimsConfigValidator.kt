@@ -2,8 +2,8 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.*
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim

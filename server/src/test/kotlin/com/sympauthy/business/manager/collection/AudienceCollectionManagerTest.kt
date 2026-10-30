@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.collection.CollectionCriteria
-import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.page.PageParams
 import io.mockk.coEvery
 import io.mockk.every

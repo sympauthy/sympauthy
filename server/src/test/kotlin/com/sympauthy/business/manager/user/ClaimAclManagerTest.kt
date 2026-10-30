@@ -13,10 +13,6 @@ import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.GeneratedClaim
 import com.sympauthy.business.model.user.claim.PersonalClaim
-import com.sympauthy.expression.AuthenticationIsYoungerThanFunction.Companion.FUNCTION_NAME as AUTHENTICATION_IS_YOUNGER_THAN
-import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
-import com.sympauthy.expression.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
-import com.sympauthy.expression.TokenIsBoundFunction.Companion.FUNCTION_NAME as TOKEN_IS_BOUND
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -24,6 +20,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Duration
 import java.time.LocalDateTime
+import com.sympauthy.expression.AuthenticationIsYoungerThanFunction.Companion.FUNCTION_NAME as AUTHENTICATION_IS_YOUNGER_THAN
+import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
+import com.sympauthy.expression.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
+import com.sympauthy.expression.TokenIsBoundFunction.Companion.FUNCTION_NAME as TOKEN_IS_BOUND
 
 class ClaimAclManagerTest {
 

@@ -1,10 +1,10 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
 

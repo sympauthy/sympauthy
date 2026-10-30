@@ -1,7 +1,7 @@
 package com.sympauthy.api.mapper.flow
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.api.resource.flow.CollectableClaimResource
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.server.DisplayMessages
 import com.sympauthy.util.wireName
 import io.micronaut.context.MessageSource

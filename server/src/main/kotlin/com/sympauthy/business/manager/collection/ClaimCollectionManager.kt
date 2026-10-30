@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.model.user.claim.isEnabled
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.model.audience.Audience
@@ -19,6 +18,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimOrigin
+import com.sympauthy.business.model.user.claim.isEnabled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
@@ -20,6 +19,7 @@ import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow

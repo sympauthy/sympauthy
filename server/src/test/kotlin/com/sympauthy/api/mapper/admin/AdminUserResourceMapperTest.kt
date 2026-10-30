@@ -1,15 +1,15 @@
 package com.sympauthy.api.mapper.admin
 
+import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import com.sympauthy.business.model.user.claim.*
-import java.time.LocalDateTime
-import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import java.time.LocalDateTime
+import java.util.*
 
 class AdminUserResourceMapperTest {
 

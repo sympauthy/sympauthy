@@ -1,20 +1,20 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.manager.AudienceManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.User
 import io.mockk.coEvery
 import io.mockk.every
-import io.mockk.mockk
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

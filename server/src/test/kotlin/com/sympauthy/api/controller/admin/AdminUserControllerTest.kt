@@ -8,23 +8,23 @@ import com.sympauthy.api.resource.admin.AdminUserDetailResource
 import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
-import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.business.manager.collection.UserCollectionManager
+import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.manager.collection.UserCollectionManager
-import com.sympauthy.business.model.page.Page
-import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionField
 import com.sympauthy.business.model.collection.CollectionFieldType
 import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.collection.enumFieldValues
+import com.sympauthy.business.model.page.Page
+import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every
@@ -33,13 +33,13 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
-import java.time.LocalDateTime
-import java.util.*
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+import java.util.*
 
 @ExtendWith(MockKExtension::class)
 class AdminUserControllerTest {

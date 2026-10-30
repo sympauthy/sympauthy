@@ -8,12 +8,12 @@ import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.util.DEFAULT_LOCALE
 import io.micronaut.context.StaticMessageSource
-import java.time.LocalDateTime
-import java.util.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import java.time.LocalDateTime
+import java.util.*
 
 /**
  * The messages are the test's own rather than the ones the server ships, because what is under test is

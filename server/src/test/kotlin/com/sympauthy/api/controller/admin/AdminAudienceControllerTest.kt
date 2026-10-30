@@ -2,10 +2,10 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.admin.AdminAudienceResourceMapper
-import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
-import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.resource.admin.AdminAudienceResource
 import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.collection.AudienceCollectionManager
 import com.sympauthy.business.manager.collection.AudienceCollectionManager.AudienceWithClientCount
