@@ -23,6 +23,11 @@ words is kebab-case.
 **An action that is not a state change on a resource is a `POST` to a sub-path under it.** Ending a
 session, skipping a step and revoking a grant are written that way.
 
+**An action reaching many items is a `POST` to a sub-path of their collection, its body naming
+them.** It names them by identifier — their own, or those of what they belong to — and never by the
+collection's criteria, whose free text and ranges reach items nobody named. A body naming nothing is
+refused rather than read as every item.
+
 **A path parameter is camelCase**, so the framework binds it by identity. A JSON property is a wire
 name chosen explicitly, and it is snake_case.
 
@@ -177,8 +182,10 @@ document and the key set.
 
 **Rate limiting.** Nothing throttles anything, on any surface.
 
-**Bulk operations and long-running work.** Nothing creates many rows in one request, and nothing
-takes long enough to need a job resource.
+**Bulk creation and long-running work.** Nothing creates many rows in one request, and nothing takes
+long enough to need a job resource. An action reaching many existing items is [a route like
+any other](#routes) since revoking grants needed one: an administrator ends what a person, a client
+or an audience holds in one call.
 
 **Deprecating a version.** [Breaking a contract](#breaking-a-contract) covers one still unreleased,
 and how long a released version lives once its successor ships is a policy invented with no second

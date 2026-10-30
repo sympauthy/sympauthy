@@ -139,8 +139,10 @@ class AdminConsentController(
         capabilitiesMapper.toResource(consentCollectionManager.capabilities(), request.locale.orDefault())
 
     @Operation(
-        description = "Revoke the active consent of a user for an audience. Every token issued to the user " +
-                "for the audience is revoked with it, except one a client obtained through a token exchange.",
+        description = "Revoke the active consent of a user for an audience. Every grant of the user for the " +
+                "audience is revoked with it, and every token issued under them, except a grant a client " +
+                "obtained through a token exchange. Each such grant is then listed at $ADMIN_SURFACE/grants as " +
+                "`revoked`, by `consent_revoked`.",
         tags = ["admin"],
         responses = [
             ApiResponse(responseCode = "204", description = "The consent was revoked."),

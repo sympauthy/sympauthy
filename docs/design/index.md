@@ -25,8 +25,8 @@ to change it, and why it was settled that way. The rules a change is held to are
   claim, what a sign-up has to collect, and how a value resolves to an account — when two values
   somebody typed are one value, how a row is found by one, and which of three reads a caller wants.
 - **[The grants](grants.md)** — what a client was allowed, which every token is issued under: what
-  opens one and what it records, how a revocation and a lifetime reach it rather than one token, and
-  what collects it once it is finished.
+  opens one and what it records, how a revocation and a lifetime reach it rather than one token,
+  what an administrator sees of it, and what collects it once it is finished.
 - **[Security](security.md)** — what each surface's gate does and does not protect, what a scope is
   allowed to mean, how a credential becomes an authentication, and what a token carries and how it
   is checked.

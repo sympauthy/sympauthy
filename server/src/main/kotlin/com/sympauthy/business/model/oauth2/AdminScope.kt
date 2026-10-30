@@ -9,7 +9,9 @@ package com.sympauthy.business.model.oauth2
  * Each scope controls access to a specific area of the admin API:
  * - `config`: read server configuration (clients, flows, etc.).
  * - `users`: manage end-users (read, write, delete).
- * - `consent`: manage consents and force logout.
+ * - `consent`: manage consents.
+ * - `grants`: read the grants tokens are issued under, and revoke them, one at a time or every one of a person's
+ *   at once.
  * - `interactive-flow-sessions`: read the interactive flow sessions currently in flight.
  *
  * @see AdminScopeId for the string constants used in configuration and token claims.
@@ -25,6 +27,8 @@ enum class AdminScope(
     CONSENT_WRITE(AdminScopeId.CONSENT_WRITE),
     INVITATIONS_READ(AdminScopeId.INVITATIONS_READ),
     INVITATIONS_WRITE(AdminScopeId.INVITATIONS_WRITE),
+    GRANTS_READ(AdminScopeId.GRANTS_READ),
+    GRANTS_WRITE(AdminScopeId.GRANTS_WRITE),
     INTERACTIVE_FLOW_SESSIONS_READ(AdminScopeId.INTERACTIVE_FLOW_SESSIONS_READ);
 }
 
@@ -42,6 +46,8 @@ object AdminScopeId {
     const val CONSENT_WRITE = "admin:consent:write"
     const val INVITATIONS_READ = "admin:invitations:read"
     const val INVITATIONS_WRITE = "admin:invitations:write"
+    const val GRANTS_READ = "admin:grants:read"
+    const val GRANTS_WRITE = "admin:grants:write"
 
     /**
      * Not `admin:sessions:read`: a session on an admin surface reads as the logged-in sessions and tokens a

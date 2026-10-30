@@ -38,6 +38,34 @@ private const val LIVE_AT_REVOKED_AT = """
  */
 interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
 
+    /**
+     * Every grant a revocation written at [revokedAt] would reach, which is what being live means.
+     *
+     * It reads the same condition the revocations below write under, so a grant read as live here is one a
+     * revocation at that moment takes out of service, and one read otherwise is one it would leave as it is.
+     */
+    @Query(
+        """
+        SELECT * FROM grants
+        WHERE TRUE
+          $LIVE_AT_REVOKED_AT
+        """
+    )
+    suspend fun findLiveAt(revokedAt: LocalDateTime): List<GrantEntity>
+
+    /**
+     * The grant [id] where a revocation written at [revokedAt] would reach it, and null where it would not or
+     * there is no such grant.
+     */
+    @Query(
+        """
+        SELECT * FROM grants
+        WHERE id = :id
+          $LIVE_AT_REVOKED_AT
+        """
+    )
+    suspend fun findLiveByIdAt(id: UUID, revokedAt: LocalDateTime): GrantEntity?
+
     @Query(
         """
         UPDATE grants
@@ -72,22 +100,6 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
         revokedById: UUID?
     ): Int
 
-    @Query(
-        """
-        UPDATE grants
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId AND client_id = :clientId
-          $LIVE_AT_REVOKED_AT
-        """
-    )
-    suspend fun updateRevokedAtByUserIdAndClientId(
-        userId: UUID,
-        clientId: String,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
-
     /**
      * Revoke every grant of [userId] opened for the audience identified by [audienceId], except the act-as
      * grants opened for it. Returns the number of grants revoked.
@@ -103,21 +115,6 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID> {
     suspend fun updateRevokedAtByUserIdAndAudienceIdAndActorGrantIdIsNull(
         userId: UUID,
         audienceId: String,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
-
-    @Query(
-        """
-        UPDATE grants
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE user_id = :userId
-          $LIVE_AT_REVOKED_AT
-        """
-    )
-    suspend fun updateRevokedAtByUserId(
-        userId: UUID,
         revokedAt: LocalDateTime,
         revokedBy: String,
         revokedById: UUID?

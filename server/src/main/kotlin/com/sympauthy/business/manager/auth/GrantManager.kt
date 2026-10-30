@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.auth
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
@@ -13,7 +14,10 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantOpenedForResult
+import com.sympauthy.business.model.grant.GrantRevocationCriteria
 import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantStatus
+import com.sympauthy.business.model.grant.GrantWithStatus
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
@@ -28,6 +32,7 @@ import com.sympauthy.util.wireName
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
 import java.util.*
 
@@ -59,6 +64,45 @@ open class GrantManager(
      */
     suspend fun findByIdOrNull(id: UUID): Grant? {
         return grantRepository.findById(id)?.let(grantMapper::toGrant)
+    }
+
+    /**
+     * Return the [Grant] identified by [id] with where it stands now, null where there is none — which
+     * includes a grant the cleanup job has already collected.
+     */
+    suspend fun findWithStatusByIdOrNull(id: UUID): GrantWithStatus? {
+        val now = LocalDateTime.now()
+        val grant = findByIdOrNull(id) ?: return null
+        val live = grantRepository.findLiveByIdAt(id, now) != null
+        return GrantWithStatus(grant, getStatus(grant, live, now))
+    }
+
+    /**
+     * List every grant this server still holds, revoked, expired and lapsed ones included, each with where it
+     * stands now.
+     *
+     * The grants are read before the ones still live, so a grant opened between the two reads is left out
+     * rather than read as lapsed.
+     */
+    suspend fun listWithStatus(): List<GrantWithStatus> {
+        val now = LocalDateTime.now()
+        val grants = grantRepository.findAll().toList().map(grantMapper::toGrant)
+        val liveIds = grantRepository.findLiveAt(now).mapNotNull(GrantEntity::id).toSet()
+        return grants.map { GrantWithStatus(it, getStatus(it, it.id in liveIds, now)) }
+    }
+
+    /**
+     * Where [grant] stands at [now], given whether it is [live] — whether a revocation written at [now] would
+     * reach it.
+     *
+     * A grant read as not live is told apart by what is recorded on it, in the order [GrantStatus] gives: revoked
+     * first, then past its lifetime, and lapsed otherwise.
+     */
+    internal fun getStatus(grant: Grant, live: Boolean, now: LocalDateTime): GrantStatus = when {
+        live -> GrantStatus.LIVE
+        grant.revoked -> GrantStatus.REVOKED
+        grant.expirationDate?.isBefore(now) == true -> GrantStatus.EXPIRED
+        else -> GrantStatus.LAPSED
     }
 
     /**
@@ -294,61 +338,68 @@ open class GrantManager(
     @Transactional
     open suspend fun revokeGrant(grant: Grant, revokedBy: GrantRevokedBy, revokedById: UUID?) {
         lockManager.withLock(listOfNotNull(grant.userId?.let(LockKey::User))) {
-            val now = LocalDateTime.now()
-            val revoked = grantRepository.updateRevokedAt(
-                id = grant.id,
-                revokedAt = now,
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
-            val actorGrantsRevoked = grantRepository.updateRevokedAtByActorGrantId(
-                actorGrantId = grant.id,
-                revokedAt = now,
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
-            tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked)
-            // An act-as grant is opened for whichever client acted, so the ones opened from this grant span clients.
-            tokenMetrics.recordRevocations(revokedBy.metricName, null, actorGrantsRevoked)
+            revokeWithExchanged(grant, LocalDateTime.now(), revokedBy, revokedById)
         }
     }
 
     /**
-     * Revoke every grant of [user] that is still live, regardless of client, and return how many there
-     * were.
+     * Revoke every grant [criteria] reach, and every grant a token exchange opened from one of their tokens,
+     * and return how many of them were still live.
+     *
+     * A grant already revoked, past its lifetime or lapsed is left as it is and not counted, as
+     * [revokeGrant] leaves it; the grants opened from it are reached all the same.
+     *
+     * Throws a recoverable `grant.revoke.no_criterion` where [criteria] is unbounded, rather than revoking every
+     * grant this server holds.
      */
     @Transactional
-    open suspend fun revokeGrantsByUser(user: User, revokedBy: GrantRevokedBy, revokedById: UUID?): Int {
-        return lockManager.withLock(listOf(LockKey.User(user.id))) {
-            grantRepository.updateRevokedAtByUserId(
-                userId = user.id,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
-            )
-        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
-    }
-
-    /**
-     * Revoke every grant of [user] opened for [client] that is still live, and return how many there
-     * were.
-     */
-    @Transactional
-    open suspend fun revokeGrantsByUserAndClient(
-        user: User,
-        client: Client,
+    open suspend fun revokeGrants(
+        criteria: GrantRevocationCriteria,
         revokedBy: GrantRevokedBy,
         revokedById: UUID?
     ): Int {
-        return lockManager.withLock(listOf(LockKey.User(user.id))) {
-            grantRepository.updateRevokedAtByUserIdAndClientId(
-                userId = user.id,
-                clientId = client.id,
-                revokedAt = LocalDateTime.now(),
-                revokedBy = revokedBy.name,
-                revokedById = revokedById
+        if (criteria.isUnbounded) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "grant.revoke.no_criterion",
+                descriptionId = "description.grant.revoke.no_criterion"
             )
-        }.also { tokenMetrics.recordRevocations(revokedBy.metricName, client.id, it) }
+        }
+        val grants = grantRepository.findAll().toList().map(grantMapper::toGrant).filter(criteria::matches)
+        val users = grants.mapNotNull(Grant::userId).distinct().map(LockKey::User)
+        return lockManager.withLock(users) {
+            val now = LocalDateTime.now()
+            grants.sumOf { revokeWithExchanged(it, now, revokedBy, revokedById) }
+        }
+    }
+
+    /**
+     * Revoke [grant] and every grant a token exchange opened from one of its tokens at [revokedAt], each only
+     * where it is still live, and return how many were.
+     *
+     * The caller holds the lock over the account [grant] is opened for.
+     */
+    internal suspend fun revokeWithExchanged(
+        grant: Grant,
+        revokedAt: LocalDateTime,
+        revokedBy: GrantRevokedBy,
+        revokedById: UUID?
+    ): Int {
+        val revoked = grantRepository.updateRevokedAt(
+            id = grant.id,
+            revokedAt = revokedAt,
+            revokedBy = revokedBy.name,
+            revokedById = revokedById
+        )
+        val actorGrantsRevoked = grantRepository.updateRevokedAtByActorGrantId(
+            actorGrantId = grant.id,
+            revokedAt = revokedAt,
+            revokedBy = revokedBy.name,
+            revokedById = revokedById
+        )
+        tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked)
+        // An act-as grant is opened for whichever client acted, so the ones opened from this grant span clients.
+        tokenMetrics.recordRevocations(revokedBy.metricName, null, actorGrantsRevoked)
+        return revoked + actorGrantsRevoked
     }
 
     /**

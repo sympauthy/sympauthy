@@ -5,10 +5,14 @@ import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.collection.CollectionFieldType
 import com.sympauthy.business.model.collection.CollectionOperator
+import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.model.grant.GrantStatus
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.business.model.oauth2.ConsentRevokedBy
+import com.sympauthy.business.model.oauth2.ConsentedBy
+import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.oauth2.ScopeOrigin
 import com.sympauthy.business.model.oauth2.ScopeType
 import com.sympauthy.business.model.user.UserStatus
@@ -89,6 +93,25 @@ class AdminAllowableValuesTest {
     @Test
     fun `Every grant type is published on the client`() {
         assertPublished(GrantType.entries, AdminClientResource::class, "allowedGrantTypes")
+    }
+
+    @Test
+    fun `Every status, grant type and revoker of a grant is published on the grant`() {
+        listOf(AdminGrantSummaryResource::class, AdminGrantDetailResource::class).forEach { resource ->
+            assertPublished(GrantStatus.entries, resource, "status")
+            assertPublished(GrantRevokedBy.entries, resource, "revokedBy")
+            assertEquals(
+                GrantType.entries.filterNot { it == GrantType.REFRESH_TOKEN }.map { it.wireName }.toSet(),
+                allowableValuesOf(resource, "grantType").toSet(),
+                "${resource.simpleName}.grantType"
+            )
+        }
+    }
+
+    @Test
+    fun `Every way scopes are granted and consented to is published on the grant`() {
+        assertPublished(GrantedBy.entries, AdminGrantDetailResource::class, "grantedBy")
+        assertPublished(ConsentedBy.entries, AdminGrantDetailResource::class, "consentedBy")
     }
 
     @Test
