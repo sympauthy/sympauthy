@@ -24,7 +24,8 @@ import org.junit.jupiter.params.provider.MethodSource
  * with PKCE alone, and a **confidential** client that additionally presents its secret at the token
  * endpoint. Both must reach the same signed tokens, so the grant is proven independent of client type.
  *
- * Source: [OAuth 2.1 §4.1 (Authorization Code Grant)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-4.1),
+ * Source: [OAuth 2.1 §4.1 (Authorization Code Grant)](
+ * https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-4.1),
  * [RFC 7636 (PKCE)](https://datatracker.ietf.org/doc/html/rfc7636) and
  * [OpenID Connect Core 1.0, ID Token](https://openid.net/specs/openid-connect-core-1_0.html#IDToken).
  */

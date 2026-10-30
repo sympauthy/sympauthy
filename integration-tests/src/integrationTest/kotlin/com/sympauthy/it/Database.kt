@@ -43,20 +43,20 @@ sealed interface DatabaseFixture : AutoCloseable {
 
         private val network: Network = Network.newNetwork()
 
-        private val postgres: PostgreSQLContainer = PostgreSQLContainer(DockerImageName.parse(IMAGE))
+        private val postgresContainer: PostgreSQLContainer = PostgreSQLContainer(DockerImageName.parse(IMAGE))
             .withNetwork(network)
             .withNetworkAliases(ALIAS)
             .withDatabaseName(DATABASE)
             .withUsername(USERNAME)
             .withPassword(PASSWORD)
-            .also { it.start() }
+            .apply { start() }
 
         override fun applyTo(container: SympauthyContainer): SympauthyContainer = container
             .withNetwork(network)
             .withDatasource("r2dbc:postgresql://$ALIAS:$PORT/$DATABASE", USERNAME, PASSWORD)
 
         override fun close() {
-            postgres.stop()
+            postgresContainer.stop()
             network.close()
         }
 

@@ -30,7 +30,8 @@ import java.util.UUID
  * turns that into the admin scopes, and the flow's own access token can then call the admin API. The
  * invitation is only the means to that assertion, not the subject of the test.
  *
- * Reference: [OpenID Connect Core 1.0, Standard Claims](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
+ * Reference: [OpenID Connect Core 1.0, Standard Claims](
+ * https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
  */
 @Tag("feature")
 class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {

@@ -20,7 +20,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * actually received, and asserts the (signature-verified) `id_token` carries exactly it, on each
  * supported database.
  *
- * Source: [OpenID Connect Core 1.0 §3.1.3.6 (ID Token)](https://openid.net/specs/openid-connect-core-1_0.html#CodeIDToken).
+ * Source: [OpenID Connect Core 1.0 §3.1.3.6 (ID Token)](
+ * https://openid.net/specs/openid-connect-core-1_0.html#CodeIDToken).
  */
 @Tag("compliance")
 class IdTokenBindsAccessTokenIT : AbstractSympauthyIT() {

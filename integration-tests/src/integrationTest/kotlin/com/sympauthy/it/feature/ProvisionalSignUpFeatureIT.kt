@@ -47,9 +47,12 @@ class ProvisionalSignUpFeatureIT : AbstractSympauthyIT() {
     fun signUpCountsOnlyOnceItCompletes(database: Database) {
         database.createFixture().use { fixture ->
             InteractiveFlowRegistry.forClient(Client.publicClient(clientId))
-                .withScopes(*SCOPES.toTypedArray()).use { first ->
+                .withScopes(*SCOPES.toTypedArray())
+                .use { first ->
                     InteractiveFlowRegistry.forClient(Client.publicClient(RACING_CLIENT_ID))
-                        .withFlowId("racing").withScopes(*SCOPES.toTypedArray()).use { racing ->
+                        .withFlowId("racing")
+                        .withScopes(*SCOPES.toTypedArray())
+                        .use { racing ->
                             container(
                                 fixture, twoClientSignUpConfig(first, racing), first, racing,
                             ).use { sympauthy ->

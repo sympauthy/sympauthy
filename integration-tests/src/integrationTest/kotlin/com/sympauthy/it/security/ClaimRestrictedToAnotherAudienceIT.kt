@@ -39,9 +39,13 @@ class ClaimRestrictedToAnotherAudienceIT : AbstractSympauthyIT() {
     fun claimCollectedForAnotherAudienceReachesNoClient(database: Database) {
         database.createFixture().use { fixture ->
             InteractiveFlowRegistry.forClient(Client.publicClient(BILLING_CLIENT_ID))
-                .withFlowId(BILLING_FLOW_ID).withScopes(*SCOPES).use { billing ->
+                .withFlowId(BILLING_FLOW_ID)
+                .withScopes(*SCOPES)
+                .use { billing ->
                     InteractiveFlowRegistry.forClient(Client.publicClient(OWN_CLIENT_ID))
-                        .withFlowId(OWN_FLOW_ID).withScopes(*SCOPES).use { storefront ->
+                        .withFlowId(OWN_FLOW_ID)
+                        .withScopes(*SCOPES)
+                        .use { storefront ->
                             container(
                                 fixture, twoAudienceConfig(billing, storefront), billing, storefront,
                             ).use { sympauthy ->

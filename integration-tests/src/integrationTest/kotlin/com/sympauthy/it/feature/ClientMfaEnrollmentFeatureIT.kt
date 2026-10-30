@@ -50,7 +50,11 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
             val cancelUri = mfaEnrollmentCancelUri(registry)
             val enrollment = withApiClient(sympauthy, token = callerToken) { ctx ->
                 ctx.getBean(ClientApi::class.java).startEnrollment1(
-                    ClientMfaEnrollmentInputResource(accessToken = userToken, returnUri = returnUri, cancelUri = cancelUri),
+                    ClientMfaEnrollmentInputResource(
+                        accessToken = userToken,
+                        returnUri = returnUri,
+                        cancelUri = cancelUri,
+                    ),
                 ).block()
             } ?: fail("enrollment init should return a state and redirect_url")
 
