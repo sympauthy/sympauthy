@@ -6,10 +6,12 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.InvalidJwtException
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.token.TokenManager
+import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.DpopBoundRequest
@@ -62,9 +64,25 @@ class AccessTokenValidatorTest {
     @MockK
     lateinit var jwtManager: JwtManager
 
+    /**
+     * The real manager rather than a mock: whether a grant was opened for its client is a function of the two
+     * alone, so every scenario runs it instead of stubbing an answer to it.
+     */
+    private val grantManager = GrantManager(
+        mockk(), mockk(), mockk(), mockk(), mockk(), TokenMetrics(OpenTelemetry.noop())
+    )
+
     private fun validator() = AccessTokenValidator(
-        clientManager, scopeManager, tokenManager, dpopManager, jwtManager, DpopTokenReader(),
+        clientManager, scopeManager, grantManager, tokenManager, dpopManager, jwtManager, DpopTokenReader(),
         TokenMetrics(OpenTelemetry.noop())
+    )
+
+    private val client = Client(
+        id = CLIENT_ID,
+        secret = null,
+        audience = Audience(id = AUDIENCE, tokenAudience = AUDIENCE),
+        allowedGrantTypes = emptySet(),
+        authorizationFlow = null
     )
 
     private fun stubToken(token: AuthenticationToken) {
@@ -99,6 +117,29 @@ class AccessTokenValidatorTest {
         }
 
     @Test
+    fun `validateToken - Refuse with 401 a token issued for another audience than its client belongs to`() =
+        runTest {
+            stubToken(mockk {
+                every { grant } returns mockk {
+                    every { clientId } returns CLIENT_ID
+                    every { audienceId } returns "another-audience"
+                }
+            })
+            stubBindingAccepted()
+            coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns client
+
+            val exception = assertThrows<AccessTokenChallengeException> {
+                validator().validateToken(ENCODED_TOKEN, bearerRequest()).asFlow().single()
+            }
+
+            assertEquals(UNAUTHORIZED, exception.status)
+            assertEquals("grant.mismatching_audience", exception.detailsId)
+            assertEquals("another-audience", exception.values["grantAudienceId"])
+            assertEquals(BEARER, exception.scheme)
+            assertEquals(listOf(InvalidToken), exception.challenges)
+        }
+
+    @Test
     fun `validateToken - Challenge a token that does not decode with invalid_token`() = runTest {
         coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, ENCODED_TOKEN) } throws InvalidJwtException("jwt.expired")
 
@@ -114,10 +155,10 @@ class AccessTokenValidatorTest {
 
     @Test
     fun `validateToken - Carry the client a client_credentials token was issued to`() = runTest {
-        val client = mockk<Client>()
         stubToken(mockk {
             every { grant } returns mockk {
                 every { clientId } returns CLIENT_ID
+                every { audienceId } returns AUDIENCE
                 every { userId } returns null
                 every { clientScopes } returns emptyList()
             }
@@ -132,10 +173,10 @@ class AccessTokenValidatorTest {
 
     @Test
     fun `validateToken - Carry the client a token issued for an end-user was issued to`() = runTest {
-        val client = mockk<Client>()
         stubToken(mockk {
             every { grant } returns mockk {
                 every { clientId } returns CLIENT_ID
+                every { audienceId } returns AUDIENCE
                 every { userId } returns UUID.randomUUID()
                 every { consentedScopes } returns emptyList()
                 every { grantedScopes } returns emptyList()
@@ -154,6 +195,7 @@ class AccessTokenValidatorTest {
         val authenticationToken = mockk<AuthenticationToken> {
             every { grant } returns mockk {
                 every { clientId } returns CLIENT_ID
+                every { audienceId } returns AUDIENCE
                 every { userId } returns null
                 every { clientScopes } returns emptyList()
             }
@@ -171,7 +213,7 @@ class AccessTokenValidatorTest {
                 )
             )
         }
-        coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns mockk()
+        coEvery { clientManager.findClientByIdOrNull(CLIENT_ID) } returns client
         val request = HttpRequest.GET<Any>(USERINFO_PATH)
             .header("Authorization", "DPoP $ENCODED_TOKEN")
             .header("DPoP", PROOF)
@@ -255,6 +297,7 @@ class AccessTokenValidatorTest {
     private companion object {
         const val ENCODED_TOKEN = "encoded-access-token"
         const val CLIENT_ID = "client-app"
+        const val AUDIENCE = "default"
         const val PROOF = "a-proof"
         const val USERINFO_PATH = "$OPENID_SURFACE/userinfo"
     }

@@ -4,6 +4,7 @@ import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.withRefusalAs
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.auth.toOAuth2Exception
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
@@ -12,6 +13,7 @@ import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.AuthenticationToken
@@ -98,7 +100,10 @@ open class TokenRefreshManager(
     ): IssuedTokens {
         val refreshToken = tokenManager.getAuthenticationToken(decodedToken)
         val grant = refreshToken.grant
-        grantManager.checkOpenedFor(grant, client)
+        val openedFor = grantManager.verifyOpenedFor(grant, client)
+        if (openedFor is GrantOpenedForResult.Refused) {
+            throw openedFor.toOAuth2Exception()
+        }
 
         dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
 

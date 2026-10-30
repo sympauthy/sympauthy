@@ -13,6 +13,7 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
@@ -418,30 +419,42 @@ class GrantManagerTest {
     }
 
     @Test
-    fun `checkOpenedFor - Accept a grant opened for the client and its audience`() {
-        grantManager().checkOpenedFor(grantOpenedFor("client", "audience"), clientOf("client", "audience"))
+    fun `verifyOpenedFor - Accept a grant opened for the client and its audience`() {
+        val result = grantManager().verifyOpenedFor(
+            grantOpenedFor("client", "audience"),
+            clientOf("client", "audience")
+        )
+
+        assertEquals(GrantOpenedForResult.Opened, result)
     }
 
     @Test
-    fun `checkOpenedFor - Refuse a grant opened for another client`() {
+    fun `verifyOpenedFor - Refuse a grant opened for another client`() {
         val client = mockk<Client> { every { id } returns "another-client" }
 
-        val exception = assertThrows<OAuth2Exception> {
-            grantManager().checkOpenedFor(mockk { every { clientId } returns "client" }, client)
-        }
+        val result = grantManager().verifyOpenedFor(mockk { every { clientId } returns "client" }, client)
 
-        assertEquals(INVALID_GRANT, exception.errorCode)
-        assertEquals("token.mismatching_client", exception.detailsId)
+        assertEquals(GrantOpenedForResult.OpenedForAnotherClient("client", "another-client"), result)
     }
 
     @Test
-    fun `checkOpenedFor - Refuse a grant whose client has moved to another audience`() {
-        val exception = assertThrows<OAuth2Exception> {
-            grantManager().checkOpenedFor(grantOpenedFor("client", "audience"), clientOf("client", "another-audience"))
-        }
+    fun `verifyOpenedFor - Refuse a grant whose client has moved to another audience`() {
+        val result = grantManager().verifyOpenedFor(
+            grantOpenedFor("client", "audience"),
+            clientOf("client", "another-audience")
+        )
+
+        assertEquals(GrantOpenedForResult.OpenedForAnotherAudience("audience", "client", "another-audience"), result)
+    }
+
+    @Test
+    fun `toOAuth2Exception - Answer a refusal as invalid_grant under its own code and values`() {
+        val exception = GrantOpenedForResult.OpenedForAnotherAudience("audience", "client", "another-audience")
+            .toOAuth2Exception()
 
         assertEquals(INVALID_GRANT, exception.errorCode)
         assertEquals("grant.mismatching_audience", exception.detailsId)
+        assertEquals("description.grant.mismatching_audience", exception.descriptionId)
         assertEquals("another-audience", exception.values["clientAudienceId"])
     }
 

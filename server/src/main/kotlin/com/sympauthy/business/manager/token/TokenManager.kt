@@ -9,6 +9,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.mapper.AuthenticationTokenMapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -101,11 +102,7 @@ open class TokenManager(
             return null
         }
         if (type != null && token.type != type) return null
-        try {
-            grantManager.checkOpenedFor(token.grant, client)
-        } catch (_: OAuth2Exception) {
-            return null
-        }
+        if (grantManager.verifyOpenedFor(token.grant, client) is GrantOpenedForResult.Refused) return null
         return token
     }
 

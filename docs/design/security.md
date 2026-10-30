@@ -215,7 +215,10 @@ role that says only which flow is asking. The package is the source of truth for
 **An authentication made from an access token carries the client the token was issued to**, looked
 up once where the token is validated. A handler reads the client there rather than asking the
 configuration again, so a client the configuration no longer declares is refused in one place and
-with one status, because [a grant does not outlive its client](grants.md#what-a-grant-is).
+with one status, because [a grant does not outlive its client](grants.md#what-a-grant-is). So is a
+token whose grant was opened for another audience than the one that client belongs to now, because
+[a grant is the audience's it was opened for](grants.md#how-a-revocation-reaches-a-grant), and every
+handler can read the client's audience as the token's.
 
 **The user authentication carries the consented and granted scopes separately**, because they answer
 different questions: what the person agreed to share, and what the deployment's rules decided they

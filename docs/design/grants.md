@@ -94,7 +94,8 @@ on a consent, which [security](security.md#acting-as-a-person) argues.
 **A grant is the audience's it was opened for.** A client moved to another audience can no longer
 refresh the grants it was opened for, nor exchange a code issued under one: either is refused with
 `invalid_grant` and `grant.mismatching_audience`, and the person signs in again. A token issued
-under one is answered as inactive when that client introspects it. Tokens issued for
+under one is refused on every surface it is presented to, and answered as inactive when that client
+introspects it. Tokens issued for
 the new audience would rest on a consent whose revocation could not reach the grant they stand
 under.
 
