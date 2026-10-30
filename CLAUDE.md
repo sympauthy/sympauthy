@@ -56,8 +56,8 @@ Full setup is `docs/design/running-locally.md`.
 ## Issues
 
 **An issue is written to [`docs/standards/issue-standard.md`](docs/standards/issue-standard.md).**
-Read it before opening one: it says what a feature and a bug each carry, and which label and
-milestone an issue opens under.
+Read it before opening one: it says which kind an issue is — a feature, an enhancement or a bug —
+what each kind carries, and which label and milestone it opens under.
 
 ## Pull requests
 

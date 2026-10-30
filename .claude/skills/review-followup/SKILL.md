@@ -80,42 +80,19 @@ or NOT REAL one is reported to the user and dropped.
 
 ## The body
 
-A title and four sections, and no others. The review saw the symptom, not the design — a `## Files`
-table, a proposed fix, a `## Verification` list and an `## Out of scope` section belong to whoever
-settles the design, and a review's guess at them is read as a specification it has not earned.
+**It is a bug, written as [the issue standard](../../../docs/standards/issue-standard.md#bug) writes
+one, and it stops after the diagnosis.** A title, then *What is claimed*, *What happens* and *How to
+reproduce*, and no other section. The review saw the symptom, not the design: a proposed fix, a
+`## Verification` list and an `## Out of scope` section belong to whoever settles the fix, and a
+review's guess at them is read as a specification it has not earned.
 
-**The title is a declarative sentence naming the failure and its consequence.** Not the subsystem,
-not the answer.
-
-```markdown
-A client's inherited default scopes skip the audience check, so a scope restricted to another
-audience can be granted
-```
-
-**The provenance says which review found it, and whether it is a regression.** Put it at the top
-when it carries an argument — what the reviewed change contributed, why the rule is newly visible —
-and at the bottom, after a horizontal rule, when it is bare attribution. Say so explicitly when the
-defect predates the change: *"Neither half is a regression — both predate it."*
-
-**What is claimed quotes the `docs/` sentence the code breaks.** Link it as a permalink to the file
-on `main`. This is what makes the finding a breach rather than an opinion; where no standard governs
-it, quote what the code itself promises instead — the KDoc, the error code, the key.
-
-**What happens names the mechanism in real symbols.** The class, the function and the line, the call
-chain from the entry point to the failure, and the end state it leaves. Quote the five or fewer
-lines that carry it, and say what the failure looks like from outside — silence, a wrong answer, a
-wait — because that is what somebody will one day search for.
-
-**How to reproduce is written only when the sequence causing it is clear and fully known.** The
-configuration, the request, the order of two operations: enough that somebody else reaches the same
-state. Where the review did not establish it, the section is absent — a half-known reproduction is
-read as a known one, and a concurrency window or a throw nobody observes often has none that can be
-written. *What happens* already carries the call path.
+**The provenance says which review found it.** Put it at the top when it carries an argument — what
+the reviewed change contributed, why the rule is newly visible — and at the bottom, after a
+horizontal rule, when it is bare attribution.
 
 ## Filing
 
-**Label `bug`, and open it in the earliest open milestone.** Read them rather than assuming, since
-the earliest moves as releases ship:
+**Label `bug`, and open it in the earliest open milestone**, as the issue standard says:
 
 ```sh
 gh api repos/:owner/:repo/milestones --jq '.[].title'
@@ -137,5 +114,5 @@ legible from the PR itself. The comment on #462 is the model.
 **Producing the findings.** What the review looks for and how it reports is `/code-review`'s
 question; this starts from the findings it hands over.
 
-**An enhancement.** A design gap wants the argument and the rejected alternatives that a designed
-issue carries, and it is written by hand rather than filed from a review.
+**A feature or an enhancement.** A design gap wants the argument and the rejected alternatives that
+a designed issue carries, and it is written by hand rather than filed from a review.

@@ -48,8 +48,8 @@ the other half — [how the system works](../design/index.md).
   documentation standard](docs-design-standard.md) for what a design document answers about the
   part it names and what it leaves to the code, to the standards and to the FAQ.
 - **[Issue standard](issue-standard.md)** — what an issue in the tracker settles and what it leaves
-  to the change: the title, the fixed sections, what a feature and a bug each name, and the label
-  and milestone it opens under.
+  to the change: which kind it is — a feature, an enhancement or a bug — the title, the sections
+  each kind runs through, and the label and milestone it opens under.
 
 ---
 
