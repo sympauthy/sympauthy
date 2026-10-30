@@ -7,6 +7,7 @@ import com.sympauthy.business.model.key.KeyAlgorithm
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CryptoKeysRepository
+import com.sympauthy.util.propagatedCoroutineContext
 import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Single
 import jakarta.inject.Inject
@@ -57,7 +58,7 @@ class CryptoKeysManager(
     }
 
     internal fun getStoredKey(name: String, algorithm: KeyAlgorithm): Maybe<CryptoKeys> {
-        return rxMaybe {
+        return rxMaybe(propagatedCoroutineContext()) {
             val existingKey = keysRepository.findByName(name)
             if (existingKey != null) {
                 if (existingKey.algorithm != algorithm.name) {
@@ -69,7 +70,7 @@ class CryptoKeysManager(
     }
 
     internal fun generateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
-        return rxSingle {
+        return rxSingle(propagatedCoroutineContext()) {
             advancedConfig.orThrow().keysGenerationStrategy
                 .resolve(generationStrategies)
                 .generateKeys(name, algorithm)

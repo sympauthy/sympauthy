@@ -24,8 +24,12 @@ import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
+import io.micronaut.core.async.propagation.KotlinCoroutinePropagation
+import io.micronaut.core.propagation.PropagatedContext
+import io.micronaut.core.propagation.PropagatedContextElement
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.UNAUTHORIZED
+import io.micronaut.security.authentication.Authentication
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.every
@@ -33,6 +37,7 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactive.awaitFirstOrNull
@@ -43,6 +48,7 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.reactivestreams.Publisher
 import java.net.URI
 import java.util.*
 
@@ -191,6 +197,25 @@ class AccessTokenValidatorTest {
     }
 
     @Test
+    fun `validateToken - Read the token under the context of the request it was called for`() = runTest {
+        val requestContext = PropagatedContext.empty().plus(RequestElement)
+        val decodedToken = mockk<DecodedJwt>()
+        var readUnder: PropagatedContext? = null
+        coEvery { jwtManager.decodeAndVerify(ACCESS_KEY, ENCODED_TOKEN) } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } coAnswers {
+            readUnder = KotlinCoroutinePropagation.findPropagatedContext(currentCoroutineContext())
+            throw oauth2ExceptionOf(INVALID_GRANT, "grant.revoked")
+        }
+
+        val publisher = requestContext.propagate<Publisher<Authentication>> {
+            validator().validateToken(ENCODED_TOKEN, bearerRequest())
+        }
+        assertThrows<AccessTokenChallengeException> { publisher.asFlow().single() }
+
+        assertSame(requestContext, readUnder)
+    }
+
+    @Test
     fun `validateToken - Check the binding of a token presented under the DPoP scheme against its proof`() = runTest {
         val authenticationToken = mockk<AuthenticationToken> {
             every { grant } returns mockk {
@@ -293,6 +318,8 @@ class AccessTokenValidatorTest {
         // No stub: reaching the assertion is the proof that no token was decoded.
         assertNull(validator().validateToken(ENCODED_TOKEN, null).awaitFirstOrNull())
     }
+
+    private object RequestElement : PropagatedContextElement
 
     private companion object {
         const val ENCODED_TOKEN = "encoded-access-token"

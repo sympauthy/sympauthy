@@ -1,5 +1,6 @@
 package com.sympauthy.security
 
+import com.sympauthy.util.propagatedCoroutineContext
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
 import io.micronaut.security.authentication.Authentication
@@ -18,7 +19,7 @@ import org.reactivestreams.Publisher
 class StateAuthenticationFetcher : AuthenticationFetcher<HttpRequest<*>> {
 
     override fun fetchAuthentication(request: HttpRequest<*>): Publisher<Authentication> {
-        return publish {
+        return publish(propagatedCoroutineContext()) {
             if (!request.path.contains("/flow/")) {
                 return@publish
             }
