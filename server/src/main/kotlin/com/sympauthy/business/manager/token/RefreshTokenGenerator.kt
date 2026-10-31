@@ -11,6 +11,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -23,7 +24,8 @@ class RefreshTokenGenerator(
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
-    @Inject private val authConfig: AuthConfig
+    @Inject private val authConfig: AuthConfig,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -51,25 +53,27 @@ class RefreshTokenGenerator(
             return null
         }
 
-        val issueDate = LocalDateTime.now()
-        val ownExpirationDate = enabledAuthConfig.token.refreshExpiration?.let(issueDate::plus)
-        val entity = AuthenticationTokenEntity(
-            type = REFRESH.name,
-            grantId = grant.id,
-            grantType = grantType.wireName,
-            dpopJkt = dpopJkt,
-            issueDate = issueDate,
-            expirationDate = grant.getTokenExpirationDate(ownExpirationDate)
-        ).let { tokenRepository.save(it) }
+        return customSpanTracer.issueToken(CustomSpanTracer.REFRESH_TOKEN) {
+            val issueDate = LocalDateTime.now()
+            val ownExpirationDate = enabledAuthConfig.token.refreshExpiration?.let(issueDate::plus)
+            val entity = AuthenticationTokenEntity(
+                type = REFRESH.name,
+                grantId = grant.id,
+                grantType = grantType.wireName,
+                dpopJkt = dpopJkt,
+                issueDate = issueDate,
+                expirationDate = grant.getTokenExpirationDate(ownExpirationDate)
+            ).let { tokenRepository.save(it) }
 
-        val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
-            entity.id?.toString()?.let(this::jwtID)
-            audience(listOf(audience.tokenAudience))
-            subject(grant.userId?.toString() ?: grant.clientId)
-            issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
-            ownExpirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }
+            val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
+                entity.id?.toString()?.let(this::jwtID)
+                audience(listOf(audience.tokenAudience))
+                subject(grant.userId?.toString() ?: grant.clientId)
+                issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
+                ownExpirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }
+            }
+
+            tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
         }
-
-        return tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
     }
 }

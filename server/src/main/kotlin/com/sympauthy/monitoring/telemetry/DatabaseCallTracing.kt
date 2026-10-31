@@ -28,7 +28,9 @@ import io.opentelemetry.semconv.ErrorAttributes.ERROR_TYPE
 import io.opentelemetry.semconv.ServerAttributes.SERVER_ADDRESS
 import io.opentelemetry.semconv.ServerAttributes.SERVER_PORT
 import io.r2dbc.proxy.ProxyConnectionFactory
+import io.r2dbc.proxy.core.MethodExecutionInfo
 import io.r2dbc.proxy.core.QueryExecutionInfo
+import io.r2dbc.proxy.core.ValueStore
 import io.r2dbc.proxy.listener.ProxyExecutionListener
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
@@ -46,7 +48,7 @@ import io.opentelemetry.context.Context as TraceContext
  * The key a deployment turns database spans off by, leaving the rest of the telemetry on: the one
  * OpenTelemetry's own R2DBC instrumentation is turned off by.
  */
-const val QUERY_TRACING_ENABLED = "otel.instrumentation.r2dbc.enabled"
+const val DATABASE_CALL_TRACING_ENABLED = "otel.instrumentation.r2dbc.enabled"
 
 /**
  * The connection factory the driver creates, behind a proxy that traces every query a request makes, as
@@ -57,14 +59,14 @@ const val QUERY_TRACING_ENABLED = "otel.instrumentation.r2dbc.enabled"
  */
 @Factory
 @Requires(property = TELEMETRY_ENABLED, notEquals = "false")
-@Requires(property = QUERY_TRACING_ENABLED, notEquals = "false")
-class QueryTracingConnectionFactoryFactory {
+@Requires(property = DATABASE_CALL_TRACING_ENABLED, notEquals = "false")
+class DatabaseCallTracingConnectionFactoryFactory {
 
     @EachBean(ConnectionFactoryOptions::class)
     @Context
     @Replaces(bean = ConnectionFactory::class, factory = R2dbcConnectionFactoryBean::class)
     fun connectionFactory(options: ConnectionFactoryOptions, openTelemetry: OpenTelemetry): ConnectionFactory {
-        val listener = QueryTracingListener(queryInstrumenter(openTelemetry), QueriedDatabase.of(options))
+        val listener = DatabaseCallTracingListener(databaseCallInstrumenter(openTelemetry), QueriedDatabase.of(options))
         return ProxyConnectionFactory.builder(ConnectionFactories.get(options))
             .listener(listener)
             .build()
@@ -72,42 +74,63 @@ class QueryTracingConnectionFactoryFactory {
 }
 
 /**
- * The instrumenter a query's client span is opened and closed by: named and described by the semantic
- * conventions for a database call, from the statement once its values are replaced.
+ * The instrumenter the client span of a call to the database is opened and closed by: named and described by the
+ * semantic conventions for a database call, from a query's statement once its values are replaced.
  */
-internal fun queryInstrumenter(openTelemetry: OpenTelemetry): Instrumenter<DatabaseQuery, Void> =
-    Instrumenter.builder<DatabaseQuery, Void>(openTelemetry, QUERY_INSTRUMENTATION_SCOPE) { it.spanName }
-        .addAttributesExtractor(DatabaseQueryAttributesExtractor)
+internal fun databaseCallInstrumenter(openTelemetry: OpenTelemetry): Instrumenter<DatabaseCall, Void> =
+    Instrumenter.builder<DatabaseCall, Void>(openTelemetry, DATABASE_CALL_INSTRUMENTATION_SCOPE) { it.spanName }
+        .addAttributesExtractor(DatabaseCallAttributesExtractor)
         .buildInstrumenter(SpanKindExtractor.alwaysClient())
 
-private const val QUERY_INSTRUMENTATION_SCOPE = "com.sympauthy.database"
+private const val DATABASE_CALL_INSTRUMENTATION_SCOPE = "com.sympauthy.database"
 
 /**
  * Opens a client span when a query is sent and closes it when its results have been received, under the span of
- * the request it was made for.
+ * the request it was made for. A connection being opened and a transaction beginning or ending are each a
+ * [DatabaseRoundTrip] spanned alike, since no query covers them.
  *
- * A query made outside a request opens none: a scheduled job's sweep would otherwise be a trace of its own every
+ * A call made outside a request opens none: a scheduled job's sweep would otherwise be a trace of its own every
  * few seconds, the reason `/health` is excluded from tracing.
  */
-internal class QueryTracingListener(
-    private val instrumenter: Instrumenter<DatabaseQuery, Void>,
+internal class DatabaseCallTracingListener(
+    private val instrumenter: Instrumenter<DatabaseCall, Void>,
     private val database: QueriedDatabase
 ) : ProxyExecutionListener {
 
     override fun beforeQuery(execution: QueryExecutionInfo) {
-        val parent = requestContext(execution) ?: return
+        val parent = requestContext(execution.valueStore) ?: return
         val query = DatabaseQuery(
             database = database,
             rawStatements = execution.queries.map { it.query },
             batchSize = maxOf(execution.batchSize, execution.bindingsSize)
         )
         if (!instrumenter.shouldStart(parent, query)) return
-        execution.valueStore.put(QueryTrace::class.java, QueryTrace(instrumenter.start(parent, query), query))
+        val trace = DatabaseCallTrace(instrumenter.start(parent, query), query)
+        execution.valueStore.put(DatabaseCallTrace::class.java, trace)
     }
 
     override fun afterQuery(execution: QueryExecutionInfo) {
-        val trace = execution.valueStore.get(QueryTrace::class.java, QueryTrace::class.java) ?: return
-        instrumenter.end(trace.context, trace.query, null, failureOf(execution))
+        val trace = execution.valueStore.get(DatabaseCallTrace::class.java, DatabaseCallTrace::class.java) ?: return
+        instrumenter.end(trace.context, trace.call, null, failureOf(execution))
+    }
+
+    override fun beforeMethod(execution: MethodExecutionInfo) {
+        val operation = DatabaseRoundTrip.operationOf(execution.method.name) ?: return
+        val parent = requestContext(execution.valueStore) ?: return
+        val roundTrip = DatabaseRoundTrip(database, operation)
+        if (!instrumenter.shouldStart(parent, roundTrip)) return
+        val trace = DatabaseCallTrace(instrumenter.start(parent, roundTrip), roundTrip)
+        execution.valueStore.put(DatabaseCallTrace::class.java, trace)
+    }
+
+    /**
+     * End the span [beforeMethod] opened, once: the connection's creation is reported as it is handed over, and
+     * may be reported again if it is cancelled after.
+     */
+    override fun afterMethod(execution: MethodExecutionInfo) {
+        val trace = execution.valueStore.get(DatabaseCallTrace::class.java, DatabaseCallTrace::class.java) ?: return
+        execution.valueStore.remove(DatabaseCallTrace::class.java)
+        instrumenter.end(trace.context, trace.call, null, execution.thrown)
     }
 
     /**
@@ -116,8 +139,8 @@ internal class QueryTracingListener(
      * The trace the reactive chain carries is the request's, and is read first. The thread's is read where the chain
      * carries none, as a query subscribed to directly does.
      */
-    private fun requestContext(execution: QueryExecutionInfo): TraceContext? {
-        val reactiveContext = execution.valueStore.get(ContextView::class.java, ContextView::class.java)
+    private fun requestContext(valueStore: ValueStore): TraceContext? {
+        val reactiveContext = valueStore.get(ContextView::class.java, ContextView::class.java)
         val propagated = reactiveContext
             ?.let { ReactorPropagation.findContextElement(it, OpenTelemetryPropagationContext::class.java) }
             ?.map { it.context() }
@@ -137,7 +160,7 @@ internal class QueryTracingListener(
 
     private fun TraceContext.hasSpan(): Boolean = Span.fromContext(this).spanContext.isValid
 
-    private class QueryTrace(val context: TraceContext, val query: DatabaseQuery)
+    private class DatabaseCallTrace(val context: TraceContext, val call: DatabaseCall)
 }
 
 /**
@@ -192,16 +215,55 @@ internal class QueriedDatabase(
 }
 
 /**
+ * A round trip to [database] a request waits on, named by [spanName].
+ */
+internal sealed interface DatabaseCall {
+    val database: QueriedDatabase
+    val spanName: String
+}
+
+/**
+ * A round trip to [database] that is not a statement the server sent, named by [operation]: a connection being
+ * opened, or a transaction beginning, committing or rolling back.
+ */
+internal class DatabaseRoundTrip(
+    override val database: QueriedDatabase,
+    val operation: String
+) : DatabaseCall {
+
+    override val spanName: String get() = operation
+
+    companion object {
+        const val CONNECT = "connect"
+        const val BEGIN = "BEGIN"
+        const val COMMIT = "COMMIT"
+        const val ROLLBACK = "ROLLBACK"
+
+        /**
+         * The operation a call to the method [methodName] of a connection factory or a connection makes, or null
+         * where that method is no round trip of its own.
+         */
+        fun operationOf(methodName: String): String? = when (methodName) {
+            "create" -> CONNECT
+            "beginTransaction" -> BEGIN
+            "commitTransaction" -> COMMIT
+            "rollbackTransaction" -> ROLLBACK
+            else -> null
+        }
+    }
+}
+
+/**
  * A query sent to [database], holding its [statements] only once every value in them has been replaced.
  *
  * The server binds its values, so what it sends holds none; a literal written into a statement is replaced too,
  * since nothing tells a value apart from what a person typed.
  */
 internal class DatabaseQuery(
-    val database: QueriedDatabase,
+    override val database: QueriedDatabase,
     rawStatements: List<String>,
     val batchSize: Int
-) {
+) : DatabaseCall {
 
     val statements: List<SqlQuery> = rawStatements.map { analyzer.analyzeWithSummary(it, DIALECT) }
 
@@ -210,7 +272,7 @@ internal class DatabaseQuery(
      */
     val summary: String? = statements.singleOrNull()?.querySummary
 
-    val spanName: String get() = summary ?: database.systemName
+    override val spanName: String get() = summary ?: database.systemName
 
     companion object {
         private val analyzer = SqlQueryAnalyzer.create(true)
@@ -224,27 +286,29 @@ internal class DatabaseQuery(
 }
 
 /**
- * The attributes the semantic conventions name for a database call.
+ * The attributes the semantic conventions name for a database call: the database's on every one, and the statement
+ * on a query.
  */
-internal object DatabaseQueryAttributesExtractor : AttributesExtractor<DatabaseQuery, Void> {
+internal object DatabaseCallAttributesExtractor : AttributesExtractor<DatabaseCall, Void> {
 
-    override fun onStart(attributes: AttributesBuilder, parentContext: TraceContext, query: DatabaseQuery) {
-        val database = query.database
+    override fun onStart(attributes: AttributesBuilder, parentContext: TraceContext, call: DatabaseCall) {
+        val database = call.database
         attributes.put(DB_SYSTEM_NAME, database.systemName)
         database.namespace?.let { attributes.put(DB_NAMESPACE, it) }
         database.serverAddress?.let { attributes.put(SERVER_ADDRESS, it) }
         database.serverPort?.let { attributes.put(SERVER_PORT, it.toLong()) }
-        attributes.put(DB_QUERY_TEXT, query.statements.mapNotNull { it.queryText }.joinToString("; "))
-        query.summary?.let { attributes.put(DB_QUERY_SUMMARY, it) }
-        if (query.batchSize > 1) {
-            attributes.put(DB_OPERATION_BATCH_SIZE, query.batchSize.toLong())
+        if (call !is DatabaseQuery) return
+        attributes.put(DB_QUERY_TEXT, call.statements.mapNotNull { it.queryText }.joinToString("; "))
+        call.summary?.let { attributes.put(DB_QUERY_SUMMARY, it) }
+        if (call.batchSize > 1) {
+            attributes.put(DB_OPERATION_BATCH_SIZE, call.batchSize.toLong())
         }
     }
 
     override fun onEnd(
         attributes: AttributesBuilder,
         context: TraceContext,
-        query: DatabaseQuery,
+        call: DatabaseCall,
         response: Void?,
         error: Throwable?
     ) {

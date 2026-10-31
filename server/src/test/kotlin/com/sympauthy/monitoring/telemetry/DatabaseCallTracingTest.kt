@@ -23,9 +23,11 @@ import io.opentelemetry.semconv.DbAttributes.DB_RESPONSE_STATUS_CODE
 import io.opentelemetry.semconv.DbAttributes.DB_SYSTEM_NAME
 import io.opentelemetry.semconv.ErrorAttributes.ERROR_TYPE
 import io.opentelemetry.semconv.ServerAttributes.SERVER_ADDRESS
+import io.r2dbc.proxy.core.MethodExecutionInfo
 import io.r2dbc.proxy.core.QueryExecutionInfo
 import io.r2dbc.proxy.core.QueryInfo
 import io.r2dbc.proxy.core.ValueStore
+import io.r2dbc.spi.Connection
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.ConnectionFactoryOptions.DRIVER
 import io.r2dbc.spi.ConnectionFactoryOptions.HOST
@@ -39,13 +41,14 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CopyOnWriteArrayList
 
 @ExtendWith(MockKExtension::class)
-class QueryTracingTest {
+class DatabaseCallTracingTest {
 
     private val exported = CopyOnWriteArrayList<SpanData>()
 
@@ -66,7 +69,7 @@ class QueryTracingTest {
 
     private val tracer = openTelemetry.getTracer("test")
 
-    private val connectionFactory = QueryTracingConnectionFactoryFactory().connectionFactory(
+    private val connectionFactory = DatabaseCallTracingConnectionFactoryFactory().connectionFactory(
         ConnectionFactoryOptions.parse("r2dbc:h2:mem:///query-tracing-test?DB_CLOSE_DELAY=-1"),
         openTelemetry
     )
@@ -96,7 +99,10 @@ class QueryTracingTest {
         return exported.single { it.name == "GET /request" }
     }
 
-    private fun querySpans(): List<SpanData> = exported.filter { it.kind == SpanKind.CLIENT }
+    private fun querySpans(): List<SpanData> = exported.filter { it.attributes.get(DB_QUERY_TEXT) != null }
+
+    private fun roundTripSpans(): List<SpanData> =
+        exported.filter { it.kind == SpanKind.CLIENT && it.attributes.get(DB_QUERY_TEXT) == null }
 
     @Test
     fun `connectionFactory - Opens a client span for a query, under the span of the request that made it`() {
@@ -189,8 +195,8 @@ class QueryTracingTest {
 
     @Test
     fun `afterQuery - Ends as a failure a query cancelled before any result`() {
-        val listener = QueryTracingListener(
-            queryInstrumenter(openTelemetry),
+        val listener = DatabaseCallTracingListener(
+            databaseCallInstrumenter(openTelemetry),
             QueriedDatabase("h2database", "sympauthy", null, null)
         )
         val store = ValueStore.create()
@@ -242,6 +248,71 @@ class QueryTracingTest {
         assertEquals(failure.sqlState, query.attributes.get(DB_RESPONSE_STATUS_CODE))
         assertEquals(failure.sqlState, query.attributes.get(ERROR_TYPE))
     }
+
+    @Test
+    fun `connectionFactory - Opens a span for the connection a request waits for, ended before its first query`() {
+        val request = underRequest { execute("SELECT 1").block() }
+
+        val connect = roundTripSpans().single()
+        assertEquals("connect", connect.name)
+        assertEquals(request.spanContext.spanId, connect.parentSpanId)
+        assertEquals("h2database", connect.attributes.get(DB_SYSTEM_NAME))
+        assertEquals("query-tracing-test", connect.attributes.get(DB_NAMESPACE))
+        assertTrue(connect.endEpochNanos <= querySpans().single().startEpochNanos)
+    }
+
+    @Test
+    fun `connectionFactory - Opens a span for a transaction beginning and one for it committing`() {
+        val request = underRequest { inTransaction { it.commitTransaction() }.block() }
+
+        assertEquals(listOf("connect", "BEGIN", "COMMIT"), roundTripSpans().map(SpanData::getName))
+        assertTrue(roundTripSpans().all { it.parentSpanId == request.spanContext.spanId })
+    }
+
+    @Test
+    fun `connectionFactory - Opens a span for a transaction rolling back`() {
+        underRequest { inTransaction { it.rollbackTransaction() }.block() }
+
+        assertEquals(listOf("connect", "BEGIN", "ROLLBACK"), roundTripSpans().map(SpanData::getName))
+    }
+
+    @Test
+    fun `afterMethod - Ends the span of a round trip once, however many times it is reported`() {
+        val listener = DatabaseCallTracingListener(
+            databaseCallInstrumenter(openTelemetry),
+            QueriedDatabase("h2database", "sympauthy", null, null)
+        )
+        val store = ValueStore.create()
+        val execution = mockk<MethodExecutionInfo> {
+            every { method } returns Connection::class.java.getMethod("commitTransaction")
+            every { valueStore } returns store
+            every { thrown } returns null
+        }
+
+        val request = tracer.spanBuilder("GET /request").startSpan()
+        request.makeCurrent().use {
+            listener.beforeMethod(execution)
+            listener.afterMethod(execution)
+            listener.afterMethod(execution)
+        }
+        request.end()
+
+        assertEquals(1, roundTripSpans().size)
+    }
+
+    /**
+     * Begin a transaction, send one query in it, and end it as [end] does.
+     */
+    private fun inTransaction(end: (Connection) -> Publisher<Void>): Mono<Void> = Mono.usingWhen(
+        connectionFactory.create(),
+        { connection ->
+            Mono.from(connection.beginTransaction())
+                .thenMany(connection.createStatement("SELECT 1").execute())
+                .flatMap { it.rowsUpdated }
+                .then(Mono.from(end(connection)))
+        },
+        { it.close() }
+    )
 
     @Test
     fun `of - Names a PostgreSQL database by its host, port and name, and never its user`() {

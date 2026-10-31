@@ -13,6 +13,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics.SessionEnding.COMPLETED
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -21,6 +22,7 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.justRun
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -43,7 +45,8 @@ class InteractiveFlowEngineTest {
         purposeRegistry,
         sessionManager,
         provisionalAccountManager,
-        userSecurityContextManager
+        userSecurityContextManager,
+        CustomSpanTracer(OpenTelemetry.noop())
     )
 
     @Test

@@ -9,6 +9,7 @@ import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.GrantEntity
+import com.sympauthy.monitoring.telemetry.SpanReference
 import com.sympauthy.util.enumValueOfWireNameOrNull
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
@@ -33,6 +34,10 @@ class GrantMapper {
             authenticationDate = entity.authenticationDate,
             requestedClaims = mapRequestedClaims(entity),
             sessionId = entity.sessionId,
+            sessionStartedBy = SpanReference.ofOrNull(
+                entity.sessionStartedByTraceId,
+                entity.sessionStartedBySpanId
+            ),
             actorGrantId = entity.actorGrantId,
             creationDate = entity.creationDate,
             expirationDate = entity.expirationDate,

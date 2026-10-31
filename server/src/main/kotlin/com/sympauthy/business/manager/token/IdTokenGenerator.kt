@@ -19,6 +19,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -34,7 +35,8 @@ class IdTokenGenerator(
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
     @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -84,51 +86,53 @@ class IdTokenGenerator(
             return null
         }
 
-        val authConfig = uncheckedAuthConfig.orThrow()
-        val advancedConfig = uncheckedAdvancedConfig.orThrow()
+        return customSpanTracer.issueToken(CustomSpanTracer.ID_TOKEN) {
+            val authConfig = uncheckedAuthConfig.orThrow()
+            val advancedConfig = uncheckedAdvancedConfig.orThrow()
 
-        val publishedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
-            userId = userId,
-            audienceId = audience.id,
-            place = ClaimPublicationPlace.ID_TOKEN,
-            doors = doors,
-            requestedClaims = grant.requestedClaims
-        )
+            val publishedClaims = consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
+                userId = userId,
+                audienceId = audience.id,
+                place = ClaimPublicationPlace.ID_TOKEN,
+                doors = doors,
+                requestedClaims = grant.requestedClaims
+            )
 
-        val issueDate = LocalDateTime.now()
-        val expirationDate = grant.getTokenExpirationDate(issueDate.plus(authConfig.token.idExpiration))
-        val entity = AuthenticationTokenEntity(
-            type = AuthenticationTokenType.ID.name,
-            grantId = grant.id,
-            grantType = grantType.wireName,
-            issueDate = issueDate,
-            expirationDate = expirationDate
-        ).let { tokenRepository.save(it) }
+            val issueDate = LocalDateTime.now()
+            val expirationDate = grant.getTokenExpirationDate(issueDate.plus(authConfig.token.idExpiration))
+            val entity = AuthenticationTokenEntity(
+                type = AuthenticationTokenType.ID.name,
+                grantId = grant.id,
+                grantType = grantType.wireName,
+                issueDate = issueDate,
+                expirationDate = expirationDate
+            ).let { tokenRepository.save(it) }
 
-        val encodedToken = jwtManager.create(JwtManager.PUBLIC_KEY) {
-            entity.id?.toString()?.let(this::jwtID)
-            // Pretty weird but in OpenID spec, the audience is the client_id of the client which defer from OAuth2
-            // spec.
-            // https://openid.net/specs/openid-connect-basic-1_0.html#IDToken
-            audience(listOf(grant.clientId))
-            subject(generatedClaimsManager.computeSubject(userId))
-            issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
-            expirationDate?.let { expirationTime(Date.from(it.toInstant(ZoneOffset.UTC))) }
-            nonce?.let { claim("nonce", it) }
-            // Claimed on every id token rather than only where a client asked with `max_age`, which is the
-            // minimum OpenID Connect Core §2 allows: a resource server checking recency needs it in every
-            // token, and nothing about a person is disclosed by it.
-            grant.authenticationDate?.let {
-                claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
+            val encodedToken = jwtManager.create(JwtManager.PUBLIC_KEY) {
+                entity.id?.toString()?.let(this::jwtID)
+                // Pretty weird but in OpenID spec, the audience is the client_id of the client which defer from OAuth2
+                // spec.
+                // https://openid.net/specs/openid-connect-basic-1_0.html#IDToken
+                audience(listOf(grant.clientId))
+                subject(generatedClaimsManager.computeSubject(userId))
+                issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
+                expirationDate?.let { expirationTime(Date.from(it.toInstant(ZoneOffset.UTC))) }
+                nonce?.let { claim("nonce", it) }
+                // Claimed on every id token rather than only where a client asked with `max_age`, which is the
+                // minimum OpenID Connect Core §2 allows: a resource server checking recency needs it in every
+                // token, and nothing about a person is disclosed by it.
+                grant.authenticationDate?.let {
+                    claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
+                }
+                claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.token))
+                // Last, and against what this token has already claimed, so that nothing a deployment named
+                // after a member the token states about its own authorization displaces it.
+                publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
+                    claim(name, value)
+                }
             }
-            claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.token))
-            // Last, and against what this token has already claimed, so that nothing a deployment named
-            // after a member the token states about its own authorization displaces it.
-            publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
-                claim(name, value)
-            }
+
+            tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
         }
-
-        return tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
     }
 }

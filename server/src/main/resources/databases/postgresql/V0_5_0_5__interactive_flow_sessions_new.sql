@@ -28,6 +28,9 @@ CREATE TABLE interactive_flow_sessions
     error_description_id text,
     error_values         json,
 
+    started_by_trace_id  text,
+    started_by_span_id   text,
+
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );

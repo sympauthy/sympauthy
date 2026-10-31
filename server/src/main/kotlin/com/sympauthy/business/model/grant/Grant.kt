@@ -5,6 +5,7 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.monitoring.telemetry.SpanReference
 import java.time.LocalDateTime
 import java.util.*
 
@@ -84,9 +85,15 @@ data class Grant(
     val requestedClaims: RequestedClaims,
     /**
      * Identifier of the interactive flow session this grant came from, kept for diagnosis and as what lets a
-     * session open one grant only. Nothing reads it: the session is collected long before most grants end.
+     * session open one grant only. Only a trace reads it: the session is collected long before most grants end.
      */
     val sessionId: UUID?,
+    /**
+     * The span of the request that started the interactive flow session this grant came from, which every
+     * request redeeming or refreshing the grant links to. Null where that request was not traced, or where no
+     * session opened the grant.
+     */
+    val sessionStartedBy: SpanReference? = null,
     /**
      * Identifier of the grant of the token a token exchange (RFC 8693) was given — the acting client's own
      * `client_credentials` grant. Present on an act-as grant, null otherwise.

@@ -14,6 +14,7 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -55,6 +56,9 @@ class InteractiveFlowSessionManagerTest {
 
     @SpyK
     var flowMetrics = FlowMetrics(OpenTelemetry.noop())
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
 
     @InjectMockKs
     lateinit var interactiveFlowSessionManager: InteractiveFlowSessionManager
@@ -161,7 +165,10 @@ class InteractiveFlowSessionManagerTest {
         val sessionId = UUID.randomUUID()
         val jwt = DecodedJwt(id = null, subject = sessionId.toString(), keyId = null)
         val entity = mockk<InteractiveFlowSessionEntity>()
-        val session = mockk<OnGoingInteractiveFlowSession>()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { id } returns sessionId
+            every { startedBy } returns null
+        }
         coEvery {
             jwtManager.decodeAndVerifyOrNull(InteractiveFlowSessionManager.STATE_KEY_NAME, state)
         } returns jwt

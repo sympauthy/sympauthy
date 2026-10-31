@@ -26,6 +26,7 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.findMatching
+import com.sympauthy.monitoring.telemetry.SpanReference
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.wireName
@@ -217,6 +218,7 @@ open class GrantManager(
             authenticationDate = oauth2.authenticationDate,
             requestedClaims = oauth2.requestedClaims,
             sessionId = session.id,
+            sessionStartedBy = session.startedBy,
             actorGrantId = null
         )
     } catch (failure: Exception) {
@@ -315,7 +317,8 @@ open class GrantManager(
         requestedClaims: RequestedClaims,
         sessionId: UUID?,
         actorGrantId: UUID?,
-        latestExpirationDate: LocalDateTime? = null
+        latestExpirationDate: LocalDateTime? = null,
+        sessionStartedBy: SpanReference? = null
     ): Grant {
         userId?.let { userManager.checkPromoted(it) }
         val authConfig = uncheckedAuthConfig.orThrow()
@@ -336,6 +339,8 @@ open class GrantManager(
             requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
             requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             sessionId = sessionId,
+            sessionStartedByTraceId = sessionStartedBy?.traceId,
+            sessionStartedBySpanId = sessionStartedBy?.spanId,
             actorGrantId = actorGrantId,
             creationDate = creationDate,
             expirationDate = listOfNotNull(

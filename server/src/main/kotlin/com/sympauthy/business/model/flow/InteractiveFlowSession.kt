@@ -2,6 +2,7 @@ package com.sympauthy.business.model.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.Expirable
+import com.sympauthy.monitoring.telemetry.SpanReference
 import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
@@ -67,7 +68,13 @@ sealed class InteractiveFlowSession(
      */
     val flowId: String?,
 
-    override val expirationDate: LocalDateTime
+    override val expirationDate: LocalDateTime,
+
+    /**
+     * The span of the request that started the session, which every later request acting on it links to. Null
+     * where that request was not traced, and set once when the session is created.
+     */
+    val startedBy: SpanReference?
 ) : Expirable
 
 /**
@@ -80,6 +87,7 @@ class OnGoingInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
+    startedBy: SpanReference? = null,
 
     /**
      * When the user initiated the session.
@@ -152,7 +160,8 @@ class OnGoingInteractiveFlowSession(
     initiatingPurpose = initiatingPurpose,
     initiatingClientId = initiatingClientId,
     flowId = flowId,
-    expirationDate = expirationDate
+    expirationDate = expirationDate,
+    startedBy = startedBy
 ) {
     /**
      * True if the end-user has successfully completed the MFA step for this session.
@@ -173,6 +182,7 @@ class OnGoingInteractiveFlowSession(
         initiatingClientId = this.initiatingClientId,
         flowId = this.flowId,
         expirationDate = this.expirationDate,
+        startedBy = this.startedBy,
         sessionDate = this.sessionDate,
         version = version ?: this.version,
         userId = userId ?: this.userId,
@@ -198,6 +208,7 @@ class CompletedInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
+    startedBy: SpanReference? = null,
 
     /**
      * When the user initiated the session.
@@ -254,7 +265,8 @@ class CompletedInteractiveFlowSession(
     initiatingPurpose = initiatingPurpose,
     initiatingClientId = initiatingClientId,
     flowId = flowId,
-    expirationDate = expirationDate
+    expirationDate = expirationDate,
+    startedBy = startedBy
 )
 
 /**
@@ -267,6 +279,7 @@ class FailedInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
+    startedBy: SpanReference? = null,
 
     /**
      * Identifier of the message detailing, in a technical way, the error which caused this session to fail.
@@ -295,7 +308,8 @@ class FailedInteractiveFlowSession(
     initiatingPurpose = initiatingPurpose,
     initiatingClientId = initiatingClientId,
     flowId = flowId,
-    expirationDate = expirationDate
+    expirationDate = expirationDate,
+    startedBy = startedBy
 )
 
 /**
@@ -363,6 +377,7 @@ class CancelledInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
+    startedBy: SpanReference? = null,
 
     /**
      * The identifier of the user that had been authenticated when the session was cancelled.
@@ -398,7 +413,8 @@ class CancelledInteractiveFlowSession(
     initiatingPurpose = initiatingPurpose,
     initiatingClientId = initiatingClientId,
     flowId = flowId,
-    expirationDate = expirationDate
+    expirationDate = expirationDate,
+    startedBy = startedBy
 )
 
 /**

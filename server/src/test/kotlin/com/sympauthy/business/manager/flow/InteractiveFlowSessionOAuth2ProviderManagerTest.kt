@@ -33,6 +33,7 @@ import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.InMemoryMetrics
 import com.sympauthy.monitoring.telemetry.LockMetrics
 import com.sympauthy.monitoring.telemetry.attributes
@@ -119,6 +120,9 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
     @SpyK
     var authenticationMetrics = AuthenticationMetrics(metrics.openTelemetry)
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
 
     @SpyK
     @InjectMockKs

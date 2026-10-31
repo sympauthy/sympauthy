@@ -12,6 +12,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -43,7 +44,8 @@ open class InteractiveFlowEngine(
     @Inject private val purposeRegistry: InteractiveFlowPurposeRegistry,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val provisionalAccountManager: ProvisionalAccountManager,
-    @Inject private val userSecurityContextManager: UserSecurityContextManager
+    @Inject private val userSecurityContextManager: UserSecurityContextManager,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -60,11 +62,13 @@ open class InteractiveFlowEngine(
      * A failed session maps to [InteractiveFlowStep.Error] and a cancelled one to [InteractiveFlowStep.Cancel].
      * No terminal session re-runs any effect.
      */
-    suspend fun advance(session: InteractiveFlowSession): InteractiveFlowStepResult = when (session) {
-        is FailedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
-        is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, stepAfterCompletion(session))
-        is CancelledInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Cancel)
-        is OnGoingInteractiveFlowSession -> advanceOnGoing(session)
+    suspend fun advance(session: InteractiveFlowSession): InteractiveFlowStepResult = customSpanTracer.advanceFlow {
+        when (session) {
+            is FailedInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
+            is CompletedInteractiveFlowSession -> InteractiveFlowStepResult(session, stepAfterCompletion(session))
+            is CancelledInteractiveFlowSession -> InteractiveFlowStepResult(session, InteractiveFlowStep.Cancel)
+            is OnGoingInteractiveFlowSession -> advanceOnGoing(session)
+        }
     }
 
     private fun stepAfterCompletion(session: CompletedInteractiveFlowSession): InteractiveFlowStep {
@@ -96,19 +100,42 @@ open class InteractiveFlowEngine(
         var current = session
         var index = 0
         while (index < current.purposes.size) {
-            val purpose = current.purposes[index]
-            val handler = purposeRegistry.getForPurpose(purpose)
-            handler.nextStepOrNull(current)?.let { step ->
-                return InteractiveFlowStepResult(current, step)
+            when (val resolution = resolve(current, current.purposes[index])) {
+                is PurposeResolution.Step -> return InteractiveFlowStepResult(current, resolution.step)
+                is PurposeResolution.Resolved -> current = resolution.session
             }
-            // The purpose has resolved: mark it complete as the engine hands off, then insert the follow-up
-            // purposes it declares right after it. Completion is recorded one purpose at a time, even when a
-            // later purpose still yields a step and the session as a whole is not yet complete.
-            current = sessionManager.markPurposeAsCompleted(current, purpose)
-            current = insertFollowUpsAfter(current, purpose, handler)
             index++
         }
-        return complete(current)
+        return customSpanTracer.completeFlow { complete(current) }
+    }
+
+    /**
+     * Ask the handler of [purpose] for the step it still needs in [session], or, once it needs none, mark it
+     * complete and insert the follow-up purposes it declares right after it.
+     *
+     * Completion is recorded one purpose at a time as the engine hands off, even when a later purpose still yields
+     * a step and the session as a whole is not yet complete.
+     */
+    private suspend fun resolve(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose
+    ): PurposeResolution = customSpanTracer.resolvePurpose(purpose.metricName) {
+        val handler = purposeRegistry.getForPurpose(purpose)
+        val step = handler.nextStepOrNull(session)
+        if (step != null) {
+            PurposeResolution.Step(step)
+        } else {
+            val completed = sessionManager.markPurposeAsCompleted(session, purpose)
+            PurposeResolution.Resolved(insertFollowUpsAfter(completed, purpose, handler))
+        }
+    }
+
+    /**
+     * What resolving a purpose came to: the [Step] it still needs, or the session it [Resolved] into.
+     */
+    private sealed interface PurposeResolution {
+        class Step(val step: InteractiveFlowStep) : PurposeResolution
+        class Resolved(val session: OnGoingInteractiveFlowSession) : PurposeResolution
     }
 
     /**

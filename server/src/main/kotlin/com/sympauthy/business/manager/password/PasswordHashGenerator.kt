@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.password
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.server.Computation
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -18,7 +19,8 @@ import java.util.concurrent.ExecutorService
 class PasswordHashGenerator(
     @Inject @param:Computation private val executorService: ExecutorService,
     @Inject private val uncheckedAdvancedConfig: AdvancedConfig,
-    @Inject private val authenticationMetrics: AuthenticationMetrics
+    @Inject private val authenticationMetrics: AuthenticationMetrics,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
     /**
      * As the hashing is quite slow, we isolate them into their own dispatcher to avoid blocking the
@@ -28,19 +30,24 @@ class PasswordHashGenerator(
 
     /**
      * Hash [password] with [salt], recorded as a hash for [operation]: [CREATE] or [VERIFY].
+     *
+     * The span covers the wait for a thread reserved for hashing as well as the hash, which the metric times
+     * alone: the wait is what grows while passwords are being guessed.
      */
     suspend fun hash(password: String, salt: ByteArray, operation: String): ByteArray =
-        withContext(coroutineDispatcher) {
-            authenticationMetrics.measureHash(operation) {
-                val config = uncheckedAdvancedConfig.orThrow().hashConfig
-                SCrypt.generate(
-                    password.toByteArray(Charsets.UTF_16),
-                    salt,
-                    config.costParameter,
-                    config.blockSize,
-                    config.parallelizationParameter,
-                    config.keyLengthInBytes
-                )
+        customSpanTracer.hashPassword(operation) {
+            withContext(coroutineDispatcher) {
+                authenticationMetrics.measureHash(operation) {
+                    val config = uncheckedAdvancedConfig.orThrow().hashConfig
+                    SCrypt.generate(
+                        password.toByteArray(Charsets.UTF_16),
+                        salt,
+                        config.costParameter,
+                        config.blockSize,
+                        config.parallelizationParameter,
+                        config.keyLengthInBytes
+                    )
+                }
             }
         }
 

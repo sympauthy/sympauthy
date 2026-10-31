@@ -136,9 +136,23 @@ at WARN.
 **Traces ship off.** Ship `otel.traces.sampler: always_off`, and set it to nothing else in any file
 or environment the server ships: a span is a developer's, turned on in their own configuration.
 
-**A span the server opens itself starts only under a span already open.** A scheduled job's work
-has no request around it, and a root span there is a trace per run, per instance, for the life of
-the deployment. `QueryTracingListener` opens none for a query made outside a request.
+**A span the server opens itself starts only under a span already open.** A scheduled job's work has
+no request around it, and a root span there is a trace per run, per instance, for the life of the
+deployment. `DatabaseCallTracingListener`, `CustomSpanTracer` and `LibraryHttpCallTracer` open none
+outside a request.
+
+**A span of the server's own names a wait or a stage, and is opened through `CustomSpanTracer`.** A
+wait is time no other span measures that can be long or unbounded; a stage is a step the route does
+not name, whose queries and calls would otherwise read as one flat run. Add a method there per span,
+named after what the request waited on rather than after the method running it, and open none for
+work that is always short and the same length.
+
+**A call a library makes over a connection of its own is traced through `LibraryHttpCallTracer`**,
+beside its report to `RemoteCallMonitor`, so that it reads like a call the framework's client made.
+
+**The interactive flow session a request acts on is marked through
+`CustomSpanTracer.markFlowSession`**, where the request finds the session or the grant it opened. It
+sets `session.id` and the link on the request's own span, never on the stage the caller runs under.
 
 **An attribute holding a URL has its query redacted where the request's attributes are gathered.**
 An extractor added for another instrumenter replaces the query the way

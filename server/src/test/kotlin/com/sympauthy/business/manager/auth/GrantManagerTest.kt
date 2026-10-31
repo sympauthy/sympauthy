@@ -34,6 +34,7 @@ import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.SpanReference
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.data.exceptions.DataIntegrityViolationException
 import io.micronaut.data.exceptions.EntityExistsException
@@ -119,7 +120,10 @@ class GrantManagerTest {
         every { this@mockk.expirationDate } returns expirationDate
     }
 
-    private fun session(sessionId: UUID): InteractiveFlowSession = mockk { every { id } returns sessionId }
+    private fun session(sessionId: UUID, startedBy: SpanReference? = null): InteractiveFlowSession = mockk {
+        every { id } returns sessionId
+        every { this@mockk.startedBy } returns startedBy
+    }
 
     private fun oauth2(sessionId: UUID) = InteractiveFlowSessionOAuth2(
         sessionId = sessionId,
@@ -157,8 +161,11 @@ class GrantManagerTest {
             grantedBy = GrantedBy.AUTO
         )
         val saved = captureSave()
+        val startedBy = SpanReference("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
 
-        val grant = grantManager().createAuthorizationCodeGrant(session(sessionId), oauth2, userId, "audience")
+        val grant = grantManager().createAuthorizationCodeGrant(
+            session(sessionId, startedBy), oauth2, userId, "audience"
+        )
 
         assertEquals(userId, grant.userId)
         assertEquals("client", grant.clientId)
@@ -171,6 +178,7 @@ class GrantManagerTest {
         assertEquals(authenticationDate, grant.authenticationDate)
         assertEquals(oauth2.requestedClaims, grant.requestedClaims)
         assertEquals(sessionId, grant.sessionId)
+        assertEquals(startedBy, grant.sessionStartedBy)
         assertNull(grant.actorGrantId)
         assertEquals("authorization_code", saved.captured.grantType)
         assertArrayEquals(arrayOf("email"), saved.captured.requestedIdTokenClaims)
