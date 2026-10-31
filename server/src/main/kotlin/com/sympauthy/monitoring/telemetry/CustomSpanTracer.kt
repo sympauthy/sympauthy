@@ -61,6 +61,13 @@ class CustomSpanTracer(
         inSpan(VALIDATE_ACCESS_TOKEN, Attributes.of(SCHEME, scheme)) { block(StageSpan(it)) }
 
     /**
+     * Run [block] as the check of the signed state a flow request names its interactive flow session by. [block]
+     * says how it ended on the span it is handed.
+     */
+    suspend fun <T> validateState(block: suspend (StageSpan) -> T): T =
+        inSpan(VALIDATE_STATE) { block(StageSpan(it)) }
+
+    /**
      * Run [block] as the walk of an interactive flow session's purposes a flow request ends with.
      */
     suspend fun <T> advanceFlow(block: suspend () -> T): T = inSpan(ADVANCE_FLOW) { block() }
@@ -169,6 +176,7 @@ class CustomSpanTracer(
         const val LOAD_SIGNING_KEY = "load signing_key"
         const val GENERATE_SIGNING_KEY = "generate signing_key"
         const val VALIDATE_ACCESS_TOKEN = "validate access_token"
+        const val VALIDATE_STATE = "validate state"
         const val ADVANCE_FLOW = "advance flow"
         const val COMPLETE_FLOW = "complete flow"
         const val ESTABLISH_ACCOUNT = "establish account"

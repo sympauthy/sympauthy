@@ -21,14 +21,17 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.security.observedRequestOf
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.verify
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -60,6 +63,9 @@ class InteractiveAuthFlowSessionControllerUtilTest {
 
     @MockK(relaxed = true)
     lateinit var userSecurityContextManager: UserSecurityContextManager
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
 
     @InjectMockKs
     lateinit var util: InteractiveAuthFlowSessionControllerUtil

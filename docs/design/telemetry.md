@@ -334,6 +334,7 @@ URL's is. A request finding its signing key already held opens no span for it.
 | Span | What it covers |
 | --- | --- |
 | `validate access_token` | the check before every route of `/api/v1/client`, `/api/v1/user` and `/api/v1/admin`, carrying `scheme`, `outcome`, `error.type`, and `client_id` once found |
+| `validate state` | the check every `/api/v1/flow` request and a provider's callback make of the signed state: the session it names read, and where the request came from recorded, carrying `outcome` and `error.type` |
 | `advance flow` | the walk every `/api/v1/flow` request ends with |
 | `resolve <purpose>` | under it, each purpose the walk reaches, carrying `purpose` as the flow metrics spell it |
 | `complete flow` | the completion that ends the walk, so an authorization webhook reads as what it waited on |
