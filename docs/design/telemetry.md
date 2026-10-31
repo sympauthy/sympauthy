@@ -1,9 +1,10 @@
 # Telemetry
 
-What the server exports about itself to an OpenTelemetry collector: a span per request it serves,
-per call it makes and per query a request sends its database, the metrics that come with them and
-with the runtime, the metrics an authorization server is run by, and every log record stamped with
-the trace it was written under.
+What the server exports about itself to an OpenTelemetry collector: the metrics that come with the
+requests it serves, the calls it makes and the runtime, the metrics an authorization server is run
+by, every log record stamped with the trace it was written under, and — once a developer turns
+traces on — a span per request it serves, per call it makes and per query a request sends its
+database.
 All of it leaves through one SDK, over one exporter, to one collector a deployment names, and none
 of it leaves until one is named.
 
@@ -52,8 +53,10 @@ ships:
 - the protocol, `http/protobuf`, because it is the only one the server can send, while the SDK
   falls back to `grpc` when none is named and would then export nothing;
 - a metric export every ten seconds, rather than the SDK's minute;
+- traces turned off by the sampler, since a span is a developer's signal rather than an
+  operator's — see [Traces ship off](#traces-ship-off);
 - `/health.*` excluded from tracing, since a liveness probe every few seconds would otherwise be the
-  most-traced route in a deployment.
+  most-traced route in a deployment that turns traces on.
 
 ## Logs
 
@@ -156,7 +159,7 @@ is checked locally, and only the fetch of its key set is a call, `jwks`, which t
 outside the HTTP client the framework instruments.
 
 **The database is only a condition, and no metric times a query.** A query's span says how long it
-took; whether a histogram over every query earns its series is left open below.
+took, once traces are on; whether a histogram over every query earns its series is left open below.
 
 **A scheduled job's run ends `success`, `error`, or `skipped` where another instance holds its
 lease, and a failing run is reported rather than thrown.** Thrown, it ended in the default handler
@@ -216,9 +219,34 @@ wraps the exporters.
 
 ## Traces
 
-**A server span arrives per request, named by its route, with a client span under it per call to a
-provider or a webhook and per query sent to the database.** A request reads as one timeline, from
-its route down to every call and query it waited on.
+**Traces ship off, and a developer turns them on with one key.** Once on, a server span arrives per
+request, named by its route, with a client span under it per call to a provider or a webhook and per
+query sent to the database. A request reads as one timeline, from its route down to every call and
+query it waited on.
+
+### Traces ship off
+
+**A span is a developer's signal, so `application.yml` ships `otel.traces.sampler: always_off`.**
+A span says what one request waited on and in what order, which is what somebody changing the
+server asks. An operator runs it from aggregates, which the metrics and the log records already
+are. Under the shipped sampler every span the server would open is non-recording, the request's, a
+call's and a query's alike, so none reaches the SDK's queue — see [the design
+FAQ](design-faq.md#are-traces-shipped-on-and-what-turns-them-off).
+
+**A developer turns traces on with `otel.traces.sampler: parentbased_always_on`**, the SDK's own
+default, which [running locally](running-locally.md#watching-the-telemetry) writes beside the
+collector. A deployment that wants traces writes the same key, and pays for a span per request, per
+call and per query. Every rule below holds once they are on.
+
+**With traces off, a deployment loses the spans and nothing else.** The framework's instrumenters
+time a request whether its span is sampled or not, so every metric is recorded; what a histogram
+loses is its exemplar, which the SDK keeps only from a sampled span. A log record still carries a
+trace and a span id, which the SDK draws for a span it does not sample, so the lines one request
+wrote can still be read together. The collector's condition is unaffected, since a signal that
+exports nothing fails no export.
+
+**A caller's sampled trace does not turn them on.** `always_off` follows no parent, so a
+`traceparent` header anybody can send decides nothing an operator's server records.
 
 ### What a trace holds
 
@@ -425,12 +453,10 @@ upgrade.
 
 ### Traces
 
-**A sampling policy.** The SDK's default stands: a trace is sampled whenever its parent was, and
-always when it has none. A deployment that needs a ratio sets `otel.traces.sampler`.
-
-**Whether a trace context a client sends is trusted.** The SDK's default stands: a `traceparent`
-header makes the request's span the child of the caller's. On a server whose callers include the
-public, that is a choice to make rather than a default to inherit, and it has not been made.
+**Whether a trace context a client sends is trusted once traces are on.** The sampler a developer
+turns traces on with makes the request's span the child of the caller's whenever a `traceparent`
+header names one. On a server whose callers include the public, that is a choice for a deployment
+turning traces on to make rather than a default to inherit, and the server ships no answer to it.
 
 ---
 

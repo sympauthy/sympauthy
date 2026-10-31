@@ -174,20 +174,26 @@ backend. Start it before the server:
 docker run --rm -it -p 4318:4318 ymtdzzz/otel-tui:latest
 ```
 
-Then turn telemetry on in your configuration, and name it as the collector:
+Then turn telemetry on in your configuration, name it as the collector, and turn traces on:
 
 ```yaml
 micronaut:
   otel:
     enabled: true
 otel:
+  traces:
+    sampler: parentbased_always_on
   exporter:
     otlp:
       endpoint: http://localhost:4318
 ```
 
+**Traces ship off, so the sampler is the line that makes them appear.** Without it otel-tui shows
+the metrics and the log records and no span —
+[telemetry](telemetry.md#traces-ship-off) says why.
+
 **The rest is shipped in `application.yml`**: every signal exported over OTLP, the protocol, a
-metric export every ten seconds and `/health` left out of the traces —
+metric export every ten seconds, traces off and `/health` left out of them —
 [telemetry](telemetry.md#what-a-deployment-gets) says why.
 
 **Only port 4318 is published, because the server speaks `http/protobuf` alone.** The gRPC port
