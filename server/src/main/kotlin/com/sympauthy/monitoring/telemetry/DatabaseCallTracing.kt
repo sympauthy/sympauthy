@@ -115,7 +115,7 @@ internal class DatabaseCallTracingListener(
     }
 
     override fun beforeMethod(execution: MethodExecutionInfo) {
-        val operation = DatabaseRoundTrip.operationOf(execution.method.name) ?: return
+        val operation = DatabaseRoundTrip.operationOfOrNull(execution.method.name) ?: return
         val parent = requestContext(execution.valueStore) ?: return
         val roundTrip = DatabaseRoundTrip(database, operation)
         if (!instrumenter.shouldStart(parent, roundTrip)) return
@@ -130,7 +130,7 @@ internal class DatabaseCallTracingListener(
     override fun afterMethod(execution: MethodExecutionInfo) {
         val trace = execution.valueStore.get(DatabaseCallTrace::class.java, DatabaseCallTrace::class.java) ?: return
         execution.valueStore.remove(DatabaseCallTrace::class.java)
-        instrumenter.end(trace.context, trace.call, null, execution.thrown)
+        instrumenter.end(trace.context, trace.call, null, failureOf(execution, trace.call))
     }
 
     /**
@@ -158,7 +158,25 @@ internal class DatabaseCallTracingListener(
     private fun failureOf(execution: QueryExecutionInfo): Throwable? = execution.throwable
         ?: if (execution.isSuccess) null else CancellationException("The query was cancelled before any result.")
 
-    private fun TraceContext.hasSpan(): Boolean = Span.fromContext(this).spanContext.isValid
+    /**
+     * What ended the round trip [call] early, or `null` when it completed.
+     *
+     * A connection the caller stopped waiting for before it was handed one, as it does when its request times out,
+     * is reported as a failure. A transaction's round trip answers nothing either way, so only what it threw says
+     * it failed.
+     */
+    private fun failureOf(execution: MethodExecutionInfo, call: DatabaseCall): Throwable? = execution.thrown
+        ?: if (call.spanName == DatabaseRoundTrip.CONNECT && execution.result == null) {
+            CancellationException("The connection was cancelled before it was opened.")
+        } else {
+            null
+        }
+
+    /**
+     * Whether this context holds a span that is recorded: one that is not, as every request's is while traces are
+     * off, opens nothing under it.
+     */
+    private fun TraceContext.hasSpan(): Boolean = Span.fromContext(this).isRecording
 
     private class DatabaseCallTrace(val context: TraceContext, val call: DatabaseCall)
 }
@@ -243,7 +261,7 @@ internal class DatabaseRoundTrip(
          * The operation a call to the method [methodName] of a connection factory or a connection makes, or null
          * where that method is no round trip of its own.
          */
-        fun operationOf(methodName: String): String? = when (methodName) {
+        fun operationOfOrNull(methodName: String): String? = when (methodName) {
             "create" -> CONNECT
             "beginTransaction" -> BEGIN
             "commitTransaction" -> COMMIT

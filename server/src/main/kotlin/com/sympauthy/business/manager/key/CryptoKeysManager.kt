@@ -36,36 +36,34 @@ class CryptoKeysManager(
     private val heldKeys = ConcurrentHashMap<String, CryptoKeys>()
 
     /**
-     * The read of each key some request started, which every request waiting for that key awaits.
+     * The read of each key some request started and that has not settled yet, which every request waiting for that
+     * key awaits.
      */
-    private val keysMap = mutableMapOf<String, Single<CryptoKeys>>()
+    private val keysBeingRead = mutableMapOf<String, Single<CryptoKeys>>()
 
     /**
      * The key [name] names, read once and held from then on, and generated with [algorithm] where it does not
      * exist yet.
      *
      * A request finding the key held is answered at once; one that waits for it, reading it or waiting for another
-     * request already reading it, is traced as waiting.
+     * request already reading it, is traced as waiting. A read that fails is answered to the requests waiting on it
+     * and then forgotten, so that the next request reads the key again.
      */
     internal suspend fun getKey(name: String, algorithm: KeyAlgorithm): CryptoKeys {
         heldKeys[name]?.let { return it }
         return customSpanTracer.loadSigningKey(name) {
-            readingKey(name, algorithm).await().also { heldKeys[name] = it }
+            readingKey(name, algorithm).await()
         }
     }
 
     private fun readingKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
-        return synchronized(keysMap) {
-            // Synchronized check to see if it has not been created by another worker thread.
-            val existingKeySingle = keysMap[name]
-            if (existingKeySingle != null) {
-                existingKeySingle
-            } else {
-                // Otherwise create the single that will generate the key.
-                // Cache the key and store it into the map to be reused.
-                val newKeySingle = getOrGenerateKey(name, algorithm).cache()
-                keysMap[name] = newKeySingle
-                newKeySingle
+        return synchronized(keysBeingRead) {
+            // Synchronized check to see if it has not been started by another worker thread.
+            keysBeingRead.getOrPut(name) {
+                getOrGenerateKey(name, algorithm)
+                    .doOnSuccess { heldKeys[name] = it }
+                    .doOnTerminate { synchronized(keysBeingRead) { keysBeingRead.remove(name) } }
+                    .cache()
             }
         }
     }

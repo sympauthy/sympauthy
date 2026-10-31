@@ -18,6 +18,7 @@ class InteractiveFlowSessionTest {
         initiatingClientId = null,
         flowId = null,
         expirationDate = LocalDateTime.now().plusMinutes(5),
+        startedBy = null,
         sessionDate = LocalDateTime.now(),
         version = version,
         userId = null,

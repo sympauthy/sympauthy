@@ -11,7 +11,6 @@ import io.opentelemetry.api.trace.SpanContext
 import io.opentelemetry.api.trace.StatusCode
 import io.opentelemetry.api.trace.TraceFlags
 import io.opentelemetry.api.trace.TraceState
-import io.opentelemetry.context.Context
 import io.opentelemetry.instrumentation.api.instrumenter.LocalRootSpan
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -58,14 +57,14 @@ class CustomSpanTracer(
      * it ended on the span it is handed.
      */
     suspend fun <T> validateAccessToken(scheme: String, block: suspend (StageSpan) -> T): T =
-        inSpan(VALIDATE_ACCESS_TOKEN, Attributes.of(SCHEME, scheme)) { block(StageSpan(it)) }
+        inSpan(VALIDATE_ACCESS_TOKEN, Attributes.of(SCHEME, scheme)) { block(it) }
 
     /**
      * Run [block] as the check of the signed state a flow request names its interactive flow session by. [block]
      * says how it ended on the span it is handed.
      */
     suspend fun <T> validateState(block: suspend (StageSpan) -> T): T =
-        inSpan(VALIDATE_STATE) { block(StageSpan(it)) }
+        inSpan(VALIDATE_STATE) { block(it) }
 
     /**
      * Run [block] as the walk of an interactive flow session's purposes a flow request ends with.
@@ -88,7 +87,7 @@ class CustomSpanTracer(
      * the span it is handed whether it signed the person in or up.
      */
     suspend fun <T> establishAccount(providerId: String, block: suspend (StageSpan) -> T): T =
-        inSpan(ESTABLISH_ACCOUNT, Attributes.of(PROVIDER_ID, providerId)) { block(StageSpan(it)) }
+        inSpan(ESTABLISH_ACCOUNT, Attributes.of(PROVIDER_ID, providerId)) { block(it) }
 
     /**
      * Run [block] as the issue of one token of [token]'s type: [ACCESS_TOKEN], [REFRESH_TOKEN] or [ID_TOKEN].
@@ -100,30 +99,36 @@ class CustomSpanTracer(
      * end it once [block] returns or throws. [block] is handed the span, to add what it learns on the way.
      *
      * No span opens where the caller runs under none, as a scheduled job and the work at startup do, or under one
-     * that is not recorded, as every request is while traces are off: [block] is then handed an invalid span, which
-     * drops what is written to it.
+     * that is not recorded, as every request is while traces are off: [block] is then handed a span over an invalid
+     * one, which drops what is written to it.
      *
-     * What [block] queries, calls and opens is under the span, and so is what it logs.
+     * What [block] throws ends the span as an error, unless [block] said how the stage ended: a refusal the caller
+     * caused is then left to its `outcome`. What [block] queries, calls and opens is under the span, and so is what
+     * it logs.
      */
     internal suspend fun <T> inSpan(
         name: String,
         attributes: Attributes = Attributes.empty(),
-        block: suspend (Span) -> T
+        block: suspend (StageSpan) -> T
     ): T {
         val propagated = KotlinCoroutinePropagation.findPropagatedContext() ?: PropagatedContext.getOrEmpty()
-        val parent = propagated.traceContext()
-            ?.takeIf { Span.fromContext(it).isRecording }
-            ?: return block(Span.getInvalid())
-        val span = tracer.spanBuilder(name).setParent(parent).setAllAttributes(attributes).startSpan()
-        val child = propagated.plus(OpenTelemetryPropagationContext(parent.with(span)))
+        val element = propagated.traceElementOrNull()
+            ?.takeIf { Span.fromContext(it.context).isRecording }
+            ?: return block(StageSpan(Span.getInvalid()))
+        val span = tracer.spanBuilder(name).setParent(element.context).setAllAttributes(attributes).startSpan()
+        val stage = StageSpan(span)
+        // Replaced rather than added, so that a stage nested in another makes one scope current on each resume.
+        val child = propagated.replace(element, OpenTelemetryPropagationContext(element.context.with(span)))
         return try {
             withContext(KotlinCoroutinePropagation.addPropagatedContext(EmptyCoroutineContext, child)) {
-                block(span)
+                block(stage)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (@Suppress("TooGenericExceptionCaught") failure: Throwable) {
-            span.setStatus(StatusCode.ERROR)
+            if (stage.outcome == null) {
+                span.setStatus(StatusCode.ERROR)
+            }
             throw failure
         } finally {
             span.end()
@@ -134,7 +139,7 @@ class CustomSpanTracer(
      * The span of the request the caller serves, as a reference a session can keep, or null where that span is
      * not recorded: a link to it would lead nowhere.
      */
-    suspend fun requestSpanReference(): SpanReference? {
+    suspend fun requestSpanReferenceOrNull(): SpanReference? {
         val span = requestSpan() ?: return null
         return span.spanContext.takeIf { span.isRecording && it.isSampled }?.let(SpanReference::of)
     }
@@ -149,9 +154,10 @@ class CustomSpanTracer(
     suspend fun markFlowSession(sessionId: UUID, startedBy: SpanReference?) {
         val span = requestSpan()?.takeIf(Span::isRecording) ?: return
         span.setAttribute(SESSION_ID, sessionId.toString())
+        // Compared by its ids: the reference is rebuilt as a remote span, which the request's own never equals.
         startedBy
-            ?.toSpanContext()
-            ?.takeIf { it != span.spanContext }
+            ?.takeIf { it != SpanReference.of(span.spanContext) }
+            ?.toSpanContextOrNull()
             ?.let(span::addLink)
     }
 
@@ -161,13 +167,16 @@ class CustomSpanTracer(
      */
     private suspend fun requestSpan(): Span? {
         val propagated = KotlinCoroutinePropagation.findPropagatedContext() ?: PropagatedContext.getOrEmpty()
-        return propagated.traceContext()?.let(LocalRootSpan::fromContextOrNull)
+        return propagated.traceElementOrNull()?.context?.let(LocalRootSpan::fromContextOrNull)
     }
 
-    private fun PropagatedContext.traceContext(): Context? = find(OpenTelemetryPropagationContext::class.java)
-        .map(OpenTelemetryPropagationContext::context)
-        .orElse(null)
-        ?.takeIf { Span.fromContext(it).spanContext.isValid }
+    /**
+     * The trace this context carries, or null where it carries none with a span in it.
+     */
+    private fun PropagatedContext.traceElementOrNull(): OpenTelemetryPropagationContext? =
+        find(OpenTelemetryPropagationContext::class.java)
+            .orElse(null)
+            ?.takeIf { Span.fromContext(it.context).spanContext.isValid }
 
     companion object {
         private const val INSTRUMENTATION_SCOPE = "com.sympauthy.request"
@@ -206,11 +215,22 @@ class CustomSpanTracer(
     ) {
 
         /**
-         * Say how the stage ended, under `outcome` and `error.type`.
+         * How the stage said it ended, or null where it said nothing.
+         */
+        internal var outcome: Outcome? = null
+            private set
+
+        /**
+         * Say how the stage ended, under `outcome` and `error.type`. Only an [Outcome.Error] ends the span as an
+         * error: a refusal is the caller's doing, not the server's.
          */
         fun setOutcome(outcome: Outcome) {
+            this.outcome = outcome
             span.setAttribute(OUTCOME, outcome.value)
             outcome.errorType?.let { span.setAttribute(ERROR_TYPE, it) }
+            if (outcome is Outcome.Error) {
+                span.setStatus(StatusCode.ERROR)
+            }
         }
 
         /**
@@ -241,7 +261,7 @@ data class SpanReference(
      * The span this references, as a link names it: sampled, since only a recorded span is ever kept, and remote,
      * since the request that recorded it has ended.
      */
-    fun toSpanContext(): SpanContext? = SpanContext.createFromRemoteParent(
+    fun toSpanContextOrNull(): SpanContext? = SpanContext.createFromRemoteParent(
         traceId,
         spanId,
         TraceFlags.getSampled(),

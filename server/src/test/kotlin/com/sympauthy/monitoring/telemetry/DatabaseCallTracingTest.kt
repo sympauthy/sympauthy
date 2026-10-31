@@ -6,8 +6,11 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.opentelemetry.api.trace.Span
+import io.opentelemetry.api.trace.SpanContext
 import io.opentelemetry.api.trace.SpanKind
 import io.opentelemetry.api.trace.StatusCode
+import io.opentelemetry.api.trace.TraceFlags
+import io.opentelemetry.api.trace.TraceState
 import io.opentelemetry.context.Context
 import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.common.CompletableResultCode
@@ -28,6 +31,7 @@ import io.r2dbc.proxy.core.QueryExecutionInfo
 import io.r2dbc.proxy.core.QueryInfo
 import io.r2dbc.proxy.core.ValueStore
 import io.r2dbc.spi.Connection
+import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.ConnectionFactoryOptions.DRIVER
 import io.r2dbc.spi.ConnectionFactoryOptions.HOST
@@ -298,6 +302,43 @@ class DatabaseCallTracingTest {
         request.end()
 
         assertEquals(1, roundTripSpans().size)
+    }
+
+    @Test
+    fun `afterMethod - Ends as a failure a connection the caller stopped waiting for before it was opened`() {
+        val listener = DatabaseCallTracingListener(
+            databaseCallInstrumenter(openTelemetry),
+            QueriedDatabase("h2database", "sympauthy", null, null)
+        )
+        val store = ValueStore.create()
+        val execution = mockk<MethodExecutionInfo> {
+            every { method } returns ConnectionFactory::class.java.getMethod("create")
+            every { valueStore } returns store
+            every { thrown } returns null
+            every { result } returns null
+        }
+
+        val request = tracer.spanBuilder("GET /request").startSpan()
+        request.makeCurrent().use {
+            listener.beforeMethod(execution)
+            listener.afterMethod(execution)
+        }
+        request.end()
+
+        assertEquals(StatusCode.ERROR, roundTripSpans().single().status.statusCode)
+    }
+
+    @Test
+    fun `connectionFactory - Opens no round trip span under a request that is not recorded`() {
+        val unsampled = Span.wrap(
+            SpanContext.create(
+                "0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331", TraceFlags.getDefault(), TraceState.getDefault()
+            )
+        )
+
+        unsampled.makeCurrent().use { execute("SELECT 1").block() }
+
+        assertTrue(exported.isEmpty())
     }
 
     /**

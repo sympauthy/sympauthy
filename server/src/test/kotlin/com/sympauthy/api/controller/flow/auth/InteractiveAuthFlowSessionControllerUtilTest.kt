@@ -331,6 +331,7 @@ class InteractiveAuthFlowSessionControllerUtilTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.of(2026, 8, 31, 10, 0),
+        startedBy = null,
         errorDetailsId = errorDetailsId,
         errorDescriptionId = errorDescriptionId,
         errorValues = errorValues,

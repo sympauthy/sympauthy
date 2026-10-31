@@ -676,6 +676,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             initiatingClientId = null,
             flowId = "flow-id",
             expirationDate = LocalDateTime.now().plusHours(1),
+            startedBy = null,
             sessionDate = LocalDateTime.now(),
             userId = userId
         )

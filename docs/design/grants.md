@@ -253,12 +253,12 @@ deletes a grant only in the transaction deleting its tokens and its code, and a 
 some minutes after it expired, so a refresh that found its token unexpired a moment before, or an
 exchange its code, still finds the grant to write under.
 
-**A grant keeps the interactive flow session it came from, and only a trace reads it.** The session
-is collected long before most grants end, so the reference is left dangling by design: it is what
-the unique index keys a session's one grant on, and it lets somebody reading the store trace a grant
-back to its flow while that flow is still there. A token request under the grant carries it as
-`session.id`, linked to the span that started the session, which the grant keeps beside it — see
-[telemetry](telemetry.md#the-requests-of-one-flow-session).
+**A grant keeps the interactive flow session it came from.** The session is collected long before
+most grants end, so the reference is left dangling by design: it is what the unique index keys a
+session's one grant on, what the code a session handed back is found by, and it lets somebody
+reading the store trace a grant back to its flow while that flow is still there. A token request
+under the grant carries it as `session.id`, linked to the span that started the session, which the
+grant keeps beside it — see [telemetry](telemetry.md#the-requests-of-one-flow-session).
 
 ## What this document does not settle
 

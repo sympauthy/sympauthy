@@ -93,7 +93,8 @@ open class TokenRefreshManager(
      * The token is read again here rather than handed in, because the read made to find the account came
      * before the wait: a revocation committed during it is only seen by a read made after.
      *
-     * The request is marked as acting on the interactive flow session the token's grant came from, where one did.
+     * Once the grant is found to be the [client]'s, the request is marked as acting on the interactive flow session
+     * it came from, where one did.
      */
     internal suspend fun refreshHeldToken(
         client: Client,
@@ -102,8 +103,8 @@ open class TokenRefreshManager(
     ): IssuedTokens {
         val refreshToken = tokenManager.getAuthenticationToken(decodedToken)
         val grant = refreshToken.grant
-        grant.sessionId?.let { customSpanTracer.markFlowSession(it, grant.sessionStartedBy) }
         grantManager.checkOpenedFor(grant, client)
+        grant.sessionId?.let { customSpanTracer.markFlowSession(it, grant.sessionStartedBy) }
 
         dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
 

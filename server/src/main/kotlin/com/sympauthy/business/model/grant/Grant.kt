@@ -84,8 +84,9 @@ data class Grant(
      */
     val requestedClaims: RequestedClaims,
     /**
-     * Identifier of the interactive flow session this grant came from, kept for diagnosis and as what lets a
-     * session open one grant only. Only a trace reads it: the session is collected long before most grants end.
+     * Identifier of the interactive flow session this grant came from: what lets a session open one grant only,
+     * what the authorization code a session handed back is found by, and what a token request under the grant is
+     * traced with. The session is collected long before most grants end.
      */
     val sessionId: UUID?,
     /**

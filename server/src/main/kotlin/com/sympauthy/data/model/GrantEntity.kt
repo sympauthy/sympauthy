@@ -61,9 +61,9 @@ class GrantEntity(
     val requestedIdTokenClaims: Array<String> = emptyArray(),
     val requestedUserinfoClaims: Array<String> = emptyArray(),
     /**
-     * Identifier of the interactive flow session this grant came from, kept for diagnosis and read by
-     * nothing but a trace. There is no foreign key: the session is collected long before most grants end, so the
-     * reference is left dangling by design.
+     * Identifier of the interactive flow session this grant came from, which the code it handed back is found by
+     * and a token request under the grant is traced with. There is no foreign key: the session is collected long
+     * before most grants end, so the reference is left dangling by design.
      *
      * A session opens at most one grant, which a unique index over the column holds; a grant no session
      * opened holds null, which the index admits any number of.

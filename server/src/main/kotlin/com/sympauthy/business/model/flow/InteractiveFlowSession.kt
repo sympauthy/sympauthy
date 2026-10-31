@@ -87,7 +87,7 @@ class OnGoingInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
-    startedBy: SpanReference? = null,
+    startedBy: SpanReference?,
 
     /**
      * When the user initiated the session.
@@ -208,7 +208,7 @@ class CompletedInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
-    startedBy: SpanReference? = null,
+    startedBy: SpanReference?,
 
     /**
      * When the user initiated the session.
@@ -279,7 +279,7 @@ class FailedInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
-    startedBy: SpanReference? = null,
+    startedBy: SpanReference?,
 
     /**
      * Identifier of the message detailing, in a technical way, the error which caused this session to fail.
@@ -377,7 +377,7 @@ class CancelledInteractiveFlowSession(
     initiatingClientId: String?,
     flowId: String?,
     expirationDate: LocalDateTime,
-    startedBy: SpanReference? = null,
+    startedBy: SpanReference?,
 
     /**
      * The identifier of the user that had been authenticated when the session was cancelled.

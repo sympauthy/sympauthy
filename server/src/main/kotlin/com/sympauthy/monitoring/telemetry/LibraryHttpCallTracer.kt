@@ -1,10 +1,8 @@
 package com.sympauthy.monitoring.telemetry
 
 import io.opentelemetry.api.OpenTelemetry
-import io.opentelemetry.api.common.AttributesBuilder
 import io.opentelemetry.api.trace.Span
 import io.opentelemetry.context.Context
-import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter
 import io.opentelemetry.instrumentation.api.instrumenter.SpanKindExtractor
 import io.opentelemetry.instrumentation.api.semconv.http.HttpClientAttributesExtractor
@@ -18,7 +16,8 @@ import java.net.URL
  * Opens a client span by the HTTP semantic conventions for a `GET` a library makes over a connection of its own,
  * outside the HTTP client the framework traces, so that it reads like every other call the request made.
  *
- * Its query is redacted as every URL's is, after the extractor that sets it.
+ * Its query is redacted as every URL's is, after the extractor that sets it. A failure is recorded by its class
+ * alone: the JDK's own message names the URL it failed on, query included.
  */
 @Singleton
 class LibraryHttpCallTracer(
@@ -28,7 +27,7 @@ class LibraryHttpCallTracer(
     private val instrumenter: Instrumenter<URL, Int> =
         Instrumenter.builder<URL, Int>(openTelemetry, INSTRUMENTATION_SCOPE, HttpSpanNameExtractor.create(Getter))
             .addAttributesExtractor(HttpClientAttributesExtractor.create(Getter))
-            .addAttributesExtractor(QueryRedactingExtractor)
+            .addAttributesExtractor(QueryRedactingAttributesExtractor<URL, Int>())
             .setSpanStatusExtractor(HttpSpanStatusExtractor.create(Getter))
             .buildInstrumenter(SpanKindExtractor.alwaysClient())
 
@@ -37,18 +36,19 @@ class LibraryHttpCallTracer(
      * [statusOf] is read once [fetch] has returned or thrown, for the status the server answered with, or null
      * where it answered none.
      *
-     * No span opens where the thread runs under none. What [fetch] throws is rethrown.
+     * No span opens where the thread runs under a span that is not recorded, or under none. What [fetch] throws
+     * is rethrown as it was.
      */
     fun <T> get(url: URL, statusOf: () -> Int?, fetch: () -> T): T {
         val parent = Context.current()
-        if (!Span.fromContext(parent).spanContext.isValid || !instrumenter.shouldStart(parent, url)) {
+        if (!Span.fromContext(parent).isRecording || !instrumenter.shouldStart(parent, url)) {
             return fetch()
         }
         val context = instrumenter.start(parent, url)
         val result = try {
             context.makeCurrent().use { fetch() }
         } catch (@Suppress("TooGenericExceptionCaught") failure: Throwable) {
-            instrumenter.end(context, url, statusOf(), failure)
+            instrumenter.end(context, url, statusOf(), FailedFetch(failure))
             throw failure
         }
         instrumenter.end(context, url, statusOf(), null)
@@ -70,21 +70,17 @@ class LibraryHttpCallTracer(
         override fun getHttpResponseStatusCode(request: URL, response: Int?, error: Throwable?): Int? = response
 
         override fun getHttpResponseHeader(request: URL, response: Int?, name: String): List<String> = emptyList()
+
+        override fun getErrorType(request: URL, response: Int?, error: Throwable?): String? =
+            (error as? FailedFetch)?.failureClass
     }
 
-    private object QueryRedactingExtractor : AttributesExtractor<URL, Int> {
-
-        override fun onStart(attributes: AttributesBuilder, parentContext: Context, request: URL) {
-            redactQuery(attributes)
-        }
-
-        override fun onEnd(
-            attributes: AttributesBuilder,
-            context: Context,
-            request: URL,
-            response: Int?,
-            error: Throwable?
-        ) = Unit
+    /**
+     * What a fetch that failed is recorded with on its span: the class of the failure, without its message or its
+     * cause, either of which may name the URL.
+     */
+    private class FailedFetch(failure: Throwable) : Exception(failure.javaClass.name, null, false, false) {
+        val failureClass: String = failure.javaClass.name
     }
 
     private companion object {

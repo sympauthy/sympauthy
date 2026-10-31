@@ -139,6 +139,22 @@ class CustomSpanTracerTest {
     }
 
     @Test
+    fun `inSpan - Leaves a refusal the stage said it ended with to its outcome, rather than ending it as an error`() {
+        underRequest {
+            assertThrows<IllegalArgumentException> {
+                customSpanTracer.validateAccessToken("bearer") { span ->
+                    span.setOutcome(Outcome.Refused("invalid_token"))
+                    throw IllegalArgumentException("Expired.")
+                }
+            }
+        }
+
+        val validation = span(CustomSpanTracer.VALIDATE_ACCESS_TOKEN)
+        assertEquals(StatusCode.UNSET, validation.status.statusCode)
+        assertEquals("refused", validation.attributes.get(OUTCOME))
+    }
+
+    @Test
     fun `validateAccessToken - Carries the scheme, how the check ended, and the client once found`() {
         underRequest {
             customSpanTracer.validateAccessToken("dpop") { span ->
@@ -173,12 +189,25 @@ class CustomSpanTracerTest {
     }
 
     @Test
-    fun `requestSpanReference - References the request's own span from inside a stage`() {
+    fun `markFlowSession - Links no request to itself`() {
+        val sessionId = UUID.randomUUID()
+
+        val request = underRequest {
+            val startedBy = customSpanTracer.requestSpanReferenceOrNull()
+            customSpanTracer.markFlowSession(sessionId, startedBy)
+        }
+
+        assertEquals(sessionId.toString(), request.attributes.get(CustomSpanTracer.SESSION_ID))
+        assertTrue(request.links.isEmpty())
+    }
+
+    @Test
+    fun `requestSpanReferenceOrNull - References the request's own span from inside a stage`() {
         var reference: SpanReference? = null
 
         val request = underRequest {
             customSpanTracer.advanceFlow {
-                reference = customSpanTracer.requestSpanReference()
+                reference = customSpanTracer.requestSpanReferenceOrNull()
             }
         }
 
@@ -186,7 +215,7 @@ class CustomSpanTracerTest {
     }
 
     @Test
-    fun `requestSpanReference - References nothing outside any request`() = runTest {
-        assertNull(customSpanTracer.requestSpanReference())
+    fun `requestSpanReferenceOrNull - References nothing outside any request`() = runTest {
+        assertNull(customSpanTracer.requestSpanReferenceOrNull())
     }
 }

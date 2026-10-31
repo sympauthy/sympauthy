@@ -16,54 +16,47 @@ import io.opentelemetry.semconv.UrlAttributes.URL_QUERY
 import jakarta.inject.Singleton
 
 /**
- * Replaces the query string of every request this server serves with [REDACTED], in the attributes its span
- * and its metrics are both recorded from.
+ * Replaces the query string of a URL with [REDACTED], in the attributes a span and a metric are both recorded
+ * from, once the extractors ordered before it have set them.
  *
- * It is ordered last so that it reads what the framework's own extractor wrote, and it overwrites rather than
- * removes because the builder it is handed cannot remove an attribute once it is set. `docs/design/telemetry.md`
- * says why the query goes whole.
+ * It overwrites rather than removes because the builder it is handed cannot remove an attribute once it is set.
+ * `docs/design/telemetry.md` says why the query goes whole.
  */
-@Singleton
-@Requires(property = TELEMETRY_ENABLED, notEquals = "false")
-@Order(Ordered.LOWEST_PRECEDENCE)
-@MicronautHttpServerTelemetryFactory.Server
-class QueryRedactingHttpServerAttributesExtractor : AttributesExtractor<HttpRequest<*>, HttpResponse<*>> {
+open class QueryRedactingAttributesExtractor<REQUEST, RESPONSE> : AttributesExtractor<REQUEST, RESPONSE> {
 
-    override fun onStart(attributes: AttributesBuilder, parentContext: Context, request: HttpRequest<*>) {
+    override fun onStart(attributes: AttributesBuilder, parentContext: Context, request: REQUEST) {
         redactQuery(attributes)
     }
 
     override fun onEnd(
         attributes: AttributesBuilder,
         context: Context,
-        request: HttpRequest<*>,
-        response: HttpResponse<*>?,
+        request: REQUEST,
+        response: RESPONSE?,
         error: Throwable?
     ) = Unit
 }
 
 /**
- * Replaces the query string of every request this server sends with [REDACTED], in the attributes its span
- * and its metrics are both recorded from, on the terms of [QueryRedactingHttpServerAttributesExtractor].
+ * Replaces the query string of every request this server serves, ordered last so that it reads what the
+ * framework's own extractor wrote.
+ */
+@Singleton
+@Requires(property = TELEMETRY_ENABLED, notEquals = "false")
+@Order(Ordered.LOWEST_PRECEDENCE)
+@MicronautHttpServerTelemetryFactory.Server
+class QueryRedactingHttpServerAttributesExtractor : QueryRedactingAttributesExtractor<HttpRequest<*>, HttpResponse<*>>()
+
+/**
+ * Replaces the query string of every request this server sends, on the terms of
+ * [QueryRedactingHttpServerAttributesExtractor].
  */
 @Singleton
 @Requires(property = TELEMETRY_ENABLED, notEquals = "false")
 @Order(Ordered.LOWEST_PRECEDENCE)
 @MicronautHttpClientTelemetryFactory.Client
-class QueryRedactingHttpClientAttributesExtractor : AttributesExtractor<MutableHttpRequest<*>, HttpResponse<*>> {
-
-    override fun onStart(attributes: AttributesBuilder, parentContext: Context, request: MutableHttpRequest<*>) {
-        redactQuery(attributes)
-    }
-
-    override fun onEnd(
-        attributes: AttributesBuilder,
-        context: Context,
-        request: MutableHttpRequest<*>,
-        response: HttpResponse<*>?,
-        error: Throwable?
-    ) = Unit
-}
+class QueryRedactingHttpClientAttributesExtractor :
+    QueryRedactingAttributesExtractor<MutableHttpRequest<*>, HttpResponse<*>>()
 
 /**
  * What a query string is replaced with: the value OpenTelemetry's semantic conventions give a redacted one.

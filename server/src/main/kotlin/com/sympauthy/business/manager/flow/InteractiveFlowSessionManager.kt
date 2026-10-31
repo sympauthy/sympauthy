@@ -80,7 +80,7 @@ open class InteractiveFlowSessionManager(
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
-        val startedBy = customSpanTracer.requestSpanReference()
+        val startedBy = customSpanTracer.requestSpanReferenceOrNull()
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             initiatingPurpose = initiatingPurpose.name,

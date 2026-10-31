@@ -177,7 +177,6 @@ class TokenRefreshManagerTest {
         val grant = mockk<Grant> {
             every { userId } returns UUID.randomUUID()
             every { clientId } returns "non-matching-client-id"
-            every { sessionId } returns null
         }
         val refreshToken = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }
 
@@ -199,7 +198,6 @@ class TokenRefreshManagerTest {
         val grant = mockk<Grant> {
             every { userId } returns UUID.randomUUID()
             every { clientId } returns "test-client"
-            every { sessionId } returns null
             every { audienceId } returns "former-audience"
         }
         val refreshToken = mockk<AuthenticationToken> { every { this@mockk.grant } returns grant }

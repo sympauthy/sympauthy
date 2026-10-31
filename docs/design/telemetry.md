@@ -341,6 +341,10 @@ URL's is. A request finding its signing key already held opens no span for it.
 | `establish account` | deciding which account a provider's new identity is, carrying `provider_id` and `kind` |
 | `issue access_token`, `issue refresh_token`, `issue id_token` | one per token issued, whatever the grant, the id token's holding the claim reads it needs |
 
+**A stage a caller's mistake refused is not an error.** A token or a state refused carries `outcome`
+`refused` and the code it was refused with, and its span ends without the error status, which is
+kept for a failure of the server or a dependency — as `outcome` reads on every metric.
+
 **The tokens of one response are issued concurrently, and their spans are what say which token
 each query belongs to.** Without them, three tokens' queries overlap under one route.
 

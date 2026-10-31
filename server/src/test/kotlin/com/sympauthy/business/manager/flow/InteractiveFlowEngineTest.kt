@@ -604,6 +604,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         sessionDate = LocalDateTime.now(),
         userId = userId,
     )
@@ -615,6 +616,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         sessionDate = LocalDateTime.now(),
         userId = UUID.randomUUID(),
         completeDate = LocalDateTime.now(),
@@ -629,6 +631,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         userId = UUID.randomUUID(),
         redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
         successRedirectUri = URI.create("https://client.example.com/callback"),
@@ -643,6 +646,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         errorDetailsId = "error",
         errorDate = LocalDateTime.now(),
     )

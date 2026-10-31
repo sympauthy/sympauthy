@@ -253,6 +253,7 @@ open class GrantManager(
         authenticationDate = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
+        sessionStartedBy = null,
         actorGrantId = null
     )
 
@@ -288,6 +289,7 @@ open class GrantManager(
         authenticationDate = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
+        sessionStartedBy = null,
         actorGrantId = actorToken.grant.id,
         latestExpirationDate = actorToken.expirationDate
     )
@@ -316,9 +318,9 @@ open class GrantManager(
         authenticationDate: LocalDateTime?,
         requestedClaims: RequestedClaims,
         sessionId: UUID?,
+        sessionStartedBy: SpanReference?,
         actorGrantId: UUID?,
-        latestExpirationDate: LocalDateTime? = null,
-        sessionStartedBy: SpanReference? = null
+        latestExpirationDate: LocalDateTime? = null
     ): Grant {
         userId?.let { userManager.checkPromoted(it) }
         val authConfig = uncheckedAuthConfig.orThrow()

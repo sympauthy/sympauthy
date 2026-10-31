@@ -27,6 +27,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -123,6 +124,7 @@ class ProviderIdTokenManagerTest {
             assertEquals(503L, fetch.attributes.get(HTTP_RESPONSE_STATUS_CODE))
             assertEquals("503", fetch.attributes.get(ERROR_TYPE))
             assertEquals(server.url("/jwks").toString() + "?REDACTED", fetch.attributes.get(URL_FULL))
+            assertFalse(fetch.events.any { "tenant=a" in it.attributes.asMap().values.toString() })
         }
 
     /** OpenID Connect Core 1.0, appendix A.3. */
