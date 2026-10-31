@@ -24,8 +24,9 @@ set it to nothing else in any file or environment the server ships.
 condition the framework puts on its own, so that the server starts with the integration absent.
 
 **A setting that is the same for every deployment ships in `application.yml`.** The exporters, the
-protocol the one sender speaks, the metric export interval and the routes no trace is taken for are
-the server's to decide, so that a deployment's file names only the flag and the collector.
+protocol the one sender speaks, the metric export interval, the sampler and the routes no trace is
+taken for are the server's to decide, so that a deployment's file names only the flag and the
+collector.
 
 **Everything leaves through the one SDK the tracing module builds.** A library exporting through a
 client of its own — a Micrometer registry, a second OTLP exporter, a vendor's agent — is not
@@ -132,6 +133,9 @@ at WARN.
 
 ## Traces
 
+**Traces ship off.** Ship `otel.traces.sampler: always_off`, and set it to nothing else in any file
+or environment the server ships: a span is a developer's, turned on in their own configuration.
+
 **A span the server opens itself starts only under a span already open.** A scheduled job's work
 has no request around it, and a root span there is a trace per run, per instance, for the life of
 the deployment. `QueryTracingListener` opens none for a query made outside a request.
@@ -149,8 +153,8 @@ response twin and the client's empty; a deployment that names one owns what it c
 
 ## What this standard does not cover
 
-**Sampling.** The SDK's default stands, and nothing here constrains a deployment's
-`otel.traces.sampler`.
+**The sampler a deployment turns traces on with.** Nothing here constrains what a deployment writes
+under `otel.traces.sampler`.
 
 **A record of security events.** It is not telemetry, and nothing here governs its delivery.
 

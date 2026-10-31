@@ -85,6 +85,9 @@ endpoints:
 otel:
   traces:
     exporter: otlp
+    # Off because a span says what one request waited on, which is a developer's question; an operator
+    # reads the metrics and the log records, and would pay for every span without reading one.
+    sampler: always_off
   metrics:
     exporter: otlp
   logs:

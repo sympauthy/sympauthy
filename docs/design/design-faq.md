@@ -1585,6 +1585,37 @@ SDK that does nothing, under filters and an appender that still run. Micronaut's
 integration whole, so a server with telemetry off does no telemetry work at all, and every setting
 that is the same for every deployment can ship already set, leaving a deployment two keys to write.
 
+### Are traces shipped on, and what turns them off?
+
+**Decision:** Off. `application.yml` ships `otel.traces.sampler: always_off` beside the trace
+exporter, and a developer turns traces on with `otel.traces.sampler: parentbased_always_on`.
+
+**Options considered:**
+
+- **On, under the SDK's default sampler**, which samples every trace without a parent.
+- **A key of the server's own, gating only the spans the server opens itself.**
+- **`otel.traces.exporter: none`.**
+- **`micronaut.otel.enabled: false`.**
+- **`parentbased_always_off`**, which traces only a request whose caller sampled its trace.
+- **An exclusion per route, the way `/health` is excluded.**
+- **On, and filtered at the collector.**
+
+**Rationale:**
+
+A span says what one request waited on and in what order, and that is a question the people
+developing the server ask. An operator runs it from aggregates, which the metrics and the log
+records already are, and under the SDK's default every one of their servers built, queued and
+exported a span per request, per call and per query for nobody to read.
+
+The sampler is the one switch that stops a span being built. A key of the server's own would turn
+off the few spans the server opens and leave the request, call and query spans, which are most of a
+trace. With no exporter, the SDK still records every span and drops it only once it ends, and
+turning traces on would take two keys. The integration's own flag takes the metrics and the log
+records down with the spans. Following a sampled parent would let a header anybody can send decide
+what an operator's server records. An exclusion removes a route whole, and every route would have
+to be listed and kept listed. A filter at the collector is written by every deployment, after the
+server has paid for every span.
+
 ### Are the runtime metrics read through OpenTelemetry's runtime instrumentation?
 
 **Decision:** No. The server reads the heap pools, the threads, the CPU and each garbage collector
