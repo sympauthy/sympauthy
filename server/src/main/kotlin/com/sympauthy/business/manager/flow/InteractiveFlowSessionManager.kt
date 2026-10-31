@@ -14,6 +14,7 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics
 import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.nanosToSeconds
@@ -46,7 +47,8 @@ open class InteractiveFlowSessionManager(
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
     @Inject private val sessionMapper: InteractiveFlowSessionMapper,
     @Inject private val uncheckedAuthConfig: AuthConfig,
-    @Inject private val flowMetrics: FlowMetrics
+    @Inject private val flowMetrics: FlowMetrics,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -63,6 +65,9 @@ open class InteractiveFlowSessionManager(
      *
      * This method is not transactional on its own so it can participate in the caller's transaction (e.g.
      * to persist an attached record atomically with the session).
+     *
+     * The session keeps the span of the request starting it, where that request is traced, for every later request
+     * acting on it to link to.
      */
     suspend fun newSession(
         purposes: List<InteractiveFlowPurpose>,
@@ -75,6 +80,7 @@ open class InteractiveFlowSessionManager(
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
+        val startedBy = customSpanTracer.requestSpanReferenceOrNull()
         val entity = InteractiveFlowSessionEntity(
             purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
             initiatingPurpose = initiatingPurpose.name,
@@ -91,8 +97,12 @@ open class InteractiveFlowSessionManager(
             errorDetailsId = error?.detailsId,
             errorDescriptionId = error?.descriptionId,
             errorValues = error?.values,
+
+            startedByTraceId = startedBy?.traceId,
+            startedBySpanId = startedBy?.spanId,
         )
         sessionRepository.save(entity)
+        entity.id?.let { customSpanTracer.markFlowSession(it, startedBy = null) }
         flowMetrics.recordStarted(
             initiatingPurpose.metricName, initiatingClientId, error?.toOutcome() ?: Outcome.Success
         )
@@ -113,6 +123,8 @@ open class InteractiveFlowSessionManager(
      *
      * Note: This method does not check the status of the [InteractiveFlowSession] in order to let the
      * caller decide how to handle a completed or failed session.
+     *
+     * The request is marked as acting on the session it found, and linked to the request that started it.
      */
     suspend fun verifyEncodedInternalState(state: String?): VerifyEncodedStateResult {
         if (state.isNullOrBlank()) {
@@ -137,6 +149,7 @@ open class InteractiveFlowSessionManager(
             ?.let(sessionMapper::toInteractiveFlowSession)
 
         return if (session != null) {
+            customSpanTracer.markFlowSession(session.id, session.startedBy)
             SuccessVerifyEncodedStateResult(session)
         } else {
             FailedVerifyEncodedStateResult(
@@ -259,7 +272,8 @@ open class InteractiveFlowSessionManager(
             errorDetailsId = error.detailsId,
             errorDescriptionId = error.descriptionId,
             errorValues = error.values,
-            expirationDate = session.expirationDate
+            expirationDate = session.expirationDate,
+            startedBy = session.startedBy
         )
     }
 
@@ -300,6 +314,7 @@ open class InteractiveFlowSessionManager(
             initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
+            startedBy = session.startedBy,
             userId = session.userId,
             redirectType = redirectType,
             successRedirectUri = session.successRedirectUri,
@@ -387,6 +402,7 @@ open class InteractiveFlowSessionManager(
             initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
             expirationDate = session.expirationDate,
+            startedBy = session.startedBy,
             sessionDate = session.sessionDate,
             userId = userId,
             signedUp = session.signedUp,

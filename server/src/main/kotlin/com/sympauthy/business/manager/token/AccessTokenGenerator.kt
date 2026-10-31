@@ -18,6 +18,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -40,7 +41,8 @@ class AccessTokenGenerator(
     @Inject private val jwtManager: JwtManager,
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
-    @Inject private val uncheckedAuthConfig: AuthConfig
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -70,50 +72,52 @@ class AccessTokenGenerator(
         grantType: GrantType = grant.grantType,
         dpopJkt: String? = null
     ): EncodedAuthenticationToken {
-        val authConfig = uncheckedAuthConfig.orThrow()
-        val tokenAudience = audience.tokenAudience
+        return customSpanTracer.issueToken(CustomSpanTracer.ACCESS_TOKEN) {
+            val authConfig = uncheckedAuthConfig.orThrow()
+            val tokenAudience = audience.tokenAudience
 
-        val publishedClaims = publishedClaimsOf(grant, audience.id, doors)
+            val publishedClaims = publishedClaimsOf(grant, audience.id, doors)
 
-        val issueDate = LocalDateTime.now()
-        val expirationDate = grant.getTokenExpirationDate(issueDate.plus(authConfig.token.accessExpiration))
-        val entity = AuthenticationTokenEntity(
-            type = ACCESS.name,
-            grantId = grant.id,
-            grantType = grantType.wireName,
-            dpopJkt = dpopJkt,
-            issueDate = issueDate,
-            expirationDate = expirationDate
-        ).let { tokenRepository.save(it) }
+            val issueDate = LocalDateTime.now()
+            val expirationDate = grant.getTokenExpirationDate(issueDate.plus(authConfig.token.accessExpiration))
+            val entity = AuthenticationTokenEntity(
+                type = ACCESS.name,
+                grantId = grant.id,
+                grantType = grantType.wireName,
+                dpopJkt = dpopJkt,
+                issueDate = issueDate,
+                expirationDate = expirationDate
+            ).let { tokenRepository.save(it) }
 
-        val encodedToken = jwtManager.create(
-            name = JwtManager.ACCESS_KEY,
-            headers = mapOf("typ" to "at+jwt")
-        ) {
-            entity.id?.toString()?.let(this::jwtID)
-            audience(listOf(tokenAudience))
-            subject(grant.userId?.toString() ?: grant.clientId)
-            claim("client_id", grant.clientId)
-            claim("scope", grant.allScopes.joinToString(" "))
-            // RFC 9068 §2.2.1 puts it here so a resource server that is not this one can tell a password
-            // typed a minute ago from one typed a month ago, which `iat` cannot say across a refresh.
-            grant.authenticationDate?.let {
-                claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
+            val encodedToken = jwtManager.create(
+                name = JwtManager.ACCESS_KEY,
+                headers = mapOf("typ" to "at+jwt")
+            ) {
+                entity.id?.toString()?.let(this::jwtID)
+                audience(listOf(tokenAudience))
+                subject(grant.userId?.toString() ?: grant.clientId)
+                claim("client_id", grant.clientId)
+                claim("scope", grant.allScopes.joinToString(" "))
+                // RFC 9068 §2.2.1 puts it here so a resource server that is not this one can tell a password
+                // typed a minute ago from one typed a month ago, which `iat` cannot say across a refresh.
+                grant.authenticationDate?.let {
+                    claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
+                }
+                if (grant.grantType == GrantType.TOKEN_EXCHANGE) {
+                    claim("act", mapOf("sub" to grant.clientId))
+                }
+                dpopJkt?.let { claim("cnf", mapOf("jkt" to it)) }
+                issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
+                expirationDate?.let { expirationTime(Date.from(it.toInstant(ZoneOffset.UTC))) }
+                // Last, and against what this token has already claimed, so that nothing a deployment named
+                // after a member the token states about its own authorization displaces it.
+                publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
+                    claim(name, value)
+                }
             }
-            if (grant.grantType == GrantType.TOKEN_EXCHANGE) {
-                claim("act", mapOf("sub" to grant.clientId))
-            }
-            dpopJkt?.let { claim("cnf", mapOf("jkt" to it)) }
-            issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
-            expirationDate?.let { expirationTime(Date.from(it.toInstant(ZoneOffset.UTC))) }
-            // Last, and against what this token has already claimed, so that nothing a deployment named
-            // after a member the token states about its own authorization displaces it.
-            publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
-                claim(name, value)
-            }
+
+            tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
         }
-
-        return tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
     }
 
     /**

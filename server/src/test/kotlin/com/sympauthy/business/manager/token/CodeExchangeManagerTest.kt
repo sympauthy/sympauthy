@@ -25,6 +25,7 @@ import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.LockMetrics
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
@@ -86,6 +87,9 @@ class CodeExchangeManagerTest {
 
     @MockK
     lateinit var claimAclManager: ClaimAclManager
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
 
     @SpyK
     @InjectMockKs
@@ -324,7 +328,8 @@ class CodeExchangeManagerTest {
         val client = mockk<Client>()
         val code = mockCode()
         coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns code
-        coEvery { authorizationCodeManager.checkCanExchange(code, client) } returns (code to mockk<Grant>())
+        coEvery { authorizationCodeManager.checkCanExchange(code, client) } returns
+            (code to mockk<Grant> { every { sessionId } returns null })
         every {
             pkceManager.verifyCodeVerifier("wrong-verifier", "stored-challenge", CodeChallengeMethod.S256)
         } throws businessExceptionOf(detailsId = "token.pkce.invalid_code_verifier")
@@ -342,7 +347,7 @@ class CodeExchangeManagerTest {
     fun `exchange - Issues the tokens of the grant the code names, bound to the key`() = runTest {
         val client = mockk<Client>()
         val code = mockCode()
-        val grant = mockk<Grant>()
+        val grant = mockk<Grant> { every { sessionId } returns null }
         val tokens = IssuedTokens(mockk())
         coEvery { authorizationCodeManager.findByCodeOrNull("the-code") } returns code
         coEvery { authorizationCodeManager.checkCanExchange(code, client) } returns (code to grant)

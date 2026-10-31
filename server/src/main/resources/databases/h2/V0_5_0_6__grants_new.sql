@@ -18,6 +18,8 @@ CREATE TABLE grants
     requested_userinfo_claims text array NOT NULL DEFAULT ARRAY[],
 
     session_id                uuid,
+    session_started_by_trace_id text,
+    session_started_by_span_id  text,
     actor_grant_id            uuid,
 
     creation_date             timestamp NOT NULL,

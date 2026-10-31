@@ -18,6 +18,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -37,7 +38,8 @@ open class CodeExchangeManager(
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
-    @Inject private val claimAclManager: ClaimAclManager
+    @Inject private val claimAclManager: ClaimAclManager,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -46,6 +48,8 @@ open class CodeExchangeManager(
      *
      * Throws whatever [AuthorizationCodeManager.checkCanExchange] throws, then the failure of the PKCE
      * verification as `invalid_grant`, then whatever [exchangeCode] throws.
+     *
+     * The request is marked as acting on the interactive flow session the code's grant came from.
      */
     suspend fun exchange(
         client: Client,
@@ -55,6 +59,7 @@ open class CodeExchangeManager(
         val (code, grant) = authorizationCodeManager.checkCanExchange(
             authorizationCodeManager.findByCodeOrNull(request.code), client
         )
+        grant.sessionId?.let { customSpanTracer.markFlowSession(it, grant.sessionStartedBy) }
         withRefusalAs(INVALID_GRANT) {
             pkceManager.verifyCodeVerifier(
                 codeVerifier = request.codeVerifier,

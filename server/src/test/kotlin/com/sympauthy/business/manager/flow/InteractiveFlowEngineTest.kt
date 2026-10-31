@@ -13,6 +13,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics.SessionEnding.COMPLETED
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -21,6 +22,7 @@ import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.justRun
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -43,7 +45,8 @@ class InteractiveFlowEngineTest {
         purposeRegistry,
         sessionManager,
         provisionalAccountManager,
-        userSecurityContextManager
+        userSecurityContextManager,
+        CustomSpanTracer(OpenTelemetry.noop())
     )
 
     @Test
@@ -601,6 +604,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         sessionDate = LocalDateTime.now(),
         userId = userId,
     )
@@ -612,6 +616,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         sessionDate = LocalDateTime.now(),
         userId = UUID.randomUUID(),
         completeDate = LocalDateTime.now(),
@@ -626,6 +631,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         userId = UUID.randomUUID(),
         redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
         successRedirectUri = URI.create("https://client.example.com/callback"),
@@ -640,6 +646,7 @@ class InteractiveFlowEngineTest {
         initiatingClientId = null,
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
+        startedBy = null,
         errorDetailsId = "error",
         errorDate = LocalDateTime.now(),
     )

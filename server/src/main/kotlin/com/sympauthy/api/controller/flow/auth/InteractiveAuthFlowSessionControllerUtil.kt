@@ -21,6 +21,8 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.interactiveFlowSessionAlreadyCompletedExceptionOf
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.User
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.Outcome
 import io.micronaut.http.HttpStatus
 import io.micronaut.security.authentication.Authentication
 import jakarta.inject.Inject
@@ -47,7 +49,8 @@ class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
-    @Inject private val userSecurityContextManager: UserSecurityContextManager
+    @Inject private val userSecurityContextManager: UserSecurityContextManager,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -507,16 +510,25 @@ class InteractiveAuthFlowSessionControllerUtil(
     /**
      * Verify the [state], and record that the session it names was driven from [observedRequest] — after it
      * has verified, so a request naming no session writes nothing.
+     *
+     * Traced as the check of the state, so that the session's read and the record's write read apart from the
+     * route's own work. A state refused is `refused`, typed by the code it was refused with, and a failure the
+     * check could not answer ends it as an error.
      */
     private suspend fun verifyStateAndObserveRequest(
         state: String?,
         observedRequest: ObservedRequest
-    ): VerifyEncodedStateResult {
-        return sessionManager.verifyEncodedInternalState(state).also {
-            if (it is SuccessVerifyEncodedStateResult) {
-                observeIfStillDrivable(it.session, observedRequest)
+    ): VerifyEncodedStateResult = customSpanTracer.validateState { span ->
+        val result = sessionManager.verifyEncodedInternalState(state)
+        when (result) {
+            is SuccessVerifyEncodedStateResult -> {
+                observeIfStillDrivable(result.session, observedRequest)
+                span.setOutcome(Outcome.Success)
             }
+
+            is FailedVerifyEncodedStateResult -> span.setOutcome(Outcome.Refused(result.detailsId))
         }
+        result
     }
 
     /**

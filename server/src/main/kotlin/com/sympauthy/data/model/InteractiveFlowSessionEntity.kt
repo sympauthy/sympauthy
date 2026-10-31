@@ -52,6 +52,14 @@ class InteractiveFlowSessionEntity(
     val errorDescriptionId: String? = null,
     @MappedProperty(type = DataType.JSON)
     val errorValues: Map<String, String>? = null,
+
+    /**
+     * The trace and span id of the request that started the session, both set or both null: null where that
+     * request was not traced. Kept for every later request acting on the session to link to, and never written
+     * again.
+     */
+    val startedByTraceId: String? = null,
+    val startedBySpanId: String? = null,
 ) {
     @Id
     @GeneratedValue

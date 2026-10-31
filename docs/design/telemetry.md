@@ -3,8 +3,8 @@
 What the server exports about itself to an OpenTelemetry collector: the metrics that come with the
 requests it serves, the calls it makes and the runtime, the metrics an authorization server is run
 by, every log record stamped with the trace it was written under, and — once a developer turns
-traces on — a span per request it serves, per call it makes and per query a request sends its
-database.
+traces on — a span per request it serves, per call it makes, per query a request sends its
+database, and per wait and stage of a request its route does not name.
 All of it leaves through one SDK, over one exporter, to one collector a deployment names, and none
 of it leaves until one is named.
 
@@ -221,8 +221,10 @@ wraps the exporters.
 
 **Traces ship off, and a developer turns them on with one key.** Once on, a server span arrives per
 request, named by its route, with a client span under it per call to a provider or a webhook and per
-query sent to the database. A request reads as one timeline, from its route down to every call and
-query it waited on.
+query sent to the database, and a span of the server's own wherever the request waited on something
+no other span measures or passed a stage its route does not name. A request reads as one timeline,
+from its route down to every call and query it waited on, and the requests one sign-in is made of
+can be found together.
 
 ### Traces ship off
 
@@ -291,8 +293,78 @@ of its own, and its outcome is the startup log's.
 
 **A deployment turns database spans off alone with `otel.instrumentation.r2dbc.enabled: false`**,
 the key OpenTelemetry's own R2DBC instrumentation is turned off by, and keeps the rest of the
-telemetry on. With telemetry off, nothing stands between a repository and its driver, as nothing
-stands in front of a request. The database's condition is reported alike, telemetry on or off.
+telemetry on. The connection and transaction spans below are database spans too, and go with them.
+With telemetry off, nothing stands between a repository and its driver, as nothing stands in front
+of a request. The database's condition is reported alike, telemetry on or off.
+
+### What a request waited on, and the stages it passed
+
+**A span of the server's own names a wait no other span measures, or a stage its route cannot tell,
+and nothing else.** Between a request's queries and calls are gaps where most of its time can go,
+and a run of twenty queries under one route says nothing of which purpose made which. A span per
+method would bury those under a tree of spans taking no time, each costing about what its method
+does — see [the design
+FAQ](design-faq.md#is-a-span-opened-per-method-or-where-a-request-waits). Work that is always short
+and the same length, signing a token or evaluating a rule, is left to the gap it leaves.
+
+**Every such span opens only under a request's span, and only while that span is recorded.** A job,
+the work at startup and the mail queue's sends open none, as a query outside a request opens none;
+with traces off, the work runs as it would with no tracing at all.
+
+**The waits are the time a request spends that can be long or unbounded:**
+
+| Span | What it covers |
+| --- | --- |
+| `hash password` | the queue for the threads reserved for hashing, and the scrypt; `operation` is `create` or `verify` |
+| `connect` | the connection a transaction or a query waits for |
+| `BEGIN`, `COMMIT`, `ROLLBACK` | a transaction's round trips that are not statements; a PostgreSQL commit waits for the disk |
+| `GET` | the fetch of a provider's key set, which the JWT library makes outside the framework's HTTP client |
+| `load signing_key` | a request waiting for a key the server has not read since it started, with `generate signing_key` under it when the key does not exist yet |
+
+**`hash password` is where the queue shows.** `sympauthy.password.hash.duration` times the
+computation alone, so under a burst of sign-ins the span grows past the metric, and the difference
+is the wait for a thread.
+
+**The database's round trips carry what a query's span carries**, and a failure its SQL state;
+the key set's fetch carries what the HTTP semantic conventions name, its query redacted as every
+URL's is. A request finding its signing key already held opens no span for it.
+
+**The stages are steps a request goes through that its route does not name:**
+
+| Span | What it covers |
+| --- | --- |
+| `validate access_token` | the check before every route of `/api/v1/client`, `/api/v1/user` and `/api/v1/admin`, carrying `scheme`, `outcome`, `error.type`, and `client_id` once found |
+| `validate state` | the check every `/api/v1/flow` request and a provider's callback make of the signed state: the session it names read, and where the request came from recorded, carrying `outcome` and `error.type` |
+| `advance flow` | the walk every `/api/v1/flow` request ends with |
+| `resolve <purpose>` | under it, each purpose the walk reaches, carrying `purpose` as the flow metrics spell it |
+| `complete flow` | the completion that ends the walk, so an authorization webhook reads as what it waited on |
+| `establish account` | deciding which account a provider's new identity is, carrying `provider_id` and `kind` |
+| `issue access_token`, `issue refresh_token`, `issue id_token` | one per token issued, whatever the grant, the id token's holding the claim reads it needs |
+
+**A stage a caller's mistake refused is not an error.** A token or a state refused carries `outcome`
+`refused` and the code it was refused with, and its span ends without the error status, which is
+kept for a failure of the server or a dependency — as `outcome` reads on every metric.
+
+**The tokens of one response are issued concurrently, and their spans are what say which token
+each query belongs to.** Without them, three tokens' queries overlap under one route.
+
+### The requests of one flow session
+
+**Every request acting on an interactive flow session carries `session.id` on its own span**: the
+request starting the session, each flow request, a provider's callback, the client's token request
+redeeming the session's code, and each refresh of the grant the session opened. One search on the
+session's id returns a sign-in from the authorization request to its tokens, in order. The id is an
+identifier and not a credential: the signed state is what holds the session.
+
+**Each of them links to the span of the request that started the session.** The session keeps that
+span's trace and span id, and the grant it opens [keeps a
+copy](design-faq.md#does-the-grant-keep-the-span-that-started-its-session), so that a refresh made
+long after the session was collected still links. A session started while its request was not
+recorded keeps none. A trace per request rather than one trace for the session is [the design
+FAQ](design-faq.md#is-a-flow-session-one-trace-or-a-trace-per-request-linked-to-the-first)'s.
+
+**The attribute and the link are set on the request's server span**, never on the stage the code
+setting them runs under, so that a search lands on the request.
 
 ### What a span carries
 
@@ -342,11 +414,11 @@ after the framework's own, and they overwrite rather than remove because the bui
 are handed cannot remove an attribute once it is set.
 
 **A query is traced by an instrumenter of the server's own, over r2dbc-proxy.**
-`QueryTracingConnectionFactoryFactory` replaces the framework's connection factory, under the flag
-and `otel.instrumentation.r2dbc.enabled`, with the driver's factory behind a proxy that calls back
-before and after each query. The span is opened through OpenTelemetry's instrumentation API, and the
-statement replaced by OpenTelemetry's own SQL analyzer. Neither Micronaut's R2DBC tracing module nor
-OpenTelemetry's R2DBC library is used — see [the design
+`DatabaseCallTracingConnectionFactoryFactory` replaces the framework's connection factory, under the
+flag and `otel.instrumentation.r2dbc.enabled`, with the driver's factory behind a proxy that calls
+back before and after each query. The span is opened through OpenTelemetry's instrumentation API,
+and the statement replaced by OpenTelemetry's own SQL analyzer. Neither Micronaut's R2DBC tracing
+module nor OpenTelemetry's R2DBC library is used — see [the design
 FAQ](design-faq.md#are-database-spans-opentelemetrys-r2dbc-instrumentation-or-the-servers-own). The
 migration's data source is built from the driver's factory, which `driverConnectionFactory` reads
 through every factory wrapped in front of it.
@@ -354,6 +426,19 @@ through every factory wrapped in front of it.
 **A query reads its trace from the propagated context the reactive chain carries**, which is its
 request's, and from the thread it is sent from only where the chain carries none. On PostgreSQL that
 thread may be one of the driver's event loops, which holds no trace at all.
+
+**A connection being opened and a transaction beginning or ending are traced by the same
+listener**, from the proxy's callbacks around the factory's and the connection's methods, under the
+same instrumenter and the same attributes as a query.
+
+**Every other span of the server's own is opened through `CustomSpanTracer`**, in
+`monitoring/telemetry/` beside the instruments, one method per span so that its name and its
+attributes are written once. It opens a span as a child of the request's, carried on the propagated
+context the coroutine holds, so that what the stage queries and calls is under it; it marks a flow
+session on the request's local root span. The key set's fetch is opened by `LibraryHttpCallTracer`,
+on the thread the library fetches on, with the HTTP semantic conventions' own extractors. Neither is
+the framework's span annotations, which reach no private method and no call a library makes on its
+own thread.
 
 ## When the collector does not answer
 

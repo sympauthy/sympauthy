@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.password
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -26,6 +27,9 @@ class PasswordHashGeneratorTest {
 
     @SpyK
     var authenticationMetrics = AuthenticationMetrics(OpenTelemetry.noop())
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
 
     @InjectMockKs
     lateinit var generator: PasswordHashGenerator

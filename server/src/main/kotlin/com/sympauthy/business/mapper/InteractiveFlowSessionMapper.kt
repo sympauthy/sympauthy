@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.flow.*
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import com.sympauthy.monitoring.telemetry.SpanReference
 import jakarta.inject.Singleton
 import java.net.URI
 import java.time.LocalDateTime
@@ -34,6 +35,7 @@ class InteractiveFlowSessionMapper {
             initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
+            startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
             sessionDate = entity.sessionDate,
             version = entity.version,
             userId = entity.userId,
@@ -54,6 +56,7 @@ class InteractiveFlowSessionMapper {
             initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
+            startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
             sessionDate = entity.sessionDate,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
             signedUp = entity.signedUp,
@@ -76,6 +79,7 @@ class InteractiveFlowSessionMapper {
             initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
+            startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
             userId = entity.userId,
             redirectType = redirectType(entity.redirectType)
                 ?: throw invalidBusinessException("redirectType"),
@@ -93,6 +97,7 @@ class InteractiveFlowSessionMapper {
             initiatingClientId = entity.initiatingClientId,
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
+            startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
             errorDetailsId = entity.errorDetailsId ?: throw invalidBusinessException("errorDetailsId"),
             errorDescriptionId = entity.errorDescriptionId,
             errorValues = entity.errorValues,
@@ -112,6 +117,7 @@ class InteractiveFlowSessionMapper {
             errorDescriptionId = expired.descriptionId,
             errorValues = expired.values,
             expirationDate = entity.expirationDate,
+            startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
             errorDate = entity.expirationDate,
         )
     }

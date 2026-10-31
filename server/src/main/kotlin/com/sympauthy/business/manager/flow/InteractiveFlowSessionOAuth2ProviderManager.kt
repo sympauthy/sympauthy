@@ -38,6 +38,7 @@ import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PROVIDER
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI
@@ -74,7 +75,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     @Inject private val lockManager: LockManager,
     @Inject private val uncheckedAuthConfig: AuthConfig,
     @Inject private val remoteCallMonitor: RemoteCallMonitor,
-    @Inject private val authenticationMetrics: AuthenticationMetrics
+    @Inject private val authenticationMetrics: AuthenticationMetrics,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     private val logger = loggerForClass()
@@ -246,7 +248,10 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
 
         val (userId, signedUp) = if (existingUserInfo == null) {
             declareKind(SIGN_UP)
-            val establishment = establisher.establishNewProviderUser(session, provider, rawUserInfo)
+            val establishment = customSpanTracer.establishAccount(provider.id) { span ->
+                establisher.establishNewProviderUser(session, provider, rawUserInfo)
+                    .also { span.setKind(if (it.signedUp) SIGN_UP else SIGN_IN) }
+            }
             // Resolved to an account that already held the asserted identity, rather than creating one.
             if (!establishment.signedUp) declareKind(SIGN_IN)
             establishment.userId to establishment.signedUp

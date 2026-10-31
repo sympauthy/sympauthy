@@ -26,6 +26,7 @@ import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.LockMetrics
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
@@ -95,6 +96,9 @@ class TokenRefreshManagerTest {
     lateinit var claimAclManager: ClaimAclManager
 
     @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
+
+    @SpyK
     @InjectMockKs
     lateinit var manager: TokenRefreshManager
 
@@ -103,6 +107,7 @@ class TokenRefreshManagerTest {
             every { this@mockk.clientId } returns clientId
             every { this@mockk.userId } returns userId
             every { audienceId } returns "test-audience"
+            every { sessionId } returns null
         }
         return mockk {
             every { this@mockk.grant } returns grant

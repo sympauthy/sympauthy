@@ -19,6 +19,7 @@ import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -39,7 +40,8 @@ open class TokenRefreshManager(
     @Inject private val accessTokenGenerator: AccessTokenGenerator,
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
-    @Inject private val claimAclManager: ClaimAclManager
+    @Inject private val claimAclManager: ClaimAclManager,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
     /**
@@ -90,6 +92,9 @@ open class TokenRefreshManager(
      *
      * The token is read again here rather than handed in, because the read made to find the account came
      * before the wait: a revocation committed during it is only seen by a read made after.
+     *
+     * Once the grant is found to be the [client]'s, the request is marked as acting on the interactive flow session
+     * it came from, where one did.
      */
     internal suspend fun refreshHeldToken(
         client: Client,
@@ -99,6 +104,7 @@ open class TokenRefreshManager(
         val refreshToken = tokenManager.getAuthenticationToken(decodedToken)
         val grant = refreshToken.grant
         grantManager.checkOpenedFor(grant, client)
+        grant.sessionId?.let { customSpanTracer.markFlowSession(it, grant.sessionStartedBy) }
 
         dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
 

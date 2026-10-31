@@ -26,6 +26,7 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.findMatching
+import com.sympauthy.monitoring.telemetry.SpanReference
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.wireName
@@ -217,6 +218,7 @@ open class GrantManager(
             authenticationDate = oauth2.authenticationDate,
             requestedClaims = oauth2.requestedClaims,
             sessionId = session.id,
+            sessionStartedBy = session.startedBy,
             actorGrantId = null
         )
     } catch (failure: Exception) {
@@ -251,6 +253,7 @@ open class GrantManager(
         authenticationDate = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
+        sessionStartedBy = null,
         actorGrantId = null
     )
 
@@ -286,6 +289,7 @@ open class GrantManager(
         authenticationDate = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
+        sessionStartedBy = null,
         actorGrantId = actorToken.grant.id,
         latestExpirationDate = actorToken.expirationDate
     )
@@ -314,6 +318,7 @@ open class GrantManager(
         authenticationDate: LocalDateTime?,
         requestedClaims: RequestedClaims,
         sessionId: UUID?,
+        sessionStartedBy: SpanReference?,
         actorGrantId: UUID?,
         latestExpirationDate: LocalDateTime? = null
     ): Grant {
@@ -336,6 +341,8 @@ open class GrantManager(
             requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
             requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             sessionId = sessionId,
+            sessionStartedByTraceId = sessionStartedBy?.traceId,
+            sessionStartedBySpanId = sessionStartedBy?.spanId,
             actorGrantId = actorGrantId,
             creationDate = creationDate,
             expirationDate = listOfNotNull(

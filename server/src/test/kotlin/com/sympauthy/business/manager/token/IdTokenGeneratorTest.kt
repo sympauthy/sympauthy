@@ -35,14 +35,17 @@ import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -80,6 +83,9 @@ class IdTokenGeneratorTest {
 
     @MockK
     lateinit var uncheckedAuthConfig: EnabledAuthConfig
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
 
     @InjectMockKs
     lateinit var generator: IdTokenGenerator

@@ -1829,6 +1829,65 @@ query writes, and nothing guarantees that every literal the next query writes is
 token's hash, an email address and a claim's value are what a query compares against. Replaced, it
 says nothing the server's source does not, and still says which query it was.
 
+### Is a span opened per method, or where a request waits?
+
+**Decision:** A span where a request waits on something no other span measures, or passes a stage
+its route does not name, opened by the server's own code, and none anywhere else.
+
+**Options considered:**
+
+- **A span per public method of every manager.**
+- **A span for the manager method a controller calls.**
+- **The framework's span annotations** on the methods worth one.
+- **A span per wait and per stage**, named after what the request waited on.
+
+**Rationale:**
+
+Managers call each other, so a span per method turns a sign-in into a deep tree of spans that take
+no time, and most methods take microseconds, about what their span costs. The method a controller
+calls is almost always the route, which the server span already names. The annotations need a proxy,
+so a private method or a call within one class gets no span, and they cannot reach a call a library
+makes on its own thread, which is where a provider's key set is fetched; a span would also be named
+after a method rather than after what the request waited on. Naming the waits and the stages leaves
+the gaps a trace actually has, and work that is always short is left to the gap it leaves until a
+trace shows it is worth a span.
+
+### Is a flow session one trace, or a trace per request linked to the first?
+
+**Decision:** A trace per request, each carrying the session's id and linking to the span of the
+request that started the session.
+
+**Options considered:**
+
+- **One trace for the whole session**, each request's span a child of the request that started it.
+- **A trace per request, linked to the first.**
+
+**Rationale:**
+
+One trace would last as long as the session, for minutes or for as long as a tab is left open, and a
+collector's tail sampling and a backend's trace windows assume seconds. The parent would have to be
+known when the request's span opens, before any route has read the session. The client's token
+request arrives with its own trace context and no state, so the last step would split off anyway. A
+link is how OpenTelemetry says that two traces tell one story, and the id makes the whole session
+one search.
+
+### Does the grant keep the span that started its session?
+
+**Decision:** Yes. The grant a session opens keeps a copy of the trace and span id the session kept.
+
+**Options considered:**
+
+- **The session alone keeps it**, and a token request reads the session to link.
+- **The grant keeps a copy**, written as it is opened from the session.
+
+**Rationale:**
+
+A session is collected minutes after it ends, and a grant is refreshed for weeks, so a refresh
+reading the session would find it gone and link nowhere; reading it would also be a query on every
+token request for the sake of a trace. The grant already keeps the session's id for diagnosis, read
+by nothing, and the two ids beside it are the same kind of record. The copy is written once, in the
+transaction opening the grant, and never read for anything but the link.
+
 ---
 
 ← [How the system works](index.md)

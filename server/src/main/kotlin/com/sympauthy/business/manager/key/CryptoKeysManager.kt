@@ -7,6 +7,7 @@ import com.sympauthy.business.model.key.KeyAlgorithm
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CryptoKeysRepository
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.traceCoroutineContext
 import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Single
@@ -15,6 +16,7 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.rx3.await
 import kotlinx.coroutines.rx3.rxMaybe
 import kotlinx.coroutines.rx3.rxSingle
+import java.util.concurrent.ConcurrentHashMap
 
 @Singleton
 class CryptoKeysManager(
@@ -25,31 +27,45 @@ class CryptoKeysManager(
      * Every generation strategy the container publishes, by the qualifier naming it — which is the
      * set of words `advanced.keys-generation-strategy` accepts.
      */
-    @Inject private val generationStrategies: Map<String, CryptoKeysGenerationStrategy>
+    @Inject private val generationStrategies: Map<String, CryptoKeysGenerationStrategy>,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
-    private val keysMap = mutableMapOf<String, Single<CryptoKeys>>()
+    /**
+     * The keys read since the server started, which a request is answered from without waiting.
+     */
+    private val heldKeys = ConcurrentHashMap<String, CryptoKeys>()
 
+    /**
+     * The read of each key some request started and that has not settled yet, which every request waiting for that
+     * key awaits.
+     */
+    private val keysBeingRead = mutableMapOf<String, Single<CryptoKeys>>()
+
+    /**
+     * The key [name] names, read once and held from then on, and generated with [algorithm] where it does not
+     * exist yet.
+     *
+     * A request finding the key held is answered at once; one that waits for it, reading it or waiting for another
+     * request already reading it, is traced as waiting. A read that fails is answered to the requests waiting on it
+     * and then forgotten, so that the next request reads the key again.
+     */
     internal suspend fun getKey(name: String, algorithm: KeyAlgorithm): CryptoKeys {
-        // Get key and return if found.
-        val existingKey = keysMap[name]?.await()
-        if (existingKey != null) {
-            return existingKey
+        heldKeys[name]?.let { return it }
+        return customSpanTracer.loadSigningKey(name) {
+            readingKey(name, algorithm).await()
         }
+    }
 
-        val key = synchronized(keysMap) {
-            // Synchronized check to see if it has not been created by another worker thread.
-            val existingKeySingle = keysMap[name]
-            if (existingKeySingle != null) {
-                existingKeySingle
-            } else {
-                // Otherwise create the single that will generate the key.
-                // Cache the key and store it into the map to be reused.
-                val newKeySingle = getOrGenerateKey(name, algorithm).cache()
-                keysMap[name] = newKeySingle
-                newKeySingle
+    private fun readingKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
+        return synchronized(keysBeingRead) {
+            // Synchronized check to see if it has not been started by another worker thread.
+            keysBeingRead.getOrPut(name) {
+                getOrGenerateKey(name, algorithm)
+                    .doOnSuccess { heldKeys[name] = it }
+                    .doOnTerminate { synchronized(keysBeingRead) { keysBeingRead.remove(name) } }
+                    .cache()
             }
         }
-        return key.await()
     }
 
     internal fun getOrGenerateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
@@ -71,9 +87,11 @@ class CryptoKeysManager(
 
     internal fun generateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
         return rxSingle(traceCoroutineContext()) {
-            advancedConfig.orThrow().keysGenerationStrategy
-                .resolve(generationStrategies)
-                .generateKeys(name, algorithm)
+            customSpanTracer.generateSigningKey(name) {
+                advancedConfig.orThrow().keysGenerationStrategy
+                    .resolve(generationStrategies)
+                    .generateKeys(name, algorithm)
+            }
         }
     }
 }

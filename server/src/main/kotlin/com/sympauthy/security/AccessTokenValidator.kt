@@ -18,6 +18,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.exception.toOutcome
+import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.TokenMetrics
 import com.sympauthy.monitoring.telemetry.measureOutcome
@@ -61,7 +62,8 @@ class AccessTokenValidator(
     @Inject private val dpopManager: DpopManager,
     @Inject private val jwtManager: JwtManager,
     @Inject private val dpopTokenReader: DpopTokenReader,
-    @Inject private val tokenMetrics: TokenMetrics
+    @Inject private val tokenMetrics: TokenMetrics,
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) : TokenValidator<HttpRequest<*>> {
 
     override fun validateToken(token: String, request: HttpRequest<*>?): Publisher<Authentication> = publish(
@@ -74,16 +76,23 @@ class AccessTokenValidator(
         }
 
         val scheme = if (dpopTokenReader.isPresentedWith(request, token)) DPOP else BEARER
-        val authentication = measureOutcome(
-            onSuccess = { elapsed, authentication ->
-                tokenMetrics.recordValidation(scheme.metricName, authentication.clientId, elapsed, Outcome.Success)
-            },
-            // A refusal is recorded without a client: the client is read from the configuration last.
-            onFailure = { elapsed, failure ->
-                tokenMetrics.recordValidation(scheme.metricName, null, elapsed, failure.toOutcome())
+        val authentication = customSpanTracer.validateAccessToken(scheme.metricName) { span ->
+            measureOutcome(
+                onSuccess = { elapsed, authentication ->
+                    val clientId = authentication.clientId
+                    tokenMetrics.recordValidation(scheme.metricName, clientId, elapsed, Outcome.Success)
+                    span.setOutcome(Outcome.Success)
+                    clientId?.let(span::setClientId)
+                },
+                // A refusal is recorded without a client: the client is read from the configuration last.
+                onFailure = { elapsed, failure ->
+                    val outcome = failure.toOutcome()
+                    tokenMetrics.recordValidation(scheme.metricName, null, elapsed, outcome)
+                    span.setOutcome(outcome)
+                }
+            ) {
+                authenticate(token, request, scheme)
             }
-        ) {
-            authenticate(token, request, scheme)
         }
         send(authentication)
     }

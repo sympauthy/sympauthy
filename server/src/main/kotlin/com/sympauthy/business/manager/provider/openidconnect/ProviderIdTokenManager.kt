@@ -16,11 +16,14 @@ import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.telemetry.LibraryHttpCallTracer
 import com.sympauthy.monitoring.telemetry.Outcome
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Validates and extracts claims from ID tokens returned by OpenID Connect providers.
@@ -29,12 +32,13 @@ import kotlinx.coroutines.withContext
  * issuer, audience, expiration, and nonce (if provided).
  *
  * The check itself is local. Only the fetch of the provider's key set leaves the process, and it is reported to
- * the provider's condition as a call of its own: the JWT library makes it outside the HTTP client the framework
- * instruments, so nothing else would show it.
+ * the provider's condition as a call of its own, and traced as one: the JWT library makes it outside the HTTP
+ * client the framework instruments, so nothing else would show it.
  */
 @Singleton
 class ProviderIdTokenManager(
-    @Inject private val remoteCallMonitor: RemoteCallMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor,
+    @Inject private val libraryHttpCallTracer: LibraryHttpCallTracer
 ) {
 
     /**
@@ -132,27 +136,50 @@ class ProviderIdTokenManager(
 
     /**
      * What fetches the key set of the provider [providerId] names for the JWT library, reporting each fetch as a
-     * call to that provider's condition.
+     * call to that provider's condition and tracing it as a client span under the request validating the id token.
      */
     private fun keySetRetriever(providerId: String): ResourceRetriever {
-        val delegate = DefaultResourceRetriever(
-            JWKSourceBuilder.DEFAULT_HTTP_CONNECT_TIMEOUT,
-            JWKSourceBuilder.DEFAULT_HTTP_READ_TIMEOUT,
-            JWKSourceBuilder.DEFAULT_HTTP_SIZE_LIMIT
-        )
         val condition = Condition.Provider(providerId)
         return ResourceRetriever { url ->
-            val start = System.nanoTime()
-            val resource = try {
-                delegate.retrieveResource(url)
-            } catch (failure: Exception) {
-                val outcome = failure.remoteOutcome()
-                remoteCallMonitor.reportCall(condition, JWKS_OPERATION, System.nanoTime() - start, outcome, failure)
-                throw failure
+            val delegate = StatusKeepingResourceRetriever()
+            libraryHttpCallTracer.get(url, delegate::responseStatusOrNull) {
+                val start = System.nanoTime()
+                val resource = try {
+                    delegate.retrieveResource(url)
+                } catch (failure: Exception) {
+                    val outcome = failure.remoteOutcome()
+                    remoteCallMonitor.reportCall(condition, JWKS_OPERATION, System.nanoTime() - start, outcome, failure)
+                    throw failure
+                }
+                remoteCallMonitor.reportCall(condition, JWKS_OPERATION, System.nanoTime() - start, Outcome.Success)
+                resource
             }
-            remoteCallMonitor.reportCall(condition, JWKS_OPERATION, System.nanoTime() - start, Outcome.Success)
-            resource
         }
+    }
+
+    /**
+     * The JWT library's own retriever, keeping the connection of the one fetch it is made for so that the status
+     * the provider answered with can be read once the fetch has ended, which the library reports only in a message.
+     */
+    private class StatusKeepingResourceRetriever : DefaultResourceRetriever(
+        JWKSourceBuilder.DEFAULT_HTTP_CONNECT_TIMEOUT,
+        JWKSourceBuilder.DEFAULT_HTTP_READ_TIMEOUT,
+        JWKSourceBuilder.DEFAULT_HTTP_SIZE_LIMIT
+    ) {
+        private var connection: HttpURLConnection? = null
+
+        override fun openHTTPConnection(url: URL): HttpURLConnection =
+            super.openHTTPConnection(url).also { connection = it }
+
+        /**
+         * The status the provider answered with, or null where it answered none.
+         *
+         * Reading it after a fetch that could not connect does not connect again: the connection keeps the failure
+         * and throws it back.
+         */
+        fun responseStatusOrNull(): Int? = connection
+            ?.let { runCatching { it.responseCode }.getOrNull() }
+            ?.takeIf { it > 0 }
     }
 
     companion object {
