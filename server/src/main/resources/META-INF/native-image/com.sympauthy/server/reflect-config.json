@@ -37,6 +37,17 @@
     "allPublicMethods": true
   },
   {
+    "name": "ch.qos.logback.classic.Level",
+    "methods": [
+      {
+        "name": "valueOf",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ]
+  },
+  {
     "name": "ch.qos.logback.classic.filter.ThresholdFilter",
     "methods": [
       {
