@@ -17,6 +17,7 @@ import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.RemoteCallMonitor
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.HttpResponse
+import io.micronaut.http.HttpStatus
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
@@ -34,8 +35,11 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.net.ConnectException
 import java.net.URI
+import java.time.Instant
 
 class BrandManagerTest {
 
@@ -164,6 +168,28 @@ class BrandManagerTest {
 
         assertArrayEquals(svg, manager.getImage(LOGO).content)
         coVerify(exactly = 2) { client.fetchImage(uri) }
+    }
+
+    @ParameterizedTest
+    @EnumSource(names = ["REQUEST_TIMEOUT", "TOO_MANY_REQUESTS"])
+    fun `fetchUntilResolved - Holds a status asking to be asked later as an outage`(status: HttpStatus) = runTest {
+        coEvery { client.fetchImage(uri) } throws
+            HttpClientResponseException("Later", HttpResponse.status<Any>(status)) andThen svg
+        val manager = manager()
+
+        val fetch = launch { manager.fetchUntilResolved(LOGO, uri) }
+        runCurrent()
+
+        assertTrue(conditionMonitor.isDegraded(Condition.BrandImage("logo")))
+
+        advanceTimeBy(ConditionMonitor.QUIET_PERIOD.toMillis() + 1)
+        fetch.join()
+
+        assertArrayEquals(svg, manager.getImage(LOGO).content)
+
+        conditionMonitor.endQuietPeriods(Instant.now().plus(ConditionMonitor.QUIET_PERIOD))
+
+        assertFalse(conditionMonitor.isDegraded(Condition.BrandImage("logo")))
     }
 
     @Test

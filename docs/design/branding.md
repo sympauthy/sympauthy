@@ -34,6 +34,9 @@ a set that changes together; its body still follows the standard's JSON rules, a
 origin, since it holds nothing private and an allow-list would add a configuration step for every
 hosted flow.
 
+**`brand.json` leaves `display_name` out where no display name is configured**, so an app reading it
+needs a name of its own to fall back on.
+
 **A reverse proxy has to forward `/branding`** beside `/api`, `/flow` and `/admin`, or the apps lose
 their stylesheet once they link it.
 
@@ -72,7 +75,10 @@ than by what they are called, up to 1 MiB.
 | --- | --- |
 | `icon` | SympAuthy's icon |
 | `logo` | SympAuthy's logo |
-| `logo-dark` | `logo` if it is configured, otherwise SympAuthy's dark logo, so a page never shows two brands |
+| `logo-dark` | `logo` if it is configured, otherwise SympAuthy's dark logo, so a deployment's logo does not turn into SympAuthy's when a page turns dark |
+
+**A deployment setting only `logo` keeps SympAuthy's `icon`**, and sets both to show only its own
+brand.
 
 **An image cannot run a script on the server's origin.** An `<img>` does not run an SVG's scripts,
 but opening `/branding/logo` directly does, on the origin the sign-in pages live on. Every image is
@@ -81,11 +87,15 @@ the server does not try to clean the SVG.
 
 ### An image host being down does not take sign-ins down
 
-**An image follows the rules of a provider's discovery.** A connection failure, a timeout or a `5xx`
-is an outage: the image's condition starts degraded, it is retried every quiet period, and it
-recovers once an attempt succeeds. Any other answer that is not an SVG or a PNG within the limit, a
-`4xx` included, is one ERROR, and the image stays unresolved until a restart. Until it resolves, an
-image answers as if it were not configured.
+**An image follows the rules of a provider's discovery.** A connection failure, a timeout, a `408`,
+a `429` or a `5xx` is an outage: the image's condition starts degraded, it is retried every quiet
+period, and it recovers once an attempt succeeds. Any other answer that is not an SVG or a PNG within
+the limit, any other `4xx` included, is one ERROR, and the image stays unresolved until a restart.
+Until it resolves, an image answers as if it were not configured.
+
+**A `408` and a `429` are outages here and nowhere else.** Elsewhere a `4xx` answers what was sent,
+and is worth no retry. Here both say the host will not answer yet, and a rate limit met once at
+startup would otherwise cost an instance its image until a restart.
 
 **A local file that is wrong is a configuration error**, which [takes readiness
 down](../standards/config-layer-code-standard.md#configuration-errors-take-readiness-down). Waiting

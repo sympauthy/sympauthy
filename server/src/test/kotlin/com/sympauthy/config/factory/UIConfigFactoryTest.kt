@@ -122,6 +122,14 @@ class UIConfigFactoryTest {
     }
 
     @Test
+    fun `provideUIConfig - Refuses the true YAML reads on as, without naming a word nobody wrote`() {
+        assertEquals(
+            listOf("ui.theme.dark-mode" to "config.ui.theme.dark_mode_on"),
+            provide(darkMode = "true").errors()
+        )
+    }
+
+    @Test
     fun `provideUIConfig - Refuses each colour that is not rrggbb`() {
         val errors = provide(
             light = mapOf("primary" to "red", "ground" to "#fff"),

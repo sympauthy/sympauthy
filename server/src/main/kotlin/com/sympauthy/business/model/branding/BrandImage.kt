@@ -47,6 +47,8 @@ enum class BrandImageType(val mediaType: String) {
         /**
          * Whether the first element of [text] is an `svg` one, past what an XML document may open with: a byte
          * order mark, a declaration, a comment and a doctype, which an export from a drawing tool usually has.
+         *
+         * The bytes are read one to a character, so a document in UTF-16 is not recognised and is refused.
          */
         private fun isSvg(text: String): Boolean {
             var position = if (text.startsWith(UTF8_BOM)) UTF8_BOM.length else 0
@@ -62,10 +64,16 @@ enum class BrandImageType(val mediaType: String) {
             }
         }
 
+        /**
+         * Whether an `svg` element opens at [position], under any namespace prefix, since a document chooses its own.
+         */
         private fun isSvgElement(text: String, position: Int): Boolean {
-            if (!text.startsWith("<svg", position)) return false
-            val next = text.getOrNull(position + "<svg".length) ?: return false
-            return next.isWhitespace() || next == '>' || next == '/'
+            if (text.getOrNull(position) != '<') return false
+            val nameStart = position + 1
+            val nameEnd = (nameStart until text.length).firstOrNull {
+                text[it].isWhitespace() || text[it] == '>' || text[it] == '/'
+            } ?: return false
+            return text.substring(nameStart, nameEnd).substringAfter(':') == "svg"
         }
 
         /**
@@ -77,15 +85,29 @@ enum class BrandImageType(val mediaType: String) {
         }
 
         /**
-         * The position after a doctype, whose internal subset may hold a `>`.
+         * The position after a doctype, or -1 where it never ends. Its internal subset may hold a `>`, a quoted
+         * value a `>` or a `]`, and a comment a lone quote.
          */
         private fun endOfDoctype(text: String, position: Int): Int {
-            val close = text.indexOf('>', position)
-            val subset = text.indexOf('[', position)
-            if (close < 0) return -1
-            if (subset < 0 || subset > close) return close + 1
-            val subsetEnd = endOf(text, "]", subset)
-            return if (subsetEnd < 0) -1 else endOf(text, ">", subsetEnd)
+            var index = position
+            var quote: Char? = null
+            var inSubset = false
+            while (index in text.indices) {
+                val char = text[index]
+                when {
+                    quote != null -> if (char == quote) quote = null
+                    text.startsWith("<!--", index) -> {
+                        index = endOf(text, "-->", index)
+                        continue
+                    }
+                    char == '"' || char == '\'' -> quote = char
+                    char == '[' -> inSubset = true
+                    char == ']' -> inSubset = false
+                    char == '>' && !inSubset -> return index + 1
+                }
+                index++
+            }
+            return -1
         }
 
         /**

@@ -57,11 +57,16 @@ class UIConfigParser(
 
     /**
      * YAML reads an unquoted `off` as the boolean false, and that is how the word a deployment was told to write
-     * reaches this point.
+     * reaches this point, as `no` and `false` do, which cannot be told apart from it. It reads `on` and `yes` as
+     * true, a word nobody wrote, so that refusal says what happened rather than name it.
      */
     private fun parseDarkMode(properties: ThemeConfigurationProperties): DarkMode {
         val value = properties.darkMode ?: return DarkMode.AUTO
-        return if (value == YAML_OFF) DarkMode.OFF else parser.convertToEnum("$THEME_KEY.dark-mode", value)
+        return when (value) {
+            YAML_OFF -> DarkMode.OFF
+            YAML_ON -> throw configExceptionOf("$THEME_KEY.dark-mode", "config.ui.theme.dark_mode_on")
+            else -> parser.convertToEnum("$THEME_KEY.dark-mode", value)
+        }
     }
 
     /**
@@ -133,5 +138,6 @@ class UIConfigParser(
 
     private companion object {
         const val YAML_OFF = "false"
+        const val YAML_ON = "true"
     }
 }

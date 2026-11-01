@@ -21,6 +21,11 @@ class BrandImageTest {
             "<!-- an export -->\n<svg>",
             """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/x.dtd"><svg>""",
             """<?xml version="1.0"?><!DOCTYPE svg [<!ENTITY a "b>">]><!-- c --><svg>""",
+            """<!DOCTYPE svg [<!ENTITY a "b]>">]><svg>""",
+            """<!DOCTYPE svg [<!ENTITY a 'b"c'>]><svg>""",
+            """<!DOCTYPE svg PUBLIC "a>b" "c"><svg>""",
+            """<!DOCTYPE svg [<!-- it's a comment -->]><svg>""",
+            """<svg:svg xmlns:svg="http://www.w3.org/2000/svg"/>""",
             "ï»¿<svg>",
         ]
     )
@@ -36,15 +41,24 @@ class BrandImageTest {
             "",
             "<html><svg></svg></html>",
             "<svgish>",
+            "<svg:rect/>",
             "<svg",
+            "</svg>",
             "<!-- never closed <svg>",
             "<?xml never closed <svg>",
             "<!DOCTYPE svg [ never closed <svg>",
+            """<!DOCTYPE svg "never closed><svg>""",
+            "<!DOCTYPE svg <!-- never closed ><svg>",
             "not an image",
         ]
     )
     fun `ofOrNull - Refuses what is not an SVG`(content: String) {
         assertNull(BrandImage.ofOrNull(content.toByteArray()))
+    }
+
+    @Test
+    fun `ofOrNull - Refuses an SVG in UTF-16`() {
+        assertNull(BrandImage.ofOrNull("<svg/>".toByteArray(Charsets.UTF_16)))
     }
 
     @Test

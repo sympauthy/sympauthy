@@ -10,7 +10,7 @@ import com.sympauthy.business.model.branding.BrandImageName.LOGO
 import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
 import com.sympauthy.business.model.branding.DarkMode
 import com.sympauthy.client.branding.BrandImageClient
-import com.sympauthy.client.isRemoteFailure
+import com.sympauthy.client.remoteErrorType
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.ConfiguredBrandImage
 import com.sympauthy.config.model.EnabledUIConfig
@@ -22,10 +22,13 @@ import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.util.configName
 import io.micronaut.context.annotation.Context
 import io.micronaut.core.io.ResourceResolver
+import io.micronaut.http.HttpStatus
 import io.micronaut.http.MediaType
+import io.micronaut.http.client.exceptions.HttpClientResponseException
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject
@@ -102,8 +105,8 @@ class BrandManager(
      * What is answered for [name]: the image the deployment configured once it has resolved, and until then
      * what would be answered if it were not configured.
      *
-     * Without a dark logo of its own a deployment's dark grounds show its logo, so that a page never shows two
-     * brands.
+     * Without a dark logo of its own a deployment's dark grounds show its logo, so that its logo does not turn into
+     * SympAuthy's when a page turns dark.
      */
     fun getImage(name: BrandImageName): BrandAsset {
         val fallback = if (name == LOGO_DARK) resolvedImages[LOGO] else null
@@ -131,7 +134,7 @@ class BrandManager(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (e: Exception) {
-                if (!e.isRemoteFailure()) {
+                if (e.fetchOutcome() !is Outcome.Error) {
                     logger.error(e) {
                         "Image '${name.configName}' answered with something other than an SVG or a PNG within " +
                             "${BrandImage.MAX_SIZE} bytes, and the image of a deployment that did not configure " +
@@ -145,7 +148,7 @@ class BrandManager(
     }
 
     private suspend fun fetch(name: BrandImageName, uri: URI): BrandImage =
-        remoteCallMonitor.observe(Condition.BrandImage(name.configName), FETCH_OPERATION, Throwable::remoteOutcome) {
+        remoteCallMonitor.observe(Condition.BrandImage(name.configName), FETCH_OPERATION, Throwable::fetchOutcome) {
             brandImageClient.fetchImage(uri)?.let(BrandImage::ofOrNull)
                 ?: throw internalBusinessExceptionOf("branding.image.unusable", "image" to name.configName)
         }
@@ -167,5 +170,18 @@ class BrandManager(
          * It reuses the conditions' quiet period, as a provider's discovery does.
          */
         val FETCH_RETRY_INTERVAL: Duration = ConditionMonitor.QUIET_PERIOD
+    }
+}
+
+/**
+ * How a fetch that ended in this failure is recorded, and whether it is tried again. Unlike [remoteOutcome], it
+ * holds a `408` and a `429` as outages: they say the host will not answer yet rather than what is wrong with the
+ * request, and one fetch at startup is all this image gets until a restart.
+ */
+private fun Throwable.fetchOutcome(): Outcome {
+    val response = generateSequence(this) { it.cause }.filterIsInstance<HttpClientResponseException>().firstOrNull()
+    return when (response?.status) {
+        HttpStatus.REQUEST_TIMEOUT, HttpStatus.TOO_MANY_REQUESTS -> Outcome.Error(remoteErrorType())
+        else -> remoteOutcome()
     }
 }
