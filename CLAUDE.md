@@ -55,8 +55,9 @@ Full setup is `docs/design/running-locally.md`.
 
 ## Issues
 
-**An issue is written to [`docs/standards/issue-standard.md`](docs/standards/issue-standard.md).**
-Read it before opening one: it says which kind an issue is — a feature, an enhancement or a bug —
+**An issue is written to [the `sdlc` plugin's issue
+standard](https://github.com/cyr62110/sdlc/blob/main/standards/issue-standard.md).** Read it before
+opening one: it says which kind an issue is — a feature, an enhancement or a bug —
 what each kind carries, and which label and milestone it opens under.
 
 ## Pull requests
