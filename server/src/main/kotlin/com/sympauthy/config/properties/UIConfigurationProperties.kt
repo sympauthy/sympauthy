@@ -9,6 +9,24 @@ interface UIConfigurationProperties {
     @get:Nullable
     val displayName: String?
 
+    /**
+     * The favicon and small mark: an `http://` or `https://` URL, or a file path.
+     */
+    @get:Nullable
+    val icon: String?
+
+    /**
+     * The logo for light grounds: an `http://` or `https://` URL, or a file path.
+     */
+    @get:Nullable
+    val logo: String?
+
+    /**
+     * The logo for dark grounds: an `http://` or `https://` URL, or a file path.
+     */
+    @get:Nullable
+    val logoDark: String?
+
     companion object {
         const val UI_KEY = "ui"
     }

@@ -1,0 +1,171 @@
+package com.sympauthy.business.manager.branding
+
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.model.branding.Brand
+import com.sympauthy.business.model.branding.BrandAsset
+import com.sympauthy.business.model.branding.BrandImage
+import com.sympauthy.business.model.branding.BrandImageName
+import com.sympauthy.business.model.branding.BrandImageName.ICON
+import com.sympauthy.business.model.branding.BrandImageName.LOGO
+import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
+import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.client.branding.BrandImageClient
+import com.sympauthy.client.isRemoteFailure
+import com.sympauthy.client.remoteOutcome
+import com.sympauthy.config.model.ConfiguredBrandImage
+import com.sympauthy.config.model.EnabledUIConfig
+import com.sympauthy.config.model.LocalBrandImage
+import com.sympauthy.config.model.RemoteBrandImage
+import com.sympauthy.config.model.ThemeConfig
+import com.sympauthy.config.model.UIConfig
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.util.configName
+import io.micronaut.context.annotation.Context
+import io.micronaut.core.io.ResourceResolver
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
+import jakarta.inject.Inject
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.net.URI
+import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.jvm.optionals.getOrNull
+
+/**
+ * The deployment's brand, as `/branding` answers it. `docs/design/branding.md` is the design this implements.
+ *
+ * A configuration that failed reads as one that configured nothing: it already takes readiness down, and the
+ * sign-in pages are better served with SympAuthy's brand than with none.
+ *
+ * It is created with the context rather than by the first request, since an image host that does not answer is
+ * a condition `/health` has to report from the start.
+ */
+@Context
+class BrandManager(
+    uncheckedUIConfig: UIConfig,
+    @Inject private val brandImageClient: BrandImageClient,
+    @Inject private val remoteCallMonitor: RemoteCallMonitor,
+    @Inject private val resourceResolver: ResourceResolver,
+    stylesheetRenderer: BrandStylesheetRenderer
+) {
+
+    /**
+     * The scope an image is fetched on, and retried on while its host does not answer.
+     */
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private val uiConfig = uncheckedUIConfig as? EnabledUIConfig
+
+    private val defaultImages = BrandImageName.entries.associateWith(::readDefaultImage)
+
+    private val resolvedImages = ConcurrentHashMap<BrandImageName, BrandAsset>()
+
+    private val logger = loggerForClass()
+
+    /**
+     * The stylesheet both apps link.
+     */
+    val stylesheet = BrandAsset(
+        stylesheetRenderer.render(uiConfig?.theme ?: ThemeConfig.DEFAULT).toByteArray(),
+        STYLESHEET_MEDIA_TYPE
+    )
+
+    val brand = Brand(
+        displayName = uiConfig?.displayName,
+        darkMode = uiConfig?.theme?.darkMode ?: DarkMode.AUTO
+    )
+
+    @PostConstruct
+    fun init() {
+        val config = uiConfig ?: return
+        resolve(ICON, config.icon)
+        resolve(LOGO, config.logo)
+        resolve(LOGO_DARK, config.logoDark)
+    }
+
+    @PreDestroy
+    fun close() {
+        scope.cancel()
+    }
+
+    /**
+     * What is answered for [name]: the image the deployment configured once it has resolved, and until then
+     * what would be answered if it were not configured.
+     *
+     * Without a dark logo of its own a deployment's dark grounds show its logo, so that a page never shows two
+     * brands.
+     */
+    fun getImage(name: BrandImageName): BrandAsset {
+        val fallback = if (name == LOGO_DARK) resolvedImages[LOGO] else null
+        return resolvedImages[name] ?: fallback ?: defaultImages.getValue(name)
+    }
+
+    private fun resolve(name: BrandImageName, image: ConfiguredBrandImage?) {
+        when (image) {
+            null -> Unit
+            is LocalBrandImage -> resolvedImages[name] = image.image.toAsset()
+            is RemoteBrandImage -> scope.launch { fetchUntilResolved(name, image.uri) }
+        }
+    }
+
+    /**
+     * Fetch the image every [FETCH_RETRY_INTERVAL] until its host answers, each attempt reported to its
+     * condition. A host answering with something that is not an image answered all the same, so its condition
+     * recovers, and the image stays unresolved with one ERROR until the server restarts.
+     */
+    internal suspend fun fetchUntilResolved(name: BrandImageName, uri: URI) {
+        while (true) {
+            try {
+                resolvedImages[name] = fetch(name, uri).toAsset()
+                return
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                if (!e.isRemoteFailure()) {
+                    logger.error(e) {
+                        "Image '${name.configName}' answered with something other than an SVG or a PNG within " +
+                            "${BrandImage.MAX_SIZE} bytes, and the image of a deployment that did not configure " +
+                            "it is answered until the server restarts."
+                    }
+                    return
+                }
+            }
+            delay(FETCH_RETRY_INTERVAL.toMillis())
+        }
+    }
+
+    private suspend fun fetch(name: BrandImageName, uri: URI): BrandImage =
+        remoteCallMonitor.observe(Condition.BrandImage(name.configName), FETCH_OPERATION, Throwable::remoteOutcome) {
+            brandImageClient.fetchImage(uri)?.let(BrandImage::ofOrNull)
+                ?: throw internalBusinessExceptionOf("branding.image.unusable", "image" to name.configName)
+        }
+
+    private fun readDefaultImage(name: BrandImageName): BrandAsset {
+        val resource = "classpath:branding/${name.configName}.svg"
+        val content = resourceResolver.getResourceAsStream(resource).getOrNull()?.use { it.readAllBytes() }
+            ?: error("$resource is not in this build.")
+        val image = BrandImage.ofOrNull(content) ?: error("$resource is not an image this server would answer.")
+        return image.toAsset()
+    }
+
+    private fun BrandImage.toAsset() = BrandAsset(content, type.mediaType)
+
+    private companion object {
+        const val FETCH_OPERATION = "fetch"
+        const val STYLESHEET_MEDIA_TYPE = "text/css"
+
+        /**
+         * It reuses the conditions' quiet period, as a provider's discovery does.
+         */
+        val FETCH_RETRY_INTERVAL: Duration = ConditionMonitor.QUIET_PERIOD
+    }
+}

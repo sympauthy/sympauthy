@@ -52,9 +52,16 @@ class ValidationCodeMailSender(
             subjectKey = "mail.validation_code.subject",
             parameters = mapOf(
                 "code" to validationCode.code,
-                "displayName" to uiConfig.displayName
+                "displayName" to (uiConfig.displayName ?: DEFAULT_DISPLAY_NAME)
             ),
             maxAge = maxAge
         )
+    }
+
+    private companion object {
+        /**
+         * The name a deployment that configured none is signed under, since it shows SympAuthy's brand everywhere else.
+         */
+        const val DEFAULT_DISPLAY_NAME = "SympAuthy"
     }
 }

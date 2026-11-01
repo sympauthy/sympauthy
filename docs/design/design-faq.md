@@ -1888,6 +1888,71 @@ token request for the sake of a trace. The grant already keeps the session's id 
 by nothing, and the two ids beside it are the same kind of record. The copy is written once, in the
 transaction opening the grant, and never read for anything but the link.
 
+## Branding
+
+### Does the brand reach the apps in their configuration, or as a stylesheet they link?
+
+**A stylesheet they link.** `sympauthy-design`'s `branding.md` proposed handing `ui.theme` to the
+apps with the rest of their configuration, for `applyTheme` to set in JavaScript. The brand would
+then arrive after the page boots, and SympAuthy's colours would flash first. A linked stylesheet is
+in place before any script runs.
+
+### Is there a stylesheet per app?
+
+**No, one under `/branding`.** `GET /flow/theme.css` and `GET /admin/theme.css`, with a logo and a
+favicon path per app, would serve the same bytes twice under two names, and turning the admin off
+would remove half of them. `common`, `flow` and `admin` override sections would have nothing left to
+override: the design system has one theme, whose `nav-*` roles only the admin reads and whose dark
+roles only the flow reads.
+
+### Does the server carry a copy of the design system, or take it at build time?
+
+**A copy, in `server/src/main/resources/branding/`.** The apps are injected into the resources by
+CI, but the stylesheet has to answer in a unit test and in a developer's `run` as well, and no build
+of this server reaches the network for anything but its dependencies. The design system is not
+published as a package either. The cost is that a bump is a copy by hand, and a test holds every
+role to a token so that one renaming a role fails the build rather than a deployment's colour.
+
+### Does the server derive the roles left out from `primary`?
+
+**No.** A role left out keeps SympAuthy's value, even when `primary` is changed. Deriving them would
+be a third copy of the design system's derivation, and the theme builder already writes the full
+set. Doing so, and refusing weak contrast, can wait for a follow-up.
+
+### Is a badly formatted colour ignored?
+
+**No, it is refused.** `sympauthy-design`'s `branding.md` ignores one and keeps the default. The
+server refuses wrong configuration everywhere else, and a colour silently not applying is what an
+operator would spend time looking for.
+
+### Can a deployment change the radii?
+
+**No, only colours.** Spacing and sizes carry the design system's accessibility promises, such as
+the touch target, and the status colours keep their meaning whatever the brand.
+
+### Are the images loaded by the browser from their URL?
+
+**No, the server fetches them at startup and answers from memory.** A browser asking the host itself
+would tell a third party each time a sign-in starts.
+
+### Must an image's URL be `https`?
+
+**No.** The browser never sees the fetch, since the server answers from its own copy, and internal
+asset hosts are often plain `http`. The cost is that somebody on that network path can swap the held
+image until a restart, and the headers every image is answered with limit that to a wrong logo.
+
+### Is a local file and a URL two keys?
+
+**No, one value.** Separate `file` and `url` keys under each image would say what the value's own
+form already says: one starting with `http://` or `https://` is fetched, and anything else is read
+as a file.
+
+### Is `/branding` revalidated by `Content-Digest`?
+
+**No, by an `ETag`.** Browsers do not use `Content-Digest` to decide what to download again. The
+paths never change either, so a long `max-age` would keep showing the old logo for days: every
+answer carries `no-cache`, and a browser pays a `304` to learn nothing changed.
+
 ---
 
 ← [How the system works](index.md)

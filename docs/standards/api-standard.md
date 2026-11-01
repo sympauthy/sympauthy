@@ -177,6 +177,10 @@ version the integration tests run against is pinned in `gradle/libs.versions.tom
 
 ## What this standard does not cover
 
+**[`/branding`](../design/branding.md#the-brand-is-answered-outside-the-apps).** It is no API
+surface, so these route rules, the caching this standard leaves out and the allow-list above do not
+reach it. `brand.json` follows [the JSON rules](#json) all the same, and answers every origin.
+
 **Caching.** No validator, no cache header and no conditional request, including on the discovery
 document and the key set.
 
