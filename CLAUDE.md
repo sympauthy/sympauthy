@@ -53,13 +53,6 @@ export GITHUB_ACTOR=$(gh api user --jq .login) GITHUB_TOKEN=$(gh auth token)
 
 Full setup is `docs/design/running-locally.md`.
 
-## Issues
-
-**An issue is written to [the `sdlc` plugin's issue
-standard](https://github.com/cyr62110/sdlc/blob/main/standards/issue-standard.md).** Read it before
-opening one: it says which kind an issue is — a feature, an enhancement or a bug —
-what each kind carries, and which label and milestone it opens under.
-
 ## Pull requests
 
 **A pull request is merged by squash, and leaves no branch behind**: `gh pr merge <n> --squash
