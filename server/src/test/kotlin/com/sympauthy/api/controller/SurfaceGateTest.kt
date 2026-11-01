@@ -49,6 +49,11 @@ class SurfaceGateTest {
         "/admin" to setOf(IS_ANONYMOUS),
         "/admin/{path:[^\\.]*}" to setOf(IS_ANONYMOUS),
         "/swagger-ui" to setOf(IS_ANONYMOUS),
+        "/branding/tokens.css" to setOf(IS_ANONYMOUS),
+        "/branding/icon" to setOf(IS_ANONYMOUS),
+        "/branding/logo" to setOf(IS_ANONYMOUS),
+        "/branding/logo-dark" to setOf(IS_ANONYMOUS),
+        "/branding/brand.json" to setOf(IS_ANONYMOUS),
     )
 
     private val routes: List<Route> by lazy {

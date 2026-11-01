@@ -80,7 +80,9 @@ gate does and does not protect against is [security](security.md).
 **A surface carries a version when its contract is ours to break.** The protocol prefixes do not:
 their routes are named by RFC 6749, RFC 7009, RFC 7662 and the OpenID Connect Core and Discovery
 specifications, and a client that finds them by reading `/.well-known/openid-configuration` never
-sees the path we chose anyway. Everything we design ourselves is versioned.
+sees the path we chose anyway. Everything else we design ourselves is versioned, but for
+[`/branding`](branding.md#the-brand-is-answered-outside-the-apps), which is no surface: it has no
+gate, and `brand.json` shares a prefix with the stylesheet and images it changes together with.
 
 **Versioned surfaces freeze on different schedules**, which is why each is its own prefix rather
 than one API with sections. The admin console ships alongside the server; a client integration may

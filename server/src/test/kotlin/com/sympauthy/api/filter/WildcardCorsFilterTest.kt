@@ -22,6 +22,7 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
     private val revokePath = "$OAUTH2_SURFACE/revoke"
     private val userInfoPath = "$OPENID_SURFACE/userinfo"
     private val userClaimsPath = "$USER_SURFACE/claims"
+    private val brandDocumentPath = "/branding/brand.json"
 
     /** Mandatory headers, then cors.allowed-headers as declared in application-default.yml. */
     private val expectedAllowedHeaders = "Content-Type, Authorization, DPoP, X-Requested-With"
@@ -69,6 +70,29 @@ class WildcardCorsFilterTest : AbstractFlowIntegrationTest() {
         assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
         // DPoP is advertised on every tier, not only on the token endpoint.
         assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
+    }
+
+    @Test
+    fun `brand document - OPTIONS preflight returns the methods it answers, from any origin`() {
+        val request = HttpRequest.OPTIONS<Any>(brandDocumentPath)
+            .header(HttpHeaders.ORIGIN, anyOrigin)
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, HttpMethod.GET.name)
+            .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, HttpHeaders.CONTENT_TYPE)
+
+        val response = httpClient.toBlocking().exchange(request, String::class.java)
+
+        assertEquals(200, response.status.code)
+        assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
+        assertEquals("GET, OPTIONS", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS])
+        assertEquals(expectedAllowedHeaders, response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS])
+    }
+
+    @Test
+    fun `brand document - GET with Origin header returns wildcard CORS header`() {
+        val response = exchange(HttpRequest.GET<Any>(brandDocumentPath).header(HttpHeaders.ORIGIN, localOrigin))
+
+        assertEquals(200, response.status.code)
+        assertEquals("*", response.headers[HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN])
     }
 
     @Test

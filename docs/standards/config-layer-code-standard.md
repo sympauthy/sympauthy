@@ -185,6 +185,12 @@ manager, to spare a restart that is otherwise free.
 **A factory validates the file in front of it.** Fetching a discovery document, probing a database
 and resolving DNS belong to the manager that owns the runtime relationship.
 
+**A local image is the one file besides the configuration this layer reads.** `ui.logo` and the keys
+beside it may name a file, and one that is missing, unreadable, over the limit or of another type
+takes readiness down: waiting will not change a local file, so an operator hears it in the signal
+they already watch. An image at a URL stays [the manager's to
+fetch](../design/branding.md#an-image-host-being-down-does-not-take-sign-ins-down).
+
 **A key under `config.` says the file is wrong, and a key under the feature's own prefix says the
 world is.** Two codes, because only one of them is fixed by editing YAML.
 

@@ -11,7 +11,8 @@ import io.r2dbc.spi.R2dbcTransientResourceException
  *
  * This declaration is the authority on which conditions exist: anything reached outside this process on
  * a request's behalf, the console's own queue, whose dropping a line is the server failing to say what it
- * was asked to, and the collector the server's telemetry is exported to.
+ * was asked to, the collector the server's telemetry is exported to, and the host an image a deployment
+ * configured is fetched from.
  *
  * A condition is published on `/health` by its [name] alone, and the names say nothing the sign-in pages
  * do not.
@@ -120,5 +121,13 @@ sealed class Condition {
         override val name get() = clientId
         override val subject get() = "The authorization webhook of client '$clientId'"
         override val metricName get() = "webhook:$clientId"
+    }
+
+    /**
+     * The host the image a deployment configured under [imageName] is fetched from.
+     */
+    data class BrandImage(val imageName: String) : Condition() {
+        override val name get() = imageName
+        override val subject get() = "The host of image '$imageName'"
     }
 }

@@ -43,8 +43,9 @@ the response says it, and a line for each would let anybody fill the log on dema
 anything reached outside this process on a request's behalf — the database, the mail sender, a
 provider, a client's authorization webhook — the console's own queue, whose dropping a line is the
 server failing to say what it was asked to, and the collector its telemetry is exported to, whose
-refusing an export is the same failure on the other channel. The declaration of the conditions is
-the authority on which exist; what the collector's condition counts is
+refusing an export is the same failure on the other channel. So is the host of an image a
+deployment configured, though no request waits on it, because a sign-in page showing the wrong brand
+is the server not fully working. The declaration of the conditions is the authority on which exist; what the collector's condition counts is
 [telemetry](telemetry.md#when-the-collector-does-not-answer)'s.
 
 **The first failure degrades a condition, and writes the ERROR.** A failure while it is degraded
@@ -180,6 +181,11 @@ mid-query is reported, since obtaining the connection had succeeded.
 resolves. Its condition counts every attempt that fails, and the provider is served from the attempt
 that does not. A provider that answers with something it cannot be resolved from is a configuration
 error rather than an outage: one ERROR, and it stays disabled until a restart.
+
+**An image whose host does not answer follows the same rules**: tried every quiet period until it
+resolves, and one ERROR where its host answers with something other than an image.
+[Branding](branding.md#an-image-host-being-down-does-not-take-sign-ins-down) says what is answered
+until then.
 
 **A message is built only when its level is enabled**, because the server's own `Logger`, in
 `monitoring/`, takes a message as a lambda and nothing else. It wraps SLF4J's rather than extending
