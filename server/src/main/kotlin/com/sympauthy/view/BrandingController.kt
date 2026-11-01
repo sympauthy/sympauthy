@@ -3,7 +3,7 @@ package com.sympauthy.view
 import com.sympauthy.business.manager.branding.BrandManager
 import com.sympauthy.business.model.branding.BrandAsset
 import com.sympauthy.business.model.branding.BrandImageName
-import com.sympauthy.util.configName
+import com.sympauthy.util.wireName
 import com.sympauthy.view.BrandingController.Companion.BRANDING_ENDPOINT
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
@@ -22,11 +22,13 @@ import jakarta.inject.Inject
  * Answers the deployment's brand, which belongs to no app: one audience and no gate, like the apps' own assets,
  * so it is no API surface and carries no version. `docs/design/branding.md` is why.
  *
- * Everything here is held in memory, so nothing waits.
+ * Everything here is held in memory, so nothing waits. A route declares no type it produces because each answer
+ * sets the type of what it holds, and a request accepting any image but naming no other type would otherwise
+ * match no route and be told to authenticate.
  */
 @Hidden
 @Secured(SecurityRule.IS_ANONYMOUS)
-@Controller(BRANDING_ENDPOINT)
+@Controller(BRANDING_ENDPOINT, produces = [MediaType.ALL])
 class BrandingController(
     @Inject private val brandManager: BrandManager,
     @Inject private val objectMapper: ObjectMapper
@@ -35,30 +37,25 @@ class BrandingController(
     private val brandDocument: BrandAsset by lazy {
         val resource = BrandResource(
             displayName = brandManager.brand.displayName,
-            darkMode = brandManager.brand.darkMode.configName
+            darkMode = brandManager.brand.darkMode.wireName
         )
         BrandAsset(objectMapper.writeValueAsBytes(resource), MediaType.APPLICATION_JSON)
     }
 
-    @Get("/tokens.css", produces = [CSS])
+    @Get("/tokens.css")
     fun stylesheet(request: HttpRequest<*>): HttpResponse<ByteArray> = answer(request, brandManager.stylesheet)
 
-    @Get("/icon", produces = [SVG, PNG])
+    @Get("/icon")
     fun icon(request: HttpRequest<*>): HttpResponse<ByteArray> = answerImage(request, BrandImageName.ICON)
 
-    @Get("/logo", produces = [SVG, PNG])
+    @Get("/logo")
     fun logo(request: HttpRequest<*>): HttpResponse<ByteArray> = answerImage(request, BrandImageName.LOGO)
 
-    @Get("/logo-dark", produces = [SVG, PNG])
+    @Get("/logo-dark")
     fun logoDark(request: HttpRequest<*>): HttpResponse<ByteArray> = answerImage(request, BrandImageName.LOGO_DARK)
 
-    /**
-     * Readable from another origin, since a flow hosted on one reads it: it holds nothing private and answers the
-     * same to everybody, so an allow-list would protect nothing.
-     */
-    @Get("/brand.json", produces = [MediaType.APPLICATION_JSON])
+    @Get("/brand.json")
     fun brand(request: HttpRequest<*>): HttpResponse<ByteArray> = answer(request, brandDocument)
-        .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
 
     /**
      * An `<img>` does not run an SVG's scripts, but opening its address directly does, on the origin the sign-in
@@ -93,9 +90,6 @@ class BrandingController(
         const val BRANDING_ENDPOINT = "/branding"
 
         private const val X_CONTENT_TYPE_OPTIONS = "X-Content-Type-Options"
-        private const val CSS = "text/css"
-        private const val SVG = "image/svg+xml"
-        private const val PNG = "image/png"
         private const val IMAGE_CONTENT_SECURITY_POLICY = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
     }
 }

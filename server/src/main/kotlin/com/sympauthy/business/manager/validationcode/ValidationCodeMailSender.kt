@@ -5,6 +5,7 @@ import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.UIConfig
 import com.sympauthy.config.model.orThrow
@@ -36,8 +37,6 @@ class ValidationCodeMailSender(
         collectedClaim: CollectedClaim,
         validationCode: ValidationCode
     ) {
-        val uiConfig = uncheckedUIConfig.orThrow()
-
         val email = collectedClaim.value?.toString()
         require(collectedClaim.claim.id == media.claim && !email.isNullOrBlank()) {
             "${this::class.simpleName} requires a ${media.claim} claim as parameter."
@@ -52,11 +51,17 @@ class ValidationCodeMailSender(
             subjectKey = "mail.validation_code.subject",
             parameters = mapOf(
                 "code" to validationCode.code,
-                "displayName" to (uiConfig.displayName ?: DEFAULT_DISPLAY_NAME)
+                "displayName" to displayName()
             ),
             maxAge = maxAge
         )
     }
+
+    /**
+     * The name a mail is signed under. A `ui` section that failed reads as one that named nobody, since a colour
+     * written badly is no reason to stop anybody receiving their code.
+     */
+    private fun displayName(): String = (uncheckedUIConfig as? EnabledUIConfig)?.displayName ?: DEFAULT_DISPLAY_NAME
 
     private companion object {
         /**

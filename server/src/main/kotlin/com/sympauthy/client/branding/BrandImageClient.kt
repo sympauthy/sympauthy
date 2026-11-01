@@ -1,6 +1,8 @@
 package com.sympauthy.client.branding
 
+import com.sympauthy.business.model.branding.BrandImageType
 import io.micronaut.http.HttpRequest
+import io.micronaut.http.MediaType
 import io.micronaut.http.client.HttpClient
 import io.micronaut.http.client.exceptions.ContentLengthExceededException
 import jakarta.inject.Inject
@@ -19,7 +21,8 @@ class BrandImageClient(
      * would otherwise be read as.
      */
     suspend fun fetchImage(uri: URI): ByteArray? {
-        val request = HttpRequest.GET<Any>(uri).accept("image/svg+xml", "image/png")
+        val accepted = BrandImageType.entries.map { MediaType.of(it.mediaType) }.toTypedArray()
+        val request = HttpRequest.GET<Any>(uri).accept(*accepted)
         return try {
             httpClient.exchange(request, ByteArray::class.java).awaitFirst().body()
         } catch (_: ContentLengthExceededException) {

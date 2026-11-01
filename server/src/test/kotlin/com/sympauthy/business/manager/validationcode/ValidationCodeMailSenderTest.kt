@@ -4,8 +4,10 @@ import com.sympauthy.business.manager.mail.MailQueue
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.config.model.DisabledUIConfig
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.ThemeConfig
+import com.sympauthy.config.model.UIConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -28,22 +30,18 @@ class ValidationCodeMailSenderTest {
         every { expirationDate } returns LocalDateTime.now().plusMinutes(5)
     }
 
-    private fun sender(displayName: String?) = ValidationCodeMailSender(
-        mailQueue,
-        mockk(),
-        EnabledUIConfig(
-            displayName = displayName,
-            icon = null,
-            logo = null,
-            logoDark = null,
-            theme = ThemeConfig.DEFAULT
-        )
+    private fun configNaming(displayName: String?) = EnabledUIConfig(
+        displayName = displayName,
+        icon = null,
+        logo = null,
+        logoDark = null,
+        theme = ThemeConfig.DEFAULT
     )
 
-    private suspend fun assertSentUnder(displayName: String?, expected: String) {
+    private suspend fun assertSentUnder(config: UIConfig, expected: String) {
         coEvery { mailQueue.send(any(), any(), any(), any(), any(), any()) } returns Unit
 
-        sender(displayName).sendValidationCode(mockk(), claim, code)
+        ValidationCodeMailSender(mailQueue, mockk(), config).sendValidationCode(mockk(), claim, code)
 
         coVerify {
             mailQueue.send(
@@ -59,11 +57,16 @@ class ValidationCodeMailSenderTest {
 
     @Test
     fun `sendValidationCode - Signs the mail with the configured display name`() = runTest {
-        assertSentUnder("Acme", "Acme")
+        assertSentUnder(configNaming("Acme"), "Acme")
     }
 
     @Test
     fun `sendValidationCode - Signs the mail as SympAuthy where no display name is configured`() = runTest {
-        assertSentUnder(null, "SympAuthy")
+        assertSentUnder(configNaming(null), "SympAuthy")
+    }
+
+    @Test
+    fun `sendValidationCode - Still sends the mail where the ui section failed`() = runTest {
+        assertSentUnder(DisabledUIConfig(emptyList()), "SympAuthy")
     }
 }

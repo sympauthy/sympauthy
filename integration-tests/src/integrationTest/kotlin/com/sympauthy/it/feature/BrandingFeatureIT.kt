@@ -14,10 +14,14 @@ import org.junit.jupiter.params.provider.EnumSource
 import org.testcontainers.Testcontainers
 import org.testcontainers.images.builder.Transferable
 import java.net.InetSocketAddress
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Feature scenario — **a deployment's brand is answered under `/branding` from its configuration, and the
@@ -59,13 +63,19 @@ class BrandingFeatureIT : AbstractSympauthyIT() {
                 assertEquals("nosniff", answer.headers().firstValue("X-Content-Type-Options").get())
             }
 
-            val brand = get(sympauthy, "/branding/brand.json")
+            // A local origin, since the framework refuses any other reaching a server at a local address.
+            val brand = get(sympauthy, "/branding/brand.json", "Origin" to "http://localhost:5173")
             assertEquals("*", brand.headers().firstValue("Access-Control-Allow-Origin").get())
             assertTrue(""""dark_mode":"auto"""" in brand.body(), brand.body())
 
             val etag = stylesheet.headers().firstValue("ETag").get()
             assertEquals("no-cache", stylesheet.headers().firstValue("Cache-Control").get())
             assertEquals(304, get(sympauthy, "/branding/tokens.css", "If-None-Match" to etag).statusCode())
+
+            assertEquals(404, get(sympauthy, "/branding/nothing-here").statusCode())
+            assertEquals(405, httpPost("${sympauthy.baseUrl}/branding/logo", "text/plain", "").statusCode())
+            assertEquals(200, getAccepting(sympauthy, "/branding/logo", "image/*").statusCode())
+            assertEquals(200, getAccepting(sympauthy, "/branding/tokens.css", "text/*").statusCode())
         }
     }
 
@@ -114,12 +124,14 @@ class BrandingFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun fetchesAnImageOnceAndAnswersItFromMemory(database: Database) {
         val requests = AtomicInteger()
-        withImageHost(status = { requests.incrementAndGet(); 200 }) { url ->
-            withBrandedContainer(database, uiConfig("logo" to url)) { sympauthy ->
+        val query = AtomicReference<String>()
+        withImageHost(status = { requests.incrementAndGet(); 200 }, onRequest = { query.set(it.rawQuery) }) { url ->
+            withBrandedContainer(database, uiConfig("logo" to "$url?$SIGNED_QUERY")) { sympauthy ->
                 val logo = awaitBody(sympauthy, "/branding/logo") { it == SVG }
                 assertEquals(SVG, logo)
                 repeat(3) { get(sympauthy, "/branding/logo") }
                 assertEquals(1, requests.get(), "the host hears nothing as pages are read")
+                assertEquals(SIGNED_QUERY, query.get(), "the URL is fetched as it was written")
             }
         }
     }
@@ -149,13 +161,14 @@ class BrandingFeatureIT : AbstractSympauthyIT() {
         val requests = AtomicInteger()
         withImageHost(status = { requests.incrementAndGet(); 404 }) { url ->
             withBrandedContainer(database, uiConfig("logo" to url)) { sympauthy ->
-                await { requests.get() > 0 }
+                await { "Image 'logo'" in sympauthy.logs }
                 val logo = get(sympauthy, "/branding/logo")
                 assertEquals(200, logo.statusCode())
                 assertNotEquals(SVG, logo.body(), "the logo answers as if it were not configured")
                 val health = get(sympauthy, "/health")
                 assertEquals(200, health.statusCode())
                 assertFalse("DEGRADED" in health.body(), health.body())
+                assertEquals(1, requests.get(), "an answer is not tried again")
             }
         }
     }
@@ -177,11 +190,12 @@ class BrandingFeatureIT : AbstractSympauthyIT() {
 
     /**
      * Runs [block] with the address of a host on this machine, reachable from the containers started in it, which
-     * answers [SVG] under the status [status] gives.
+     * answers [SVG] under the status [status] gives, handing each request's address to [onRequest].
      */
-    private fun withImageHost(status: () -> Int, block: (String) -> Unit) {
+    private fun withImageHost(status: () -> Int, onRequest: (URI) -> Unit = {}, block: (String) -> Unit) {
         val server = HttpServer.create(InetSocketAddress(0), 0)
         server.createContext("/logo.svg") { exchange ->
+            onRequest(exchange.requestURI)
             val body = SVG.toByteArray()
             exchange.sendResponseHeaders(status(), body.size.toLong())
             exchange.responseBody.use { it.write(body) }
@@ -199,7 +213,16 @@ class BrandingFeatureIT : AbstractSympauthyIT() {
         sympauthy: SympauthyContainer,
         path: String,
         vararg headers: Pair<String, String>,
-    ): HttpResponse<String> = httpGet("${sympauthy.baseUrl}$path", mapOf("Accept" to "*/*", *headers))
+    ): HttpResponse<String> = httpGet("${sympauthy.baseUrl}$path", mapOf(*headers))
+
+    /**
+     * [path] asked for with [accept] as the only type accepted, which [get] cannot do: `httpGet` always adds its own.
+     */
+    private fun getAccepting(sympauthy: SympauthyContainer, path: String, accept: String): HttpResponse<String> =
+        HttpClient.newHttpClient().send(
+            HttpRequest.newBuilder(URI.create("${sympauthy.baseUrl}$path")).header("Accept", accept).GET().build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
 
     /**
      * The body of [path] once [accepted] holds of it: an image is fetched after the server is up, and a condition
@@ -232,6 +255,7 @@ class BrandingFeatureIT : AbstractSympauthyIT() {
         )
 
         const val LOGO_PATH = "/branding/logo.svg"
+        const val SIGNED_QUERY = "sig=abc+def/ghi="
         const val SVG = """<svg xmlns="http://www.w3.org/2000/svg"><title>Acme</title></svg>"""
 
         /**

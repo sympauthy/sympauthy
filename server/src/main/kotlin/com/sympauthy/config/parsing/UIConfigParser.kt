@@ -16,6 +16,8 @@ import com.sympauthy.config.properties.UIConfigurationProperties
 import com.sympauthy.config.properties.UIConfigurationProperties.Companion.UI_KEY
 import jakarta.inject.Singleton
 import java.io.IOException
+import java.net.URI
+import java.net.URISyntaxException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
@@ -79,15 +81,31 @@ class UIConfigParser(
     ): ConfiguredBrandImage? {
         val source = parser.getString(properties, key, value) ?: return null
         return if (source.startsWith("http://") || source.startsWith("https://")) {
-            RemoteBrandImage(parser.getAbsoluteUriOrThrow(properties, key, value))
+            RemoteBrandImage(parseUrl(key, source))
         } else {
             LocalBrandImage(readImage(key, source))
         }
     }
 
     /**
+     * The URL exactly as it was written, rather than through a builder that encodes it again: a host may sign
+     * the query it handed out.
+     */
+    private fun parseUrl(key: String, source: String): URI {
+        val uri = try {
+            URI(source)
+        } catch (_: URISyntaxException) {
+            null
+        }
+        return uri?.takeUnless { it.host.isNullOrBlank() } ?: throw configExceptionOf(key, "config.invalid_url")
+    }
+
+    /**
      * The image in the file at [source]. A scheme other than `http` or `https` reads as a path, and is refused
      * as a file that does not exist.
+     *
+     * Only a regular file is opened and the read stops past the limit, since a device or a pipe reports no size
+     * worth believing and would otherwise hold up the startup reading it.
      */
     private fun readImage(key: String, source: String): BrandImage {
         val path = try {
@@ -98,13 +116,16 @@ class UIConfigParser(
         if (!Files.exists(path)) {
             throw configExceptionOf(key, "config.ui.image.not_found", "path" to source)
         }
+        if (!Files.isRegularFile(path)) {
+            throw configExceptionOf(key, "config.ui.image.unreadable", "path" to source)
+        }
         val content = try {
-            if (Files.size(path) > BrandImage.MAX_SIZE) {
-                throw configExceptionOf(key, "config.ui.image.too_large", "path" to source)
-            }
-            Files.readAllBytes(path)
+            Files.newInputStream(path).use { it.readNBytes(BrandImage.MAX_SIZE + 1) }
         } catch (_: IOException) {
             throw configExceptionOf(key, "config.ui.image.unreadable", "path" to source)
+        }
+        if (content.size > BrandImage.MAX_SIZE) {
+            throw configExceptionOf(key, "config.ui.image.too_large", "path" to source)
         }
         return BrandImage.ofOrNull(content)
             ?: throw configExceptionOf(key, "config.ui.image.unsupported_type", "path" to source)

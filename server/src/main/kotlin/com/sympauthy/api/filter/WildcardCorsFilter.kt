@@ -22,6 +22,9 @@ import kotlin.jvm.optionals.getOrNull
  * - **OAuth 2.0** (`/api/oauth2`) — token and revocation endpoints called directly by public clients (e.g. SPAs).
  * - **OpenID Connect** (`/api/openid`) — the UserInfo endpoint, which an SPA calls cross-origin with the
  *   access token it just obtained.
+ * - **The brand document** (`/branding/brand.json`) — the name and dark mode a flow hosted on another origin reads.
+ *   It holds nothing private and answers the same to everybody. The rest of `/branding` is linked from a page,
+ *   which needs no CORS.
  * - **The user API** (`/api/v1/user`) — the person's own claims, which a page of any client of the deployment
  *   reads and writes with the person's access token, so no origin is known to this server ahead of the request.
  *
@@ -46,7 +49,8 @@ import kotlin.jvm.optionals.getOrNull
     "/.well-known/**",
     "$OAUTH2_SURFACE/**",
     "$OPENID_SURFACE/**",
-    "$USER_SURFACE/**"
+    "$USER_SURFACE/**",
+    BRAND_DOCUMENT
 )
 class WildcardCorsFilter(
     @Inject private val corsPreflightHeaders: CorsPreflightHeaders
@@ -73,8 +77,11 @@ class WildcardCorsFilter(
         }
     }
 
-    private fun allowedMethodsOf(request: HttpRequest<*>): String =
-        if (request.path.startsWith("$USER_SURFACE/")) USER_ALLOWED_METHODS else ALLOWED_METHODS
+    private fun allowedMethodsOf(request: HttpRequest<*>): String = when {
+        request.path.startsWith("$USER_SURFACE/") -> USER_ALLOWED_METHODS
+        request.path == BRAND_DOCUMENT -> BRAND_DOCUMENT_ALLOWED_METHODS
+        else -> ALLOWED_METHODS
+    }
 
     /**
      * A preflight advertises [allowedMethods]. A response that is not one, where they are null, exposes
@@ -92,5 +99,8 @@ class WildcardCorsFilter(
     companion object {
         private const val ALLOWED_METHODS = "GET, POST, OPTIONS"
         private const val USER_ALLOWED_METHODS = "GET, PATCH, OPTIONS"
+        private const val BRAND_DOCUMENT_ALLOWED_METHODS = "GET, OPTIONS"
     }
 }
+
+private const val BRAND_DOCUMENT = "/branding/brand.json"

@@ -67,8 +67,8 @@ val THEME_ROLES: Set<String> = setOf(
 ) + listOf(50, 100, 200, 300, 400, 500, 600, 700, 800, 900).map { "ink-$it" }
 
 /**
- * The roles a deployment may colour under `ui.theme.light` alone: what the admin's sidebar reads, and the admin
- * stays light.
+ * The roles a deployment may colour under `ui.theme.light` alone, each having one value whatever the theme a page
+ * is in.
  */
 val LIGHT_ONLY_THEME_ROLES: Set<String> = setOf(
     "accent", "nav-ground", "nav-text", "nav-muted", "nav-disabled", "nav-hover", "nav-active", "nav-divider"

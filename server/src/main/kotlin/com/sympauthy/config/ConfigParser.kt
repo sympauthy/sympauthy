@@ -5,6 +5,7 @@ import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.util.configName
 import com.sympauthy.util.toAbsoluteUri
 import io.micronaut.core.convert.ConversionService
+import io.micronaut.http.exceptions.UriSyntaxException
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Singleton
 import java.net.URI
@@ -116,8 +117,13 @@ class ConfigParser {
     }
 
     fun <C : Any> getAbsoluteUriOrThrow(config: C, key: String, value: (C) -> String?): URI {
-        return getOrThrow(config, key, value).toAbsoluteUri()
-            ?: throw configExceptionOf(key, "config.invalid_url")
+        val text = getOrThrow(config, key, value)
+        val uri = try {
+            text.toAbsoluteUri()
+        } catch (_: UriSyntaxException) {
+            null
+        }
+        return uri ?: throw configExceptionOf(key, "config.invalid_url")
     }
 
     /**

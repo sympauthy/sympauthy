@@ -110,14 +110,13 @@ class BrandingControllerTest {
     }
 
     @Test
-    fun `brand - Answers the name and the dark mode, readable from any origin`() {
+    fun `brand - Answers the name and the dark mode`() {
         stubBrand()
 
         val response = controller.brand(request())
 
         assertEquals("""{"display_name":"Acme","dark_mode":"auto"}""", response.body()!!.decodeToString())
         assertEquals("application/json", response.contentType.get().toString())
-        assertEquals("*", response.header("Access-Control-Allow-Origin"))
         response.assertRevalidated(BrandAsset(response.body()!!, "application/json").etag)
     }
 
@@ -131,13 +130,12 @@ class BrandingControllerTest {
     }
 
     @Test
-    fun `brand - Readable from any origin on a 304 as well`() {
+    fun `brand - Answers 304 to a request naming its tag`() {
         stubBrand()
         val etag = controller.brand(request()).header("ETag")
 
         val response = controller.brand(request(etag))
 
         assertEquals(HttpStatus.NOT_MODIFIED, response.status)
-        assertEquals("*", response.header("Access-Control-Allow-Origin"))
     }
 }

@@ -25,6 +25,7 @@ import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.util.configName
 import io.micronaut.context.annotation.Context
 import io.micronaut.core.io.ResourceResolver
+import io.micronaut.http.MediaType
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject
@@ -76,7 +77,7 @@ class BrandManager(
      */
     val stylesheet = BrandAsset(
         stylesheetRenderer.render(uiConfig?.theme ?: ThemeConfig.DEFAULT).toByteArray(),
-        STYLESHEET_MEDIA_TYPE
+        MediaType.TEXT_CSS
     )
 
     val brand = Brand(
@@ -161,7 +162,6 @@ class BrandManager(
 
     private companion object {
         const val FETCH_OPERATION = "fetch"
-        const val STYLESHEET_MEDIA_TYPE = "text/css"
 
         /**
          * It reuses the conditions' quiet period, as a provider's discovery does.

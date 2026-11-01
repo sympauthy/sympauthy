@@ -21,7 +21,11 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
@@ -195,6 +199,21 @@ class UIConfigFactoryTest {
     }
 
     @Test
+    fun `provideUIConfig - Keeps a URL as it was written, since a host may sign its query`() {
+        val written = "https://cdn.example/logo.svg?sig=abc+def/ghi="
+
+        val config = provide(logo = written).enabled()
+
+        assertEquals(written, (config.logo as RemoteBrandImage).uri.toString())
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["https://cdn.example/my logo.svg", "https://cdn.example/a%zz.svg", "https://"])
+    fun `provideUIConfig - Refuses a malformed URL rather than stop the server`(url: String) {
+        assertEquals(listOf("ui.logo" to "config.invalid_url"), provide(logo = url).errors())
+    }
+
+    @Test
     fun `provideUIConfig - Reads a local SVG and a local PNG`() {
         val svg = "<svg/>".toByteArray()
         val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
@@ -223,6 +242,12 @@ class UIConfigFactoryTest {
     @Test
     fun `provideUIConfig - Refuses a path that cannot be read as a file`() {
         assertEquals(listOf("ui.logo" to "config.ui.image.unreadable"), provide(logo = directory.toString()).errors())
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX, OS.MAC)
+    fun `provideUIConfig - Refuses a device without reading it`() {
+        assertEquals(listOf("ui.logo" to "config.ui.image.unreadable"), provide(logo = "/dev/zero").errors())
     }
 
     @Test

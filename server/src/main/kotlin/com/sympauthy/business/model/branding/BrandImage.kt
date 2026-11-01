@@ -1,5 +1,7 @@
 package com.sympauthy.business.model.branding
 
+import io.micronaut.http.MediaType
+
 /**
  * An image a deployment's pages show: an SVG or a PNG, within [MAX_SIZE], whatever it was said to be by the file
  * name or the host it came from.
@@ -26,8 +28,8 @@ class BrandImage private constructor(
 }
 
 enum class BrandImageType(val mediaType: String) {
-    SVG("image/svg+xml"),
-    PNG("image/png");
+    SVG(MediaType.IMAGE_SVG),
+    PNG(MediaType.IMAGE_PNG);
 
     companion object {
         private val PNG_SIGNATURE = byteArrayOf(
