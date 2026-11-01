@@ -47,9 +47,6 @@ the other half — [how the system works](../design/index.md).
   written and what it states in place of the code that happens to follow it, and [the design
   documentation standard](docs-design-standard.md) for what a design document answers about the
   part it names and what it leaves to the code, to the standards and to the FAQ.
-- **[Issue standard](issue-standard.md)** — what an issue in the tracker settles and what it leaves
-  to the change: which kind it is — a feature, an enhancement or a bug — the title, the sections
-  each kind runs through, and the label and milestone it opens under.
 
 ---
 
