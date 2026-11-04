@@ -21,6 +21,23 @@
       "depNameTemplate": "debian",
       "datasourceTemplate": "docker",
       "versioningTemplate": "regex:^(?<major>\\d+)$"
+    },
+    {
+      "customType": "regex",
+      "description": [
+        "Track the release of sympauthy-design the server takes its tokens and marks from.",
+        "gradle/libs.versions.toml pins it as `sympauthy-design`, and server/build.gradle.kts downloads that tag's archive, so a tag is the only thing there is to follow.",
+        "A tag is written v0.4.0 and the pin 0.4.0, because Gradle reads the pin as the version of a dependency."
+      ],
+      "managerFilePatterns": [
+        "gradle/libs.versions.toml"
+      ],
+      "matchStrings": [
+        "\\nsympauthy-design = \"(?<currentValue>[^\"]+)\""
+      ],
+      "depNameTemplate": "sympauthy/sympauthy-design",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.+)$"
     }
   ]
 }
