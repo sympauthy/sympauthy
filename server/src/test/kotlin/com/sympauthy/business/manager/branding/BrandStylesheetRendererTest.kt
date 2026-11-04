@@ -29,7 +29,8 @@ class BrandStylesheetRendererTest {
               { "name": "focus-ring", "value": { "light": "{primary}", "dark": "{primary}" } },
               { "name": "gold", "value": "#555555" },
               { "name": "danger", "value": { "light": "#666666", "dark": "#777777" } },
-              { "name": "nav-ground", "value": { "light": "#888888", "dark": "#999999" } }
+              { "name": "nav-ground", "value": { "light": "#888888", "dark": "#999999" } },
+              { "name": "nav-strong", "value": "#aaaaaa" }
             ]
           },
           "spacing": { "tokens": [ { "name": "space-1.5", "value": "6px" } ] },
@@ -127,6 +128,16 @@ class BrandStylesheetRendererTest {
         val css = renderer.render(ThemeConfig(DarkMode.AUTO, mapOf("accent" to "#abcdef"), emptyMap()))
 
         assertTrue("--gold: #abcdef;" in css.block(lightBlock))
+    }
+
+    @Test
+    fun `render - Writes a configured nav-strong over its default, in the light block alone`() {
+        val css = renderer.render(ThemeConfig(DarkMode.AUTO, mapOf("nav-strong" to "#abcdef"), emptyMap()))
+
+        assertTrue("--nav-strong: #abcdef;" in css.block(lightBlock))
+        assertFalse("--nav-strong: #aaaaaa;" in css)
+        assertFalse("--nav-strong" in css.block(systemDarkBlock))
+        assertFalse("--nav-strong" in css.block(pinnedDarkBlock))
     }
 
     @Test

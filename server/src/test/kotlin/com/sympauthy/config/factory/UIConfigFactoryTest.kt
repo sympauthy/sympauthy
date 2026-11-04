@@ -95,7 +95,8 @@ class UIConfigFactoryTest {
     @Test
     fun `provideUIConfig - Keeps the colours by role`() {
         val light = mapOf(
-            "primary" to "#0f766e", "ink-50" to "#111111", "accent" to "#222222", "nav-ground" to "#ABCDEF"
+            "primary" to "#0f766e", "ink-50" to "#111111", "accent" to "#222222", "nav-ground" to "#ABCDEF",
+            "nav-strong" to "#333333"
         )
         val config = provide(
             light = light,
@@ -156,7 +157,7 @@ class UIConfigFactoryTest {
 
     @Test
     fun `provideUIConfig - Refuses a role under dark that only light has`() {
-        listOf("accent", "nav-ground").forEach { role ->
+        listOf("accent", "nav-ground", "nav-strong").forEach { role ->
             assertEquals(
                 listOf("ui.theme.dark.$role" to "config.ui.theme.dark.light_only_role"),
                 provide(dark = mapOf(role to "#000000")).errors()
