@@ -1907,11 +1907,20 @@ roles only the flow reads.
 
 ### Does the server carry a copy of the design system, or take it at build time?
 
-**A copy, in `server/src/main/resources/branding/`.** The apps are injected into the resources by
-CI, but the stylesheet has to answer in a unit test and in a developer's `run` as well, and no build
-of this server reaches the network for anything but its dependencies. The design system is not
-published as a package either. The cost is that a bump is a copy by hand, and a test holds every
-role to a token so that one renaming a role fails the build rather than a deployment's colour.
+**At build time, from one declared version.** A copy could say neither which version it was nor
+when it fell behind. Keeping the copy beside a declared version would let the two disagree, and a
+check for that would fail every Renovate pull request until somebody copied the files by hand. The
+version sits in the version catalog and the tag's GitHub archive is resolved as a dependency, so the
+stylesheet still answers in a unit test and in a developer's `run`, and a build still reaches the
+network only for its dependencies. Publishing the design system to GitHub Packages would have needed
+a publishing step in `sympauthy-design` and a token for every build of this server.
+
+The costs are that a fresh build has to reach github.com as well as the Maven repositories, so a
+network mirroring only Maven fails on its first build, and that a bump's diff no longer shows which
+tokens changed, so a reviewer reads the release notes. A test holds every role to a token, so a bump
+renaming a role fails the build rather than a deployment's colour. Renovate merging the bumps was
+not chosen: a red build is the only thing that would stop one, and the tests do not look at the
+pages.
 
 ### Does the server derive the roles left out from `primary`?
 

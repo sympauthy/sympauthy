@@ -63,7 +63,7 @@ class BrandStylesheetRenderer(
     private fun roleOf(tokenName: String) = if (tokenName == GOLD_TOKEN) ACCENT_ROLE else tokenName
 
     /**
-     * Whether [token] is one the dark theme carries. `nav-*` have dark values and are not: they sit on `:root`
+     * Whether [token] is one the dark theme carries. `nav-*` are not, even given a dark value: they sit on `:root`
      * whatever the theme, or a dark page would read SympAuthy's sidebar over the deployment's.
      */
     private fun hasDarkValue(token: JsonNode): Boolean {

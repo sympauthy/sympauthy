@@ -10,6 +10,8 @@ suites. What the server *is* is [the index](index.md); how to configure a real d
   takes `native-image` from that JDK and does not read `GRAALVM_HOME`, whatever the plugin's error
   says. A standard JDK 25 runs everything else.
 - **Docker**. The repository tests start a PostgreSQL container, so `./gradlew test` needs it too.
+- **Access to github.com** as well as the Maven repositories. The build takes the design system
+  from a tag's archive there.
 - **A GitHub Packages token with `read:packages`**, for the integration tests only. The
   Testcontainers helper library they use is published there and needs authentication even to read.
 

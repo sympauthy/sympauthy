@@ -9,6 +9,28 @@ plugins {
     alias(libs.plugins.kover)
 }
 
+repositories {
+    // sympauthy-design is not published as a package, so a release is read from the archive GitHub serves for its
+    // tag. Only that module is looked for there, and it is looked for nowhere else.
+    exclusiveContent {
+        forRepository {
+            ivy {
+                name = "sympauthyDesignTags"
+                url = uri("https://github.com/sympauthy/sympauthy-design/archive/refs/tags")
+                patternLayout {
+                    artifact("v[revision].[ext]")
+                }
+                metadataSources {
+                    artifact()
+                }
+            }
+        }
+        filter {
+            includeModule("com.sympauthy", "sympauthy-design")
+        }
+    }
+}
+
 dependencies {
     // Kotlin
     implementation(libs.kotlin.reflect)
@@ -224,6 +246,55 @@ tasks {
         filesMatching("application.yml") {
             expand(expandedProperties)
         }
+    }
+}
+
+// --- Design system ------------------------------------------------------------------------------
+// The tokens and the marks BrandStylesheetRenderer and BrandManager read are the design system's own files, taken
+// from the one version gradle/libs.versions.toml declares. See docs/design/branding.md.
+val designSystem: Configuration = configurations.create("designSystem") {
+    isCanBeConsumed = false
+    isTransitive = false
+}
+
+dependencies {
+    designSystem("com.sympauthy:sympauthy-design:${libs.versions.sympauthy.design.get()}@zip")
+}
+
+val syncDesignSystem = tasks.register<Sync>("syncDesignSystem") {
+    description = "Places the design system's tokens and marks as the resources the server reads."
+    group = "build"
+    // The design system's names for its files, and the server's. The marks are named by what /branding answers.
+    val resourcesByFile = mapOf(
+        "tokens.json" to "tokens.json",
+        "logos/sympauthy-favicon.svg" to "icon.svg",
+        "logos/sympauthy-icon.svg" to "logo.svg",
+        "logos/sympauthy-icon-dark.svg" to "logo-dark.svg"
+    )
+    inputs.property("resourcesByFile", resourcesByFile)
+    // Every file of the archive is a source and is excluded here rather than by an include pattern: a task whose
+    // patterns match nothing is skipped as having no source, before the check below could run.
+    from(provider { zipTree(designSystem.singleFile) }) {
+        includeEmptyDirs = false
+        eachFile {
+            // An archive holds everything under one directory, named after the repository and the version.
+            val resource = resourcesByFile[relativePath.segments.drop(1).joinToString("/")]
+            if (resource == null) exclude() else relativePath = RelativePath(true, "branding", resource)
+        }
+    }
+    into(layout.buildDirectory.dir("generated/design-system"))
+    // A file left out of a tag is no failure to a copy, and would otherwise only show once the server reads it.
+    doLast {
+        val missing = resourcesByFile.filterValues { !destinationDir.resolve("branding/$it").exists() }.keys
+        if (missing.isNotEmpty()) {
+            throw GradleException("${designSystem.singleFile.name} does not hold ${missing.joinToString(", ")}.")
+        }
+    }
+}
+
+sourceSets {
+    main {
+        resources.srcDir(syncDesignSystem)
     }
 }
 

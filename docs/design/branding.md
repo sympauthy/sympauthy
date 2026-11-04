@@ -111,14 +111,21 @@ the old logo for days.
 ## What implements it
 
 **`BrandManager` holds what is answered**: it fetches and retries the images, and falls back to the
-marks in `server/src/main/resources/branding/`. A configuration that failed reads as one that
-configured nothing, since it already takes readiness down and a sign-in page is better served with
-SympAuthy's brand than with none.
+marks the build places under `branding/` in the resources. A configuration that failed reads as one
+that configured nothing, since it already takes readiness down and a sign-in page is better served
+with SympAuthy's brand than with none.
 
 **`BrandStylesheetRenderer` writes the stylesheet from the design system's `tokens.json`.** That
-file and the marks beside it are copies out of `sympauthy-design`, of `tokens.json` and of its
-`sympauthy-favicon`, `sympauthy-icon` and `sympauthy-icon-dark` logos, and a new version of the
-design system is taken by replacing them.
+file and the marks beside it, its `sympauthy-favicon`, `sympauthy-icon` and `sympauthy-icon-dark`
+logos, come from the one version of `sympauthy-design` that `gradle/libs.versions.toml` declares,
+and git holds no copy. The build takes them from that tag's archive, and fails naming any of the
+four the tag does not hold.
+
+**A new version of the design system is a one-line bump, reviewed.** Renovate proposes each new tag,
+and nothing merges one on its own: a bump changes what every deployment's sign-in pages show, and
+the unit tests prove the stylesheet renders rather than how it looks. [The design
+FAQ](design-faq.md#does-the-server-carry-a-copy-of-the-design-system-or-take-it-at-build-time) holds
+what taking it at build time costs.
 
 **`UIConfigParser` reads a local image, and `UIConfigValidator` refuses a role by the keys a
 deployment wrote**, so a colour YAML read as a comment is refused rather than absent. The routes are
@@ -133,6 +140,13 @@ are each app's to do.
 follow.
 
 **Custom CSS, and per-app branding.** Nothing here supports them.
+
+**Keeping the server's version of the design system in step with the apps'.** Each repository takes
+its own bump, so an app using a class before the server has taken the release gets no style for it
+until the server's bump lands.
+
+**Pinning the archive by a checksum.** A moved tag would go unnoticed, but no dependency of this
+build is verified that way, and that is a decision for all of them together.
 
 **A key set outside the file.** What an environment variable reaches here is what [the `config`
 layer standard](../standards/config-layer-code-standard.md#what-this-standard-does-not-cover) leaves
