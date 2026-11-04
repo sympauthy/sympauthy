@@ -71,5 +71,6 @@ val THEME_ROLES: Set<String> = setOf(
  * is in.
  */
 val LIGHT_ONLY_THEME_ROLES: Set<String> = setOf(
-    "accent", "nav-ground", "nav-text", "nav-muted", "nav-disabled", "nav-hover", "nav-active", "nav-divider"
+    "accent", "nav-ground", "nav-text", "nav-muted", "nav-disabled", "nav-hover", "nav-active", "nav-divider",
+    "nav-strong"
 )
