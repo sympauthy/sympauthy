@@ -2,8 +2,7 @@ package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.util.wireName
 import jakarta.inject.Singleton
@@ -29,27 +28,26 @@ class AdminUserResourceMapper {
     }
 
     /**
-     * Publish [user], carrying the values it holds for [claims] and nothing else.
+     * Publish [userWithIdentifierClaims], carrying the values it holds for its identifier claims and nothing
+     * else.
      *
-     * The twin of the collection's [toResource] for a surface that has already read exactly the claims it
-     * publishes — the identifier claims a session names its person by — rather than selecting them out of
-     * everything the user holds. Nothing is computed here for that reason: a generated value is one this
-     * server derives for a claim, and a caller wanting those is reading the user collection.
+     * The twin of the collection's [toResource] for a surface embedding the person a record is held for, which
+     * has already read exactly the claims it publishes rather than selecting them out of everything the user
+     * holds. Nothing is computed here for that reason: a generated value is one this server derives for a
+     * claim, and a caller wanting those is reading the user collection.
      *
-     * It states neither of the person's last dates: a session is read under a scope that does not cover users,
-     * so someone allowed to read flows would otherwise be reading a person's activity.
+     * It states neither of the person's last dates: such a surface is read under a scope that does not cover
+     * users, so someone allowed to read it would otherwise be reading a person's activity.
      */
-    fun toResource(
-        user: User,
-        claims: List<CollectedClaim>
-    ): AdminUserResource {
+    fun toResource(userWithIdentifierClaims: UserWithIdentifierClaims): AdminUserResource {
+        val (user, identifierClaims) = userWithIdentifierClaims
         return AdminUserResource(
             userId = user.id,
             status = user.status.wireName,
             createdAt = user.creationDate,
             lastAuthenticatedAt = null,
             lastRefreshedAt = null,
-            claims = claims.associate { it.claim.id to it.value }
+            claims = identifierClaims.associate { it.claim.id to it.value }
         )
     }
 

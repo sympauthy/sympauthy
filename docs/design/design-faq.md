@@ -646,7 +646,7 @@ Connect Core §3.1.3.7 gives it rejects the id token, and a deployment serving o
 ### Where does an administrator read a grant?
 
 **Decision:** In a collection of its own, `/api/v1/admin/grants`, where a person's grants are the
-ones filtered on `user_id`.
+ones filtered on `user`.
 
 **Options considered:**
 
@@ -777,20 +777,54 @@ filter reads as names while the collection matches on what does not change with 
 
 **Decision:** Everything the grant records — its scope sets and how each was obtained, when the
 person authenticated, the claims requested, who revoked it — and nothing of the tokens under it. A
-list item is a summary: every field the collection filters on, `scope` aside.
+list item is a summary: every field the collection filters on, the three scope sets among them.
 
 **Options considered:**
 
 - **The grant's own record.**
 - **That, with the last refresh and when the last token expires.**
 - **A list item carrying the detail whole.**
+- **A list item without the scope sets**, the decision until the administration panel counted them.
 
 **Rationale:**
 
 When a grant was last refreshed and when its last token expires are the tokens' own information,
-and they get a collection of their own rather than a summary of it squeezed into the grant. The
-scope sets and the requested claims are what an administrator reads once they have found the grant,
-which is one request away from the list.
+and they get a collection of their own rather than a summary of it squeezed into the grant. How each
+scope set was obtained and the requested claims are what an administrator reads once they have found
+the grant, which is one request away from the list. The sets themselves are not: a row counts them,
+and a filter on `scope` keeps rows that would otherwise not show why they were kept.
+
+---
+
+### How does a grant name the person it was opened for?
+
+**Decision:** It embeds the person in place of their identifier, as a flow session does, with the
+identifier claims they hold a value for and neither of their last dates. It is read under
+`admin:grants:read` alone, and the filter on the person is named `user` after it.
+
+**Options considered:**
+
+- **The person embedded, as a flow session embeds them.**
+- **An `identifier_claims` map beside `user_id`.**
+- **The claims a `claims` parameter selects**, as the user collection takes.
+- **The identifier claims only to a caller also holding `admin:users:read`.**
+
+**Rationale:**
+
+A list naming each row by an account identifier cannot be read, and filling it took one user read
+per grant. Embedding the person the way a flow session does gives a grant and a session one shape
+for the person they belong to, so the identifier beside it and the filter named after the identifier
+would each be a second spelling. A `claims` selection reaches any claim, so on this surface it would
+have to be narrowed to the identifier claims and refuse the rest, which is a parameter and an error
+to pick out of a set a deployment already keeps small.
+
+Answering the address under the grants' own scope does widen it: the free text only confirmed an
+address a caller already had, and the list now hands over the address of every person holding a
+grant. That is what the scope is for — whoever reads grants is reading whose they are, which is the
+question an administrator revoking a stolen phone's grant asks first — and requiring the user scope
+as well would leave a grants reader unable to answer it. What the user scope guards beyond that is
+the rest of a person's claims and their activity, which is why their last dates stay where users are
+read.
 
 ---
 

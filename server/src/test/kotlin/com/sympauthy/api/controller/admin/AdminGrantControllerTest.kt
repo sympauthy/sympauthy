@@ -12,6 +12,7 @@ import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager
+import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUser
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionField
@@ -93,7 +94,7 @@ class AdminGrantControllerTest {
 
     @Test
     fun `listGrants - Hand the manager the criteria the request carries, on the page it names`() = runTest {
-        val live = GrantWithStatus(grant, GrantStatus.LIVE)
+        val live = GrantWithUser(GrantWithStatus(grant, GrantStatus.LIVE), user = null)
         val resource = mockk<AdminGrantSummaryResource>()
         val criteria = slot<CollectionCriteria>()
         coEvery { grantCollectionManager.capabilities() } returns capabilities
@@ -136,7 +137,7 @@ class AdminGrantControllerTest {
 
     @Test
     fun `getGrant - Answer the detail of the grant the identifier names`() = runTest {
-        val live = GrantWithStatus(grant, GrantStatus.LIVE)
+        val live = GrantWithUser(GrantWithStatus(grant, GrantStatus.LIVE), user = null)
         val resource = mockk<AdminGrantDetailResource>()
         coEvery { grantCollectionManager.findGrantOrNull(grantId) } returns live
         every { grantMapper.toDetailResource(live) } returns resource

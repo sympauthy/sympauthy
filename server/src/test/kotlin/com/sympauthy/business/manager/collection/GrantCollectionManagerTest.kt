@@ -7,10 +7,12 @@ import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.ScopeManager
 import com.sympauthy.business.manager.auth.GrantManager
+import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUser
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -19,6 +21,9 @@ import com.sympauthy.business.model.grant.GrantWithStatus
 import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.mockk.coEvery
@@ -31,7 +36,6 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -66,15 +70,14 @@ class GrantCollectionManagerTest {
 
     private val anaId = UUID.randomUUID()
 
-    private val email = mockk<EnabledClaim> { every { id } returns "email" }
+    private val email by lazy { mockk<EnabledClaim> { every { id } returns "email" } }
 
     /** An identifier claim named as one of the grant's own fields, which the grant's field wins over. */
-    private val status = mockk<EnabledClaim> { every { id } returns "status" }
+    private val status by lazy { mockk<EnabledClaim> { every { id } returns "status" } }
 
     private val firstPage = PageParams(page = 0, size = 20)
 
-    @BeforeEach
-    fun knownConfiguration() {
+    private fun knownConfiguration() {
         coEvery { clientManager.listClients() } returns listOf("web", "backend").map { clientId ->
             mockk<Client> { every { id } returns clientId }
         }
@@ -138,6 +141,7 @@ class GrantCollectionManagerTest {
 
     private fun knownGrants(vararg grants: GrantWithStatus) {
         coEvery { grantManager.listWithStatus() } returns grants.toList()
+        coEvery { collectedClaimManager.listUsersWithIdentifierClaims(any()) } returns emptyMap()
     }
 
     @Test
@@ -148,16 +152,16 @@ class GrantCollectionManagerTest {
 
         val result = grantCollectionManager.listGrants(criteriaOf(), firstPage)
 
-        assertEquals(listOf(oldest, newest), result.items)
+        assertEquals(listOf(oldest, newest), result.items.map(GrantWithUser::grant))
     }
 
     @Test
-    fun `listGrants - Keep the grants no user holds where user_id is asked to be absent`() = runTest {
+    fun `listGrants - Keep the grants no user holds where user is asked to be absent`() = runTest {
         knownGrants(grant(), clientCredentials)
 
-        val result = grantCollectionManager.listGrants(criteriaOf("user_id.is_null" to "true"), firstPage)
+        val result = grantCollectionManager.listGrants(criteriaOf("user.is_null" to "true"), firstPage)
 
-        assertEquals(listOf(clientCredentials), result.items)
+        assertEquals(listOf(clientCredentials), result.items.map(GrantWithUser::grant))
     }
 
     @Test
@@ -167,7 +171,7 @@ class GrantCollectionManagerTest {
 
         val result = grantCollectionManager.listGrants(criteriaOf("status" to "revoked"), firstPage)
 
-        assertEquals(listOf(revoked), result.items)
+        assertEquals(listOf(revoked), result.items.map(GrantWithUser::grant))
     }
 
     @Test
@@ -175,14 +179,8 @@ class GrantCollectionManagerTest {
         val consented = grant()
         knownGrants(consented, clientCredentials)
 
-        assertEquals(
-            listOf(clientCredentials),
-            grantCollectionManager.listGrants(criteriaOf("scope" to "read"), firstPage).items
-        )
-        assertEquals(
-            listOf(clientCredentials),
-            grantCollectionManager.listGrants(criteriaOf("scope.ne" to "openid"), firstPage).items
-        )
+        assertEquals(listOf(clientCredentials), grantsOf(criteriaOf("scope" to "read")))
+        assertEquals(listOf(clientCredentials), grantsOf(criteriaOf("scope.ne" to "openid")))
     }
 
     @Test
@@ -196,7 +194,7 @@ class GrantCollectionManagerTest {
             firstPage
         )
 
-        assertEquals(listOf(exchanged), result.items)
+        assertEquals(listOf(exchanged), result.items.map(GrantWithUser::grant))
     }
 
     @Test
@@ -217,7 +215,7 @@ class GrantCollectionManagerTest {
 
         val result = grantCollectionManager.listGrants(criteriaOf(query = "ana@example"), firstPage)
 
-        assertEquals(listOf(anas), result.items)
+        assertEquals(listOf(anas), result.items.map(GrantWithUser::grant))
     }
 
     @Test
@@ -227,7 +225,7 @@ class GrantCollectionManagerTest {
 
         val result = grantCollectionManager.listGrants(criteriaOf(query = "back"), firstPage)
 
-        assertEquals(listOf(clientCredentials), result.items)
+        assertEquals(listOf(clientCredentials), result.items.map(GrantWithUser::grant))
     }
 
     @Test
@@ -240,8 +238,38 @@ class GrantCollectionManagerTest {
     }
 
     @Test
+    fun `listGrants - Name the person of each grant on the published page, and of no other`() = runTest {
+        val onPage = grant()
+        val offPage = grant(userId = UUID.randomUUID(), creationDate = createdAt.plusDays(1))
+        coEvery { grantManager.listWithStatus() } returns listOf(onPage, offPage, clientCredentials)
+        val ana = UserWithIdentifierClaims(
+            User(id = anaId, status = UserStatus.ENABLED, creationDate = createdAt, sessionId = null),
+            identifierClaims = emptyList()
+        )
+        coEvery { collectedClaimManager.listUsersWithIdentifierClaims(listOf(anaId)) } returns mapOf(anaId to ana)
+
+        val result = grantCollectionManager.listGrants(criteriaOf(), PageParams(page = 0, size = 2))
+
+        assertEquals(listOf(ana, null), result.items.map(GrantWithUser::user))
+        coVerify(exactly = 1) { collectedClaimManager.listUsersWithIdentifierClaims(listOf(anaId)) }
+    }
+
+    @Test
+    fun `findGrantOrNull - Name the person the grant was opened for`() = runTest {
+        val anas = grant()
+        val ana = UserWithIdentifierClaims(
+            User(id = anaId, status = UserStatus.ENABLED, creationDate = createdAt, sessionId = null),
+            identifierClaims = emptyList()
+        )
+        coEvery { grantManager.findWithStatusByIdOrNull(anas.grant.id) } returns anas
+        coEvery { collectedClaimManager.findUserWithIdentifierClaimsOrNull(anaId) } returns ana
+
+        assertEquals(GrantWithUser(anas, ana), grantCollectionManager.findGrantOrNull(anas.grant.id))
+    }
+
+    @Test
     fun `capabilities - Publish an identifier claim as a field searched and never filtered on`() = runTest {
-        val capabilities = grantCollectionManager.capabilities()
+        val capabilities = capabilities()
 
         assertEquals(listOf("client_id", "audience_id", "email"), capabilities.searchFields.map { it.name })
         assertFalse(capabilities.filterFields.any { it.name == "email" })
@@ -250,7 +278,7 @@ class GrantCollectionManagerTest {
 
     @Test
     fun `capabilities - Enumerate every grant type a grant is opened by, and no refresh`() = runTest {
-        val grantType = grantCollectionManager.capabilities().fieldOrNull("grant_type")
+        val grantType = capabilities().fieldOrNull("grant_type")
 
         assertEquals(
             listOf("authorization_code", "client_credentials", "urn:ietf:params:oauth:grant-type:token-exchange"),
@@ -261,7 +289,7 @@ class GrantCollectionManagerTest {
     @Test
     fun `capabilities - Offer a client the configuration no longer declares, since its grants are still stored`() =
         runTest {
-            val clientId = grantCollectionManager.capabilities().fieldOrNull("client_id")
+            val clientId = capabilities().fieldOrNull("client_id")
 
             assertEquals(listOf("web", "backend", "legacy"), clientId?.values?.map { it.value })
             assertEquals("legacy", clientId?.values?.last()?.defaultName)
@@ -270,7 +298,7 @@ class GrantCollectionManagerTest {
     @Test
     fun `capabilities - Leave out an identifier claim named after any field or parameter of the collection`() =
         runTest {
-            val names = grantCollectionManager.capabilities().fields
+            val names = capabilities().fields
                 .filterNot { it.key.startsWith("claims.") }
                 .map { it.name } + listOf("page", "size", "sort", "q")
             every { claimManager.listIdentifierClaims() } returns names.map { name ->
@@ -292,13 +320,21 @@ class GrantCollectionManagerTest {
     fun `capabilities - Order on the dates alone`() = runTest {
         assertEquals(
             listOf("created_at", "expires_at", "revoked_at"),
-            grantCollectionManager.capabilities().sortFields.map { it.name }
+            capabilities().sortFields.map { it.name }
         )
+    }
+
+    private suspend fun grantsOf(criteria: CollectionCriteria): List<GrantWithStatus> =
+        grantCollectionManager.listGrants(criteria, firstPage).items.map(GrantWithUser::grant)
+
+    private suspend fun capabilities(): CollectionCapabilities {
+        knownConfiguration()
+        return grantCollectionManager.capabilities()
     }
 
     private suspend fun criteriaOf(
         vararg filters: Pair<String, String>,
         sort: String? = null,
         query: String? = null
-    ): CollectionCriteria = grantCollectionManager.capabilities().criteriaOf(*filters, sort = sort, query = query)
+    ): CollectionCriteria = capabilities().criteriaOf(*filters, sort = sort, query = query)
 }

@@ -172,6 +172,15 @@ nested under a person could never show one, and could not answer what a client o
 either. An act-as grant is among the grants of the person it acts as. [The design
 FAQ](design-faq.md#where-does-an-administrator-read-a-grant) weighs the nesting that lost.
 
+**A grant names the person it was opened for, as a flow session does.** It embeds them in place of
+their identifier — their status, when their account was created and the identifier claims they hold
+a value for — so a list of grants reads as whose they are rather than as a column of account
+identifiers. It takes no scope beyond the grants' own, so whoever may read grants learns the address
+of every person holding one: knowing whose grants they are is what that scope is for, and what the
+user scope guards beyond it — the rest of their claims and their activity — stays off it. A
+`client_credentials` grant names nobody. [The design FAQ](design-faq.md#how-does-a-grant-name-the-person-it-was-opened-for)
+holds the shapes that lost.
+
 **A grant is found by typing the person's address or the client's identifier.** The free text
 matches the identifier claims of the person, the client and the audience, and a client or an
 audience is filtered by its identifier while the filter shows it under its display name, which
@@ -206,6 +215,10 @@ authenticated, and the claims an authorization asked for. Revoking a consent sta
 scope and still revokes the grants it reaches: the scope gates the action rather than what follows
 from it. [The design FAQ](design-faq.md#are-grants-read-and-revoked-under-the-consent-scopes) holds
 the reuse that lost.
+
+**A listed grant carries its scope sets, and the detail how each was obtained.** A row counts what
+the grant holds and shows why a filter on a scope kept it, while how a set was granted or consented
+to, when the person authenticated and the claims requested are read once the grant is found.
 
 **Nothing an administrator reads of a grant is about the tokens under it.** When it was last
 refreshed and when its last token expires are the tokens' own, and listing them is left open below.
@@ -249,7 +262,8 @@ revocation finds their tokens and revokes their grant.
 passes the condition every revocation in `GrantRepository` writes under, read at the same moment,
 so a grant listed live is one a revocation then would take out of service. The rest is read off the
 grant itself. `GrantCollectionManager` is the administrator's collection, read in memory like every
-other one there, and it reads the identifier claims its free text matches only when one was sent.
+other one there. It reads the identifier claims of every grant's person only when a free text was
+sent for them to match, and otherwise the persons of the page it publishes alone.
 
 **`GrantCleaner` is the collecting job**, run by `CleanFinishedGrantCron` under a
 [lease](../standards/locking-standard.md#the-lease) like every job one instance is enough for. It

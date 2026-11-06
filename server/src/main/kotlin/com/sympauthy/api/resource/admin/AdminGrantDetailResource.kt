@@ -8,9 +8,10 @@ import java.util.*
 
 internal const val GRANT_ID_PROPERTY_DESCRIPTION = "Identifier of the grant."
 
-internal const val GRANT_USER_ID_PROPERTY_DESCRIPTION =
-        "Identifier of the user the grant was opened for. On a grant a client obtained through a token exchange, " +
-        "the user it acts as. Absent on a `client_credentials` grant, which no user holds."
+internal const val GRANT_USER_PROPERTY_DESCRIPTION =
+        "User the grant was opened for, with only its identifier claims. On a grant a client obtained through a " +
+        "token exchange, the user it acts as. Absent when no user holds the grant, which is the case of a " +
+        "`client_credentials` one."
 
 internal const val GRANT_CLIENT_ID_PROPERTY_DESCRIPTION =
         "Identifier of the client the grant was opened for, which the configuration may no longer declare."
@@ -42,6 +43,14 @@ internal const val GRANT_REVOKED_BY_PROPERTY_DESCRIPTION =
         "administrator; `consent_revoked` the consent it rests on being revoked; `authorization_code_replayed` " +
         "its authorization code being presented again. Absent unless it is `revoked`."
 
+internal const val GRANT_GRANTED_SCOPES_PROPERTY_DESCRIPTION =
+        "Scopes granted to the end-user by the scope granting rules."
+
+internal const val GRANT_CONSENTED_SCOPES_PROPERTY_DESCRIPTION = "Scopes the end-user consented to."
+
+internal const val GRANT_CLIENT_SCOPES_PROPERTY_DESCRIPTION =
+        "Scopes given to the client on its own behalf, by the `client_credentials` grant."
+
 internal const val GRANT_ACTOR_GRANT_ID_PROPERTY_DESCRIPTION =
         "Identifier of the grant of the token a token exchange was given, which revoking revokes this grant too. " +
         "Absent unless a client obtained the grant through a token exchange."
@@ -58,9 +67,9 @@ data class AdminGrantDetailResource(
     @get:Schema(description = GRANT_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("grant_id")
     val grantId: UUID,
-    @get:Schema(description = GRANT_USER_ID_PROPERTY_DESCRIPTION)
-    @get:JsonProperty("user_id")
-    val userId: UUID?,
+    @get:Schema(description = GRANT_USER_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("user")
+    val user: AdminUserResource?,
     @get:Schema(description = GRANT_CLIENT_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("client_id")
     val clientId: String,
@@ -107,7 +116,7 @@ data class AdminGrantDetailResource(
     @get:Schema(description = GRANT_ACTOR_GRANT_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("actor_grant_id")
     val actorGrantId: UUID?,
-    @get:Schema(description = "Scopes granted to the end-user by the scope granting rules.")
+    @get:Schema(description = GRANT_GRANTED_SCOPES_PROPERTY_DESCRIPTION)
     @get:JsonProperty("granted_scopes")
     val grantedScopes: List<String>,
     @get:Schema(
@@ -124,7 +133,7 @@ data class AdminGrantDetailResource(
     )
     @get:JsonProperty("granted_by")
     val grantedBy: String?,
-    @get:Schema(description = "Scopes the end-user consented to.")
+    @get:Schema(description = GRANT_CONSENTED_SCOPES_PROPERTY_DESCRIPTION)
     @get:JsonProperty("consented_scopes")
     val consentedScopes: List<String>,
     @get:Schema(
@@ -140,7 +149,7 @@ data class AdminGrantDetailResource(
     )
     @get:JsonProperty("consented_by")
     val consentedBy: String?,
-    @get:Schema(description = "Scopes given to the client on its own behalf, by the `client_credentials` grant.")
+    @get:Schema(description = GRANT_CLIENT_SCOPES_PROPERTY_DESCRIPTION)
     @get:JsonProperty("client_scopes")
     val clientScopes: List<String>,
     @get:Schema(

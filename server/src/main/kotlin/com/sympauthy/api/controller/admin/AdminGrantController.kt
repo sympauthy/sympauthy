@@ -65,7 +65,7 @@ class AdminGrantController(
     @Operation(
         description = "Retrieve the grants this server holds, whoever they were opened for, revoked, expired " +
                 "and lapsed ones included until they are deleted. A user's grants are the ones filtered on " +
-                "`user_id`. " +
+                "`user`. " +
                 "Grants are ordered by the date they were opened, oldest first, unless another order is asked " +
                 "for. " +
                 "Which fields this collection can be filtered, ordered and searched on is published at " +

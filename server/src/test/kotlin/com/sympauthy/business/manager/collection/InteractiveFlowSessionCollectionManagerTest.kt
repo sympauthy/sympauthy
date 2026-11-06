@@ -7,7 +7,6 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
 import com.sympauthy.business.model.client.Client
@@ -22,6 +21,7 @@ import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
@@ -63,9 +63,6 @@ class InteractiveFlowSessionCollectionManagerTest {
     lateinit var securityContextRepository: InteractiveFlowSessionSecurityContextRepository
 
     @MockK
-    lateinit var userManager: UserManager
-
-    @MockK
     lateinit var collectedClaimManager: CollectedClaimManager
 
     @MockK
@@ -91,6 +88,8 @@ class InteractiveFlowSessionCollectionManagerTest {
 
     private val handedToHandlers = mutableListOf<InteractiveFlowSession>()
 
+    private val knownUsers = mutableMapOf<UUID, UserWithIdentifierClaims>()
+
     @Test
     fun `listSessions - Reports a session that completed and has since expired as completed`() = runTest {
         givenSessions(
@@ -101,7 +100,6 @@ class InteractiveFlowSessionCollectionManagerTest {
             )
         )
         givenNoObservation()
-        givenNoUser()
 
         val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
 
@@ -295,21 +293,17 @@ class InteractiveFlowSessionCollectionManagerTest {
             val offPage = entity(userId = UUID.randomUUID(), sessionDate = NOW.minusMinutes(1))
             givenSessions(onPage, offPage)
             givenNoObservation()
-            givenNoUser()
             coEvery { engine.currentPurposeOrNull(any()) } returns null
 
             manager.listSessions(criteriaOf(), PageParams(0, 1))
 
-            coVerify(exactly = 1) { userManager.listByIds(listOf(onPage.userId!!)) }
+            coVerify(exactly = 1) { collectedClaimManager.listUsersWithIdentifierClaims(listOf(onPage.userId!!)) }
         }
 
     @Test
-    fun `listSessions - Publishes no user for a session still signing an account up`() = runTest {
-        val provisionalUserId = UUID.randomUUID()
-        givenSessions(entity(userId = provisionalUserId, signedUp = true))
+    fun `listSessions - Keeps signed up on a session whose account the read does not answer`() = runTest {
+        givenSessions(entity(userId = UUID.randomUUID(), signedUp = true))
         givenNoObservation()
-        // The account is provisional, so the committed-rows-only read answers with nothing.
-        coEvery { userManager.listByIds(listOf(provisionalUserId)) } returns emptyList()
         coEvery { engine.currentPurposeOrNull(any()) } returns null
 
         val row = manager.listSessions(criteriaOf(), PageParams(0, 20)).items.single()
@@ -515,7 +509,6 @@ class InteractiveFlowSessionCollectionManagerTest {
     fun `findSessionOrNull - Hands an expired session to the handlers as an ongoing one`() = runTest {
         val session = entity(userId = UUID.randomUUID(), expirationDate = NOW.minusMinutes(10))
         givenDetailReads(session)
-        givenNoUser()
         coEvery { engine.currentPurposeOrNull(any()) } returns null
 
         manager.findSessionOrNull(session.id!!)
@@ -588,6 +581,7 @@ class InteractiveFlowSessionCollectionManagerTest {
 
     private fun givenSessions(vararg entities: InteractiveFlowSessionEntity) {
         coEvery { sessionRepository.findAll() } returns flowOf(*entities)
+        givenUsersRead()
     }
 
     private fun givenNoObservation() {
@@ -598,27 +592,33 @@ class InteractiveFlowSessionCollectionManagerTest {
         coEvery { securityContextRepository.findAll() } returns flowOf(*entities)
     }
 
-    private fun givenNoUser() {
-        coEvery { userManager.listByIds(any()) } returns emptyList()
+    /**
+     * Answer the read of the users a page names from [knownUsers], which [givenUser] fills.
+     */
+    private fun givenUsersRead() {
+        coEvery { collectedClaimManager.listUsersWithIdentifierClaims(any()) } answers {
+            firstArg<List<UUID>>().mapNotNull { id -> knownUsers[id]?.let { id to it } }.toMap()
+        }
     }
 
     private fun givenUser(userId: UUID, email: String) {
         val user = User(id = userId, status = UserStatus.ENABLED, creationDate = NOW, sessionId = null)
-        coEvery { userManager.listByIds(listOf(userId)) } returns listOf(user)
-        coEvery { collectedClaimManager.listIdentifierByUserIds(listOf(userId)) } returns listOf(
-            CollectedClaim(
-                userId = userId,
-                claim = mockk<EnabledClaim>(),
-                value = email,
-                verified = true,
-                collectionDate = NOW,
-                verificationDate = NOW
-            )
+        val identifierClaim = CollectedClaim(
+            userId = userId,
+            claim = mockk<EnabledClaim>(),
+            value = email,
+            verified = true,
+            collectionDate = NOW,
+            verificationDate = NOW
         )
+        knownUsers[userId] = UserWithIdentifierClaims(user, listOf(identifierClaim))
     }
 
     private fun givenDetailReads(session: InteractiveFlowSessionEntity) {
         coEvery { sessionRepository.findById(session.id!!) } returns session
+        session.userId?.let { userId ->
+            coEvery { collectedClaimManager.findUserWithIdentifierClaimsOrNull(userId) } answers { knownUsers[userId] }
+        }
         session.purposes.forEach { purpose ->
             val handler = mockk<InteractiveFlowPurposeHandler>()
             coEvery { handler.debugInformation(capture(handedToHandlers)) } returns

@@ -15,9 +15,9 @@ data class AdminGrantSummaryResource(
     @get:Schema(description = GRANT_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("grant_id")
     val grantId: UUID,
-    @get:Schema(description = GRANT_USER_ID_PROPERTY_DESCRIPTION)
-    @get:JsonProperty("user_id")
-    val userId: UUID?,
+    @get:Schema(description = GRANT_USER_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("user")
+    val user: AdminUserResource?,
     @get:Schema(description = GRANT_CLIENT_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("client_id")
     val clientId: String,
@@ -57,5 +57,14 @@ data class AdminGrantSummaryResource(
     val revokedBy: String?,
     @get:Schema(description = GRANT_ACTOR_GRANT_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("actor_grant_id")
-    val actorGrantId: UUID?
+    val actorGrantId: UUID?,
+    @get:Schema(description = GRANT_GRANTED_SCOPES_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("granted_scopes")
+    val grantedScopes: List<String>,
+    @get:Schema(description = GRANT_CONSENTED_SCOPES_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("consented_scopes")
+    val consentedScopes: List<String>,
+    @get:Schema(description = GRANT_CLIENT_SCOPES_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("client_scopes")
+    val clientScopes: List<String>
 )
