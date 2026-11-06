@@ -2,6 +2,8 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
@@ -21,7 +23,8 @@ import java.util.*
 open class UserManager(
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val userRepository: UserRepository,
-    @Inject private val userMapper: UserMapper
+    @Inject private val userMapper: UserMapper,
+    @Inject private val lockManager: LockManager
 ) {
 
     @Inject
@@ -259,19 +262,27 @@ open class UserManager(
     /**
      * Record that the person [userId] proved a credential at [authenticationDate], in a flow that is completing.
      *
-     * An earlier date than the one they hold leaves theirs as it is. See `docs/design/security.md`.
+     * An earlier date than the one they hold leaves theirs as it is, and so does an account still being signed
+     * up. See `docs/design/security.md`.
+     *
+     * The account's row is written under [LockKey.User], taken before the write, so the row is never held by a
+     * transaction still waiting for that lock. A caller already holding it keeps it, and one holding any other
+     * names this one beside it, as [LockManager.withLock] requires.
      */
     suspend fun markAuthenticated(userId: UUID, authenticationDate: LocalDateTime) {
-        userRepository.advanceLastAuthenticationDate(userId, authenticationDate)
+        lockManager.withLock(listOf(LockKey.User(userId))) {
+            userRepository.advanceLastAuthenticationDate(userId, authenticationDate)
+        }
     }
 
     /**
-     * Record that a grant held for the person [userId] was refreshed at [refreshDate].
-     *
-     * An earlier date than the one they hold leaves theirs as it is. See `docs/design/security.md`.
+     * Record that a grant held for the person [userId] was refreshed at [refreshDate], on the terms of
+     * [markAuthenticated].
      */
     suspend fun markRefreshed(userId: UUID, refreshDate: LocalDateTime) {
-        userRepository.advanceLastRefreshDate(userId, refreshDate)
+        lockManager.withLock(listOf(LockKey.User(userId))) {
+            userRepository.advanceLastRefreshDate(userId, refreshDate)
+        }
     }
 
     /**

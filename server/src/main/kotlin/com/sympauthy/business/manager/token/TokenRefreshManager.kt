@@ -72,6 +72,9 @@ open class TokenRefreshManager(
      * which every revocation of that account's grants takes too. A revocation racing this refresh either
      * commits first, and is read here as the refusal it is, or waits for these tokens to be committed and
      * finds the grant live through them.
+     *
+     * A refresh that succeeds for a grant held for a person moves their last refresh to the issue date of the
+     * new access token, in the same transaction. A refused one moves nothing.
      */
     @Transactional
     open suspend fun refresh(

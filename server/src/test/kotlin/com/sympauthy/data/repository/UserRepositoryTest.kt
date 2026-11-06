@@ -107,6 +107,22 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `advanceLastAuthenticationDate - Leaves the dates of an account still being signed up alone`(
+        database: Database
+    ) = withFixture(database) {
+        val users = repository<UserRepository>()
+        val id = newUser(status = status, sessionId = newSession().id)
+
+        assertEquals(0, users.advanceLastAuthenticationDate(id, BASE_DATE))
+        assertEquals(0, users.advanceLastRefreshDate(id, BASE_DATE))
+
+        val stored = users.findById(id)
+        assertNull(stored?.lastAuthenticationDate)
+        assertNull(stored?.lastRefreshDate)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `findBySessionIdIsNull - Excludes the users a session is still signing up`(database: Database) =
         withFixture(database) {
             val session = newSession()

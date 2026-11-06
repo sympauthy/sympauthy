@@ -809,8 +809,8 @@ which is one request away from the list.
 **Rationale:**
 
 An administrator reading these is looking for an account nobody uses, and a client refreshes with
-nobody there. With one date, an application on a forgotten phone keeps the account looking active for
-months, which hides exactly what is being looked for.
+nobody there. With one date, an application on a forgotten phone keeps the account looking active
+for months, which hides exactly what is being looked for.
 
 A grant already states `authenticated_at` for the moment the first date holds, so naming it anything
 else would give one moment two names.
@@ -874,10 +874,10 @@ flow.
 
 **Rationale:**
 
-The fold runs after the completion has committed and is allowed to fail, because a place is a history
-row and a person's sign-in must not be answered with an error over one. A date an administrator acts
-on cannot be lost that way. Its stamp is also a separate reading of the clock from the one written for
-`auth_time`, so the two could land on different seconds.
+The fold runs after the completion has committed and is allowed to fail, because a place is a
+history row and a person's sign-in must not be answered with an error over one. A date an
+administrator acts on cannot be lost that way. Its stamp is also a separate reading of the clock
+from the one written for `auth_time`, so the two could land on different seconds.
 
 A new date on the session would be a second copy of what each record already holds, and would need
 keeping equal to them. Reading the record makes the date equal the `auth_time` of the tokens by

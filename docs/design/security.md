@@ -4,9 +4,9 @@ Three questions, asked of every request in that order: who is calling, what are 
 and what are they allowed to be told. Everything here answers one of them — the gate each of [the
 surfaces](architecture.md#surfaces) applies, the scopes that say what a caller may do, the rules
 that say whom a client may act as, the authentications a credential turns into, the tokens that
-carry the answers off this server, and what is kept of when a person was last active. What a caller may be told about a person is [the
-claims](claims.md), which those gates and scopes are enforced through. It closes with what this
-design deliberately does not do.
+carry the answers off this server, and what is kept of when a person was last active. What a caller
+may be told about a person is [the claims](claims.md), which those gates and scopes are enforced
+through. It closes with what this design deliberately does not do.
 
 The rules for writing a secured controller are [the `api` layer
 standard](../standards/api-layer-code-standard.md); this document is what those annotations are
@@ -515,8 +515,8 @@ token](#acting-as-a-person), so neither moves either date.
 **Each date is written when the interaction happens, and outlives what it came from.** Revoking a
 grant, collecting it or letting its tokens expire leaves both as they were, and each is kept for as
 long as the account is, so an account unused for a year still says so. Neither ever moves backwards:
-a flow proven at 10:00 that completes after one proven at 10:02 leaves 10:02. An empty date means the
-account has not done that, and nothing else. [The design
+a flow proven at 10:00 that completes after one proven at 10:02 leaves 10:02. An empty date means
+the account has not done that, and nothing else. [The design
 FAQ](design-faq.md#are-a-persons-last-dates-derived-or-recorded) holds the derivation that lost.
 
 **An administrator reads both where a user is read under `admin:users:read`, and nowhere else.** The
@@ -525,10 +525,12 @@ session embeds states neither, because a session is read under a scope that does
 would otherwise disclose a person's activity to someone only allowed to read flows.
 
 **The dates are columns of `users`, written by `UserManager` through a comparison in the statement
-itself.** That comparison is what keeps them from moving backwards across instances, with no lock of
-its own. The last authentication is written by the terminal effect of the purpose whose record holds
-the proof, inside [the transaction completing the flow](interactive-flow.md#the-engine), and reads
-that record rather than the stamp a place carries. [The design
+itself.** That comparison is what keeps them from moving backwards across instances. Each write
+takes the account's lock first, which a refresh already holds, so no transaction holds the row while
+it waits for the lock, and an account still being signed up is left as it is. The last
+authentication is written by the terminal effect of the purpose whose record holds the proof, inside
+[the transaction completing the flow](interactive-flow.md#the-engine), and reads that record rather
+than the stamp a place carries. [The design
 FAQ](design-faq.md#where-does-a-persons-last-authentication-read-its-moment-from) holds why.
 
 ## What this document does not settle

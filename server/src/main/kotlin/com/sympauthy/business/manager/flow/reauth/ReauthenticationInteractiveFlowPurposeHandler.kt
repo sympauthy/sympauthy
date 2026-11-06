@@ -22,8 +22,8 @@ import jakarta.inject.Singleton
  *
  * It reuses the sign-in step ([InteractiveFlowStep.SignIn]) — the sign-in password/provider paths detect the
  * active purpose and switch to **confirm, never establish** semantics, then record the proof on the session's
- * re-authentication record. This handler stays pure: it only reads that record to decide whether the sign-in
- * step is still needed.
+ * re-authentication record. This handler reads that record to decide whether the sign-in step is
+ * still needed, and once the flow completes, to move the person's last authentication to the moment it holds.
  *
  * When the account is MFA-enrolled, a fresh [InteractiveFlowPurpose.MFA_CHALLENGE] is appended as a follow-up
  * (like [com.sympauthy.business.manager.flow.auth.OAuth2AuthorizeInteractiveFlowPurposeHandler] does) so

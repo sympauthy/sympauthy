@@ -289,8 +289,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
     /**
      * Record the authorization [grantScopesResult] decided for the ongoing [session] of [userId], for the
-     * [audience] of its client: the granted scopes, the consent, the consumed invitation, the grant and the
-     * authorization code.
+     * [audience] of its client: the granted scopes, the consent, the consumed invitation, the grant, the
+     * authorization code and the person's last authentication.
      *
      * Every row it writes attaches to the account, so it requires the account promoted, in the transaction
      * that commits the promotion.
@@ -299,7 +299,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * for the client. If an active consent already exists for this user+client pair, it is revoked and replaced.
      *
      * The grant every token of this authorization will be issued under is opened here, once the scopes and the
-     * consent it records are decided, and the authorization code is generated last, naming it. The session
+     * consent it records are decided, and the authorization code is generated after it, naming it. The session
      * completes holding the one code its hand-off carries, and a completion that fails after this rolls both
      * back with everything else.
      *
@@ -309,9 +309,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * runs inside the completion transaction, so the first flow to reach it takes it and the second is
      * refused. See [com.sympauthy.data.model.SessionScoped].
      *
-     * The person's last authentication moves last, by the date the grant was opened with. It takes the account's
-     * row, and every other writer of that row holds the lock over the account before it does, so taking the row
-     * before the consent takes that lock would be the opposite order.
+     * The person's last authentication moves last, to the moment their credential was proven, which is the
+     * `auth_time` of the tokens the code leads to.
      */
     internal suspend fun recordAuthorization(
         session: OnGoingInteractiveFlowSession,

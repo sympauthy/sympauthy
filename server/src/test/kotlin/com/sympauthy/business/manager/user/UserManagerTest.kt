@@ -2,6 +2,9 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
@@ -12,11 +15,13 @@ import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
+import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
-import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -24,6 +29,7 @@ import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -61,6 +67,14 @@ class UserManagerTest {
 
     @MockK
     lateinit var userMapper: UserMapper
+
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
+    /**
+     * The real manager over the stripe table, so a test can say the account's row was taken. A double answering
+     * for `withLock` would run the block whether or not anything was ever locked.
+     */
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
 
     @SpyK
     @InjectMockKs
@@ -391,25 +405,31 @@ class UserManagerTest {
     )
 
     @Test
-    fun `markAuthenticated - Advances the last authentication of that account`() = runTest {
+    fun `markAuthenticated - Advances the last authentication of that account under its lock`() = runTest {
         val id = UUID.randomUUID()
         val date = LocalDateTime.of(2026, 11, 5, 10, 0)
         coEvery { userRepository.advanceLastAuthenticationDate(id, date) } returns 1
 
         manager.markAuthenticated(id, date)
 
-        coVerify(exactly = 1) { userRepository.advanceLastAuthenticationDate(id, date) }
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(id).stripe)
+            userRepository.advanceLastAuthenticationDate(id, date)
+        }
     }
 
     @Test
-    fun `markRefreshed - Advances the last refresh of that account`() = runTest {
+    fun `markRefreshed - Advances the last refresh of that account under its lock`() = runTest {
         val id = UUID.randomUUID()
         val date = LocalDateTime.of(2026, 11, 5, 10, 0)
         coEvery { userRepository.advanceLastRefreshDate(id, date) } returns 1
 
         manager.markRefreshed(id, date)
 
-        coVerify(exactly = 1) { userRepository.advanceLastRefreshDate(id, date) }
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(id).stripe)
+            userRepository.advanceLastRefreshDate(id, date)
+        }
     }
 
     private fun committedUser(id: UUID) = User(

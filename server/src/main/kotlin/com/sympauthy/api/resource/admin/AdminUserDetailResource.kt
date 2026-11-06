@@ -6,6 +6,16 @@ import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDateTime
 import java.util.*
 
+internal const val USER_LAST_AUTHENTICATED_AT_PROPERTY_DESCRIPTION =
+        "Date and time at which the end-user last proved a credential in an interactive flow that then " +
+        "completed, in UTC. Where that flow was an authorization, it is the `auth_time` of the tokens it led " +
+        "to. Absent when the end-user has never authenticated"
+
+internal const val USER_LAST_REFRESHED_AT_PROPERTY_DESCRIPTION =
+        "Date and time at which a grant held for the user was last refreshed, in UTC. A refresh is a client " +
+        "acting alone, so it says nothing of the end-user being present. Absent when no grant of the user has " +
+        "been refreshed"
+
 @Schema(
     description = "A user, with the values of its identifier claims."
 )
@@ -26,18 +36,10 @@ data class AdminUserDetailResource(
     )
     @get:JsonProperty("created_at")
     val createdAt: LocalDateTime,
-    @get:Schema(
-        description = "Date and time at which the user last proved a credential in an interactive flow that " +
-                "then completed, in UTC. Where that flow was an authorization, it is the `auth_time` of the " +
-                "tokens it led to. Absent while the user has not authenticated."
-    )
+    @get:Schema(description = "$USER_LAST_AUTHENTICATED_AT_PROPERTY_DESCRIPTION.")
     @get:JsonProperty("last_authenticated_at")
     val lastAuthenticatedAt: LocalDateTime?,
-    @get:Schema(
-        description = "Date and time at which a grant held for the user was last refreshed, in UTC. A refresh " +
-                "is a client acting alone, so it says nothing of the user being present. Absent while no grant " +
-                "of theirs has been refreshed."
-    )
+    @get:Schema(description = "$USER_LAST_REFRESHED_AT_PROPERTY_DESCRIPTION.")
     @get:JsonProperty("last_refreshed_at")
     val lastRefreshedAt: LocalDateTime?,
     @get:Schema(
