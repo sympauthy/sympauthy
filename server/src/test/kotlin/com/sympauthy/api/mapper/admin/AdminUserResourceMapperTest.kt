@@ -4,6 +4,7 @@ import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithC
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.business.model.user.claim.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -74,10 +75,15 @@ class AdminUserResourceMapperTest {
     }
 
     @Test
-    fun `toResource - Publish neither last date on the user a session embeds`() {
+    fun `toResource - Publish neither last date on an embedded user`() {
         val result = mapper.toResource(
-            user.copy(lastAuthenticationDate = creationDate.plusDays(1), lastRefreshDate = creationDate.plusDays(2)),
-            emptyList()
+            UserWithIdentifierClaims(
+                user = user.copy(
+                    lastAuthenticationDate = creationDate.plusDays(1),
+                    lastRefreshDate = creationDate.plusDays(2)
+                ),
+                identifierClaims = emptyList()
+            )
         )
 
         assertNull(result.lastAuthenticatedAt)

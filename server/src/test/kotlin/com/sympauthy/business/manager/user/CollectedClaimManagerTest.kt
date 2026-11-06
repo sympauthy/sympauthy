@@ -107,6 +107,41 @@ class CollectedClaimManagerTest {
     }
 
     @Test
+    fun `listUsersWithIdentifierClaims - Pair each account with the identifier claims it holds`() = runTest {
+        val anaId = UUID.randomUUID()
+        val bobId = UUID.randomUUID()
+        val ana = mockk<User> { every { id } returns anaId }
+        val bob = mockk<User> { every { id } returns bobId }
+        val entity = mockk<CollectedClaimEntity>()
+        val anasEmail = mockk<CollectedClaim> { every { userId } returns anaId }
+
+        coEvery { userManager.listByIds(listOf(anaId, bobId)) } returns listOf(ana, bob)
+        every { claimManager.listIdentifierClaims() } returns listOf(
+            mockk<EnabledClaim> { every { id } returns "email" }
+        )
+        coEvery {
+            collectedClaimRepository.findByUserIdInListAndClaimInList(listOf(anaId, bobId), listOf("email"))
+        } returns listOf(entity)
+        every { collectedClaimMapper.toCollectedClaim(entity) } returns anasEmail
+
+        val result = manager.listUsersWithIdentifierClaims(listOf(anaId, bobId, anaId))
+
+        assertEquals(listOf(anasEmail), result[anaId]?.identifierClaims)
+        assertEquals(emptyList<CollectedClaim>(), result[bobId]?.identifierClaims)
+    }
+
+    @Test
+    fun `listUsersWithIdentifierClaims - Leave out an account still being signed up, reading no claim for it`() =
+        runTest {
+            val provisionalId = UUID.randomUUID()
+            // The account is provisional, so the committed-rows-only read answers with nothing.
+            coEvery { userManager.listByIds(listOf(provisionalId)) } returns emptyList()
+
+            assertTrue(manager.listUsersWithIdentifierClaims(listOf(provisionalId)).isEmpty())
+            coVerify(exactly = 0) { collectedClaimRepository.findByUserIdInListAndClaimInList(any(), any()) }
+        }
+
+    @Test
     fun `writeUpdates - Return the created, the updated and the untouched claims`() = runTest {
         val userId = UUID.randomUUID()
         val user = mockk<User> {

@@ -26,6 +26,7 @@ import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -42,7 +43,7 @@ import com.sympauthy.business.model.collection.CollectionFieldType.UUID as UUID_
  *
  * **The collection is read in memory**, as every other admin collection is — see [UserCollectionManager] for
  * the reason. The identifier claims `q` matches are read only where a `q` was sent, since nothing else reads
- * them.
+ * them; the person each grant names is read once the order has decided which grants are published.
  */
 @Singleton
 class GrantCollectionManager(
@@ -60,12 +61,13 @@ class GrantCollectionManager(
     suspend fun capabilities(): CollectionCapabilities = fields().capabilities
 
     /**
-     * Read the page [pageParams] names of the grants [criteria] keep, each with where it stands now.
+     * Read the page [pageParams] names of the grants [criteria] keep, each with where it stands now and the
+     * person it was opened for.
      */
     suspend fun listGrants(
         criteria: CollectionCriteria,
         pageParams: PageParams
-    ): Page<GrantWithStatus> {
+    ): Page<GrantWithUser> {
         val grants = grantManager.listWithStatus()
         val claimsByUserId = if (criteria.query.isNullOrBlank()) {
             emptyMap()
@@ -75,14 +77,20 @@ class GrantCollectionManager(
                 .groupBy(CollectedClaim::userId)
         }
         val rows = grants.map { GrantRow(it, it.grant.userId?.let(claimsByUserId::get).orEmpty()) }
-        return fields().page(rows, criteria, pageParams).map(GrantRow::grant)
+        val page = fields().page(rows, criteria, pageParams).map(GrantRow::grant)
+        val users = collectedClaimManager.listUsersWithIdentifierClaims(page.items.mapNotNull { it.grant.userId })
+        return page.map { GrantWithUser(it, it.grant.userId?.let(users::get)) }
     }
 
     /**
-     * Read the grant [id] with where it stands now, or null where this server holds none under that
-     * identifier — including one the cleanup job has collected.
+     * Read the grant [id] with where it stands now and the person it was opened for, or null where this server
+     * holds none under that identifier — including one the cleanup job has collected.
      */
-    suspend fun findGrantOrNull(id: UUID): GrantWithStatus? = grantManager.findWithStatusByIdOrNull(id)
+    suspend fun findGrantOrNull(id: UUID): GrantWithUser? {
+        val grant = grantManager.findWithStatusByIdOrNull(id) ?: return null
+        val user = grant.grant.userId?.let { collectedClaimManager.listUsersWithIdentifierClaims(listOf(it))[it] }
+        return GrantWithUser(grant, user)
+    }
 
     /**
      * The fields this collection offers, ending on the grant identifier, which is unique by construction —
@@ -104,7 +112,7 @@ class GrantCollectionManager(
         uniqueKey = compareBy { it.grant.grant.id }
     ) {
         field("id", UUID_FIELD, key = "fields.grant_id") { it.grant.grant.id }
-        field("user_id", UUID_FIELD, nullable = true) { it.grant.grant.userId }
+        field("user", UUID_FIELD, key = "fields.user_id", nullable = true) { it.grant.grant.userId }
         field(
             name = "client_id",
             type = ENUM,
@@ -169,10 +177,20 @@ class GrantCollectionManager(
          * parameters [com.sympauthy.api.util.collectionCriteriaOf] reads for something other than a criterion.
          */
         val SHADOWED_CLAIM_IDS = setOf(
-            "id", "user_id", "client_id", "audience_id", "grant_type", "status", "scope", "created_at",
+            "id", "user", "client_id", "audience_id", "grant_type", "status", "scope", "created_at",
             "expires_at", "revoked_at", "revoked_by", "actor_grant_id", "page", "size", "sort", "q"
         )
     }
+
+    /**
+     * One grant of the collection, with the person it was opened for.
+     *
+     * [user] is absent on a grant no person holds, a `client_credentials` one.
+     */
+    data class GrantWithUser(
+        val grant: GrantWithStatus,
+        val user: UserWithIdentifierClaims?
+    )
 
     /**
      * A grant as this collection reads it: the grant with its status, and the identifier claims of the person

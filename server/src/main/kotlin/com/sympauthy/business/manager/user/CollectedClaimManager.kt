@@ -11,6 +11,7 @@ import com.sympauthy.business.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
@@ -95,6 +96,29 @@ open class CollectedClaimManager(
         }
         return collectedClaimRepository.findByUserIdInListAndClaimInList(userIds, claimIds)
             .mapNotNull(collectedClaimMapper::toCollectedClaim)
+    }
+
+    /**
+     * The accounts [userIds] name, with their identifier claims, keyed by identifier.
+     *
+     * Two queries whatever the number of identifiers. [UserManager.listByIds] answers **committed accounts
+     * only**, because an account a flow is still signing up is one this server has not finished creating and no
+     * reader but that flow may have it (see [com.sympauthy.data.model.SessionScoped]); such an identifier is
+     * absent from the result, as one naming no account is.
+     */
+    suspend fun listUsersWithIdentifierClaims(userIds: List<UUID>): Map<UUID, UserWithIdentifierClaims> {
+        if (userIds.isEmpty()) return emptyMap()
+        val users = userManager.listByIds(userIds.distinct())
+        if (users.isEmpty()) return emptyMap()
+
+        val claimsByUserId = listIdentifierByUserIds(users.map(User::id)).groupBy(CollectedClaim::userId)
+
+        return users.associate { user ->
+            user.id to UserWithIdentifierClaims(
+                user = user,
+                identifierClaims = claimsByUserId[user.id] ?: emptyList()
+            )
+        }
     }
 
     /**

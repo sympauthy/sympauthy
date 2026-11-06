@@ -6,11 +6,9 @@ import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResourc
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionPurposeProgressResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResource
-import com.sympauthy.api.resource.admin.AdminUserResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
-import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionUser
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
@@ -47,7 +45,7 @@ class AdminInteractiveFlowSessionResourceMapper(
         currentPurpose = summary.currentPurpose?.let(::toPurposeResource),
         clientId = summary.initiatingClientId,
         signedUp = summary.signedUp,
-        user = summary.user?.let(::toUserResource),
+        user = summary.user?.let(userMapper::toResource),
         ip = summary.securityContext?.ip,
         userAgent = summary.securityContext?.userAgent,
         sessionDate = summary.sessionDate,
@@ -88,7 +86,7 @@ class AdminInteractiveFlowSessionResourceMapper(
             initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
             clientId = detail.initiatingClientId,
             flowId = detail.flowId,
-            user = detail.user?.let(::toUserResource),
+            user = detail.user?.let(userMapper::toResource),
             signedUp = detail.signedUp,
             sessionDate = detail.sessionDate,
             expirationDate = detail.expirationDate,
@@ -134,9 +132,6 @@ class AdminInteractiveFlowSessionResourceMapper(
         value = purpose.wireName,
         displayName = purpose.displayName
     )
-
-    private fun toUserResource(user: InteractiveFlowSessionUser): AdminUserResource =
-        userMapper.toResource(user.user, user.identifierClaims)
 
     /**
      * Publish [securityContext] as one entry of a session's places.

@@ -25,13 +25,15 @@ import java.util.UUID
  * in service.**
  *
  * A person signs up through a client and signs in through it again, as from a laptop and then a phone: two
- * grants of the same client. Searching the grants by the person's address lists both, live and oldest first.
+ * grants of the same client. Searching the grants by the person's address lists both, live and oldest first, each
+ * naming the person by that address.
  * The administrator revokes the phone's by its identifier: one grant is revoked, it reads as revoked by an
  * administrator, naming them, the phone's refresh token is refused, and the laptop's still refreshes. Revoking
  * it again revokes none and keeps the revocation the first call wrote, and the live grants of the person are
  * then the laptop's alone.
  *
- * Source: [sympauthy#653](https://github.com/sympauthy/sympauthy/issues/653).
+ * Source: [sympauthy#653](https://github.com/sympauthy/sympauthy/issues/653),
+ * [sympauthy#680](https://github.com/sympauthy/sympauthy/issues/680).
  */
 @Tag("feature")
 class GrantAdministrationFeatureIT : AbstractSympauthyIT() {
@@ -52,10 +54,14 @@ class GrantAdministrationFeatureIT : AbstractSympauthyIT() {
             listed.forEach {
                 assertEquals(AdminGrantDetailResourceStatus.LIVE, it.status, "grant ${it.grantId} should be live")
                 assertEquals(app.clientId(), it.clientId, "grant ${it.grantId} should be the client's")
+                assertEquals(
+                    DEFAULT_EMAIL, it.user?.claims?.get("email"),
+                    "grant ${it.grantId} should name the person by their address",
+                )
             }
             val (laptopGrant, phoneGrant) = listed
             val adminGrants = listGrants(sympauthy, adminToken, filter = mapOf("client_id" to admin.clientId()))
-            val adminUserId = adminGrants.single().userId
+            val adminUserId = adminGrants.single().user?.userId
 
             assertEquals(1, revokeGrant(sympauthy, adminToken, phoneGrant.grantId), "one grant should be revoked")
             val revoked = getGrant(sympauthy, adminToken, phoneGrant.grantId)

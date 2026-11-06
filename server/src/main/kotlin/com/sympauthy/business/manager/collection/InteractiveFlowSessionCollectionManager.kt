@@ -4,7 +4,6 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
 import com.sympauthy.business.model.client.Client
@@ -30,8 +29,7 @@ import com.sympauthy.business.model.flow.interactiveFlowSessionExpiredExceptionO
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.monitoring.ConditionMonitor
@@ -80,7 +78,6 @@ import com.sympauthy.business.model.collection.CollectionFieldType.UUID as UUID_
 class InteractiveFlowSessionCollectionManager(
     @Inject private val sessionRepository: InteractiveFlowSessionRepository,
     @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
-    @Inject private val userManager: UserManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val sessionMapper: InteractiveFlowSessionMapper,
     @Inject private val securityContextMapper: InteractiveFlowSessionSecurityContextMapper,
@@ -135,7 +132,9 @@ class InteractiveFlowSessionCollectionManager(
         }
 
         val page = sessionFields().page(rows, criteria, pageParams)
-        val users = readUsersOf(page.items.mapNotNull(InteractiveFlowSessionRow::userId))
+        val users = collectedClaimManager.listUsersWithIdentifierClaims(
+            page.items.mapNotNull(InteractiveFlowSessionRow::userId)
+        )
         // The sealed model is built for the page and not beside every row: it is read only to walk the
         // purposes of what is published, so a session the criteria kept but the order left off pays for
         // neither the mapping nor the walk — and a row that cannot be read back cannot take down a page it
@@ -175,7 +174,7 @@ class InteractiveFlowSessionCollectionManager(
             initiatingPurpose = session.initiatingPurpose,
             initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
-            user = entity.userId?.let { readUsersOf(listOf(it))[it] },
+            user = entity.userId?.let { collectedClaimManager.listUsersWithIdentifierClaims(listOf(it))[it] },
             signedUp = entity.signedUp,
             sessionDate = entity.sessionDate,
             expirationDate = entity.expirationDate,
@@ -381,32 +380,6 @@ class InteractiveFlowSessionCollectionManager(
         }
 
     /**
-     * The accounts [userIds] name, with their identifier claims, keyed by identifier.
-     *
-     * Two queries whatever the size of the page, through the two managers that own those reads —
-     * [UserManager.listByIds] answers **committed accounts only**, because an account a session is still
-     * signing up is one this server has not finished creating and no reader but that session may have it
-     * (see [com.sympauthy.data.model.SessionScoped]), and [CollectedClaimManager.listIdentifierByUserIds]
-     * answers what this deployment identifies a person by. A session mid-sign-up therefore names no user
-     * here, which is what `signedUp` beside it is for.
-     */
-    private suspend fun readUsersOf(userIds: List<UUID>): Map<UUID, InteractiveFlowSessionUser> {
-        if (userIds.isEmpty()) return emptyMap()
-        val users = userManager.listByIds(userIds.distinct())
-        if (users.isEmpty()) return emptyMap()
-
-        val claimsByUserId = collectedClaimManager.listIdentifierByUserIds(users.map(User::id))
-            .groupBy(CollectedClaim::userId)
-
-        return users.associate { user ->
-            user.id to InteractiveFlowSessionUser(
-                user = user,
-                identifierClaims = claimsByUserId[user.id] ?: emptyList()
-            )
-        }
-    }
-
-    /**
      * The row [row] is published as, with the purpose driving it and the account it belongs to.
      *
      * Called on the sessions of one page rather than on everything the criteria kept: the walk that answers
@@ -415,7 +388,7 @@ class InteractiveFlowSessionCollectionManager(
     private suspend fun toSummary(
         row: InteractiveFlowSessionRow,
         session: InteractiveFlowSession,
-        users: Map<UUID, InteractiveFlowSessionUser>
+        users: Map<UUID, UserWithIdentifierClaims>
     ) = InteractiveFlowSessionSummary(
         id = row.id,
         status = row.status,
@@ -453,18 +426,6 @@ class InteractiveFlowSessionCollectionManager(
     )
 
     /**
-     * The account a session belongs to, named rather than merely identified.
-     *
-     * [identifierClaims] is what this deployment identifies a person by and nothing else — an operator
-     * debugging a session needs to know whose it is, and the rest of the claim set is what
-     * `admin:users:read` is for.
-     */
-    data class InteractiveFlowSessionUser(
-        val user: User,
-        val identifierClaims: List<CollectedClaim>
-    )
-
-    /**
      * One row of the session collection.
      *
      * [user] is absent where the session has not identified anybody **and** where the account it identified
@@ -482,7 +443,7 @@ class InteractiveFlowSessionCollectionManager(
         val currentPurpose: InteractiveFlowPurpose?,
         val initiatingClientId: String?,
         val signedUp: Boolean,
-        val user: InteractiveFlowSessionUser?,
+        val user: UserWithIdentifierClaims?,
         val securityContext: InteractiveFlowSessionSecurityContext?,
         val sessionDate: LocalDateTime,
         val expirationDate: LocalDateTime
@@ -503,7 +464,7 @@ class InteractiveFlowSessionCollectionManager(
         val initiatingPurpose: InteractiveFlowPurpose,
         val initiatingClientId: String?,
         val flowId: String?,
-        val user: InteractiveFlowSessionUser?,
+        val user: UserWithIdentifierClaims?,
         val signedUp: Boolean,
         val sessionDate: LocalDateTime,
         val expirationDate: LocalDateTime,
