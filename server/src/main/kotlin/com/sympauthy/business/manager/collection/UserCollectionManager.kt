@@ -113,6 +113,10 @@ class UserCollectionManager(
         field("id", UUID, key = "fields.user_id") { it.user.id }
         enumeration<UserStatus>("status", key = "fields.user_status", sortable = true) { it.user.status }
         field("created_at", DATE_TIME, sortable = true) { it.user.creationDate }
+        field("last_authenticated_at", DATE_TIME, nullable = true, sortable = true) {
+            it.user.lastAuthenticationDate
+        }
+        field("last_refreshed_at", DATE_TIME, nullable = true, sortable = true) { it.user.lastRefreshDate }
 
         claimManager.listEnabledClaims()
             .filterNot(Claim::generated)
@@ -187,7 +191,10 @@ class UserCollectionManager(
          * parameters [com.sympauthy.api.util.collectionCriteriaOf] reads for something other than a
          * criterion.
          */
-        val SHADOWED_CLAIM_IDS = setOf("id", "status", "created_at", "page", "size", "sort", "q", "claims")
+        val SHADOWED_CLAIM_IDS = setOf(
+            "id", "status", "created_at", "last_authenticated_at", "last_refreshed_at",
+            "page", "size", "sort", "q", "claims"
+        )
     }
 
     /**

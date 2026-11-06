@@ -23,6 +23,8 @@ class UserMapper {
             status = toUserStatus(entity.status),
             creationDate = entity.creationDate,
             sessionId = entity.sessionId,
+            lastAuthenticationDate = entity.lastAuthenticationDate,
+            lastRefreshDate = entity.lastRefreshDate,
         )
     }
 

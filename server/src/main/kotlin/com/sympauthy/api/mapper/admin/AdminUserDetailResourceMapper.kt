@@ -15,6 +15,8 @@ class AdminUserDetailResourceMapper {
             userId = user.id,
             status = toStatusString(user.status),
             createdAt = user.creationDate,
+            lastAuthenticatedAt = user.lastAuthenticationDate,
+            lastRefreshedAt = user.lastRefreshDate,
             identifierClaims = toClaimsMap(identifierClaims),
         )
     }

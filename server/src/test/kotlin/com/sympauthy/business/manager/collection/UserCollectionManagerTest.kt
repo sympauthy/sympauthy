@@ -7,6 +7,8 @@ import com.sympauthy.business.manager.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.model.collection.CollectionFieldType
+import com.sympauthy.business.model.collection.CollectionOperator
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
@@ -100,12 +102,16 @@ class UserCollectionManagerTest {
 
     private fun mockUser(
         status: UserStatus = UserStatus.ENABLED,
-        creationDate: LocalDateTime = LocalDateTime.now()
+        creationDate: LocalDateTime = LocalDateTime.now(),
+        lastAuthenticationDate: LocalDateTime? = null,
+        lastRefreshDate: LocalDateTime? = null
     ) = User(
         id = UUID.randomUUID(),
         status = status,
         creationDate = creationDate,
-        sessionId = null
+        sessionId = null,
+        lastAuthenticationDate = lastAuthenticationDate,
+        lastRefreshDate = lastRefreshDate
     )
 
     private val firstPage = PageParams(page = 0, size = 20)
@@ -234,7 +240,10 @@ class UserCollectionManagerTest {
 
         val fields = manager.capabilities().fields.map { it.name }
 
-        assertEquals(listOf("id", "status", "created_at", "email"), fields)
+        assertEquals(
+            listOf("id", "status", "created_at", "last_authenticated_at", "last_refreshed_at", "email"),
+            fields
+        )
     }
 
     @Test
@@ -245,7 +254,10 @@ class UserCollectionManagerTest {
 
         // A field under one of those names is one no criterion could reach: the resolver reads them
         // for the free text and the order before it reads anything as a criterion.
-        assertEquals(listOf("id", "status", "created_at", "email"), fields)
+        assertEquals(
+            listOf("id", "status", "created_at", "last_authenticated_at", "last_refreshed_at", "email"),
+            fields
+        )
     }
 
     @Test
@@ -255,6 +267,65 @@ class UserCollectionManagerTest {
         val status = manager.capabilities().fields.single { it.name == "status" }
 
         assertEquals("fields.user_status", status.key)
+    }
+
+    @Test
+    fun `listUsers - Offer the account's last dates rather than the claims that share their names`() = runTest {
+        every { claimManager.listEnabledClaims() } returns listOf(
+            claim("last_authenticated_at"),
+            claim("last_refreshed_at")
+        )
+
+        val fields = manager.capabilities().fields
+
+        listOf("last_authenticated_at", "last_refreshed_at").forEach { name ->
+            val field = fields.single { it.name == name }
+            assertEquals("fields.$name", field.key)
+            assertEquals(CollectionFieldType.DATE_TIME, field.type)
+            assertTrue(field.sortable)
+            assertTrue(CollectionOperator.IS_NULL in field.operators)
+        }
+    }
+
+    @Test
+    fun `listUsers - Keep the users unused since the date a criterion names`() = runTest {
+        val dormant = mockUser(lastAuthenticationDate = NOW.minusDays(90))
+        val recent = mockUser(lastAuthenticationDate = NOW.minusDays(1))
+        val never = mockUser()
+        every { claimManager.listEnabledClaims() } returns emptyList()
+        noGeneratedClaimValue()
+        givenUsers(listOf(dormant, recent, never))
+
+        val criteria = criteriaOf("last_authenticated_at.lt" to NOW.minusDays(30).toString())
+        val result = manager.listUsers(criteria, firstPage)
+
+        assertEquals(listOf(dormant.id), result.items.map { it.user.id })
+    }
+
+    @Test
+    fun `listUsers - Keep the users with no refresh on record`() = runTest {
+        val refreshed = mockUser(lastRefreshDate = NOW.minusDays(1))
+        val never = mockUser()
+        every { claimManager.listEnabledClaims() } returns emptyList()
+        noGeneratedClaimValue()
+        givenUsers(listOf(refreshed, never))
+
+        val result = manager.listUsers(criteriaOf("last_refreshed_at.is_null" to "true"), firstPage)
+
+        assertEquals(listOf(never.id), result.items.map { it.user.id })
+    }
+
+    @Test
+    fun `listUsers - Order by the last refresh, most recent first, under a leading dash`() = runTest {
+        val older = mockUser(lastRefreshDate = NOW.minusDays(2))
+        val newer = mockUser(lastRefreshDate = NOW.minusDays(1))
+        every { claimManager.listEnabledClaims() } returns emptyList()
+        noGeneratedClaimValue()
+        givenUsers(listOf(older, newer))
+
+        val result = manager.listUsers(criteriaOf(sort = "-last_refreshed_at"), firstPage)
+
+        assertEquals(listOf(newer.id, older.id), result.items.map { it.user.id })
     }
 
     @Test

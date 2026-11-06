@@ -4,6 +4,7 @@ import com.sympauthy.data.model.UserEntity
 import io.micronaut.data.annotation.Query
 import io.micronaut.data.repository.kotlin.CoroutineCrudRepository
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDateTime
 import java.util.*
 
 interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
@@ -41,6 +42,35 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
      */
     @Query("UPDATE users SET session_id = NULL WHERE id = :userId AND session_id = :sessionId")
     suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
+
+    /**
+     * Move the last authentication of the committed account [id] to [lastAuthenticationDate], and answer 1 when
+     * it did. An account a session is still signing up is left as it is.
+     *
+     * The comparison is the statement's rather than a read before it, so two flows completing in either order,
+     * on any instance, leave the later proof behind and the date never moves backwards.
+     */
+    @Query(
+        """
+        UPDATE users SET last_authentication_date = :lastAuthenticationDate
+        WHERE id = :id AND session_id IS NULL
+        AND (last_authentication_date IS NULL OR last_authentication_date < :lastAuthenticationDate)
+        """
+    )
+    suspend fun advanceLastAuthenticationDate(id: UUID, lastAuthenticationDate: LocalDateTime): Int
+
+    /**
+     * Move the last refresh of the account [id] to [lastRefreshDate], and answer 1 when it did, on the terms of
+     * [advanceLastAuthenticationDate].
+     */
+    @Query(
+        """
+        UPDATE users SET last_refresh_date = :lastRefreshDate
+        WHERE id = :id AND session_id IS NULL
+        AND (last_refresh_date IS NULL OR last_refresh_date < :lastRefreshDate)
+        """
+    )
+    suspend fun advanceLastRefreshDate(id: UUID, lastRefreshDate: LocalDateTime): Int
 
     /**
      * Find every account left provisional by a session that no longer exists, and that nothing else refers

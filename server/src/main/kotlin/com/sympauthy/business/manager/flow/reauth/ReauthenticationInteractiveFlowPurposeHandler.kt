@@ -3,10 +3,12 @@ package com.sympauthy.business.manager.flow.reauth
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
@@ -20,8 +22,8 @@ import jakarta.inject.Singleton
  *
  * It reuses the sign-in step ([InteractiveFlowStep.SignIn]) — the sign-in password/provider paths detect the
  * active purpose and switch to **confirm, never establish** semantics, then record the proof on the session's
- * re-authentication record. This handler stays pure: it only reads that record to decide whether the sign-in
- * step is still needed.
+ * re-authentication record. This handler reads that record to decide whether the sign-in step is
+ * still needed, and once the flow completes, to move the person's last authentication to the moment it holds.
  *
  * When the account is MFA-enrolled, a fresh [InteractiveFlowPurpose.MFA_CHALLENGE] is appended as a follow-up
  * (like [com.sympauthy.business.manager.flow.auth.OAuth2AuthorizeInteractiveFlowPurposeHandler] does) so
@@ -33,6 +35,7 @@ class ReauthenticationInteractiveFlowPurposeHandler(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val userManager: UserManager,
 ) : InteractiveFlowPurposeHandler {
 
     override val purpose = InteractiveFlowPurpose.REAUTHENTICATION
@@ -71,5 +74,16 @@ class ReauthenticationInteractiveFlowPurposeHandler(
         session.userId ?: return emptyList()
         val enrolled = totpManager.isEnrolled(sessionManager.getUser(session))
         return if (enrolled) listOf(InteractiveFlowPurpose.MFA_CHALLENGE) else emptyList()
+    }
+
+    /**
+     * Move the person's last authentication to the moment the gate saw their credential: they proved one, and
+     * the flow it guarded is completing, even though that flow opens no grant.
+     */
+    override suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect {
+        val userId = session.userId ?: return PreparedTerminalEffect.None
+        val provenDate = reauthenticationManager.fetchReauthenticationOrNull(session)?.primaryCredentialProvenDate
+            ?: return PreparedTerminalEffect.None
+        return PreparedTerminalEffect.Apply { userManager.markAuthenticated(userId, provenDate) }
     }
 }

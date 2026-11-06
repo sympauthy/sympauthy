@@ -16,5 +16,15 @@ data class User(
      * its own session id from here: that is what holds a satellite row and its user to the same
      * visibility without any call site deciding it.
      */
-    val sessionId: UUID?
+    val sessionId: UUID?,
+    /**
+     * When this person last proved a credential in a flow that went on to complete, whatever that flow was
+     * for, or null where nothing has yet. See `docs/design/security.md`.
+     */
+    val lastAuthenticationDate: LocalDateTime? = null,
+    /**
+     * When a grant held for this person was last refreshed, or null where none has been. A client acting alone
+     * moves this and not [lastAuthenticationDate], which is why the two are not one date.
+     */
+    val lastRefreshDate: LocalDateTime? = null
 )

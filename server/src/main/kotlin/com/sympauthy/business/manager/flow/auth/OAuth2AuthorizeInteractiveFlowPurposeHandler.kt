@@ -289,8 +289,8 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
 
     /**
      * Record the authorization [grantScopesResult] decided for the ongoing [session] of [userId], for the
-     * [audience] of its client: the granted scopes, the consent, the consumed invitation, the grant and the
-     * authorization code.
+     * [audience] of its client: the granted scopes, the consent, the consumed invitation, the grant, the
+     * authorization code and the person's last authentication.
      *
      * Every row it writes attaches to the account, so it requires the account promoted, in the transaction
      * that commits the promotion.
@@ -299,7 +299,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * for the client. If an active consent already exists for this user+client pair, it is revoked and replaced.
      *
      * The grant every token of this authorization will be issued under is opened here, once the scopes and the
-     * consent it records are decided, and the authorization code is generated last, naming it. The session
+     * consent it records are decided, and the authorization code is generated after it, naming it. The session
      * completes holding the one code its hand-off carries, and a completion that fails after this rolls both
      * back with everything else.
      *
@@ -308,6 +308,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
      * runs inside the completion transaction, so the first flow to reach it takes it and the second is
      * refused. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * The person's last authentication moves last, to the moment their credential was proven, which is the
+     * `auth_time` of the tokens the code leads to.
      */
     internal suspend fun recordAuthorization(
         session: OnGoingInteractiveFlowSession,
@@ -332,5 +335,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         oauth2.invitationId?.let { invitationManager.consumeInvitation(invitationManager.findById(it), user) }
         val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audience.id)
         authorizationCodeManager.generateCode(oauth2, grant)
+        oauth2.authenticationDate?.let { userManager.markAuthenticated(userId, it) }
     }
 }

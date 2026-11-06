@@ -28,6 +28,18 @@ data class AdminUserResource(
     @get:JsonProperty("created_at")
     val createdAt: LocalDateTime,
     @get:Schema(
+        description = "$USER_LAST_AUTHENTICATED_AT_PROPERTY_DESCRIPTION, or when the user is embedded in an " +
+                "interactive flow session."
+    )
+    @get:JsonProperty("last_authenticated_at")
+    val lastAuthenticatedAt: LocalDateTime?,
+    @get:Schema(
+        description = "$USER_LAST_REFRESHED_AT_PROPERTY_DESCRIPTION, or when the user is embedded in an " +
+                "interactive flow session."
+    )
+    @get:JsonProperty("last_refreshed_at")
+    val lastRefreshedAt: LocalDateTime?,
+    @get:Schema(
         description = "Values the user holds, keyed by claim identifier. In the user collection, the " +
                 "claims the `claims` parameter selected, a selected claim the user holds no value for " +
                 "being null. In an interactive flow session, the identifier claims the user holds a " +

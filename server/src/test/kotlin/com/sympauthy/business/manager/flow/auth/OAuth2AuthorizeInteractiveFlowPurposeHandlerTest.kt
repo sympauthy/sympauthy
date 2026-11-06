@@ -43,7 +43,9 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import jakarta.inject.Provider
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -317,6 +319,44 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             authorizationCodeManager.generateCode(oauth2AfterGranted, grant)
         }
     }
+
+    @Test
+    fun `prepareTerminalEffect - Moves the last authentication to the date the grant states, after the lock`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val authenticationDate = LocalDateTime.of(2026, 11, 5, 10, 0)
+            val grantedScopeObjects = listOf(mockk<EnabledScope>())
+            val session = createOnGoingSession(userId = userId)
+            val oauth2AfterGranted = oauth2Of(clientId = "client-id", grantedScopes = listOf("read"))
+                .copy(authenticationDate = authenticationDate)
+
+            coEvery { userManager.findById(userId) } returns testUser
+            val oauth2 = stubAudienceClaims(session, userId, emptyList())
+            coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
+                grantedScopeObjects
+            )
+            coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
+            coEvery { consentManager.saveConsent(testUser, testAudience, "client-id", any()) } returns mockk()
+            val grant = mockk<Grant>()
+            coEvery {
+                grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
+            } returns grant
+            coEvery { authorizationCodeManager.generateCode(oauth2AfterGranted, grant) } returns mockk()
+            coEvery { userManager.markAuthenticated(userId, authenticationDate) } just runs
+
+            val effect = assertInstanceOf(
+                PreparedTerminalEffect.Apply::class.java,
+                handler.prepareTerminalEffect(session)
+            )
+            coVerify(exactly = 0) { userManager.markAuthenticated(any(), any()) }
+
+            effect.apply()
+
+            coVerifyOrder {
+                consentManager.saveConsent(testUser, testAudience, "client-id", any())
+                userManager.markAuthenticated(userId, authenticationDate)
+            }
+        }
 
     @Test
     fun `prepareTerminalEffect - Consumes the invitation that brought the end-user here`() = runTest {

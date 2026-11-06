@@ -28,6 +28,24 @@ class UserMapperTest {
     }
 
     @Test
+    fun `toUser - Carries both last dates`() {
+        val lastAuthenticationDate = LocalDateTime.now().minusHours(2)
+        val lastRefreshDate = LocalDateTime.now().minusHours(1)
+        val entity = UserEntity(
+            status = UserStatus.ENABLED.name,
+            creationDate = LocalDateTime.now().minusDays(1),
+            sessionId = null,
+            lastAuthenticationDate = lastAuthenticationDate,
+            lastRefreshDate = lastRefreshDate
+        ).apply { id = UUID.randomUUID() }
+
+        val user = mapper.toUser(entity)
+
+        assertEquals(lastAuthenticationDate, user.lastAuthenticationDate)
+        assertEquals(lastRefreshDate, user.lastRefreshDate)
+    }
+
+    @Test
     fun `toUser - throws when status is unknown`() {
         val entity = entity(status = "UNKNOWN")
 

@@ -156,6 +156,10 @@ case somebody wants it would be an audit trail, which no surface shows. A refres
 expiry keeps its grant for as long as it is not revoked. [The design
 FAQ](design-faq.md#is-a-revoked-grant-kept) holds the retention that lost.
 
+**What a person last did goes on being known after their grant goes.** [Their last authentication
+and last refresh](security.md#when-a-person-was-last-active) are the account's own, and nothing here
+moves them.
+
 **A provisional account is not collected while a grant names it**, as [the provisional
 user](provisional-user.md#collecting-one-that-never-will) has it of every row that refers to an
 account and is not the account's own.

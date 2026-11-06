@@ -2,22 +2,28 @@ package com.sympauthy.business.manager.flow.reauth
 
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSessionReauthentication
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledMfaConfig
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -40,10 +46,38 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
     @MockK
     lateinit var sessionManager: InteractiveFlowSessionManager
 
+    @MockK
+    lateinit var userManager: UserManager
+
     @InjectMockKs
     lateinit var handler: ReauthenticationInteractiveFlowPurposeHandler
 
     private val session = mockk<OnGoingInteractiveFlowSession>()
+
+    @Test
+    fun `prepareTerminalEffect - Moves the last authentication to the proof, and only once applied`() = runTest {
+        val userId = UUID.randomUUID()
+        val provenDate = LocalDateTime.of(2026, 11, 5, 10, 0)
+        every { session.userId } returns userId
+        coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns
+            InteractiveFlowSessionReauthentication(UUID.randomUUID(), provenDate)
+        coEvery { userManager.markAuthenticated(userId, provenDate) } just runs
+
+        val effect = assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
+        coVerify(exactly = 0) { userManager.markAuthenticated(any(), any()) }
+
+        effect.apply()
+
+        coVerify(exactly = 1) { userManager.markAuthenticated(userId, provenDate) }
+    }
+
+    @Test
+    fun `prepareTerminalEffect - Has no effect where no credential was proven`() = runTest {
+        every { session.userId } returns UUID.randomUUID()
+        coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns null
+
+        assertEquals(PreparedTerminalEffect.None, handler.prepareTerminalEffect(session))
+    }
 
     @Test
     fun `nextStepOrNull - Returns SignIn when the session carries no re-authentication record`() = runTest {
