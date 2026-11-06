@@ -173,11 +173,12 @@ either. An act-as grant is among the grants of the person it acts as. [The desig
 FAQ](design-faq.md#where-does-an-administrator-read-a-grant) weighs the nesting that lost.
 
 **A grant names the person it was opened for, as a flow session does.** It embeds them in place of
-their identifier, with the identifier claims they hold a value for, so a list of grants reads as
-whose they are rather than as a column of account identifiers. It takes no scope beyond the grants'
-own: the free text below already finds a grant by a person's address, and what the user scope
-guards — the rest of their claims and their activity — stays off it. A `client_credentials` grant
-names nobody. [The design FAQ](design-faq.md#how-does-a-grant-name-the-person-it-was-opened-for)
+their identifier — their status, when their account was created and the identifier claims they hold
+a value for — so a list of grants reads as whose they are rather than as a column of account
+identifiers. It takes no scope beyond the grants' own, so whoever may read grants learns the address
+of every person holding one: knowing whose grants they are is what that scope is for, and what the
+user scope guards beyond it — the rest of their claims and their activity — stays off it. A
+`client_credentials` grant names nobody. [The design FAQ](design-faq.md#how-does-a-grant-name-the-person-it-was-opened-for)
 holds the shapes that lost.
 
 **A grant is found by typing the person's address or the client's identifier.** The free text
@@ -261,7 +262,8 @@ revocation finds their tokens and revokes their grant.
 passes the condition every revocation in `GrantRepository` writes under, read at the same moment,
 so a grant listed live is one a revocation then would take out of service. The rest is read off the
 grant itself. `GrantCollectionManager` is the administrator's collection, read in memory like every
-other one there, and it reads the identifier claims its free text matches only when one was sent.
+other one there. It reads the identifier claims of every grant's person only when a free text was
+sent for them to match, and otherwise the persons of the page it publishes alone.
 
 **`GrantCleaner` is the collecting job**, run by `CleanFinishedGrantCron` under a
 [lease](../standards/locking-standard.md#the-lease) like every job one instance is enough for. It

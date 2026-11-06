@@ -122,6 +122,13 @@ open class CollectedClaimManager(
     }
 
     /**
+     * The account [userId] names, with its identifier claims, or null where it names none — including an account
+     * a flow is still signing up, for the reason [listUsersWithIdentifierClaims] leaves one out.
+     */
+    suspend fun findUserWithIdentifierClaimsOrNull(userId: UUID): UserWithIdentifierClaims? =
+        listUsersWithIdentifierClaims(listOf(userId))[userId]
+
+    /**
      * Update the claims collected for the [user] and return all the claims collected for the user.
      * All [updates] will be applied without any scope restriction.
      *

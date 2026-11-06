@@ -10,7 +10,8 @@ internal const val GRANT_ID_PROPERTY_DESCRIPTION = "Identifier of the grant."
 
 internal const val GRANT_USER_PROPERTY_DESCRIPTION =
         "User the grant was opened for, with only its identifier claims. On a grant a client obtained through a " +
-        "token exchange, the user it acts as. Absent on a `client_credentials` grant, which no user holds."
+        "token exchange, the user it acts as. Absent when no user holds the grant, which is the case of a " +
+        "`client_credentials` one."
 
 internal const val GRANT_CLIENT_ID_PROPERTY_DESCRIPTION =
         "Identifier of the client the grant was opened for, which the configuration may no longer declare."

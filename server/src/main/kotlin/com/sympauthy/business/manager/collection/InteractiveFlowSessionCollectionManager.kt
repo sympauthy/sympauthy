@@ -174,7 +174,7 @@ class InteractiveFlowSessionCollectionManager(
             initiatingPurpose = session.initiatingPurpose,
             initiatingClientId = session.initiatingClientId,
             flowId = session.flowId,
-            user = entity.userId?.let { collectedClaimManager.listUsersWithIdentifierClaims(listOf(it))[it] },
+            user = entity.userId?.let { collectedClaimManager.findUserWithIdentifierClaimsOrNull(it) },
             signedUp = entity.signedUp,
             sessionDate = entity.sessionDate,
             expirationDate = entity.expirationDate,

@@ -812,14 +812,19 @@ identifier claims they hold a value for and neither of their last dates. It is r
 **Rationale:**
 
 A list naming each row by an account identifier cannot be read, and filling it took one user read
-per grant. Embedding the person the way a flow session does gives the administration surface one
-shape for a person wherever it names one, so the identifier beside it and the filter named after the
-identifier would each be a second spelling. A `claims` selection reaches any claim, so on this
-surface it would have to be narrowed to the identifier claims and refuse the rest, which is a
-parameter and an error to pick out of a set a deployment already keeps small. The grants' own scope
-already finds a grant by typing a person's address, so answering that address back discloses
-nothing a caller could not learn; what it does not cover is the person's activity, which is why their
-last dates stay where users are read.
+per grant. Embedding the person the way a flow session does gives a grant and a session one shape
+for the person they belong to, so the identifier beside it and the filter named after the identifier
+would each be a second spelling. A `claims` selection reaches any claim, so on this surface it would
+have to be narrowed to the identifier claims and refuse the rest, which is a parameter and an error
+to pick out of a set a deployment already keeps small.
+
+Answering the address under the grants' own scope does widen it: the free text only confirmed an
+address a caller already had, and the list now hands over the address of every person holding a
+grant. That is what the scope is for — whoever reads grants is reading whose they are, which is the
+question an administrator revoking a stolen phone's grant asks first — and requiring the user scope
+as well would leave a grants reader unable to answer it. What the user scope guards beyond that is
+the rest of a person's claims and their activity, which is why their last dates stay where users are
+read.
 
 ---
 

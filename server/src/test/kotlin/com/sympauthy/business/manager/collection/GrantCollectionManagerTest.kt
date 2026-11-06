@@ -262,7 +262,7 @@ class GrantCollectionManagerTest {
             identifierClaims = emptyList()
         )
         coEvery { grantManager.findWithStatusByIdOrNull(anas.grant.id) } returns anas
-        coEvery { collectedClaimManager.listUsersWithIdentifierClaims(listOf(anaId)) } returns mapOf(anaId to ana)
+        coEvery { collectedClaimManager.findUserWithIdentifierClaimsOrNull(anaId) } returns ana
 
         assertEquals(GrantWithUser(anas, ana), grantCollectionManager.findGrantOrNull(anas.grant.id))
     }

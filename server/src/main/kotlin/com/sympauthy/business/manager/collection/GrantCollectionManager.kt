@@ -42,8 +42,9 @@ import com.sympauthy.business.model.collection.CollectionFieldType.UUID as UUID_
  * cleanup job has collected is gone from here as it is from everywhere else.
  *
  * **The collection is read in memory**, as every other admin collection is — see [UserCollectionManager] for
- * the reason. The identifier claims `q` matches are read only where a `q` was sent, since nothing else reads
- * them; the person each grant names is read once the order has decided which grants are published.
+ * the reason. The identifier claims of every grant's person are read only where a `q` was sent, for it to
+ * match; otherwise only the persons of the published page are read, once the order has decided which grants
+ * that page holds.
  */
 @Singleton
 class GrantCollectionManager(
@@ -88,7 +89,7 @@ class GrantCollectionManager(
      */
     suspend fun findGrantOrNull(id: UUID): GrantWithUser? {
         val grant = grantManager.findWithStatusByIdOrNull(id) ?: return null
-        val user = grant.grant.userId?.let { collectedClaimManager.listUsersWithIdentifierClaims(listOf(it))[it] }
+        val user = grant.grant.userId?.let { collectedClaimManager.findUserWithIdentifierClaimsOrNull(it) }
         return GrantWithUser(grant, user)
     }
 

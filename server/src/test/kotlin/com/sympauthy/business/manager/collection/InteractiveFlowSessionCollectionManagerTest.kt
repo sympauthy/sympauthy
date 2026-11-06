@@ -301,11 +301,9 @@ class InteractiveFlowSessionCollectionManagerTest {
         }
 
     @Test
-    fun `listSessions - Publishes no user for a session still signing an account up`() = runTest {
-        val provisionalUserId = UUID.randomUUID()
-        givenSessions(entity(userId = provisionalUserId, signedUp = true))
+    fun `listSessions - Keeps signed up on a session whose account the read does not answer`() = runTest {
+        givenSessions(entity(userId = UUID.randomUUID(), signedUp = true))
         givenNoObservation()
-        // The account is provisional, so the committed-rows-only read knows no user under it.
         coEvery { engine.currentPurposeOrNull(any()) } returns null
 
         val row = manager.listSessions(criteriaOf(), PageParams(0, 20)).items.single()
@@ -618,7 +616,9 @@ class InteractiveFlowSessionCollectionManagerTest {
 
     private fun givenDetailReads(session: InteractiveFlowSessionEntity) {
         coEvery { sessionRepository.findById(session.id!!) } returns session
-        if (session.userId != null) givenUsersRead()
+        session.userId?.let { userId ->
+            coEvery { collectedClaimManager.findUserWithIdentifierClaimsOrNull(userId) } answers { knownUsers[userId] }
+        }
         session.purposes.forEach { purpose ->
             val handler = mockk<InteractiveFlowPurposeHandler>()
             coEvery { handler.debugInformation(capture(handedToHandlers)) } returns

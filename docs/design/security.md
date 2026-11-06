@@ -520,10 +520,10 @@ the account has not done that, and nothing else. [The design
 FAQ](design-faq.md#are-a-persons-last-dates-derived-or-recorded) holds the derivation that lost.
 
 **An administrator reads both where a user is read under `admin:users:read`, and nowhere else.** The
-user collection filters and orders on them, which is what finds a dormant account. The user a flow
-session or a grant embeds states neither, because each is read under a scope that does not cover
-users and would otherwise disclose a person's activity to someone only allowed to read flows or
-grants.
+user collection filters and orders on them, which is what finds a dormant account. A user another
+record embeds — the person a flow session or a grant belongs to — states neither, because that record
+is read under a scope that does not cover users and would otherwise disclose a person's activity to
+someone only allowed to read it.
 
 **The dates are columns of `users`, written by `UserManager` through a comparison in the statement
 itself.** That comparison is what keeps them from moving backwards across instances. Each write
