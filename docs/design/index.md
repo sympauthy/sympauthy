@@ -28,8 +28,8 @@ to change it, and why it was settled that way. The rules a change is held to are
   opens one and what it records, how a revocation and a lifetime reach it rather than one token,
   what an administrator sees of it, and what collects it once it is finished.
 - **[Security](security.md)** — what each surface's gate does and does not protect, what a scope is
-  allowed to mean, how a credential becomes an authentication, and what a token carries and how it
-  is checked.
+  allowed to mean, how a credential becomes an authentication, what a token carries and how it is
+  checked, and when a person was last active.
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.

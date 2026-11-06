@@ -13,6 +13,7 @@ import com.sympauthy.data.repository.findCommittedClaimsMatching
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import java.time.LocalDateTime
 import java.time.LocalDateTime.now
 import java.util.*
 
@@ -253,6 +254,24 @@ open class UserManager(
             committed.firstOrNull { it.folded == folded && it.userId != userId }
                 ?.let { TakenIdentifier(claimId = claimId, userId = it.userId) }
         }
+    }
+
+    /**
+     * Record that the person [userId] proved a credential at [authenticationDate], in a flow that is completing.
+     *
+     * An earlier date than the one they hold leaves theirs as it is. See `docs/design/security.md`.
+     */
+    suspend fun markAuthenticated(userId: UUID, authenticationDate: LocalDateTime) {
+        userRepository.advanceLastAuthenticationDate(userId, authenticationDate)
+    }
+
+    /**
+     * Record that a grant held for the person [userId] was refreshed at [refreshDate].
+     *
+     * An earlier date than the one they hold leaves theirs as it is. See `docs/design/security.md`.
+     */
+    suspend fun markRefreshed(userId: UUID, refreshDate: LocalDateTime) {
+        userRepository.advanceLastRefreshDate(userId, refreshDate)
     }
 
     /**

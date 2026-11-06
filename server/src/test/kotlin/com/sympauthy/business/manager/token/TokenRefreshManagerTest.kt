@@ -38,7 +38,9 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
@@ -254,12 +256,15 @@ class TokenRefreshManagerTest {
         val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockRefreshableToken("test-client", userId)
         val grant = refreshToken.grant
-        val accessToken = mockk<EncodedAuthenticationToken>()
+        val accessToken = mockk<EncodedAuthenticationToken> {
+            every { issueDate } returns now()
+        }
         val refreshedRefreshToken = mockk<EncodedAuthenticationToken>()
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        coEvery { userManager.markRefreshed(userId, any()) } just runs
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
         stubDoors(grant, client, null)
         coEvery {
@@ -289,11 +294,14 @@ class TokenRefreshManagerTest {
         val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockRefreshableToken("test-client", userId)
         val grant = refreshToken.grant
-        val accessToken = mockk<EncodedAuthenticationToken>()
+        val accessToken = mockk<EncodedAuthenticationToken> {
+            every { issueDate } returns now()
+        }
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        coEvery { userManager.markRefreshed(userId, any()) } just runs
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
         stubDoors(grant, client, null)
         coEvery {
@@ -386,6 +394,41 @@ class TokenRefreshManagerTest {
 
         assertSame(accessToken, tokens.accessToken)
         coVerify(exactly = 0) { consentManager.findActiveConsentByAudienceOrNull(any(), any()) }
+        coVerify(exactly = 0) { userManager.markRefreshed(any(), any()) }
+    }
+
+    @Test
+    fun `refresh - Moves the person's last refresh to the moment the new access token was issued`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockClient("test-client")
+        val audience = client.audience
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val refreshToken = mockRefreshableToken("test-client", userId)
+        val grant = refreshToken.grant
+        val issueDate = now()
+        val accessToken = mockk<EncodedAuthenticationToken> {
+            every { this@mockk.issueDate } returns issueDate
+        }
+
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
+        stubDoors(grant, client, null)
+        coEvery {
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, null)
+        } returns accessToken
+        every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
+        coEvery {
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+            )
+        } returns null
+        coEvery { userManager.markRefreshed(userId, issueDate) } just runs
+
+        manager.refresh(client, TokenRequest.RefreshToken("token"))
+
+        coVerify(exactly = 1) { userManager.markRefreshed(userId, issueDate) }
     }
 
     @Test
@@ -396,12 +439,15 @@ class TokenRefreshManagerTest {
         val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
         val refreshToken = mockRefreshableToken("test-client", userId)
         val grant = refreshToken.grant
-        val accessToken = mockk<EncodedAuthenticationToken>()
+        val accessToken = mockk<EncodedAuthenticationToken> {
+            every { issueDate } returns now()
+        }
         val idToken = mockk<EncodedAuthenticationToken>()
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
         coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        coEvery { userManager.markRefreshed(userId, any()) } just runs
         coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
         stubDoors(grant, client, null)
         coEvery {

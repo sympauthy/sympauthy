@@ -12,7 +12,14 @@ import java.util.*
 data class UserEntity(
     val status: String,
     val creationDate: LocalDateTime,
-    override val sessionId: UUID?
+    override val sessionId: UUID?,
+    /**
+     * When this person last proved a credential in a flow that went on to complete, and when a grant held for
+     * them was last refreshed. Each is null until the first one, and neither goes with what it came from.
+     * See [com.sympauthy.data.repository.UserRepository.advanceLastAuthenticationDate].
+     */
+    val lastAuthenticationDate: LocalDateTime? = null,
+    val lastRefreshDate: LocalDateTime? = null
 ) : SessionScoped {
     @Id
     @GeneratedValue

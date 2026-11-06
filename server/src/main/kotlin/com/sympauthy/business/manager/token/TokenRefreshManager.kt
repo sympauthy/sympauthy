@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.ClaimAclManager
+import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.DecodedJwt
@@ -41,6 +42,7 @@ open class TokenRefreshManager(
     @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
     @Inject private val idTokenGenerator: IdTokenGenerator,
     @Inject private val claimAclManager: ClaimAclManager,
+    @Inject private val userManager: UserManager,
     @Inject private val customSpanTracer: CustomSpanTracer
 ) {
 
@@ -146,6 +148,9 @@ open class TokenRefreshManager(
             doors = doors,
             grantType = GrantType.REFRESH_TOKEN
         )
+        // Once everything that could refuse this refresh has passed, and in its transaction, so a refused one
+        // moves nothing. A client-credentials grant has no person to date.
+        grant.userId?.let { userManager.markRefreshed(it, accessToken.issueDate) }
 
         return IssuedTokens(
             accessToken = accessToken,

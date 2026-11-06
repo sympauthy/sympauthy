@@ -22,6 +22,8 @@ class AdminUserResourceMapper {
             userId = userWithClaims.user.id,
             status = userWithClaims.user.status.wireName,
             createdAt = userWithClaims.user.creationDate,
+            lastAuthenticatedAt = userWithClaims.user.lastAuthenticationDate,
+            lastRefreshedAt = userWithClaims.user.lastRefreshDate,
             claims = buildClaimsMap(userWithClaims, selectedClaims)
         )
     }
@@ -33,6 +35,9 @@ class AdminUserResourceMapper {
      * publishes — the identifier claims a session names its person by — rather than selecting them out of
      * everything the user holds. Nothing is computed here for that reason: a generated value is one this
      * server derives for a claim, and a caller wanting those is reading the user collection.
+     *
+     * It states neither of the person's last dates: a session is read under a scope that does not cover users,
+     * so someone allowed to read flows would otherwise be reading a person's activity.
      */
     fun toResource(
         user: User,
@@ -42,6 +47,8 @@ class AdminUserResourceMapper {
             userId = user.id,
             status = user.status.wireName,
             createdAt = user.creationDate,
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             claims = claims.associate { it.claim.id to it.value }
         )
     }

@@ -57,6 +57,34 @@ class AdminUserResourceMapperTest {
     ) = UserWithClaims(user, collectedClaims, generatedClaimValues)
 
     @Test
+    fun `toResource - Publish both last dates on a user of the collection`() {
+        val lastAuthenticationDate = creationDate.plusDays(1)
+        val lastRefreshDate = creationDate.plusDays(2)
+        val result = mapper.toResource(
+            UserWithClaims(
+                user = user.copy(lastAuthenticationDate = lastAuthenticationDate, lastRefreshDate = lastRefreshDate),
+                collectedClaims = emptyList(),
+                generatedClaimValues = emptyMap()
+            ),
+            null
+        )
+
+        assertEquals(lastAuthenticationDate, result.lastAuthenticatedAt)
+        assertEquals(lastRefreshDate, result.lastRefreshedAt)
+    }
+
+    @Test
+    fun `toResource - Publish neither last date on the user a session embeds`() {
+        val result = mapper.toResource(
+            user.copy(lastAuthenticationDate = creationDate.plusDays(1), lastRefreshDate = creationDate.plusDays(2)),
+            emptyList()
+        )
+
+        assertNull(result.lastAuthenticatedAt)
+        assertNull(result.lastRefreshedAt)
+    }
+
+    @Test
     fun `toResource - Publish no claim at all when none was selected`() {
         val result = mapper.toResource(userWithClaims(), null)
 

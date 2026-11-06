@@ -28,6 +28,20 @@ data class AdminUserResource(
     @get:JsonProperty("created_at")
     val createdAt: LocalDateTime,
     @get:Schema(
+        description = "Date and time at which the user last proved a credential in an interactive flow that " +
+                "then completed, in UTC. Where that flow was an authorization, it is the `auth_time` of the " +
+                "tokens it led to. Absent while the user has not authenticated, and in an interactive flow session."
+    )
+    @get:JsonProperty("last_authenticated_at")
+    val lastAuthenticatedAt: LocalDateTime?,
+    @get:Schema(
+        description = "Date and time at which a grant held for the user was last refreshed, in UTC. A refresh " +
+                "is a client acting alone, so it says nothing of the user being present. Absent while no grant " +
+                "of theirs has been refreshed, and in an interactive flow session."
+    )
+    @get:JsonProperty("last_refreshed_at")
+    val lastRefreshedAt: LocalDateTime?,
+    @get:Schema(
         description = "Values the user holds, keyed by claim identifier. In the user collection, the " +
                 "claims the `claims` parameter selected, a selected claim the user holds no value for " +
                 "being null. In an interactive flow session, the identifier claims the user holds a " +

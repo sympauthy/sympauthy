@@ -3,8 +3,8 @@
 Three questions, asked of every request in that order: who is calling, what are they allowed to do,
 and what are they allowed to be told. Everything here answers one of them — the gate each of [the
 surfaces](architecture.md#surfaces) applies, the scopes that say what a caller may do, the rules
-that say whom a client may act as, the authentications a credential turns into, and the tokens that
-carry the answers off this server. What a caller may be told about a person is [the
+that say whom a client may act as, the authentications a credential turns into, the tokens that
+carry the answers off this server, and what is kept of when a person was last active. What a caller may be told about a person is [the
 claims](claims.md), which those gates and scopes are enforced through. It closes with what this
 design deliberately does not do.
 
@@ -489,6 +489,47 @@ again is the claim values — the consented scopes filtering them are the set re
 the audience filtering them is the refreshing client's, and a consent revoked since refuses the
 refresh outright rather than narrowing the token it would have issued.
 [The design FAQ](design-faq.md#does-a-refresh-issue-a-new-id-token) argues the alternative.
+
+## When a person was last active
+
+**An account holds two dates, its last authentication and its last refresh, because they answer
+different questions.** An authentication says the person was present, and a refresh says a client
+acted alone: an application on a forgotten phone refreshes for months with nobody there, so one date
+would hide the dormant account an administrator is looking for. [The design
+FAQ](design-faq.md#is-a-persons-last-activity-one-date-or-two) holds the single date that lost.
+
+**The last authentication moves when a flow completes after a credential was proven, whatever the
+flow was for.** It is the moment the credential verified, so where the flow is an authorization it
+is the [`auth_time`](#when-the-person-authenticated) of the tokens that flow leads to. Nothing moves
+it before the completion, since [the state carries no
+identity](#the-state-authentication-is-not-a-session), so a sign-in that failed moves nothing, and
+neither does a password that verified before a second factor that did not. A person who
+re-authenticated to link a provider moves it although no grant was opened, so it can be newer than
+their newest grant; an enrollment that proved nothing leaves it alone. [The design
+FAQ](design-faq.md#what-moves-a-persons-last-authentication) holds the narrower and wider rules.
+
+**The last refresh moves on every refresh of a grant held for the person, and on no refused one.** A
+`client_credentials` grant has no person behind it, and [an act-as token comes with no refresh
+token](#acting-as-a-person), so neither moves either date.
+
+**Each date is written when the interaction happens, and outlives what it came from.** Revoking a
+grant, collecting it or letting its tokens expire leaves both as they were, and each is kept for as
+long as the account is, so an account unused for a year still says so. Neither ever moves backwards:
+a flow proven at 10:00 that completes after one proven at 10:02 leaves 10:02. An empty date means the
+account has not done that, and nothing else. [The design
+FAQ](design-faq.md#are-a-persons-last-dates-derived-or-recorded) holds the derivation that lost.
+
+**An administrator reads both where a user is read under `admin:users:read`, and nowhere else.** The
+user collection filters and orders on them, which is what finds a dormant account. The user a flow
+session embeds states neither, because a session is read under a scope that does not cover users and
+would otherwise disclose a person's activity to someone only allowed to read flows.
+
+**The dates are columns of `users`, written by `UserManager` through a comparison in the statement
+itself.** That comparison is what keeps them from moving backwards across instances, with no lock of
+its own. The last authentication is written by the terminal effect of the purpose whose record holds
+the proof, inside [the transaction completing the flow](interactive-flow.md#the-engine), and reads
+that record rather than the stamp a place carries. [The design
+FAQ](design-faq.md#where-does-a-persons-last-authentication-read-its-moment-from) holds why.
 
 ## What this document does not settle
 

@@ -119,12 +119,16 @@ class AdminUserControllerTest {
             userId = first.user.id,
             status = "enabled",
             createdAt = creationDate,
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             claims = null
         )
         val secondResource = AdminUserResource(
             userId = second.user.id,
             status = "enabled",
             createdAt = creationDate.plusDays(1),
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             claims = null
         )
 
@@ -146,6 +150,8 @@ class AdminUserControllerTest {
             userId = user.user.id,
             status = "enabled",
             createdAt = creationDate,
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             claims = null
         )
         val criteria = slot<CollectionCriteria>()
@@ -186,6 +192,8 @@ class AdminUserControllerTest {
             userId = user.user.id,
             status = "enabled",
             createdAt = creationDate,
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             claims = null
         )
 
@@ -206,6 +214,8 @@ class AdminUserControllerTest {
             userId = user.user.id,
             status = "enabled",
             createdAt = creationDate,
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             claims = null
         )
 
@@ -288,6 +298,8 @@ class AdminUserControllerTest {
             userId = userId,
             status = "enabled",
             createdAt = creationDate,
+            lastAuthenticatedAt = null,
+            lastRefreshedAt = null,
             identifierClaims = identifierClaimsMap
         )
 

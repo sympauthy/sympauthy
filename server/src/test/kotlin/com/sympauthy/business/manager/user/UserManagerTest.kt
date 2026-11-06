@@ -16,6 +16,7 @@ import com.sympauthy.data.repository.UserRepository
 import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -388,6 +389,28 @@ class UserManagerTest {
         verificationDate = null,
         sessionId = null
     )
+
+    @Test
+    fun `markAuthenticated - Advances the last authentication of that account`() = runTest {
+        val id = UUID.randomUUID()
+        val date = LocalDateTime.of(2026, 11, 5, 10, 0)
+        coEvery { userRepository.advanceLastAuthenticationDate(id, date) } returns 1
+
+        manager.markAuthenticated(id, date)
+
+        coVerify(exactly = 1) { userRepository.advanceLastAuthenticationDate(id, date) }
+    }
+
+    @Test
+    fun `markRefreshed - Advances the last refresh of that account`() = runTest {
+        val id = UUID.randomUUID()
+        val date = LocalDateTime.of(2026, 11, 5, 10, 0)
+        coEvery { userRepository.advanceLastRefreshDate(id, date) } returns 1
+
+        manager.markRefreshed(id, date)
+
+        coVerify(exactly = 1) { userRepository.advanceLastRefreshDate(id, date) }
+    }
 
     private fun committedUser(id: UUID) = User(
         id = id,

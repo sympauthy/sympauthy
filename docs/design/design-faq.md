@@ -794,6 +794,97 @@ which is one request away from the list.
 
 ---
 
+## A person's last activity
+
+### Is a person's last activity one date or two?
+
+**Decision:** Two, `last_authenticated_at` and `last_refreshed_at`, neither folded into the other.
+
+**Options considered:**
+
+- **One last-interaction date** — one column, and one thing for a console to show.
+- **Two dates** — a sign-in and a refresh kept apart.
+- **`last_signed_in_at` for the first of them** — the word a console would use.
+
+**Rationale:**
+
+An administrator reading these is looking for an account nobody uses, and a client refreshes with
+nobody there. With one date, an application on a forgotten phone keeps the account looking active for
+months, which hides exactly what is being looked for.
+
+A grant already states `authenticated_at` for the moment the first date holds, so naming it anything
+else would give one moment two names.
+
+### What moves a person's last authentication?
+
+**Decision:** A flow that completes after a credential was proven, whatever the flow was for.
+
+**Options considered:**
+
+- **Any request during a flow** — the earliest sign that somebody is there.
+- **Any sign-in attempt, failed ones included** — a record of everything tried.
+- **An authorization flow completing** — the date would always match the person's newest grant.
+- **Any flow completing after a proof** — the rule that already decides what is recorded of a
+  person's places.
+
+**Rationale:**
+
+The first is not available: the state a flow travels under carries no identity, so whoever holds it
+could move a person's date. The second would stop the date meaning the person was here, and a record
+of attempts belongs to an audit log.
+
+Between the last two, a person who re-authenticated to link a provider proved a credential and is
+not dormant, and limiting the date to authorizations would report that they are. What the wider rule
+costs is that the date can be newer than the newest grant, which nothing relies on.
+
+### Are a person's last dates derived or recorded?
+
+**Decision:** Recorded on the account when the interaction happens, on every refresh, with no window
+and nothing to configure.
+
+**Options considered:**
+
+- **Derived from grants, tokens and sessions** — no new column, and nothing to keep in step.
+- **Recorded, at most once per window** — fewer writes to the row.
+- **Recorded every time** — one write per refresh.
+
+**Rationale:**
+
+Grants, tokens and sessions are collected, so a date derived from them moves backwards as they go,
+and a person signed out yesterday could read as never seen. That defeats the one question the dates
+exist to answer.
+
+A window adds a rule to explain and possibly a key to configure, and no problem has been observed
+that would justify either. A refresh already writes a row for the access token it adds, and a client
+normally refreshes about once per access-token lifetime.
+
+### Where does a person's last authentication read its moment from?
+
+**Decision:** From the record each purpose already keeps of its proof: the authentication date of an
+authorization and the proven date of a re-authentication, written in the transaction completing the
+flow.
+
+**Options considered:**
+
+- **The stamp on the place a credential was proven at**, in the fold that records a person's places
+  — one rule in one place, and already blind to everything nothing was proven at.
+- **A new date on the session**, written at every proof — one column to read, beside the records.
+- **The records the purposes already keep** — a date per purpose, read by that purpose's terminal
+  effect.
+
+**Rationale:**
+
+The fold runs after the completion has committed and is allowed to fail, because a place is a history
+row and a person's sign-in must not be answered with an error over one. A date an administrator acts
+on cannot be lost that way. Its stamp is also a separate reading of the clock from the one written for
+`auth_time`, so the two could land on different seconds.
+
+A new date on the session would be a second copy of what each record already holds, and would need
+keeping equal to them. Reading the record makes the date equal the `auth_time` of the tokens by
+construction, and the terminal effect is what ties it to the flow completing.
+
+---
+
 ## Clients
 
 ### May a client's default scopes fall outside its allowed scopes?

@@ -49,6 +49,64 @@ class UserRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `advanceLastAuthenticationDate - Writes the first date and leaves the other date alone`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val id = newUser(status = status)
+
+            assertEquals(1, users.advanceLastAuthenticationDate(id, BASE_DATE))
+
+            val stored = users.findById(id)
+            assertEquals(BASE_DATE, stored?.lastAuthenticationDate)
+            assertNull(stored?.lastRefreshDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `advanceLastAuthenticationDate - Moves to a later date and refuses an earlier one`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val id = newUser(status = status)
+            val later = BASE_DATE.plusMinutes(2)
+            users.advanceLastAuthenticationDate(id, BASE_DATE)
+
+            assertEquals(1, users.advanceLastAuthenticationDate(id, later))
+            assertEquals(0, users.advanceLastAuthenticationDate(id, BASE_DATE))
+
+            assertEquals(later, users.findById(id)?.lastAuthenticationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `advanceLastRefreshDate - Writes the first date and leaves the other date alone`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val id = newUser(status = status)
+
+            assertEquals(1, users.advanceLastRefreshDate(id, BASE_DATE))
+
+            val stored = users.findById(id)
+            assertEquals(BASE_DATE, stored?.lastRefreshDate)
+            assertNull(stored?.lastAuthenticationDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `advanceLastRefreshDate - Moves to a later date and refuses an earlier one`(database: Database) =
+        withFixture(database) {
+            val users = repository<UserRepository>()
+            val id = newUser(status = status)
+            val later = BASE_DATE.plusMinutes(2)
+            users.advanceLastRefreshDate(id, BASE_DATE)
+
+            assertEquals(1, users.advanceLastRefreshDate(id, later))
+            assertEquals(0, users.advanceLastRefreshDate(id, BASE_DATE))
+
+            assertEquals(later, users.findById(id)?.lastRefreshDate)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `findBySessionIdIsNull - Excludes the users a session is still signing up`(database: Database) =
         withFixture(database) {
             val session = newSession()

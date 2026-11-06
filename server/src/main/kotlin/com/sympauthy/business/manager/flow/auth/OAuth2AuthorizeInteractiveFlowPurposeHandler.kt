@@ -308,6 +308,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
      * runs inside the completion transaction, so the first flow to reach it takes it and the second is
      * refused. See [com.sympauthy.data.model.SessionScoped].
+     *
+     * The person's last authentication moves last, by the date the grant was opened with. It takes the account's
+     * row, and every other writer of that row holds the lock over the account before it does, so taking the row
+     * before the consent takes that lock would be the opposite order.
      */
     internal suspend fun recordAuthorization(
         session: OnGoingInteractiveFlowSession,
@@ -332,5 +336,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         oauth2.invitationId?.let { invitationManager.consumeInvitation(invitationManager.findById(it), user) }
         val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audience.id)
         authorizationCodeManager.generateCode(oauth2, grant)
+        oauth2.authenticationDate?.let { userManager.markAuthenticated(userId, it) }
     }
 }
