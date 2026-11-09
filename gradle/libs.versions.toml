@@ -31,7 +31,7 @@ debian = "13"
 # The design system whose tokens and marks server/build.gradle.kts takes from this tag's archive. It
 # has no library entry below: renovate.json follows it on the repository's tags, and a library entry
 # would also have Renovate look for it on the Maven repositories, where it is not published.
-sympauthy-design = "0.10.0"
+sympauthy-design = "0.11.0"
 
 [libraries]
 # Platform BOM — the Micronaut Gradle plugin resolves the platform version from this "micronaut-platform" alias.
