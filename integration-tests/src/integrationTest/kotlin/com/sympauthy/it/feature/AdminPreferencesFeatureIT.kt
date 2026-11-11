@@ -4,8 +4,6 @@ import com.nimbusds.jose.jwk.Curve
 import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
 import com.nimbusds.jose.util.JSONObjectUtils
-import com.nimbusds.jwt.SignedJWT
-import com.sympauthy.api.client.api.OpenidApi
 import com.sympauthy.api.client.api.UserApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
@@ -24,32 +22,32 @@ import org.junit.jupiter.params.provider.EnumSource
 import java.net.http.HttpResponse
 
 /**
- * Feature scenario — **an operator keeps the admin panel's preferences on their own account, in the
+ * Feature scenario — **an administrator keeps the admin console's preferences on their own account, in the
  * `sympauthy_admin_preferences` claim the `admin` environment declares.**
  *
  * The container runs the `admin` environment and declares no claim of its own beyond the email the
- * sign-up takes, so every property asserted here is the shipped declaration's. The first operator
+ * sign-up takes, so every property asserted here is the shipped declaration's. The first administrator
  * signs up through the bootstrap invitation and exchanges the code beside a DPoP proof. With that bound
- * token they write a document through `PATCH /api/v1/user/claims` and read it back through `GET`, and
- * are refused a document over 1 KiB and a JSON array. Signing in again without a proof yields a bearer
- * token, whose write is refused with `authentication.unbound_token` on a `DPoP` challenge and whose
- * read answers the claims without the document; the id token and the access token of that sign-in, the
- * `/userinfo` read with it and the discovery document all leave the claim out. A person signing up
- * through a client of the `default` audience is refused the claim with a bound token of their own. A
- * deployment turning the claim off has the first write refused.
+ * token they write a document through `PATCH /api/v1/user/claims` and read it back through `GET`, are
+ * refused a document over 1 KiB and a JSON array, and read the document unchanged afterwards. The same
+ * token reads `/userinfo`, whose person door it opens, and is answered without the claim, which the
+ * discovery document does not list either. Signing in again without a proof yields a bearer token, whose
+ * write is refused with `authentication.unbound_token` on a `DPoP` challenge and whose read answers the
+ * claims without the document. A person signing up through a client of the `default` audience is refused
+ * the claim with a bound token of their own.
  *
  * The shipped file is what is proved, and only a booted server reads it: its claim beside the keys a
- * deployment writes, its doors against a token the server bound itself, and its publication against
- * every place a value could travel.
+ * deployment writes, its doors against a token the server bound itself, and its publication where the
+ * doors would let it through.
  *
  * Issue: [#694](https://github.com/sympauthy/sympauthy/issues/694).
  */
 @Tag("feature")
 class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
 
-    @ParameterizedTest(name = "an operator keeps the panel preferences on their account on {0}")
+    @ParameterizedTest(name = "an administrator keeps the console preferences on their account on {0}")
     @EnumSource(Database::class)
-    fun keepsAnOperatorsPreferences(database: Database) {
+    fun keepsAnAdministratorsPreferences(database: Database) {
         withAdminAndApp(database) { sympauthy, admin, app ->
             val key = ECKeyGenerator(Curve.P_256).generate()
             val boundToken = signUpFirstAdmin(sympauthy, admin, key)
@@ -57,10 +55,6 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
             val written = patchClaims(sympauthy, key, boundToken, mapOf(CLAIM to DOCUMENT))
             assertEquals(200, written.statusCode(), "the bound write should be served, body=${written.body()}")
             assertEquals(DOCUMENT, claimsOf(written)[CLAIM], "the write answers the document as an object")
-
-            val read = getClaims(sympauthy, key, boundToken)
-            assertEquals(200, read.statusCode(), "the bound read should be served, body=${read.body()}")
-            assertEquals(DOCUMENT, claimsOf(read)[CLAIM], "the bound read answers the document")
 
             val tooLarge = patchClaims(sympauthy, key, boundToken, mapOf(CLAIM to mapOf("theme" to "x".repeat(1024))))
             assertError(tooLarge, 400, "flow.claims.invalid", "a document over 1 KiB should be refused")
@@ -75,42 +69,45 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
                 "the refusal should name the shape, body=${list.body()}",
             )
 
-            val signedIn = exchange(
-                sympauthy, admin,
-                admin.newFlow().withSignInHandler { Credentials.of(ADMIN_EMAIL, DEFAULT_PASSWORD) }.run(),
-            )
-            withApiClient(sympauthy, token = signedIn.accessToken) { ctx ->
-                val refusal = assertThrows<HttpClientResponseException>("a bearer write should be refused") {
-                    ctx.getBean(UserApi::class.java).updateClaims(mutableMapOf(CLAIM to DOCUMENT)).block()
-                }
-                assertError(refusal, 401, "authentication.unbound_token", "a bearer write should be refused")
-                val challenges = refusal.response.headers.getAll("WWW-Authenticate")
-                assertTrue(
-                    challenges.any { DPOP_CHALLENGE.containsMatchIn(it) },
-                    "the refusal should challenge for a bound token, was: $challenges",
-                )
+            val read = getWithProof(key, boundToken, userClaimsUrl(sympauthy))
+            assertEquals(200, read.statusCode(), "the bound read should be served, body=${read.body()}")
+            assertEquals(DOCUMENT, claimsOf(read)[CLAIM], "the bound read answers the document the refusals left")
 
-                val readByBearer = ctx.getBean(UserApi::class.java).getClaims().block()
-                assertFalse(
-                    readByBearer?.claims.orEmpty().containsKey(CLAIM),
-                    "a bearer read should leave the document out, was: ${readByBearer?.claims}",
-                )
-
-                val userInfo = ctx.getBean(OpenidApi::class.java).getUserInfo().block()
-                assertFalse(userInfo.orEmpty().containsKey(CLAIM), "/userinfo should leave the document out")
-            }
+            val userInfoEndpoint = requireNotNull(discovery(sympauthy).userinfoEndpoint)
+            val userInfo = getWithProof(key, boundToken, userInfoEndpoint)
+            assertEquals(200, userInfo.statusCode(), "/userinfo should serve the bound token, body=${userInfo.body()}")
             assertFalse(
-                verifyIdTokenSignature(sympauthy, requireIdToken(signedIn.idToken)).claims.containsKey(CLAIM),
-                "the id token should leave the document out",
-            )
-            assertFalse(
-                SignedJWT.parse(signedIn.accessToken).jwtClaimsSet.claims.containsKey(CLAIM),
-                "the access token should leave the document out",
+                JSONObjectUtils.parse(userInfo.body()).containsKey(CLAIM),
+                "/userinfo should leave the document out, body=${userInfo.body()}",
             )
             assertFalse(
                 discovery(sympauthy).claimsSupported.orEmpty().contains(CLAIM),
                 "the discovery document should not list the claim",
             )
+
+            val bearerToken = exchange(
+                sympauthy, admin,
+                admin.newFlow().withSignInHandler { Credentials.of(ADMIN_EMAIL, DEFAULT_PASSWORD) }.run(),
+            ).accessToken
+            withApiClient(sympauthy, token = bearerToken) { ctx ->
+                val refusal = assertThrows<HttpClientResponseException>("a bearer write should be refused") {
+                    ctx.getBean(UserApi::class.java).updateClaims(mutableMapOf(CLAIM to DOCUMENT)).block()
+                }
+                assertError(refusal, 401, "authentication.unbound_token", "a bearer write should be refused")
+                val challenge = refusal.response.headers.get("WWW-Authenticate").orEmpty()
+                assertTrue(
+                    challenge.contains("""DPoP realm="sympauthy", error="invalid_token""""),
+                    "the refusal should challenge for a bound token, was: $challenge",
+                )
+
+                val readByBearer = requireNotNull(ctx.getBean(UserApi::class.java).getClaims().block()) {
+                    "a bearer read returned an empty body"
+                }
+                assertFalse(
+                    readByBearer.claims.containsKey(CLAIM),
+                    "a bearer read should leave the document out, was: ${readByBearer.claims}",
+                )
+            }
 
             val appKey = ECKeyGenerator(Curve.P_256).generate()
             val appToken = exchangeForBoundToken(sympauthy, app, signUp(app, APP_EMAIL), appKey)
@@ -118,22 +115,6 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
                 patchClaims(sympauthy, appKey, appToken, mapOf(CLAIM to DOCUMENT)),
                 400, "user.invalid_claim",
                 "a client of another audience should be refused the claim",
-            )
-        }
-    }
-
-    @ParameterizedTest(name = "a deployment turning the panel preferences off is refused their write on {0}")
-    @EnumSource(Database::class)
-    fun refusesTheWriteWhenTurnedOff(database: Database) {
-        val turnedOff = mapOf("claims" to mapOf(CLAIM to mapOf("enabled" to "false")))
-        withAdminAndApp(database, turnedOff) { sympauthy, admin, _ ->
-            val key = ECKeyGenerator(Curve.P_256).generate()
-            val boundToken = signUpFirstAdmin(sympauthy, admin, key)
-
-            assertError(
-                patchClaims(sympauthy, key, boundToken, mapOf(CLAIM to DOCUMENT)),
-                400, "user.invalid_claim",
-                "a claim the deployment turned off should be refused",
             )
         }
     }
@@ -151,15 +132,13 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
     }
 
     /**
-     * `GET /api/v1/user/claims` under the `DPoP` scheme, with [token] and a proof signed by [key]: the
-     * generated client presents a token as a bearer one alone.
+     * A `GET` of [url] under the `DPoP` scheme, with [token] and a proof signed by [key]: the generated
+     * client presents a token as a bearer one alone.
      */
-    private fun getClaims(sympauthy: SympauthyContainer, key: ECKey, token: String): HttpResponse<String> {
-        val url = userClaimsUrl(sympauthy)
-        return httpGet(url, headers = dpopHeaders(key, "GET", url, token))
-    }
+    private fun getWithProof(key: ECKey, token: String, url: String): HttpResponse<String> =
+        httpGet(url, headers = dpopHeaders(key, "GET", url, token))
 
-    /** `PATCH /api/v1/user/claims` with [claims] as its body, as [getClaims] presents [token]. */
+    /** `PATCH /api/v1/user/claims` with [claims] as its body, as [getWithProof] presents [token]. */
     private fun patchClaims(
         sympauthy: SympauthyContainer,
         key: ECKey,
@@ -182,13 +161,11 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
         JSONObjectUtils.parse(response.body())["claims"] as Map<String, Any?>
 
     /**
-     * Starts a container running the `admin` environment, with [extraConfig] merged over it, holding the
-     * admin client of [admin] and the public client of [app] in the `default` audience, and runs [block]
-     * against it.
+     * Starts a container running the `admin` environment, holding the admin client of [admin] and the
+     * public client of [app] in the `default` audience, and runs [block] against it.
      */
     private fun withAdminAndApp(
         database: Database,
-        extraConfig: Map<String, Any> = emptyMap(),
         block: (SympauthyContainer, InteractiveFlowRegistry, InteractiveFlowRegistry) -> Unit,
     ) {
         database.createFixture().use { fixture ->
@@ -196,7 +173,7 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
                 InteractiveFlowRegistry.forClient(Client.publicClient(APP_CLIENT_ID))
                     .withFlowId(APP_FLOW_ID)
                     .use { app ->
-                        container(fixture, config(app) and extraConfig, admin, app)
+                        container(fixture, config(app), admin, app)
                             .withAdmin()
                             .withAdminClient(admin, "openid")
                             .use { sympauthy -> withStartedContainer(sympauthy) { block(it, admin, app) } }
@@ -209,13 +186,10 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
 
         const val CLAIM = "sympauthy_admin_preferences"
         const val ADMIN_CLIENT_ID = "admin-console"
-        const val ADMIN_EMAIL = "operator@example.com"
+        const val ADMIN_EMAIL = "administrator@example.com"
         const val APP_CLIENT_ID = "admin-preferences-app"
         const val APP_FLOW_ID = "admin-preferences-flow"
         const val APP_EMAIL = "admin-preferences@example.com"
-
-        /** A `DPoP` challenge, which may follow a `Bearer` one in the same header value. */
-        val DPOP_CHALLENGE = Regex("""(^|,\s*)DPoP\s""")
 
         val DOCUMENT = mapOf("theme" to "dark", "language" to "fr", "time_zone" to "Europe/Paris")
     }

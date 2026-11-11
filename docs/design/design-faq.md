@@ -1181,38 +1181,6 @@ Tuning the cap to a token would have it doing two jobs — what may be stored, a
 deployment's to weigh in `published-in`, under [the large-token
 entry](#should-a-configuration-that-makes-a-large-token-be-refused).
 
-### Where does the admin panel keep an operator's preferences?
-
-**Decision:** In `sympauthy_admin_preferences`, a personal `json` claim of the `admin` audience
-that the `admin` environment declares, read and written by the operator's own token only where it
-is bound to a DPoP key, held to 1 KiB and published nowhere.
-
-**Options considered:**
-
-- **The browser's own storage**, kept by the panel.
-- **The standard `locale` and `zoneinfo` claims**, for the language and the time zone.
-- **An application claim**, written by the admin client.
-- **A personal claim whose doors open to any token of the operator.**
-- **A personal claim held to the 8 KiB default.**
-- **A personal claim published in the id token and `/userinfo`**, as the `personal` template does.
-- **A personal claim behind a bound token, held to 1 KiB and published nowhere** — what was chosen.
-
-**Rationale:**
-
-The browser's own storage keeps a choice in the browser it was made in, so an operator signing in
-from the next one starts over; it is what the panel falls back to where a deployment turns the
-claim off. `locale` and `zoneinfo` are the person's profile, published to every client the person
-consented `profile` to, so a choice made for the panel would change what other applications read
-about them. An application claim's write door can never be opened on the person, so the operator
-could not save a preference with their own token.
-
-A bearer token copied out of a browser would read and overwrite a document behind any token of the
-operator; the panel's tokens are bound to a DPoP key already, so requiring one costs it nothing. The
-document holds a handful of short members, and the 8 KiB default is eight times what it needs — room
-for whatever somebody holding a token writes into it. Publishing it would put it in every id token
-the admin client is issued and announce a claim no relying party has a use for, while the panel
-reads it through the user surface either way.
-
 ### Does a granting rule see claims of every audience?
 
 **Decision:** No. Each caller reads the claims of the audience its decision lands in, through
