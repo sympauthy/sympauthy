@@ -88,25 +88,6 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID>, Coroutin
     ): Int
 
     /**
-     * Revoke every grant a token exchange (RFC 8693) opened from a token of the grant identified by
-     * [actorGrantId]. Returns the number of grants revoked.
-     */
-    @Query(
-        """
-        UPDATE grants
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE actor_grant_id = :actorGrantId
-          $LIVE_AT_REVOKED_AT
-        """
-    )
-    suspend fun updateRevokedAtByActorGrantId(
-        actorGrantId: UUID,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
-
-    /**
      * Revoke every grant among [ids]. Returns the number of grants revoked.
      */
     @Query(
@@ -125,23 +106,10 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID>, Coroutin
     ): Int
 
     /**
-     * Revoke every grant a token exchange (RFC 8693) opened from a token of one of the grants identified by
-     * [actorGrantIds]. Returns the number of grants revoked.
+     * The grants a token exchange (RFC 8693) opened from a token of one of the grants identified by
+     * [actorGrantIds], whatever state they are in.
      */
-    @Query(
-        """
-        UPDATE grants
-        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
-        WHERE actor_grant_id IN (:actorGrantIds)
-          $LIVE_AT_REVOKED_AT
-        """
-    )
-    suspend fun updateRevokedAtByActorGrantIdIn(
-        actorGrantIds: List<UUID>,
-        revokedAt: LocalDateTime,
-        revokedBy: String,
-        revokedById: UUID?
-    ): Int
+    suspend fun findByActorGrantIdIn(actorGrantIds: List<UUID>): List<GrantEntity>
 
     /**
      * The identifiers of the clients the stored grants were opened for, each once.
