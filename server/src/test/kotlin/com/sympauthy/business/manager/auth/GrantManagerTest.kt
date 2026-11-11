@@ -339,7 +339,7 @@ class GrantManagerTest {
     }
 
     @Test
-    fun `revokeGrant - Counts the grant under its client, and the grants exchanged from it under none`() = runTest {
+    fun `revokeGrant - Counts the grant and the grants exchanged from it under its client`() = runTest {
         val grant = mockGrant(null)
         coEvery { grantRepository.updateRevokedAt(grant.id, any(), "AUTHORIZATION_CODE_REPLAYED", null) } returns 1
         coEvery {
@@ -348,10 +348,7 @@ class GrantManagerTest {
 
         grantManager().revokeGrant(grant, GrantRevokedBy.AUTHORIZATION_CODE_REPLAYED, null)
 
-        verify {
-            tokenMetrics.recordRevocations("authorization_code_replayed", "client", 1)
-            tokenMetrics.recordRevocations("authorization_code_replayed", null, 2)
-        }
+        verify { tokenMetrics.recordRevocations("authorization_code_replayed", "client", 3) }
     }
 
     /** An `authorization_code` row of [userId], opened for [clientId]. */

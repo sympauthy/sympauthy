@@ -245,7 +245,7 @@ the audience presenting it, are asked of it by a refresh and a code exchange ali
 each grant type in `business.manager.token` issues the tokens under a grant, and `TokenManager` reads
 one back once issued; `ActorGrantValidator` is the check an act-as token adds.
 
-**A refresh, a code exchange and a revocation of the same person's grants take turns.** A token
+**A refresh, a code exchange and a revocation of the grants they write under take turns.** A token
 issued under a grant is revoked with it whichever commits first, because a token's liveness is read
 off its grant. What the turns protect is the two judgments made from committed rows. A revocation
 reads a grant live from the tokens and the code committed under it, so a refresh renewing a grant
@@ -257,6 +257,16 @@ therefore take the lock over the account first, as [the locking
 standard](../standards/locking-standard.md#the-named-lock) describes. Whichever goes second sees
 what the first committed: a refresh or an exchange reads its grant revoked and is refused, or a
 revocation finds their tokens and revokes their grant.
+
+**An act-as grant is revoked with the grant it was exchanged from without the lock over the account
+it acts as.** Nothing writes a token under an act-as grant once the exchange that opened it is done,
+so no refresh or exchange can be racing to keep one live, and two revocations of the same act-as
+grant are settled by the database, each being one update that writes only a grant still live. A
+revocation of the person's grants still takes their lock, as it does for every other grant it
+reaches. Taking the locks of the persons acted as when the grant they were exchanged from is revoked
+would hand a client revoking its own token a lock over every one of them — [the design
+FAQ](design-faq.md#does-revoking-a-grant-lock-the-accounts-of-the-grants-exchanged-from-it) holds
+what that weighed.
 
 **`GrantStatus` is where a grant stands, and `GrantManager` reads it.** A grant is live when it
 passes the condition every revocation in `GrantRepository` writes under, read at the same moment,

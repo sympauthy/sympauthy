@@ -46,10 +46,15 @@ import java.util.*
  * lapsed is not recorded as revoked afterwards, so a revocation that counts answers how many grants it took
  * out of service.
  *
- * Every revocation of a person's grants is written holding the lock over their account, which a refresh of
- * their tokens takes too. A revocation reads a grant live from the tokens committed under it, so without the
- * lock a refresh renewing a grant whose last token is about to expire could have its tokens written after
- * the revocation judged the grant lapsed, and left live. See `docs/design/grants.md`.
+ * Every revocation of a grant a refresh or a code exchange writes tokens under is written holding the lock
+ * over the account of its person, which both of them take too. A revocation reads a grant live from the
+ * tokens committed under it, so without the lock a refresh renewing a grant whose last token is about to
+ * expire could have its tokens written after the revocation judged the grant lapsed, and left live.
+ *
+ * An act-as grant is the exception: revoking the grant it was exchanged from reaches it without the lock over
+ * the account it acts as, even though a revocation of that person's grants takes it. Nothing writes a token
+ * under an act-as grant after the exchange that opened it, so there is no judgment for the lock to protect,
+ * and two revocations of one are settled by the update each of them is. See `docs/design/grants.md`.
  */
 @Singleton
 open class GrantManager(
@@ -376,9 +381,8 @@ open class GrantManager(
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-            tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked)
-            // An act-as grant is opened for whichever client acted, so the ones opened from this grant span clients.
-            tokenMetrics.recordRevocations(revokedBy.metricName, null, actorGrantsRevoked)
+            // An act-as grant is opened for the client holding the grant it was exchanged from.
+            tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked + actorGrantsRevoked)
         }
     }
 
