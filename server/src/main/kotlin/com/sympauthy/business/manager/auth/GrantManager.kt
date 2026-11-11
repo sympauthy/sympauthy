@@ -46,10 +46,15 @@ import java.util.*
  * lapsed is not recorded as revoked afterwards, so a revocation that counts answers how many grants it took
  * out of service.
  *
- * Every revocation of a person's grants is written holding the lock over their account, which a refresh of
- * their tokens takes too. A revocation reads a grant live from the tokens committed under it, so without the
- * lock a refresh renewing a grant whose last token is about to expire could have its tokens written after
- * the revocation judged the grant lapsed, and left live. See `docs/design/grants.md`.
+ * Every revocation of a grant a refresh or a code exchange writes tokens under is written holding the lock
+ * over the account of its person, which both of them take too. A revocation reads a grant live from the
+ * tokens committed under it, so without the lock a refresh renewing a grant whose last token is about to
+ * expire could have its tokens written after the revocation judged the grant lapsed, and left live.
+ *
+ * An act-as grant is the exception: revoking the grant it was exchanged from reaches it without the lock over
+ * the account it acts as, even though a revocation of that person's grants takes it. Nothing writes a token
+ * under an act-as grant after the exchange that opened it, so there is no judgment for the lock to protect,
+ * and two revocations of one are settled by the update each of them is. See `docs/design/grants.md`.
  */
 @Singleton
 open class GrantManager(
@@ -359,16 +364,10 @@ open class GrantManager(
      * A grant already revoked keeps who revoked it first and when, and one that lapsed is left as it lapsed;
      * either way nothing is written to it, and nothing to the grants opened from it that are in the same
      * state.
-     *
-     * The lock covers the account of [grant] and those of the grants opened from it, which are each the
-     * account of the person acted as. Those grants are read again once it is held, and one opened since for
-     * an account it does not cover is left to a revocation made after it.
      */
     @Transactional
     open suspend fun revokeGrant(grant: Grant, revokedBy: GrantRevokedBy, revokedById: UUID?) {
-        val exchanged = findExchangedFrom(listOf(grant.id))
-        val users = (listOfNotNull(grant.userId) + exchanged.mapNotNull(GrantEntity::userId)).toSet()
-        lockManager.withLock(users.map(LockKey::User)) {
+        lockManager.withLock(listOfNotNull(grant.userId?.let(LockKey::User))) {
             val now = LocalDateTime.now()
             val revoked = grantRepository.updateRevokedAt(
                 id = grant.id,
@@ -376,11 +375,14 @@ open class GrantManager(
                 revokedBy = revokedBy.name,
                 revokedById = revokedById
             )
-            val exchangedIds = findExchangedFrom(listOf(grant.id)).coveredBy(users).mapNotNull(GrantEntity::id)
-            val actorGrantsRevoked = revokeByIds(exchangedIds, now, revokedBy, revokedById)
-            tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked)
-            // An act-as grant is opened for whichever client acted, so the ones opened from this grant span clients.
-            tokenMetrics.recordRevocations(revokedBy.metricName, null, actorGrantsRevoked)
+            val actorGrantsRevoked = grantRepository.updateRevokedAtByActorGrantId(
+                actorGrantId = grant.id,
+                revokedAt = now,
+                revokedBy = revokedBy.name,
+                revokedById = revokedById
+            )
+            // An act-as grant is opened for the client holding the grant it was exchanged from.
+            tokenMetrics.recordRevocations(revokedBy.metricName, grant.clientId, revoked + actorGrantsRevoked)
         }
     }
 
@@ -391,11 +393,10 @@ open class GrantManager(
      * A grant already revoked, past its lifetime or lapsed is left as it is and not counted, as
      * [revokeGrant] leaves it; the grants opened from it are reached all the same.
      *
-     * The lock covers the accounts of the grants reached and of the grants opened from them. Both are read
-     * again once it is held, and those of an account it does not cover — opened since the first read — are
-     * left to a revocation made after them. The accounts [GrantRevocationCriteria.userIds] names are locked
-     * whether they hold a grant yet or not, so a grant opened for one of them before the lock is taken is
-     * reached.
+     * The grants are read again once the lock over their accounts is held, and those of an account it does
+     * not cover — opened since the first read — are left to a revocation made after them. The accounts
+     * [GrantRevocationCriteria.userIds] names are locked whether they hold a grant yet or not, so a grant
+     * opened for one of them before the lock is taken is reached.
      *
      * It takes identifiers rather than the records they name, and resolves none of them: a client or an
      * audience the configuration no longer declares still has grants to revoke, which resolving it would
@@ -407,34 +408,18 @@ open class GrantManager(
         revokedBy: GrantRevokedBy,
         revokedById: UUID?
     ): Int {
-        val matched = findMatching(criteria)
-        val exchanged = findExchangedFrom(matched.mapNotNull(GrantEntity::id))
-        val users = (criteria.userIds.orEmpty() + (matched + exchanged).mapNotNull(GrantEntity::userId)).toSet()
+        val users = (criteria.userIds.orEmpty() + findMatching(criteria).mapNotNull(GrantEntity::userId)).toSet()
         return lockManager.withLock(users.map(LockKey::User)) {
-            val ids = findMatching(criteria).coveredBy(users).mapNotNull(GrantEntity::id)
-            val exchangedIds = findExchangedFrom(ids).coveredBy(users).mapNotNull(GrantEntity::id)
-            revokeByIds((ids + exchangedIds).distinct(), LocalDateTime.now(), revokedBy, revokedById)
+            val ids = findMatching(criteria)
+                .filter { it.userId == null || it.userId in users }
+                .mapNotNull(GrantEntity::id)
+            val now = LocalDateTime.now()
+            ids.chunked(REVOCATION_CHUNK_SIZE).sumOf { chunk ->
+                grantRepository.updateRevokedAtByIdIn(chunk, now, revokedBy.name, revokedById) +
+                    grantRepository.updateRevokedAtByActorGrantIdIn(chunk, now, revokedBy.name, revokedById)
+            }
         }.also { tokenMetrics.recordRevocations(revokedBy.metricName, null, it) }
     }
-
-    /**
-     * Revoke every grant among [ids] that is still live at [now], and return how many there were.
-     */
-    private suspend fun revokeByIds(
-        ids: List<UUID>,
-        now: LocalDateTime,
-        revokedBy: GrantRevokedBy,
-        revokedById: UUID?
-    ): Int = ids.chunked(REVOCATION_CHUNK_SIZE).sumOf { chunk ->
-        grantRepository.updateRevokedAtByIdIn(chunk, now, revokedBy.name, revokedById)
-    }
-
-    /**
-     * The grants a token exchange opened from one of the grants identified by [actorGrantIds], whatever state
-     * they are in.
-     */
-    private suspend fun findExchangedFrom(actorGrantIds: List<UUID>): List<GrantEntity> =
-        actorGrantIds.chunked(REVOCATION_CHUNK_SIZE).flatMap { grantRepository.findByActorGrantIdIn(it) }
 
     private suspend fun findMatching(criteria: GrantRevocationCriteria): List<GrantEntity> =
         grantRepository.findMatching(
@@ -476,13 +461,6 @@ open class GrantManager(
  * client under the number of parameters a statement may bind.
  */
 private const val REVOCATION_CHUNK_SIZE = 1000
-
-/**
- * The grants among these that name no account, or one of [users]: those a revocation holding the lock over
- * [users] may write.
- */
-private fun List<GrantEntity>.coveredBy(users: Set<UUID>): List<GrantEntity> =
-    filter { it.userId == null || it.userId in users }
 
 /**
  * What a revocation is recorded under on `revoked_by`.

@@ -606,6 +606,40 @@ say who acts in the audience it crosses into before an act-as token may name one
 
 ---
 
+### Does revoking a grant lock the accounts of the grants exchanged from it?
+
+**Decision:** No. Revoking a grant revokes the act-as grants exchanged from it in one update,
+holding the lock over the account of the grant revoked and over no account an act-as grant acts as.
+
+**Options considered:**
+
+- **Lock the account of every person acted as** — read the act-as grants first, lock their persons
+  beside the grant's own, and revoke under that lock what it covers.
+- **Lock the grant exchanged from** — a key the token exchange and the revocation both take, so no
+  act-as grant is opened from a grant while it is being revoked.
+- **Take neither** — what was chosen.
+
+**Rationale:**
+
+The lock over an account protects a judgment a revocation makes from committed rows: that a grant
+is live, read off tokens a refresh or a code exchange may be about to write. No token is written
+under an act-as grant once the exchange that opened it is done, so that judgment has nobody to race,
+and two revocations of one act-as grant are each an update that writes only a grant still live.
+
+Locking every person acted as protects nothing and costs twice. A client revoking its own token
+would take a lock over every person it has acted as, which for a service acting as a few hundred
+covers nearly every stripe and holds every refresh and sign-in of the deployment behind one request
+any client may send. And a person acted as for the first time while the revocation waits for those
+locks is one it does not hold, so the act-as grant opened for them would be left live where the
+single update would have reached it.
+
+Locking the grant exchanged from closes the window in which an exchange opens an act-as grant from
+a grant being revoked. That window leaves an act-as grant unrevoked whose tokens are refused anyway,
+since a token of one is refused once the grant it was exchanged from is no longer live; a lockable
+object and a lock on the exchange are more than that is worth while it is the only thing at stake.
+
+---
+
 ### Does the discovery document list RS256, as OpenID Connect Discovery requires?
 
 **Decision:** No. `id_token_signing_alg_values_supported` lists the one algorithm id tokens are
