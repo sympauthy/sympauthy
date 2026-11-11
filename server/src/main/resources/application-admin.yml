@@ -23,6 +23,26 @@ claims:
     template: application
     type: boolean
     audience: admin
+  # What an operator chooses in the panel: the theme, the language, the date format, the time zone. On
+  # the account rather than in the browser, so a choice made in one browser follows the operator to the
+  # next; a deployment turning it off leaves the panel keeping them in the browser alone.
+  sympauthy_admin_preferences:
+    # The person's, because the operator chooses it in the panel and an application claim is never the
+    # person's to write. `kind` rather than the `personal` template, whose places would put the panel's
+    # document in every id token and `/userinfo` response the admin client is issued: naming no place
+    # publishes it in none, and the panel reads it through the user API.
+    kind: personal
+    type: json
+    # So that no application the same person signs in to reads or writes the panel's document.
+    audience: admin
+    # The document the panel writes takes a few hundred bytes. The 8 KiB default is room anybody holding
+    # a bound token could fill with something other than preferences.
+    max-size: 1024
+    acl:
+      # The panel's tokens are bound to a DPoP key already, so asking for one costs it nothing and leaves
+      # a bearer token copied out of a browser nothing to read or overwrite.
+      readable-by-person: TOKEN_IS_BOUND()
+      writable-by-person: TOKEN_IS_BOUND()
 
 clients:
   admin:

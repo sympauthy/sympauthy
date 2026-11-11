@@ -1,5 +1,10 @@
 package com.sympauthy.it
 
+import com.nimbusds.jose.JOSEObjectType
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.ECDSASigner
+import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet
 import com.nimbusds.jose.jwk.source.JWKSource
@@ -38,6 +43,8 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import java.util.Date
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -476,6 +483,29 @@ abstract class AbstractSympauthyIT {
     }
 
     /**
+     * A DPoP proof signed by [key] for a request of [method] to [url], carrying the hash of [accessToken]
+     * where the request presents one (RFC 9449 §4.2).
+     */
+    protected fun dpopProof(key: ECKey, method: String, url: String, accessToken: String? = null): String {
+        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
+            .type(JOSEObjectType("dpop+jwt"))
+            .jwk(key.toPublicJWK())
+            .build()
+        val claims = JWTClaimsSet.Builder()
+            .jwtID(UUID.randomUUID().toString())
+            .claim("htm", method)
+            .claim("htu", url)
+            .issueTime(Date())
+            .apply { accessToken?.let { claim("ath", accessTokenHash(it)) } }
+            .build()
+        return SignedJWT(header, claims).apply { sign(ECDSASigner(key)) }.serialize()
+    }
+
+    private fun accessTokenHash(accessToken: String): String = Base64URL.encode(
+        MessageDigest.getInstance("SHA-256").digest(accessToken.toByteArray(StandardCharsets.US_ASCII)),
+    ).toString()
+
+    /**
      * A valid authorization request URL for the mock frontend's public client, carrying the challenge of
      * a fresh PKCE pair nobody holds. It echoes [CLIENT_STATE] back on the redirect it ends at.
      */
@@ -516,6 +546,21 @@ abstract class AbstractSympauthyIT {
                 .header("Content-Type", contentType)
                 .header("Accept", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+
+    protected fun httpPatch(
+        url: String,
+        body: String,
+        headers: Map<String, String> = emptyMap(),
+    ): HttpResponse<String> =
+        client().send(
+            HttpRequest.newBuilder(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .apply { headers.forEach { (name, value) -> header(name, value) } }
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
                 .build(),
             HttpResponse.BodyHandlers.ofString(),
         )
@@ -606,6 +651,26 @@ abstract class AbstractSympauthyIT {
         )
         overrides.forEach { (key, value) -> if (value == null) form.remove(key) else form[key] = value }
         return httpPostForm(discovery(sympauthy).tokenEndpoint, form, headers)
+    }
+
+    /**
+     * Exchanges the code of [result] as [exchangeCode] does, beside a proof signed by [key], and answers the
+     * access token issued — bound to that key.
+     */
+    protected fun exchangeForBoundToken(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        result: AuthorizationResult,
+        key: ECKey,
+    ): String {
+        val response = exchangeCode(
+            sympauthy, registry, result,
+            headers = mapOf("DPoP" to dpopProof(key, "POST", discovery(sympauthy).tokenEndpoint)),
+        )
+        assertEquals(200, response.statusCode(), "the code exchange should succeed, body=${response.body()}")
+        val body = JSONObjectUtils.parse(response.body())
+        assertEquals("DPoP", body["token_type"], "a token request beside a proof should be issued a bound token")
+        return body["access_token"] as String
     }
 
     /** The code [result] captured at the client callback, or a failure saying it carried none. */
