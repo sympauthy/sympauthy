@@ -37,21 +37,17 @@ class ConfirmInteractiveFlowPurposeHandler(
     /**
      * What the end-user is being asked to approve, who asked, and whether they have.
      *
-     * A confirm record naming no client was initiated by an administrator, which the value says in words: a
-     * label with no value beside it would read as a record that is missing rather than as one that is there
-     * and names nobody.
+     * A confirm record naming no client was initiated by an administrator, which `initiated_by` says: a
+     * `client_id` with no value would read as a record that is missing rather than as one that is there and
+     * names nobody.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val confirm = confirmManager.fetchConfirmOrNull(session)
         return listOf(
-            PurposeDebugInformation("Action", confirm?.action?.wireName),
-            PurposeDebugInformation("Initiated by", confirm?.let { it.clientId ?: BY_AN_ADMINISTRATOR }),
-            PurposeDebugInformation("Confirmed date", confirm?.confirmedDate?.toString())
+            PurposeDebugInformation.Text("action", confirm?.action?.wireName),
+            PurposeDebugInformation.Text("initiated_by", confirm?.initiatedBy?.wireName),
+            PurposeDebugInformation.Text("client_id", confirm?.clientId),
+            PurposeDebugInformation.Date("confirmed_at", confirm?.confirmedDate)
         )
-    }
-
-    companion object {
-        /** What the confirm record's null client id means, written for the operator reading it. */
-        private const val BY_AN_ADMINISTRATOR = "an administrator"
     }
 }

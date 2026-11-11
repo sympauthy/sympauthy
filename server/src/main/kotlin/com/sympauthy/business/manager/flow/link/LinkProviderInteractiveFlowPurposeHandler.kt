@@ -49,12 +49,12 @@ class LinkProviderInteractiveFlowPurposeHandler(
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         return listOf(
-            PurposeDebugInformation(
-                "Target provider",
+            PurposeDebugInformation.Text(
+                "target_provider_id",
                 linkProviderManager.fetchLinkProviderOrNull(session)?.providerId
             ),
-            PurposeDebugInformation(
-                "Provider authorization in flight",
+            PurposeDebugInformation.Text(
+                "authorizing_provider_id",
                 providerManager.fetchProviderOrNull(session)?.providerId
             )
         )

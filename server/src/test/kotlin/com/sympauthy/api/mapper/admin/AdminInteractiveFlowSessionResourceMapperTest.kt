@@ -3,7 +3,10 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
+import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
+import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.util.DEFAULT_LOCALE
@@ -54,7 +57,8 @@ class AdminInteractiveFlowSessionResourceMapperTest {
         status: InteractiveFlowSessionStatus,
         errorDetailsId: String? = null,
         errorDescriptionId: String? = null,
-        errorValues: Map<String, String>? = null
+        errorValues: Map<String, String>? = null,
+        purposes: List<InteractiveFlowPurposeProgress> = emptyList()
     ) = InteractiveFlowSessionDetail(
         id = UUID.randomUUID(),
         status = status,
@@ -68,7 +72,7 @@ class AdminInteractiveFlowSessionResourceMapperTest {
         errorDetailsId = errorDetailsId,
         errorDescriptionId = errorDescriptionId,
         errorValues = errorValues,
-        purposes = emptyList()
+        purposes = purposes
     )
 
     private fun failedDetail(
@@ -156,5 +160,37 @@ class AdminInteractiveFlowSessionResourceMapperTest {
         assertNull(resource.errorDescriptionId)
         assertNull(resource.errorDescription)
         assertNull(resource.errorValues)
+    }
+
+    @Test
+    fun `toResource - Publish each debug entry under its code, the type it is rendered as and its value`() {
+        val consentedAt = LocalDateTime.of(2026, 8, 31, 9, 31)
+        val progress = InteractiveFlowPurposeProgress(
+            purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
+            status = InteractiveFlowPurposeStatus.CURRENT,
+            debugInformation = listOf(
+                PurposeDebugInformation.Text("client_id", "web-app"),
+                PurposeDebugInformation.TextList("requested_scopes", listOf("openid", "profile")),
+                PurposeDebugInformation.Date("consented_at", consentedAt),
+                PurposeDebugInformation.Presence("state", true),
+                PurposeDebugInformation.Text("invitation_id", null)
+            )
+        )
+
+        val debug = mapper.toResource(
+            detail(InteractiveFlowSessionStatus.ONGOING, purposes = listOf(progress)),
+            DEFAULT_LOCALE
+        ).purposes.single().debug
+
+        assertEquals(
+            listOf(
+                Triple("client_id", "text", "web-app"),
+                Triple("requested_scopes", "text_list", listOf("openid", "profile")),
+                Triple("consented_at", "date", consentedAt),
+                Triple("state", "presence", true),
+                Triple("invitation_id", "text", null)
+            ),
+            debug.map { Triple(it.code, it.type, it.value) }
+        )
     }
 }

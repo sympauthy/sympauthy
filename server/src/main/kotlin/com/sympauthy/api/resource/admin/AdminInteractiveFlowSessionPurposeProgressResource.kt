@@ -10,9 +10,14 @@ import io.swagger.v3.oas.annotations.media.Schema
 )
 @Serdeable
 data class AdminInteractiveFlowSessionPurposeProgressResource(
-    @get:Schema(description = "The purpose.")
+    @get:Schema(
+        description = "The purpose.",
+        allowableValues = [
+            "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider"
+        ]
+    )
     @get:JsonProperty("purpose")
-    val purpose: AdminInteractiveFlowPurposeResource,
+    val purpose: String,
     @get:Schema(
         description = "How far the session got with the purpose. `current` is the purpose the end-user is at, " +
                 "and no purpose is `current` once the session completed, failed or was cancelled. `pending` " +
@@ -22,7 +27,7 @@ data class AdminInteractiveFlowSessionPurposeProgressResource(
     @get:JsonProperty("status")
     val status: String,
     @get:Schema(
-        description = "Values the session holds for the purpose, labelled for debugging."
+        description = "Values the session holds for the purpose, each named by a code, for debugging."
     )
     @get:JsonProperty("debug")
     val debug: List<AdminInteractiveFlowSessionDebugInformationResource>

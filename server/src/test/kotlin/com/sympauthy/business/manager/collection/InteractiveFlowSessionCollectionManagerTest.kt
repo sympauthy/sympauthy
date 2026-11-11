@@ -498,8 +498,8 @@ class InteractiveFlowSessionCollectionManagerTest {
 
         assertEquals(
             listOf(
-                listOf(PurposeDebugInformation("Said by CONFIRM", "yes")),
-                listOf(PurposeDebugInformation("Said by MFA_ENROLLMENT", "yes"))
+                listOf(PurposeDebugInformation.Text("said_by_confirm", "yes")),
+                listOf(PurposeDebugInformation.Text("said_by_mfa_enrollment", "yes"))
             ),
             detail?.purposes?.map { it.debugInformation }
         )
@@ -622,7 +622,7 @@ class InteractiveFlowSessionCollectionManagerTest {
         session.purposes.forEach { purpose ->
             val handler = mockk<InteractiveFlowPurposeHandler>()
             coEvery { handler.debugInformation(capture(handedToHandlers)) } returns
-                listOf(PurposeDebugInformation("Said by $purpose", "yes"))
+                listOf(PurposeDebugInformation.Text("said_by_${purpose.lowercase()}", "yes"))
             every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.valueOf(purpose)) } returns handler
         }
     }

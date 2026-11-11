@@ -1,6 +1,5 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.api.resource.admin.AdminInteractiveFlowPurposeResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDebugInformationResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionDetailResource
 import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionPurposeProgressResource
@@ -9,7 +8,6 @@ import com.sympauthy.api.resource.admin.AdminInteractiveFlowSessionSummaryResour
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
 import com.sympauthy.business.model.flow.PurposeDebugInformation
@@ -41,8 +39,8 @@ class AdminInteractiveFlowSessionResourceMapper(
     fun toResource(summary: InteractiveFlowSessionSummary) = AdminInteractiveFlowSessionSummaryResource(
         id = summary.id,
         status = summary.status.wireName,
-        initiatingPurpose = toPurposeResource(summary.initiatingPurpose),
-        currentPurpose = summary.currentPurpose?.let(::toPurposeResource),
+        initiatingPurpose = summary.initiatingPurpose.wireName,
+        currentPurpose = summary.currentPurpose?.wireName,
         clientId = summary.initiatingClientId,
         signedUp = summary.signedUp,
         user = summary.user?.let(userMapper::toResource),
@@ -83,7 +81,7 @@ class AdminInteractiveFlowSessionResourceMapper(
         return AdminInteractiveFlowSessionDetailResource(
             id = detail.id,
             status = detail.status.wireName,
-            initiatingPurpose = toPurposeResource(detail.initiatingPurpose),
+            initiatingPurpose = detail.initiatingPurpose.wireName,
             clientId = detail.initiatingClientId,
             flowId = detail.flowId,
             user = detail.user?.let(userMapper::toResource),
@@ -122,18 +120,6 @@ class AdminInteractiveFlowSessionResourceMapper(
     )
 
     /**
-     * Publish [purpose] as the value a caller branches on and the label a person reads it under.
-     *
-     * One shape wherever a purpose appears on this surface — the session's initiating purpose, the purpose
-     * it is stopped at, and each entry of its purpose list — so that a console renders all three the same
-     * way and nothing has to know which of them carries a label.
-     */
-    private fun toPurposeResource(purpose: InteractiveFlowPurpose) = AdminInteractiveFlowPurposeResource(
-        value = purpose.wireName,
-        displayName = purpose.displayName
-    )
-
-    /**
      * Publish [securityContext] as one entry of a session's places.
      */
     fun toResource(
@@ -155,7 +141,7 @@ class AdminInteractiveFlowSessionResourceMapper(
     private fun toPurposeProgressResource(
         progress: InteractiveFlowPurposeProgress
     ) = AdminInteractiveFlowSessionPurposeProgressResource(
-        purpose = toPurposeResource(progress.purpose),
+        purpose = progress.purpose.wireName,
         status = progress.status.wireName,
         debug = progress.debugInformation.map(::toDebugInformationResource)
     )
@@ -163,7 +149,8 @@ class AdminInteractiveFlowSessionResourceMapper(
     private fun toDebugInformationResource(
         information: PurposeDebugInformation
     ) = AdminInteractiveFlowSessionDebugInformationResource(
-        displayName = information.displayName,
+        code = information.code,
+        type = information.type.wireName,
         value = information.value
     )
 }

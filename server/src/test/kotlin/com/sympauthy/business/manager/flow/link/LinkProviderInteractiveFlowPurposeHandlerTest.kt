@@ -18,6 +18,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
@@ -86,8 +87,8 @@ class LinkProviderInteractiveFlowPurposeHandlerTest {
 
         assertEquals(
             listOf(
-                PurposeDebugInformation("Target provider", "target-provider"),
-                PurposeDebugInformation("Provider authorization in flight", "target-provider")
+                PurposeDebugInformation.Text("target_provider_id", "target-provider"),
+                PurposeDebugInformation.Text("authorizing_provider_id", "target-provider")
             ),
             handler.debugInformation(session)
         )
@@ -102,7 +103,7 @@ class LinkProviderInteractiveFlowPurposeHandlerTest {
 
         val information = handler.debugInformation(session)
 
-        assertNull(information.first { it.displayName == "Provider authorization in flight" }.value)
+        assertNull(information.first { it.code == "authorizing_provider_id" }.value)
     }
 
     @Test
@@ -111,6 +112,9 @@ class LinkProviderInteractiveFlowPurposeHandlerTest {
         coEvery { linkProviderManager.fetchLinkProviderOrNull(failed) } returns null
         coEvery { providerManager.fetchProviderOrNull(failed) } returns null
 
-        assertEquals(2, handler.debugInformation(failed).size)
+        val information = handler.debugInformation(failed)
+
+        assertEquals(listOf("target_provider_id", "authorizing_provider_id"), information.map { it.code })
+        assertTrue(information.all { it.value == null })
     }
 }

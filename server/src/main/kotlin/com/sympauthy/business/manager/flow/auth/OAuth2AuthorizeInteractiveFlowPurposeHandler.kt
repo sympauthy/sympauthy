@@ -62,12 +62,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
 ) : InteractiveFlowPurposeHandler {
 
-    companion object {
-        /** What a value an operator may know the existence of, but never the content of, is published as. */
-        private const val PRESENT = "present"
-        private const val ABSENT = "absent"
-    }
-
     override val purpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE
 
     /**
@@ -100,25 +94,26 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      *
      * `state` and `nonce` are reported as present or absent because they exist so that only the client and the
      * browser hold them. `code_challenge` is neither — it travelled in the authorize request and the verifier
-     * is never stored here — and is reduced to its method because a 43-character string tells an operator
+     * is never stored here — and is reported beside its method because a 43-character string tells an operator
      * nothing they can act on. The authorization code is never read here.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val oauth2 = readOAuth2OrNull(session)
         return listOf(
-            PurposeDebugInformation("Client", oauth2?.clientId),
-            PurposeDebugInformation("Redirect URI", oauth2?.redirectUri),
-            PurposeDebugInformation("Requested scopes", oauth2?.requestedScopes?.joinToString(" ")),
-            PurposeDebugInformation("Consented scopes", oauth2?.consentedScopes?.joinToString(" ")),
-            PurposeDebugInformation("Consented at", oauth2?.consentedAt?.toString()),
-            PurposeDebugInformation("Consented by", oauth2?.consentedBy?.wireName),
-            PurposeDebugInformation("Granted scopes", oauth2?.grantedScopes?.joinToString(" ")),
-            PurposeDebugInformation("Granted at", oauth2?.grantedAt?.toString()),
-            PurposeDebugInformation("Granted by", oauth2?.grantedBy?.wireName),
-            PurposeDebugInformation("Invitation", oauth2?.invitationId?.toString()),
-            PurposeDebugInformation("State", oauth2?.let { presence(it.state != null) }),
-            PurposeDebugInformation("Nonce", oauth2?.let { presence(it.nonce != null) }),
-            PurposeDebugInformation("Code challenge", oauth2?.let(::codeChallengePresence))
+            PurposeDebugInformation.Text("client_id", oauth2?.clientId),
+            PurposeDebugInformation.Text("redirect_uri", oauth2?.redirectUri),
+            PurposeDebugInformation.TextList("requested_scopes", oauth2?.requestedScopes),
+            PurposeDebugInformation.TextList("consented_scopes", oauth2?.consentedScopes),
+            PurposeDebugInformation.Date("consented_at", oauth2?.consentedAt),
+            PurposeDebugInformation.Text("consented_by", oauth2?.consentedBy?.wireName),
+            PurposeDebugInformation.TextList("granted_scopes", oauth2?.grantedScopes),
+            PurposeDebugInformation.Date("granted_at", oauth2?.grantedAt),
+            PurposeDebugInformation.Text("granted_by", oauth2?.grantedBy?.wireName),
+            PurposeDebugInformation.Text("invitation_id", oauth2?.invitationId?.toString()),
+            PurposeDebugInformation.Presence("state", oauth2?.let { it.state != null }),
+            PurposeDebugInformation.Presence("nonce", oauth2?.let { it.nonce != null }),
+            PurposeDebugInformation.Presence("code_challenge", oauth2?.let { it.codeChallenge != null }),
+            PurposeDebugInformation.Text("code_challenge_method", oauth2?.codeChallengeMethod?.value)
         )
     }
 
@@ -131,7 +126,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * request that failed validation has a record whose client and redirect URI were never known — the row is
      * written anyway, so the session can carry the error that explains itself — and
      * [InteractiveFlowSessionOAuth2] admits neither as null, so reading it back is an internal failure. That
-     * session is the one an operator opens this endpoint for, so it answers with the labels unset; what went
+     * session is the one an operator opens this endpoint for, so it answers with the codes unset; what went
      * wrong is on the session's own error keys, which is where they would look for it.
      */
     private suspend fun readOAuth2OrNull(session: InteractiveFlowSession): InteractiveFlowSessionOAuth2? {
@@ -142,16 +137,6 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             null
         }
     }
-
-    /**
-     * Whether a PKCE challenge came with the request and, where one did, the method it was built with.
-     */
-    private fun codeChallengePresence(oauth2: InteractiveFlowSessionOAuth2): String {
-        if (oauth2.codeChallenge == null) return ABSENT
-        return oauth2.codeChallengeMethod?.let { "$PRESENT (${it.value})" } ?: PRESENT
-    }
-
-    private fun presence(present: Boolean) = if (present) PRESENT else ABSENT
 
     /**
      * The MFA purpose this OAuth2 session must go through before it can complete, so MFA runs as the final gate
