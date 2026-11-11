@@ -7,8 +7,10 @@ import com.sympauthy.data.model.TotpEnrollmentEntity
 import com.sympauthy.data.withFixture
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
@@ -66,6 +68,22 @@ class TotpEnrollmentRepositoryTest {
 
             assertEquals(listOf(confirmed), found.map { it.id!! })
         }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `existsByUserIdAndConfirmedDateIsNotNull - Answers whether the user holds a confirmed enrollment`(
+        database: Database
+    ) = withFixture(database) {
+        val enrollments = repository<TotpEnrollmentRepository>()
+        val confirmedUserId = newUser()
+        val pendingUserId = newUser()
+        saveEnrollment(confirmedUserId, confirmedDate = BASE_DATE.plusMinutes(1))
+        saveEnrollment(pendingUserId)
+
+        assertTrue(enrollments.existsByUserIdAndConfirmedDateIsNotNull(confirmedUserId))
+        assertFalse(enrollments.existsByUserIdAndConfirmedDateIsNotNull(pendingUserId))
+        assertFalse(enrollments.existsByUserIdAndConfirmedDateIsNotNull(newUser()))
+    }
 
     @ParameterizedTest
     @EnumSource(Database::class)

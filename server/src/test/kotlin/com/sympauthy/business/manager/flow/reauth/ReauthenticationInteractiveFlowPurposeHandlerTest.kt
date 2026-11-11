@@ -116,17 +116,17 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
             )
 
         assertEquals(
-            listOf(PurposeDebugInformation("Primary credential proven date", provenDate.toString())),
+            listOf(PurposeDebugInformation.Date("primary_credential_proven_at", provenDate)),
             handler.debugInformation(session)
         )
     }
 
     @Test
-    fun `debugInformation - Emits the label with no value when the session carries no record`() = runTest {
+    fun `debugInformation - Emits the code with no value when the session carries no record`() = runTest {
         coEvery { reauthenticationManager.fetchReauthenticationOrNull(session) } returns null
 
         assertEquals(
-            listOf(PurposeDebugInformation("Primary credential proven date", null)),
+            listOf(PurposeDebugInformation.Date("primary_credential_proven_at", null)),
             handler.debugInformation(session)
         )
     }
@@ -136,7 +136,10 @@ class ReauthenticationInteractiveFlowPurposeHandlerTest {
         val failed = mockk<FailedInteractiveFlowSession>()
         coEvery { reauthenticationManager.fetchReauthenticationOrNull(failed) } returns null
 
-        assertEquals(1, handler.debugInformation(failed).size)
+        val information = handler.debugInformation(failed)
+
+        assertEquals(listOf("primary_credential_proven_at"), information.map { it.code })
+        assertTrue(information.all { it.value == null })
     }
 
     @Test

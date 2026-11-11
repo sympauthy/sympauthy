@@ -25,6 +25,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
+import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.invitation.Invitation
@@ -526,13 +527,17 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             consentedScopes = listOf("openid")
         )
 
-        val information = handler.debugInformation(session).associate { it.displayName to it.value }
+        val information = handler.debugInformation(session).associateBy { it.code }
 
-        assertEquals("web-app", information["Client"])
-        assertEquals("https://example.com/callback", information["Redirect URI"])
-        assertEquals("openid profile", information["Requested scopes"])
-        assertEquals("openid", information["Consented scopes"])
-        assertEquals("auto", information["Consented by"])
+        assertEquals(PurposeDebugInformation.Text("client_id", "web-app"), information["client_id"])
+        assertEquals("https://example.com/callback", information["redirect_uri"]?.value)
+        assertEquals(
+            PurposeDebugInformation.TextList("requested_scopes", listOf("openid", "profile")),
+            information["requested_scopes"]
+        )
+        assertEquals(listOf("openid"), information["consented_scopes"]?.value)
+        assertInstanceOf(LocalDateTime::class.java, information["consented_at"]?.value)
+        assertEquals("auto", information["consented_by"]?.value)
     }
 
     @Test
@@ -544,10 +549,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
         )
 
         val information = handler.debugInformation(session)
-        val emitted = information.mapNotNull { it.value }
+        val emitted = information.mapNotNull { it.value?.toString() }
 
-        assertEquals("present", information.first { it.displayName == "State" }.value)
-        assertEquals("present", information.first { it.displayName == "Nonce" }.value)
+        assertEquals(PurposeDebugInformation.Presence("state", true), information.first { it.code == "state" })
+        assertEquals(PurposeDebugInformation.Presence("nonce", true), information.first { it.code == "nonce" })
         assertFalse(emitted.any { it.contains("a-state-only-the-client-holds") })
         assertFalse(emitted.any { it.contains("a-nonce-only-the-browser-holds") })
     }
@@ -559,12 +564,12 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         val information = handler.debugInformation(session)
 
-        assertEquals("absent", information.first { it.displayName == "State" }.value)
-        assertEquals("absent", information.first { it.displayName == "Nonce" }.value)
+        assertEquals(false, information.first { it.code == "state" }.value)
+        assertEquals(false, information.first { it.code == "nonce" }.value)
     }
 
     @Test
-    fun `debugInformation - Reduces the code challenge to its method`() = runTest {
+    fun `debugInformation - Reports the code challenge as present, beside its method`() = runTest {
         val session = oauth2SessionMock()
         coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2Of(
             codeChallenge = "a-challenge-nobody-needs-to-read",
@@ -573,21 +578,33 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         val information = handler.debugInformation(session)
 
-        assertEquals("present (S256)", information.first { it.displayName == "Code challenge" }.value)
+        assertEquals(true, information.first { it.code == "code_challenge" }.value)
+        assertEquals("S256", information.first { it.code == "code_challenge_method" }.value)
         assertFalse(
-            information.mapNotNull { it.value }.any { it.contains("a-challenge-nobody-needs-to-read") }
+            information.mapNotNull { it.value?.toString() }.any { it.contains("a-challenge-nobody-needs-to-read") }
         )
     }
 
     @Test
-    fun `debugInformation - Emits every label with no value when the session carries no OAuth2 record`() =
+    fun `debugInformation - Reports no method where the request carried no code challenge`() = runTest {
+        val session = oauth2SessionMock()
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2Of(codeChallenge = null)
+
+        val information = handler.debugInformation(session)
+
+        assertEquals(false, information.first { it.code == "code_challenge" }.value)
+        assertNull(information.first { it.code == "code_challenge_method" }.value)
+    }
+
+    @Test
+    fun `debugInformation - Emits every code with no value when the session carries no OAuth2 record`() =
         runTest {
             val session = oauth2SessionMock()
             coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
 
             val information = handler.debugInformation(session)
 
-            assertTrue(information.isNotEmpty())
+            assertEquals(OAUTH2_CODES, information.map { it.code })
             assertTrue(information.all { it.value == null })
         }
 
@@ -603,7 +620,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
         val information = handler.debugInformation(session)
 
-        assertTrue(information.isNotEmpty())
+        assertEquals(OAUTH2_CODES, information.map { it.code })
         assertTrue(information.all { it.value == null })
     }
 
@@ -616,7 +633,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
                 every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
             }
 
-            assertTrue(handler.debugInformation(session).all { it.value == null })
+            val information = handler.debugInformation(session)
+
+            assertEquals(OAUTH2_CODES, information.map { it.code })
+            assertTrue(information.all { it.value == null })
         }
 
 
@@ -719,6 +739,14 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             startedBy = null,
             sessionDate = LocalDateTime.now(),
             userId = userId
+        )
+    }
+
+    companion object {
+        private val OAUTH2_CODES = listOf(
+            "client_id", "redirect_uri", "requested_scopes", "consented_scopes", "consented_at", "consented_by",
+            "granted_scopes", "granted_at", "granted_by", "invitation_id", "state", "nonce", "code_challenge",
+            "code_challenge_method"
         )
     }
 }

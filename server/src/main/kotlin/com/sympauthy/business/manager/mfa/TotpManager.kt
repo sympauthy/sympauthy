@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.mfa
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.manager.mfa.TotpManager.Companion.CLOCK_SKEW_STEPS
 import com.sympauthy.business.mapper.TotpEnrollmentMapper
+import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.TotpEnrollmentEntity
@@ -109,7 +110,19 @@ class TotpManager(
      * Returns true if [user] has at least one confirmed TOTP enrollment (i.e. the account is MFA-enrolled).
      */
     suspend fun isEnrolled(user: User): Boolean {
-        return totpEnrollmentRepository.findByUserIdAndConfirmedDateIsNotNull(user.id).isNotEmpty()
+        return totpEnrollmentRepository.existsByUserIdAndConfirmedDateIsNotNull(user.id)
+    }
+
+    /**
+     * The MFA methods the account [userId] holds a confirmed enrollment of, read without loading any
+     * enrollment's secret.
+     */
+    suspend fun findEnrolledMethodTypes(userId: UUID): List<MfaMethodType> {
+        return if (totpEnrollmentRepository.existsByUserIdAndConfirmedDateIsNotNull(userId)) {
+            listOf(MfaMethodType.TOTP)
+        } else {
+            emptyList()
+        }
     }
 
     /**

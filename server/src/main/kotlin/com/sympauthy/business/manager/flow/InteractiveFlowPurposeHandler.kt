@@ -68,7 +68,8 @@ interface InteractiveFlowPurposeHandler {
 
     /**
      * What this purpose has to say about where [session] stands, for an operator reading the session on the
-     * admin API. Each entry is a label and the value behind it, in the order the operator reads them.
+     * admin API. Each entry is a code and the value behind it, in the order the operator reads them; the
+     * interface rendering them owns the label.
      *
      * **Required rather than defaulted to nothing**, so that adding a purpose does not compile until somebody
      * has decided what an operator should see when it stalls. A purpose that shipped contributing nothing here
@@ -80,14 +81,17 @@ interface InteractiveFlowPurposeHandler {
      * base type.
      *
      * **It must answer for a session in any shape** — no user, no attached record, a terminal status — and
-     * emit the label with no value rather than throwing. This is called when a session is malformed, and
+     * emit the code with no value rather than throwing. This is called when a session is malformed, and
      * nothing catches around it: a handler that threw would take down the one page an operator has, and a
      * backstop that swallowed it would make a handler that cannot describe a session look like one with
      * nothing to say. Its own test is what holds the rule.
      *
      * **It emits what an operator can act on, and never a credential.** A TOTP seed, a recovery code and an
      * authorization code are never among the entries; a value that exists so that only the client and the
-     * browser hold it — `state`, `nonce` — is reported as present or absent rather than published.
+     * browser hold it — `state`, `nonce` — is a [PurposeDebugInformation.Presence] rather than published.
+     *
+     * **A code it emits is a contract.** Renaming or removing one breaks the interface keyed by it, and a code
+     * it adds is listed beside the others where the admin API describes them.
      */
     suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation>
 }

@@ -21,15 +21,22 @@ data class AdminInteractiveFlowSessionSummaryResource(
     )
     @get:JsonProperty("status")
     val status: String,
-    @get:Schema(description = "Purpose the interactive flow session was started for.")
+    @get:Schema(
+        description = "Purpose the interactive flow session was started for, as the `purpose` criterion of " +
+                "this collection takes it.",
+        allowableValues = ["oauth2_authorize", "mfa_enrollment", "link_provider"]
+    )
     @get:JsonProperty("initiating_purpose")
-    val initiatingPurpose: AdminInteractiveFlowPurposeResource,
+    val initiatingPurpose: String,
     @get:Schema(
         description = "Purpose the end-user is at. Absent when the session completed, failed or was " +
-                "cancelled, when every purpose is completed, and when it cannot be determined."
+                "cancelled, when every purpose is completed, and when it cannot be determined.",
+        allowableValues = [
+            "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider"
+        ]
     )
     @get:JsonProperty("current_purpose")
-    val currentPurpose: AdminInteractiveFlowPurposeResource?,
+    val currentPurpose: String?,
     @get:Schema(
         description = "Identifier of the client the interactive flow session was started for, which the " +
                 "configuration may no longer declare. Absent when an administrator started it, and when the " +

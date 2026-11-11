@@ -146,7 +146,7 @@ one.
 
 ### A handler describes its own purpose
 
-**`debugInformation` is what an operator reads when a session is stuck**, one label and one value at
+**`debugInformation` is what an operator reads when a session is stuck**, one code and one value at
 a time, published by the admin API. The handler owns it because the handler is the only thing that
 knows what its purpose means.
 
@@ -156,7 +156,7 @@ the same argument the registry makes for a purpose with no handler, and the same
 failure rather than a production one.
 
 **It takes the session in any state, and must answer for any shape of one.** No user, no attached
-record, a terminal status: each emits the label with no value rather than throwing. This is called
+record, a terminal status: each emits the code with no value rather than throwing. This is called
 precisely when a session is malformed, and nothing catches around the call — a swallowed exception
 would make a handler that cannot describe a session look like one with nothing to say — so the
 handler's own test is what holds the rule, and it covers those three shapes rather than only the
@@ -171,18 +171,28 @@ reported as present or absent rather than published. What stops a caller driving
 flow is the signed state, so this may say what a session *is* and never anything that substitutes
 for what drives it.
 
-**A label is not a key.** Nothing may switch on one, because a handler is free to reword its own; a
-caller needing to identify a field is asking for a contract this deliberately does not offer. It is
-not localized either — it is written at the site that knows the value, in the same English as the
-KDoc beside it, and a bundle would put a translation layer between an operator and the thing they
-are debugging.
+**A code is a key, and the interface owns the label** — [the design
+FAQ](design-faq.md#is-a-purposes-debug-entry-named-by-a-label-a-typed-field-or-a-code) holds the
+shapes that lost. The interface reading a session switches on the code to choose what to call the
+value and how to draw it, so a code is never renamed or removed without breaking it, and one a
+handler adds is listed beside the others where the admin API describes them. The server writes no
+label beside it: the interface already has to know a code to choose how to draw it, and a label
+sent with the code would be a second name for the same entry, and one to switch on instead.
 
-**What a failed session failed with is rendered, and that is not the same rule.** Its two messages
-have been bundle keys since they were thrown, rendered on every other surface that carries them; a
-label has no key at all, and localizing one would mean inventing one. So the session's page
-publishes both the keys and the sentences they name, read against the locale the operator's own
-request asks for — and a key this deployment holds no message under yields no sentence rather than
-a dotted identifier, the key beside it still saying what happened.
+**Each entry says how its value is rendered** — text, a list of text, a date or a presence — and its
+value is that type rather than a string. That is what keeps the list generic: an interface holding
+no label for a code yet still draws the value properly under the code itself, so a purpose gaining
+an entry needs no release of the interface in step with it. A value that stood in for a meaning in
+words becomes an entry of its own instead: a confirmation an administrator started says so in an
+`initiated_by` entry beside the client, since a client with no value would read as a missing
+record.
+
+**What a failed session failed with is rendered by the server, and that is not the same rule.** Its
+two messages have been bundle keys since they were thrown, rendered on every other surface that
+carries them, and the server already holds the sentence an interface would otherwise have to write
+again. So the session's page publishes both the keys and the sentences they name, read against the
+locale the operator's own request asks for — and a key this deployment holds no message under yields
+no sentence rather than a dotted identifier, the key beside it still saying what happened.
 
 **A session that ran out of time ended with a failure too, and it is the same one.** Nothing refused
 anything and no column records it, so the failure is named once — beside the session model, where
@@ -199,19 +209,21 @@ holds. The technical half is asked for whatever `features.print-details-in-error
 what that mapper's override is for, and the reason is [the API
 standard](../standards/api-standard.md#errors)'s.
 
-### A purpose carries its own label
+### A purpose is published by its value alone
 
-**A purpose's label is declared on the enum rather than on the handler.** What a purpose *is* needs
-no session, no read and no bean, so a caller naming one can read its label without resolving the
-handler that drives it; what a purpose has to *say* varies with the session, which is what the
-handler owns.
+**The admin API names a purpose by the value it is published under, and its name is the capability
+document's.** The session collection's `purpose` filter enumerates every purpose under the name
+`fields.interactive_flow_purpose.<value>.name` gives it, in the language the request asks for, as
+[the collection standard](../standards/collection-standard.md#where-a-name-in-it-comes-from) has
+every closed set named. A label on each session as well would be a second copy of that name, and
+the one no bundle reaches. So a purpose reaches a caller as a string wherever the session names
+one — the purpose it was started for, the one it is stopped at, each entry of its list — and the
+interface reads the name a person sees where it reads every other value's.
 
-**The label says what the purpose means, not what it is called.** It is written as what is happening
-to the person — "Checking a second factor" rather than "MFA challenge" — so a reader scanning a
-session sees the step rather than the constant, and it expands whatever the name abbreviates. That
-is why it is declared on every value rather than derived: no transformation of the Kotlin name
-produces it. Nothing may switch on it either, for the reason no `debugInformation` label may be
-switched on.
+**Only an initiating purpose is published as a session's initiating purpose.** A gate or a
+follow-up runs inside a session another purpose started, so the allowed values of an
+`initiating_purpose` field leave it out rather than advertise a value no session holds; [the
+roles](#purposes) are what decides which are listed.
 
 ## Extending the engine
 
@@ -219,8 +231,9 @@ Adding a purpose, adding a step and writing the endpoint that serves one are eac
 
 ### Adding a purpose
 
-1. Add the value to the enum, with a KDoc saying what it is for, which role it plays, and the label
-   a person reads it under.
+1. Add the value to the enum, with a KDoc saying what it is for and which role it plays, and to
+   the allowed values of every admin API field publishing a purpose — of an `initiating_purpose`
+   field only when its role is initiating.
 2. Write its handler as a bean, implementing the members `InteractiveFlowPurposeHandler` requires
    and whichever of the defaulted ones it needs.
 3. If it has state of its own, add a record keyed by the session id, its table in every dialect,
@@ -232,8 +245,9 @@ Adding a purpose, adding a step and writing the endpoint that serves one are eac
    from, as [the `api` layer standard](../standards/api-layer-code-standard.md#the-flow-controller)
    requires.
 5. Test the handler's branches directly — including that `debugInformation` answers for a session
-   with no user, no attached record and a terminal status, and that no credential is among what it
-   emits — and add an integration test that drives the flow.
+   with no user, no attached record and a terminal status with every code it emits, and that no
+   credential is among them — list its codes where the admin API describes them, and add an
+   integration test that drives the flow.
 
 ### Adding a step
 

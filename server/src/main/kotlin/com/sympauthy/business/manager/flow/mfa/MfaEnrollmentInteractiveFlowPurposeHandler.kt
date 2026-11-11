@@ -9,7 +9,6 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.mfaPassedDateOrNull
 import com.sympauthy.business.model.flow.userIdOrNull
-import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -44,23 +43,21 @@ class MfaEnrollmentInteractiveFlowPurposeHandler(
      * Which methods the account has ended up with, and when this session resolved the enrollment — which is
      * the pair that says whether it enrolled one here or arrived with it.
      *
-     * The enrollments are read for their **type only**. The seed behind a TOTP enrollment and the recovery
-     * codes beside it are never emitted: one published here is a second factor defeated for good, and undoing
-     * it means re-enrolling the person.
+     * Only the **types** of the account's methods are read, so the seed behind a TOTP enrollment and the
+     * recovery codes beside it never reach here: one published here is a second factor defeated for good, and
+     * undoing it means re-enrolling the person.
      *
      * A session with no user has no enrollments to read, and answers with nothing. An account that has
-     * enrolled none answers `none` instead: those are different facts, and this purpose stalls on the second
-     * of them.
+     * enrolled none answers an empty list instead: those are different facts, and this purpose stalls on the
+     * second of them.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
+        val enrolled = session.userIdOrNull?.let { userId ->
+            totpManager.findEnrolledMethodTypes(userId).map { it.wireName }
+        }
         return listOf(
-            PurposeDebugInformation("Enrolled methods", enrolledMethodsOf(session)),
-            PurposeDebugInformation("MFA passed date", session.mfaPassedDateOrNull?.toString())
+            PurposeDebugInformation.TextList("enrolled_methods", enrolled),
+            PurposeDebugInformation.Date("mfa_passed_at", session.mfaPassedDateOrNull)
         )
-    }
-
-    private suspend fun enrolledMethodsOf(session: InteractiveFlowSession): String? {
-        val userId = session.userIdOrNull ?: return null
-        return if (totpManager.findConfirmedEnrollments(userId).isNotEmpty()) MfaMethodType.TOTP.wireName else "none"
     }
 }

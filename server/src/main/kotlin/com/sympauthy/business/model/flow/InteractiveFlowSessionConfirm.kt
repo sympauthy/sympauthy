@@ -38,4 +38,10 @@ data class InteractiveFlowSessionConfirm(
      * Whether the end-user has approved the action.
      */
     val confirmed: Boolean get() = confirmedDate != null
+
+    /**
+     * Who initiated the action, which the confirm record says by naming a client or none.
+     */
+    val initiatedBy: ConfirmInitiatedBy
+        get() = if (clientId != null) ConfirmInitiatedBy.CLIENT else ConfirmInitiatedBy.ADMIN
 }

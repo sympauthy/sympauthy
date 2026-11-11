@@ -52,9 +52,9 @@ class ReauthenticationInteractiveFlowPurposeHandler(
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val reauthentication = reauthenticationManager.fetchReauthenticationOrNull(session)
         return listOf(
-            PurposeDebugInformation(
-                "Primary credential proven date",
-                reauthentication?.primaryCredentialProvenDate?.toString()
+            PurposeDebugInformation.Date(
+                "primary_credential_proven_at",
+                reauthentication?.primaryCredentialProvenDate
             )
         )
     }

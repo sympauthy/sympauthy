@@ -2172,6 +2172,38 @@ as a file.
 paths never change either, so a long `max-age` would keep showing the old logo for days: every
 answer carries `no-cache`, and a browser pays a `304` to learn nothing changed.
 
+## What a session's purposes say
+
+### Is a purpose's debug entry named by a label, a typed field, or a code?
+
+**Decision:** By a code, with the type its value is rendered as and the value in that type. The
+interface reading the session owns the label.
+
+**Options considered:**
+
+- **An English label and a string**, which nothing may switch on — what the entries were first.
+- **A typed description per purpose beside the labels** — an `oauth2` object on the authorization
+  purpose, a field for each value.
+- **One polymorphic `details` object keyed by the purpose.**
+- **A code alone**, the interface choosing how to render each from the code.
+- **A code, a type and a typed value.**
+
+**Rationale:**
+
+The administration panel draws a purpose with structure — scopes as tags, dates, the presence of a
+`state` as a check — and translates what it shows, and a label is neither: it is a sentence the
+panel would have to recognise before it could draw or translate what it names. A typed
+description per purpose gives one purpose structure and leaves every other on labels, says each
+value twice, and grows the published schema by a shape for every purpose that gains one — the
+polymorphic object costs the same, and a generated client reads a variant poorly. A code with no
+type would make every new code wait for a release of the panel before it rendered as more than a
+string. With the type beside it the list stays one shape whatever purposes it describes, and a code
+the panel does not know yet is still drawn properly under its own name. A label beside the code was
+not kept: it would be a second name the panel ignores, and a reason to switch on it. The purpose
+itself followed: its label was an English constant on the enum, a second copy of the name the
+session collection's capability document already reads from a bundle, so a purpose is published as
+its value and named there.
+
 ---
 
 ← [How the system works](index.md)

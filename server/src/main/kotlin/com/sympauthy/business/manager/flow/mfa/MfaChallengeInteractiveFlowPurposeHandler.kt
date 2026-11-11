@@ -9,7 +9,6 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.mfaPassedDateOrNull
 import com.sympauthy.business.model.flow.userIdOrNull
-import com.sympauthy.business.model.mfa.MfaMethodType
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -43,21 +42,20 @@ class MfaChallengeInteractiveFlowPurposeHandler(
      * Whether the challenge has been passed, and which methods there are to pass it with — a challenge with
      * nothing to offer being the way this purpose stalls.
      *
-     * The enrollments are read for their **type only**. No TOTP seed and no recovery code is ever among these
-     * entries: one published here is a second factor defeated for good.
+     * Only the **types** of the account's methods are read, so no TOTP seed and no recovery code ever reaches
+     * here: one published here is a second factor defeated for good.
      *
      * A session with no user has no methods to read, and answers with nothing. An account that has enrolled
-     * none answers `none` instead — which is how this purpose stalls, and it must not read as a value nobody
-     * could look up.
+     * none answers an empty list instead — which is how this purpose stalls, and it must not read as a value
+     * nobody could look up.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
-        val userId = session.userIdOrNull
-        val enrolled = userId?.let {
-            if (totpManager.findConfirmedEnrollments(it).isNotEmpty()) MfaMethodType.TOTP.wireName else "none"
+        val challengeable = session.userIdOrNull?.let { userId ->
+            totpManager.findEnrolledMethodTypes(userId).map { it.wireName }
         }
         return listOf(
-            PurposeDebugInformation("MFA passed date", session.mfaPassedDateOrNull?.toString()),
-            PurposeDebugInformation("Methods available to challenge", enrolled)
+            PurposeDebugInformation.Date("mfa_passed_at", session.mfaPassedDateOrNull),
+            PurposeDebugInformation.TextList("challengeable_methods", challengeable)
         )
     }
 }

@@ -66,9 +66,10 @@ class ConfirmInteractiveFlowPurposeHandlerTest {
 
         assertEquals(
             listOf(
-                PurposeDebugInformation("Action", "link_provider"),
-                PurposeDebugInformation("Initiated by", "web-app"),
-                PurposeDebugInformation("Confirmed date", confirmedDate.toString())
+                PurposeDebugInformation.Text("action", "link_provider"),
+                PurposeDebugInformation.Text("initiated_by", "client"),
+                PurposeDebugInformation.Text("client_id", "web-app"),
+                PurposeDebugInformation.Date("confirmed_at", confirmedDate)
             ),
             handler.debugInformation(session)
         )
@@ -85,18 +86,19 @@ class ConfirmInteractiveFlowPurposeHandlerTest {
 
         val information = handler.debugInformation(session)
 
-        assertEquals("an administrator", information.first { it.displayName == "Initiated by" }.value)
-        assertNull(information.first { it.displayName == "Confirmed date" }.value)
+        assertEquals("admin", information.first { it.code == "initiated_by" }.value)
+        assertNull(information.first { it.code == "client_id" }.value)
+        assertNull(information.first { it.code == "confirmed_at" }.value)
     }
 
     @Test
-    fun `debugInformation - Emits every label with no value when the session carries no confirm record`() =
+    fun `debugInformation - Emits every code with no value when the session carries no confirm record`() =
         runTest {
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns null
 
             val information = handler.debugInformation(session)
 
-            assertEquals(3, information.size)
+            assertEquals(listOf("action", "initiated_by", "client_id", "confirmed_at"), information.map { it.code })
             assertTrue(information.all { it.value == null })
         }
 
@@ -105,6 +107,9 @@ class ConfirmInteractiveFlowPurposeHandlerTest {
         val failed = mockk<FailedInteractiveFlowSession>()
         coEvery { confirmManager.fetchConfirmOrNull(failed) } returns null
 
-        assertEquals(3, handler.debugInformation(failed).size)
+        val information = handler.debugInformation(failed)
+
+        assertEquals(listOf("action", "initiated_by", "client_id", "confirmed_at"), information.map { it.code })
+        assertTrue(information.all { it.value == null })
     }
 }
