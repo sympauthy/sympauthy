@@ -2,11 +2,13 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.*
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.util.wireName
+import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.math.BigDecimal
 import java.time.DateTimeException
@@ -31,7 +33,9 @@ import kotlin.jvm.optionals.getOrNull
  * `collected_claims` holds beside it. See `docs/design/identifier-claims.md`.
  */
 @Singleton
-class ClaimValueValidator {
+class ClaimValueValidator(
+    @Inject private val claimValueMapper: ClaimValueMapper
+) {
 
     companion object {
         private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
@@ -46,8 +50,11 @@ class ClaimValueValidator {
      * anyway — a form posts every field as text — so both are read out of whatever they arrived as rather
      * than type-checked, and a value that is not one throws the code its own type is checked with. Every
      * other claim is submitted as a string, and one submitted as anything else throws
-     * `user.claim_value_validator.invalid_type`. A value outside [Claim.allowedValues] throws
-     * `user.claim_value_validator.invalid_value`.
+     * `user.claim_value_validator.invalid_type`. A [JSON] claim is submitted as an object, and one submitted
+     * as a string is refused as not being one — the text of a document included — once a blank one has
+     * cleared it the way it clears every other claim. A value outside [Claim.allowedValues] throws
+     * `user.claim_value_validator.invalid_value`, and one larger than [Claim.maxSize] throws
+     * `user.claim_value_validator.too_large`.
      *
      * The allowed values are compared against the cleaned value rather than the submitted one, because the
      * representations one of those two arrives in are one value and only the cleaned one is comparable to
@@ -58,6 +65,7 @@ class ClaimValueValidator {
         val cleanedValue = when {
             value == null -> Optional.empty()
             value is String -> validateAndCleanStringForClaim(claim, value)
+            claim.dataType == JSON -> validateJsonForClaim(value)
             claim.dataType == BOOLEAN -> validateAndCleanBooleanForClaim(value)
             claim.dataType == NUMBER -> validateAndCleanNumberForClaim(value)
             else -> throw recoverableBusinessExceptionOf(
@@ -73,6 +81,9 @@ class ClaimValueValidator {
                 "user.claim_value_validator.invalid_value",
                 "description.user.claim_value_validator.invalid_value"
             )
+        }
+        if (cleaned != null && claim.maxSize != null) {
+            validateSizeForClaim(claim.maxSize, cleaned)
         }
         return cleanedValue
     }
@@ -120,6 +131,44 @@ class ClaimValueValidator {
             PHONE_NUMBER -> validatePhoneNumberForClaim(trimmedValue)
             STRING -> Optional.of(trimmedValue)
             TIMEZONE -> validateTimeZoneForClaim(trimmedValue)
+            // A document is an object, never the text of one: a client sending a string is sending a string.
+            JSON -> validateJsonForClaim(trimmedValue)
+        }
+    }
+
+    /**
+     * Validate the [value] is a JSON object, and return it as it was submitted.
+     *
+     * Every other JSON value throws `user.claim_value_validator.invalid_json`, so `[1, 2]` and `"foo"` are
+     * refused: a reader of a [JSON] claim may always assume an object, and an array goes under a key of one.
+     * An empty object is a value, since it is a document a caller meant to store; only null clears the
+     * claim. Nothing is cleaned inside the document, whose shape is the writer's and nothing this server
+     * models.
+     */
+    internal fun validateJsonForClaim(value: Any): Optional<Any> {
+        if (value !is Map<*, *>) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_json",
+                "description.user.claim_value_validator.invalid_json"
+            )
+        }
+        return Optional.of(value)
+    }
+
+    /**
+     * Validate the [value] takes at most [maxSize] bytes once serialized.
+     *
+     * It is measured on the form [ClaimValueMapper.toEntity] stores, which is also the form a response
+     * publishes, so the cap bounds what the column holds and what a reader is handed alike.
+     */
+    internal fun validateSizeForClaim(maxSize: Int, value: Any) {
+        val size = claimValueMapper.toEntity(value)?.toByteArray(Charsets.UTF_8)?.size ?: 0
+        if (size > maxSize) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.too_large",
+                "description.user.claim_value_validator.too_large",
+                "maxSize" to maxSize.toString()
+            )
         }
     }
 

@@ -14,6 +14,7 @@ import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.normalizeClaimId
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
 import com.sympauthy.util.configName
+import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -34,8 +35,9 @@ class ClaimsConfigValidator(
     ): List<Claim> {
         refuseKeysWrittenOnAGeneratedClaim(ctx, writtenKeys)
 
+        val identifierClaimIds = identifierClaims.orEmpty().toSet()
         val claims = parsed.mapNotNull { parsedClaim ->
-            validateClaim(ctx, parsedClaim, audiencesById, scopesById)
+            validateClaim(ctx, parsedClaim, audiencesById, scopesById, identifierClaimIds)
         }
 
         // An identifier claim belongs to no audience, and saying otherwise is refused rather than ignored.
@@ -277,11 +279,93 @@ class ClaimsConfigValidator(
         }
     }
 
+    /**
+     * Record an error against every key the type of [parsed] cannot mean, and answer the size its values
+     * are held to: the `max-size` it resolved to, else the [ClaimDataType.defaultMaxSize] of its type, and
+     * null for a type that cannot have one.
+     *
+     * What a type may be is the type's to say — [ClaimDataType] declares it beside each value — so a type
+     * added tomorrow answers here by declaring, and nothing in this function names one. Each key is held
+     * to it on the resolved claim, so a value reaching it through a template is refused like one written
+     * on the claim, and the error names the claim's own key, which is where an operator overrides what a
+     * template offers. A `max-size` that is not greater than zero is refused too, because no value is that
+     * small.
+     */
+    private fun refuseWhatTheTypeCannotMean(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaim,
+        dataType: ClaimDataType,
+        acl: ClaimAcl,
+        configKeyPrefix: String
+    ): Int? {
+        fun refuse(key: String, messageId: String) = ctx.addError(
+            configExceptionOf("$configKeyPrefix.$key", messageId, "claim" to parsed.id, "type" to dataType.wireName)
+        )
+        if (parsed.required && !dataType.canBeRequired) {
+            refuse("required", "config.claim.type.required")
+        }
+        if (acl.collectedInFlow != null && !dataType.canBeCollectedInFlow) {
+            refuse("acl.${ClaimAclValidator.COLLECTED_IN_FLOW_KEY}", "config.claim.type.collected_in_flow")
+        }
+        if (parsed.group != null && !dataType.canBeGrouped) {
+            refuse("group", "config.claim.type.group")
+        }
+        if (parsed.verifiedId != null && !dataType.canBeVerified) {
+            refuse("verified-id", "config.claim.type.verified_id")
+        }
+        if (parsed.allowedValues != null && !dataType.canBeEnumerated) {
+            refuse("allowed-values", "config.claim.type.allowed_values")
+        }
+        if (!dataType.canHaveMaxSize) {
+            if (parsed.maxSize != null) {
+                refuse("max-size", "config.claim.type.max_size")
+            }
+            return null
+        }
+        val maxSize = parsed.maxSize ?: return dataType.defaultMaxSize
+        if (maxSize <= 0) {
+            refuse("max-size", "config.claim.max_size.not_positive")
+            return null
+        }
+        return maxSize
+    }
+
+    /**
+     * Record an error where [parsed] is required and the interactive flow can never collect it, which is
+     * where `required` holds nobody up while the claim still reads as required everywhere it is listed.
+     *
+     * The flow holds a person to a required claim only through the claim's `acl.collected-in-flow` door, so
+     * a door that resolved to nothing or to the literal `"false"` — an application claim's always does —
+     * is one no flow will ever ask through. A door opening on a condition is not refused, because whether it
+     * opens is decided per request. An identifier claim is not refused either: the sign-up collects it
+     * whatever its door says, so `required` on one is true of it. A type that cannot be required at all has
+     * already been refused for that by [refuseWhatTheTypeCannotMean], and is not refused a second time.
+     */
+    private fun refuseRequiredTheFlowNeverCollects(
+        ctx: ConfigParsingContext,
+        parsed: ParsedClaim,
+        dataType: ClaimDataType,
+        acl: ClaimAcl,
+        identifierClaimIds: Set<String>,
+        configKeyPrefix: String
+    ) {
+        if (!parsed.required || !dataType.canBeRequired) return
+        if (acl.collectedInFlow != null || parsed.id in identifierClaimIds) return
+        ctx.addError(
+            configExceptionOf(
+                "$configKeyPrefix.required",
+                "config.claim.required.never_collected",
+                "claim" to parsed.id
+            )
+        )
+    }
+
     private fun validateClaim(
         ctx: ConfigParsingContext,
         parsed: ParsedClaim,
         audiencesById: Map<String, Audience>,
-        scopesById: Map<String, Scope>
+        scopesById: Map<String, Scope>,
+        identifierClaimIds: Set<String>
     ): Claim? {
         val configKeyPrefix = "$CLAIMS_KEY.${parsed.id}"
 
@@ -311,6 +395,10 @@ class ClaimsConfigValidator(
 
         val dataType = parsed.dataType ?: return null
 
+        val maxSize = refuseWhatTheTypeCannotMean(ctx, parsed, dataType, acl, configKeyPrefix)
+
+        refuseRequiredTheFlowNeverCollects(ctx, parsed, dataType, acl, identifierClaimIds, configKeyPrefix)
+
         if (parsed.generated) {
             return GeneratedClaim(
                 id = parsed.id,
@@ -332,6 +420,7 @@ class ClaimsConfigValidator(
                 group = parsed.group,
                 required = parsed.required,
                 allowedValues = parsed.allowedValues,
+                maxSize = maxSize,
                 audienceId = audienceId,
                 acl = acl
             )
@@ -344,6 +433,7 @@ class ClaimsConfigValidator(
                 group = parsed.group,
                 required = parsed.required,
                 allowedValues = parsed.allowedValues,
+                maxSize = maxSize,
                 audienceId = audienceId,
                 publishedIn = parsed.publishedIn,
                 publishedInWhenRequested = parsed.publishedInWhenRequested,
@@ -357,6 +447,7 @@ class ClaimsConfigValidator(
                 group = parsed.group,
                 required = parsed.required,
                 allowedValues = parsed.allowedValues,
+                maxSize = maxSize,
                 audienceId = audienceId,
                 publishedIn = parsed.publishedIn,
                 publishedInWhenRequested = parsed.publishedInWhenRequested,

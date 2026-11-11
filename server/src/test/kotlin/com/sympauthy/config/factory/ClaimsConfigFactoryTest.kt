@@ -52,6 +52,7 @@ class ClaimsConfigFactoryTest {
         kind = ClaimKind.APPLICATION,
         audienceId = null,
         allowedValues = null,
+        maxSize = null,
         publishedIn = null,
         publishedInWhenRequested = null,
         acl = emptyTemplateAcl
@@ -65,6 +66,7 @@ class ClaimsConfigFactoryTest {
         kind = ClaimKind.PERSONAL,
         audienceId = null,
         allowedValues = null,
+        maxSize = null,
         publishedIn = null,
         publishedInWhenRequested = null,
         acl = emptyTemplateAcl

@@ -289,7 +289,8 @@ correct as far as it goes.
 ### Should a configuration that makes a large token be refused?
 
 **Decision:** No. What an audience publishes is what the token carries, for an id token and for an
-access token alike, and nothing caps the number of claims, the size of a value, or the serialized
+access token alike, and nothing caps the number of claims or the serialized token. The one cap on a
+value is a `json` claim's `max-size`, which bounds what may be stored rather than what fits in a
 token.
 
 **Options considered:**
@@ -1095,6 +1096,56 @@ retyped — `gender` as a `number`, say — is published in the id token and sil
 the rule would need is a resource able to carry a claim's own type, which is the same question as
 `/userinfo` publishing custom claims at all. The address and the two `_verified` companions are held
 to it, because those it could express.
+
+### Where does a deployment keep a document about a person this server does not model?
+
+**Decision:** In a claim of type `json`, holding a JSON object and no other JSON value, written
+through the client and user APIs like any other claim.
+
+**Options considered:**
+
+- **A store of its own** — a table and endpoints for per-person metadata, outside the claim
+  vocabulary.
+- **A `json` claim holding any JSON value** — an array, a string or a number as well as an object.
+- **A `json` claim holding an object** — the type a named container for what this server does not
+  model.
+
+**Rationale:**
+
+A store of its own would carry every access-control decision claims already carry a second time —
+the audience restriction, the consent scope, the client scopes, an administrator reading across
+audiences — and the case it serves is exactly what the claims surface already does. A second thing
+shaped like a claim is two places to get an audience check wrong.
+
+Any JSON value never refuses a caller over a rule it could not have anticipated, at the cost of the
+type meaning less than `string` and `number` already mean: it would overlap both, and a reader could
+assume no shape. An object costs a caller with a list one key, and keeps every reader able to assume
+one.
+
+### Is a JSON claim's size capped?
+
+**Decision:** Yes, per claim: `claims.<id>.max-size`, inheritable from a template, defaulting to
+8 KiB and measured on the serialized form the row stores.
+
+**Options considered:**
+
+- **No cap** — `collected_claims.value` is an unbounded `text`.
+- **One fixed constant** — the same ceiling for every deployment.
+- **A cap per claim, with a default** — what a deployment says, and 8 KiB where it says nothing.
+- **A cap tuned to what fits in a token** — so that a document published in the id token never
+  outgrows it.
+
+**Rationale:**
+
+A document a client may read rides into every response it reads it through, so with no cap the
+first large document is the deployment's de facto limit, chosen by whoever wrote it. A constant has
+no escape hatch short of a fork, so a deployment needing more says so and one saying nothing is
+protected.
+
+Tuning the cap to a token would have it doing two jobs — what may be stored, and what fits in a JWT
+— and the second moves whenever a proxy does. Whether a document travels in a token is the
+deployment's to weigh in `published-in`, under [the large-token
+entry](#should-a-configuration-that-makes-a-large-token-be-refused).
 
 ### Does a granting rule see claims of every audience?
 

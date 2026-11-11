@@ -125,4 +125,7 @@ private fun encodeOrNull(dataType: ClaimDataType, value: Any): Any? = when (data
     BOOLEAN -> value as? Boolean
     NUMBER -> (value as? Number)?.toLong()
     DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE -> value as? String
+    // Published as the object it is, nested in the place carrying it, wherever the deployment named one:
+    // what a document costs a token is the deployment's to weigh in `published-in`.
+    JSON -> value as? Map<*, *>
 }

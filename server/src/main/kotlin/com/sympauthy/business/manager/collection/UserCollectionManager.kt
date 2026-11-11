@@ -102,6 +102,9 @@ class UserCollectionManager(
      * one would mean computing it for every account rather than for the page — and the free text has
      * never matched one, since nothing is collected for it.
      *
+     * **Nor is a claim whose type is no field a collection offers**, which [asFieldTypeOrNull] answers:
+     * a JSON document has an inside, and no criterion here reaches into one.
+     *
      * **A claim named as one of the account's own fields, or as a parameter of the grammar, is left
      * out.** Either way the name is taken, and a field published under one would be a field no
      * criterion could ever reach — the document says what the collection accepts, so it may not
@@ -122,9 +125,10 @@ class UserCollectionManager(
             .filterNot(Claim::generated)
             .filterNot { it.id in SHADOWED_CLAIM_IDS }
             .forEach { claim ->
+                val type = claim.dataType.asFieldTypeOrNull ?: return@forEach
                 field(
                     name = claim.id,
-                    type = claim.dataType.asFieldType,
+                    type = type,
                     key = "claims.${claim.id}",
                     values = claim.allowedFieldValues,
                     nullable = true,
@@ -230,9 +234,13 @@ class UserCollectionManager(
 
 /**
  * The kind of value a claim of this type holds, which is what decides the operators a filter on it
- * admits and how a word a caller sent for it is read.
+ * admits and how a word a caller sent for it is read — or null where a value of this type is no field
+ * a collection offers at all.
+ *
+ * A [ClaimDataType.JSON] document is not: ordering one has no meaning, and free text matched against
+ * one matches its syntax.
  */
-private val ClaimDataType.asFieldType: CollectionFieldType
+internal val ClaimDataType.asFieldTypeOrNull: CollectionFieldType?
     get() = when (this) {
         ClaimDataType.BOOLEAN -> CollectionFieldType.BOOLEAN
         ClaimDataType.DATE -> CollectionFieldType.DATE
@@ -241,6 +249,7 @@ private val ClaimDataType.asFieldType: CollectionFieldType
         ClaimDataType.PHONE_NUMBER -> CollectionFieldType.PHONE_NUMBER
         ClaimDataType.STRING -> CollectionFieldType.STRING
         ClaimDataType.TIMEZONE -> CollectionFieldType.TIMEZONE
+        ClaimDataType.JSON -> null
     }
 
 /**

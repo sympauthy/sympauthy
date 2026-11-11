@@ -46,6 +46,11 @@ sealed class Claim(
      */
     val allowedValues: List<Any>?,
     /**
+     * The size in bytes a value of this claim may take once serialized, or null where its type holds a
+     * value to no size — see [ClaimDataType.defaultMaxSize].
+     */
+    val maxSize: Int?,
+    /**
      * Identifier of the audience this claim is restricted to.
      * When null, the claim is shared across all audiences.
      */
@@ -136,6 +141,7 @@ sealed class EnabledClaim(
     group: ClaimGroup?,
     required: Boolean,
     allowedValues: List<Any>?,
+    maxSize: Int?,
     audienceId: String?,
     /**
      * The places this claim is published in.
@@ -155,7 +161,7 @@ sealed class EnabledClaim(
      */
     val publishedInWhenRequested: Set<ClaimPublicationPlace>,
     acl: ClaimAcl
-) : Claim(id, verifiedId, dataType, group, required, allowedValues, audienceId, acl) {
+) : Claim(id, verifiedId, dataType, group, required, allowedValues, maxSize, audienceId, acl) {
 
     /**
      * Should the claim be collected from end-user input during authenticated flow or its value is managed
@@ -198,12 +204,14 @@ class PersonalClaim(
     group: ClaimGroup?,
     required: Boolean,
     allowedValues: List<Any>?,
+    maxSize: Int? = null,
     audienceId: String? = null,
     publishedIn: Set<ClaimPublicationPlace>,
     publishedInWhenRequested: Set<ClaimPublicationPlace>,
     acl: ClaimAcl
 ) : EnabledClaim(
-    id, verifiedId, dataType, group, required, allowedValues, audienceId, publishedIn, publishedInWhenRequested, acl
+    id, verifiedId, dataType, group, required, allowedValues, maxSize, audienceId, publishedIn,
+    publishedInWhenRequested, acl
 ) {
     override val kind: ClaimKind get() = ClaimKind.PERSONAL
 }
@@ -221,12 +229,14 @@ class ApplicationClaim(
     group: ClaimGroup?,
     required: Boolean,
     allowedValues: List<Any>?,
+    maxSize: Int? = null,
     audienceId: String? = null,
     publishedIn: Set<ClaimPublicationPlace>,
     publishedInWhenRequested: Set<ClaimPublicationPlace>,
     acl: ClaimAcl
 ) : EnabledClaim(
-    id, verifiedId, dataType, group, required, allowedValues, audienceId, publishedIn, publishedInWhenRequested, acl
+    id, verifiedId, dataType, group, required, allowedValues, maxSize, audienceId, publishedIn,
+    publishedInWhenRequested, acl
 ) {
     override val kind: ClaimKind get() = ClaimKind.APPLICATION
 }
@@ -252,6 +262,7 @@ class GeneratedClaim(
     group = group,
     required = false,
     allowedValues = null,
+    maxSize = null,
     audienceId = null,
     publishedIn = publishedIn,
     publishedInWhenRequested = emptySet(),
@@ -279,9 +290,10 @@ class DisabledClaim(
     group: ClaimGroup?,
     required: Boolean,
     allowedValues: List<Any>?,
+    maxSize: Int? = null,
     audienceId: String? = null,
     acl: ClaimAcl
-) : Claim(id, verifiedId, dataType, group, required, allowedValues, audienceId, acl) {
+) : Claim(id, verifiedId, dataType, group, required, allowedValues, maxSize, audienceId, acl) {
     override fun isPublishedIn(place: ClaimPublicationPlace): Boolean = false
 
     override fun isPublishedInWhenRequested(place: ClaimPublicationPlace): Boolean = false

@@ -132,7 +132,11 @@ class UserClaimCollectionManager(
         }
         field("collected", BOOLEAN, sortable = true) { it.collectedClaim?.value != null }
         field("verified", BOOLEAN, sortable = true) { it.collectedClaim?.verificationDate != null }
-        field("value", STRING, nullable = true, searchable = true) { it.value }
+        // Read where its claim's type is a field a collection offers, and as no value elsewhere: a document is
+        // neither searched nor filtered on, see [asFieldTypeOrNull].
+        field("value", STRING, nullable = true, searchable = true) { userClaim ->
+            userClaim.value.takeIf { userClaim.claim.dataType.asFieldTypeOrNull != null }
+        }
     }
 
     /**

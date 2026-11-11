@@ -22,7 +22,7 @@ data class AdminUserClaimResource(
     val value: Any?,
     @get:Schema(
         description = "Data type of the claim's value.",
-        allowableValues = ["boolean", "date", "email", "number", "phone_number", "string", "timezone"]
+        allowableValues = ["boolean", "date", "email", "json", "number", "phone_number", "string", "timezone"]
     )
     val type: String,
     @get:Schema(

@@ -332,6 +332,13 @@ takes on the wire, whether a value may identify a person, and how a value is cle
 them are compared — so it is the claim's own, and a template carrying one would be deciding those
 three for claims it knows nothing about.
 
+**What a claim may declare beside its type is the type's to say.** `ClaimDataType` declares, beside
+each type, whether a claim of it may be collected in the flow, required, grouped, verified or
+restricted to allowed values or held to a `max-size`, and the size it is held to by default; a claim
+declaring what its type refuses is refused, whether it wrote the key or its template supplied it,
+and the error names the claim's own key. A type added later answers by declaring, so no refusal
+names a type.
+
 **A declaration that cannot mean anything is refused at startup, naming the claim and the key that
 cannot mean it.** A server whose configuration is wrong refuses to report itself ready, so the
 deployment is told in the file it owns rather than by a client's error log once a value fails to
@@ -410,6 +417,29 @@ types, its KDoc the authority on what each admits, and
 [the design FAQ](design-faq.md#what-form-does-a-claims-value-take-once-it-leaves-this-server) holds
 why the declared type rather than the value's own decides the wire form.
 
+**A claim may hold a JSON object, for what this server does not model.** A `json` claim keeps a
+deployment's own document about a person — preferences, flags, an application's small state — under
+the same audience, ACL and publication as every other claim, so nothing has to stand up a second
+store keyed by `sub` with a second place to get an audience check wrong. It holds an object and no
+other JSON value, so every reader may assume one; null clears it and `{}` is a value; and a write
+replaces the whole document, as a write of any claim replaces its value. [The design
+FAQ](design-faq.md#where-does-a-deployment-keep-a-document-about-a-person-this-server-does-not-model)
+holds what was weighed against it.
+
+**A document is held to a size, 8 KiB unless its claim says otherwise.** `max-size` is measured on
+the serialized form the row stores and a response publishes. A value with an inside rides into every
+response a client reads it through, so one with no ceiling has a ceiling chosen by whoever writes
+first; [the design FAQ](design-faq.md#is-a-json-claims-size-capped) holds why the cap is the
+claim's.
+
+**A document is written through the APIs and never through the flow.** There is no input one could
+be typed into, so the flow's door cannot open on a `json` claim, and it cannot be required, grouped,
+verified, enumerated or signed in with. It is published where `published-in` names, as the object it
+is, and what that costs a token is [the design
+FAQ's](design-faq.md#should-a-configuration-that-makes-a-large-token-be-refused).
+No expression reads inside one — `CLAIM` answers a document as no value — and no collection offers
+a field over one or searches it.
+
 **A claim may name a companion saying its value was verified, and the companion travels only beside
 a value.** `email_verified` beside `email` is the specification's own case, and a deployment's claim
 declares one the same way. The flow proves a value by sending a code to it, and a place claiming the
@@ -425,7 +455,10 @@ for the new value the way it asked for the first.
 **A required claim holds up the flow of an audience that has it.** A person signing in to an
 audience is asked for the required claims that audience has, and for no other audience's; what the
 flow does with them once collected is [the interactive flow](interactive-flow.md). Required is read
-against [what the flow collects](#the-person), so a claim outside that set holds up nothing.
+against [what the flow collects](#the-person), so a claim outside that set holds up nothing — and a
+claim the flow can never collect, an application claim or one whose flow door resolved shut, is
+refused as required at startup, since it would read as required everywhere it is listed and hold
+nobody to it. A door opening on a condition holds a person up in the flows it opens in.
 
 **An identifier claim is required whatever its file says, and the sign-up is what collects it.** It
 is what the account signs in with, so an account holding no value for one holds a row no login
@@ -678,9 +711,12 @@ is a decision nobody has argued for.
 audience is told the same thing, and a place is named for the claim rather than for the pairing of a
 claim with a client.
 
-**A claim holding a structured value.** `ClaimDataType` holds scalars, and a deployment wanting to
-keep a document about a person on this server has no type for it. Whether one is added, and what the
-ACL and the places it is published in make of a value with an inside, is open.
+**What is inside a JSON claim.** A document's shape is checked against no schema, a write is never
+merged into the stored document, and nothing filters, sorts or searches on a key inside one. Each is
+a feature of its own that wanted the type to exist first, and none of them is decided.
+
+**A size cap on a claim of any other type.** `max-size` is refused outside a type holding its values
+to one, and capping a `string` is a change of its own.
 
 **Whether an audience's own personal claim should be client-writable at all.** The kind leaves a
 restricted one where a deployment puts it; whether an application should ever set what a person

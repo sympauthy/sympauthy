@@ -42,6 +42,7 @@ data class ClaimTemplate(
     val kind: ClaimKind?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
+    val maxSize: Int?,
     val publishedIn: Set<ClaimPublicationPlace>?,
     val publishedInWhenRequested: Set<ClaimPublicationPlace>?,
     /**

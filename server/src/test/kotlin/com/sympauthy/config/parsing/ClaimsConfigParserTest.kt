@@ -1,6 +1,7 @@
 package com.sympauthy.config.parsing
 
 import com.sympauthy.business.model.user.claim.ClaimAcl
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
@@ -30,7 +31,8 @@ class ClaimsConfigParserTest {
         allowedValues: List<Any>? = null,
         publishedIn: Set<ClaimPublicationPlace>? = null,
         publishedInWhenRequested: Set<ClaimPublicationPlace>? = null,
-        kind: ClaimKind? = ClaimKind.APPLICATION
+        kind: ClaimKind? = ClaimKind.APPLICATION,
+        maxSize: Int? = null
     ) = ClaimTemplate(
         id = id,
         enabled = null,
@@ -39,6 +41,7 @@ class ClaimsConfigParserTest {
         kind = kind,
         audienceId = null,
         allowedValues = allowedValues,
+        maxSize = maxSize,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
         acl = ClaimAcl.SHUT
@@ -62,6 +65,55 @@ class ClaimsConfigParserTest {
     private fun parseOne(ctx: ConfigParsingContext, properties: ClaimConfigurationProperties, template: ClaimTemplate) =
         parser.parse(ctx, listOf(properties), mapOf(template.id to template))
             .first { it.id == properties.id }
+
+    @Test
+    fun `parse - Read a JSON claim's type`() {
+        val ctx = ConfigParsingContext()
+
+        val claim = parseOne(ctx, claimProperties("preferences", "json"), claimTemplate())
+
+        assertEquals(ClaimDataType.JSON, claim.dataType)
+        assertEquals(emptyList<String>(), ctx.errors.map { it.messageId })
+    }
+
+    @Test
+    fun `parse - Read the max-size a claim declares over the one its template offers`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("preferences", "json").apply { maxSize = "65536" }
+
+        val claim = parseOne(ctx, properties, claimTemplate(maxSize = 1024))
+
+        assertEquals(65_536, claim.maxSize)
+    }
+
+    @Test
+    fun `parse - Read the max-size its template offers where a claim declares none`() {
+        val ctx = ConfigParsingContext()
+
+        val claim = parseOne(ctx, claimProperties("preferences", "json"), claimTemplate(maxSize = 1024))
+
+        assertEquals(1024, claim.maxSize)
+    }
+
+    @Test
+    fun `parse - Leave the max-size to the type where neither a claim nor its template declares one`() {
+        val ctx = ConfigParsingContext()
+
+        val claim = parseOne(ctx, claimProperties("preferences", "json"), claimTemplate())
+
+        assertNull(claim.maxSize)
+    }
+
+    @Test
+    fun `parse - Refuse a max-size that is not a whole number`() {
+        val ctx = ConfigParsingContext()
+        val properties = claimProperties("preferences", "json").apply { maxSize = "8KiB" }
+
+        parseOne(ctx, properties, claimTemplate())
+
+        assertEquals(listOf("config.invalid_int"), ctx.errors.map { it.messageId })
+        assertEquals(listOf("claims.preferences.max-size"), ctx.errors.map { it.key })
+    }
 
     @Test
     fun `parse - Publish a claim nowhere where neither it nor its template names a place`() {

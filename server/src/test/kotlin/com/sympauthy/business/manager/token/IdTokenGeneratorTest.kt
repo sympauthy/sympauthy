@@ -21,6 +21,7 @@ import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
+import com.sympauthy.business.model.user.claim.ClaimDataType.JSON
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
@@ -101,9 +102,9 @@ class IdTokenGeneratorTest {
 
     private val readRequestedClaims = slot<RequestedClaims>()
 
-    private val valueValidator = ClaimValueValidator()
-
     private val valueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+
+    private val valueValidator = ClaimValueValidator(valueMapper)
 
     @Test
     fun `generateIdToken - EnabledClaim the hash of the access token it was issued beside`() = runTest {
@@ -330,7 +331,7 @@ class IdTokenGeneratorTest {
      * been through both — and a double here would return whichever type the test imagined, which is the
      * assumption that let a whole claim type go missing from every id token.
      */
-    private fun storedValueOf(claim: EnabledClaim, submitted: String): Any? {
+    private fun storedValueOf(claim: EnabledClaim, submitted: Any): Any? {
         val validated = valueValidator.validateAndCleanValueForClaim(claim, submitted).get()
         return valueMapper.toBusiness(checkNotNull(valueMapper.toEntity(validated)), claim.dataType)
     }
@@ -446,14 +447,17 @@ class IdTokenGeneratorTest {
 
     private companion object {
         /**
-         * Per type, a value as a form posts one — text, whatever the claim's type says — and what it is
-         * claimed as once it has been through the validator and the mapper. A type absent here fails its
-         * own case rather than going untested.
+         * Per type, a value as a form posts one — text, whatever the claim's type says, except for a document,
+         * which no form posts and a client sends as the object it is — and what it is claimed as once it has
+         * been through the validator and the mapper. A type absent here fails its own case rather than going
+         * untested.
          */
-        val VALUES = mapOf<ClaimDataType, Pair<String, Any>>(
+        val VALUES = mapOf<ClaimDataType, Pair<Any, Any>>(
             BOOLEAN to ("true" to true),
             DATE to ("1815-12-10" to "1815-12-10"),
             EMAIL to ("ada@example.com" to "ada@example.com"),
+            JSON to (mapOf("theme" to "dark", "panels" to listOf("grants")) to
+                    mapOf("theme" to "dark", "panels" to listOf("grants"))),
             NUMBER to ("42" to 42L),
             PHONE_NUMBER to ("+14155550100" to "+14155550100"),
             STRING to ("Ada" to "Ada"),

@@ -2,7 +2,9 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimKind
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.config.ConfigParsingContext
@@ -10,6 +12,7 @@ import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.ParsedClaimAcl
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -30,18 +33,24 @@ class ClaimsConfigValidatorTest {
         kind: ClaimKind? = ClaimKind.PERSONAL,
         collectedInFlow: String? = "true",
         writableByPerson: String? = null,
-        writableByClient: String? = "false"
+        writableByClient: String? = "false",
+        dataType: ClaimDataType = ClaimDataType.EMAIL,
+        group: ClaimGroup? = null,
+        required: Boolean = false,
+        allowedValues: List<Any>? = null,
+        maxSize: Int? = null
     ) = ParsedClaim(
         id = id,
         enabled = true,
-        dataType = ClaimDataType.EMAIL,
-        group = null,
-        required = false,
+        dataType = dataType,
+        group = group,
+        required = required,
         generated = false,
         verifiedId = verifiedId,
         kind = kind,
         audienceId = audienceId,
-        allowedValues = null,
+        allowedValues = allowedValues,
+        maxSize = maxSize,
         publishedIn = publishedIn,
         publishedInWhenRequested = publishedInWhenRequested,
         acl = ParsedClaimAcl(
@@ -368,6 +377,144 @@ class ClaimsConfigValidatorTest {
 
         assertFalse(ctx.hasErrors)
     }
+
+    @Test
+    fun `validate - Refuse a required claim whose flow door is shut`() = assertRefused(
+        parsedClaim("nickname", required = true, collectedInFlow = "false"),
+        "claims.nickname.required",
+        "config.claim.required.never_collected"
+    )
+
+    @Test
+    fun `validate - Refuse a required claim whose flow door is written nowhere`() = assertRefused(
+        parsedClaim("nickname", required = true, collectedInFlow = null),
+        "claims.nickname.required",
+        "config.claim.required.never_collected"
+    )
+
+    @Test
+    fun `validate - Refuse a required application claim`() = assertRefused(
+        parsedClaim("credit_score", kind = ClaimKind.APPLICATION, required = true, collectedInFlow = null),
+        "claims.credit_score.required",
+        "config.claim.required.never_collected"
+    )
+
+    @Test
+    fun `validate - Accept a required claim the flow collects`() {
+        val ctx = validate(listOf(parsedClaim("nickname", required = true)))
+
+        assertFalse(ctx.hasErrors)
+    }
+
+    @Test
+    fun `validate - Accept a required identifier claim whose flow door is shut`() {
+        val ctx = validate(
+            listOf(parsedClaim("email", required = true, collectedInFlow = null)),
+            identifierClaims = listOf("email")
+        )
+
+        assertFalse(ctx.hasErrors)
+    }
+
+    /** A JSON claim the flow cannot reach, so that each case below refuses the one key it is about. */
+    private fun parsedJsonClaim(
+        required: Boolean = false,
+        collectedInFlow: String? = null,
+        group: ClaimGroup? = null,
+        verifiedId: String? = null,
+        allowedValues: List<Any>? = null,
+        maxSize: Int? = null
+    ) = parsedClaim(
+        "preferences",
+        dataType = ClaimDataType.JSON,
+        required = required,
+        collectedInFlow = collectedInFlow,
+        group = group,
+        verifiedId = verifiedId,
+        allowedValues = allowedValues,
+        maxSize = maxSize,
+        writableByPerson = "true"
+    )
+
+    private fun assertRefused(parsed: ParsedClaim, key: String, messageId: String) {
+        val ctx = validate(listOf(parsed))
+
+        assertEquals(listOf(messageId), ctx.errors.map { it.messageId })
+        assertEquals(listOf(key), ctx.errors.map { it.key })
+    }
+
+    @Test
+    fun `validate - Accept a JSON claim written through the APIs alone`() {
+        val ctx = validate(listOf(parsedJsonClaim()))
+
+        assertFalse(ctx.hasErrors)
+    }
+
+    @Test
+    fun `validate - Refuse a JSON claim declared required`() = assertRefused(
+        parsedJsonClaim(required = true), "claims.preferences.required", "config.claim.type.required"
+    )
+
+    @Test
+    fun `validate - Refuse the flow collecting a JSON claim`() = assertRefused(
+        parsedJsonClaim(collectedInFlow = "true"),
+        "claims.preferences.acl.collected-in-flow",
+        "config.claim.type.collected_in_flow"
+    )
+
+    @Test
+    fun `validate - Refuse a JSON claim placed in a group`() = assertRefused(
+        parsedJsonClaim(group = ClaimGroup.IDENTITY), "claims.preferences.group", "config.claim.type.group"
+    )
+
+    @Test
+    fun `validate - Refuse a JSON claim naming a verified companion`() = assertRefused(
+        parsedJsonClaim(verifiedId = "preferences_verified"),
+        "claims.preferences.verified-id",
+        "config.claim.type.verified_id"
+    )
+
+    @Test
+    fun `validate - Refuse a JSON claim restricted to allowed values`() = assertRefused(
+        parsedJsonClaim(allowedValues = listOf(mapOf("theme" to "dark"))),
+        "claims.preferences.allowed-values",
+        "config.claim.type.allowed_values"
+    )
+
+    @Test
+    fun `validate - Refuse a max-size on a claim whose type holds values to none`() = assertRefused(
+        parsedClaim("email", maxSize = 1024), "claims.email.max-size", "config.claim.type.max_size"
+    )
+
+    @Test
+    fun `validate - Refuse a max-size that is not greater than zero`() = assertRefused(
+        parsedJsonClaim(maxSize = 0), "claims.preferences.max-size", "config.claim.max_size.not_positive"
+    )
+
+    @Test
+    fun `validate - Hold a JSON claim to its type's size where it declares none`() {
+        val claim = validateClaims(listOf(parsedJsonClaim())).single { it.id == "preferences" }
+
+        assertEquals(ClaimDataType.JSON.defaultMaxSize, claim.maxSize)
+    }
+
+    @Test
+    fun `validate - Hold a JSON claim to the size it declares`() {
+        val claim = validateClaims(listOf(parsedJsonClaim(maxSize = 65_536))).single { it.id == "preferences" }
+
+        assertEquals(65_536, claim.maxSize)
+    }
+
+    @Test
+    fun `validate - Hold a claim whose type holds values to no size to none`() {
+        val claim = validateClaims(listOf(parsedClaim("email"))).single { it.id == "email" }
+
+        assertNull(claim.maxSize)
+    }
+
+    private fun validateClaims(parsed: List<ParsedClaim>): List<Claim> = validator.validate(
+        ConfigParsingContext(), parsed, emptySet(), emptyMap(), audiencesById, emptyMap<String, Scope>(), null, null
+    )
 
     @Test
     fun `validate - Refuse a key written on a generated claim, as the file spells it`() {

@@ -1,6 +1,8 @@
 package com.sympauthy.expression
 
+import com.ezylang.evalex.Expression
 import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.every
 import io.mockk.mockk
@@ -79,8 +81,25 @@ class ScopeGrantingRuleExpressionsTest {
         assertTrue(evaluateRuleExpression("""CLAIM("email") = "second@example.com"""", second))
     }
 
-    private fun collectedClaim(claimId: String, value: String): CollectedClaim {
-        val claim = mockk<EnabledClaim> { every { id } returns claimId }
+    @Test
+    fun `userConfiguration - Answer a JSON claim as holding no value`() {
+        // The text a document renders into is not one a rule could mean to compare.
+        val configuration = ScopeGrantingRuleExpressions.userConfiguration(
+            listOf(collectedClaim("preferences", value = mapOf("theme" to "dark"), dataType = ClaimDataType.JSON))
+        )
+
+        assertTrue(Expression("""CLAIM("preferences")""", configuration).evaluate().isNullValue)
+    }
+
+    private fun collectedClaim(
+        claimId: String,
+        value: Any,
+        dataType: ClaimDataType = ClaimDataType.STRING
+    ): CollectedClaim {
+        val claim = mockk<EnabledClaim> {
+            every { id } returns claimId
+            every { this@mockk.dataType } returns dataType
+        }
         return CollectedClaim(
             userId = UUID.randomUUID(),
             claim = claim,
