@@ -18,6 +18,7 @@ data class ParsedClaimTemplate(
     val kind: ClaimKind?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
+    val maxSize: Int?,
     val publishedIn: Set<ClaimPublicationPlace>?,
     val publishedInWhenRequested: Set<ClaimPublicationPlace>?,
     val acl: ParsedClaimAcl
@@ -57,6 +58,10 @@ class ClaimTemplatesConfigParser(
             }
         }
 
+        val maxSize = ctx.parse {
+            parser.getInt(properties, "$configKeyPrefix.max-size", ClaimTemplateConfigurationProperties::maxSize)
+        }
+
         val kind = ctx.parse {
             properties.kind?.let {
                 parser.convertToEnum<ClaimKind>("$configKeyPrefix.kind", it)
@@ -79,6 +84,7 @@ class ClaimTemplatesConfigParser(
             kind = kind,
             audienceId = properties.audience,
             allowedValues = properties.allowedValues,
+            maxSize = maxSize,
             publishedIn = publishedIn,
             publishedInWhenRequested = publishedInWhenRequested,
             acl = acl

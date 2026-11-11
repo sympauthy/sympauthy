@@ -17,9 +17,12 @@ import kotlin.reflect.KClass
 class FlowAllowableValuesTest {
 
     @Test
-    fun `Every claim data type is published where a claim's type is`() {
-        assertPublished(ClaimDataType.entries.map { it.wireName }, CollectableClaimResource::class, "type")
-        assertPublished(ClaimDataType.entries.map { it.wireName }, ClaimValueResource::class, "type")
+    fun `Every claim data type the flow can collect is published where a claim's type is`() {
+        // A type the flow cannot collect never reaches it, so naming it here would promise a value no
+        // response carries.
+        val types = ClaimDataType.entries.filter { it.canBeCollectedInFlow }.map { it.wireName }
+        assertPublished(types, CollectableClaimResource::class, "type")
+        assertPublished(types, ClaimValueResource::class, "type")
     }
 
     @Test

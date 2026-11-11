@@ -1,17 +1,21 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.manager.util.assertThrowsLocalizedException
+import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.model.user.claim.ClaimDataType
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
 import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
+import com.sympauthy.business.model.user.claim.ClaimDataType.JSON
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
 import com.sympauthy.business.model.user.claim.EnabledClaim
+import io.micronaut.serde.ObjectMapper
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -23,12 +27,25 @@ import org.junit.jupiter.api.extension.ExtendWith
 @ExtendWith(MockKExtension::class)
 class ClaimValueValidatorTest {
 
+    /** The real one, because the size a value is held to is measured on what it serializes. */
+    @SpyK
+    var claimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+
     @InjectMockKs
     lateinit var validator: ClaimValueValidator
 
-    /** A claim of the type the validator checks a value against; the rest is read per path. */
-    private fun mockClaimOfType(type: ClaimDataType): EnabledClaim = mockk {
+    /**
+     * A claim of the type the validator checks a value against, held to [maxSize] or to none; the rest
+     * is read per path.
+     */
+    private fun mockClaimOfType(type: ClaimDataType, maxSize: Int? = null): EnabledClaim = mockk {
         every { dataType } returns type
+        every { this@mockk.maxSize } returns maxSize
+    }
+
+    /** A JSON claim, which holds no allowed values. */
+    private fun mockJsonClaim(maxSize: Int? = null): EnabledClaim = mockClaimOfType(JSON, maxSize).also {
+        every { it.allowedValues } returns null
     }
 
     private fun mockStringClaim(): EnabledClaim = mockClaimOfType(STRING)
@@ -76,6 +93,49 @@ class ClaimValueValidatorTest {
         assertThrowsLocalizedException("user.claim_value_validator.invalid_value") {
             validator.validateAndCleanValueForClaim(claim, "value")
         }
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Accepts a JSON object as it was submitted`() {
+        val document = mapOf("theme" to "dark", "panels" to listOf("grants", "users"))
+        val result = validator.validateAndCleanValueForClaim(mockJsonClaim(), document)
+        assertEquals(document, result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Holds an empty JSON object as a value`() {
+        val result = validator.validateAndCleanValueForClaim(mockJsonClaim(), emptyMap<String, Any>())
+        assertEquals(emptyMap<String, Any>(), result.get())
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Throws for a JSON array`() {
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_json") {
+            validator.validateAndCleanValueForClaim(mockJsonClaim(), listOf(1, 2))
+        }
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Throws for a string submitted to a JSON claim`() {
+        // Even one holding the text of an object: a document submitted as a string would be stored as one.
+        assertThrowsLocalizedException("user.claim_value_validator.invalid_json") {
+            validator.validateAndCleanValueForClaim(mockJsonClaim(), """{"theme": "dark"}""")
+        }
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Throws for a value larger than the claim's max size`() {
+        // {"theme":"dark"} is 16 bytes once serialized.
+        val exception = assertThrowsLocalizedException("user.claim_value_validator.too_large") {
+            validator.validateAndCleanValueForClaim(mockJsonClaim(maxSize = 15), mapOf("theme" to "dark"))
+        }
+        assertEquals("15", exception.values["maxSize"])
+    }
+
+    @Test
+    fun `validateAndCleanValueForClaim - Accepts a value exactly the claim's max size`() {
+        val result = validator.validateAndCleanValueForClaim(mockJsonClaim(maxSize = 16), mapOf("theme" to "dark"))
+        assertEquals(mapOf("theme" to "dark"), result.get())
     }
 
     @Test

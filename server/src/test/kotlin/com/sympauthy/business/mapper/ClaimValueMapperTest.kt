@@ -2,6 +2,7 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
 import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
+import com.sympauthy.business.model.user.claim.ClaimDataType.JSON
 import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
 import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
 import io.micronaut.serde.ObjectMapper
@@ -54,6 +55,18 @@ class ClaimValueMapperTest {
     @Test
     fun `toBusiness - Read a number claim as a Long`() {
         assertEquals(42L, mapper.toBusiness("42", NUMBER))
+    }
+
+    @Test
+    fun `toBusiness - Read a JSON claim as the object it was written as`() {
+        val document = mapOf("theme" to "dark", "panels" to listOf("grants"), "pinned" to mapOf("users" to true))
+
+        assertEquals(document, mapper.toBusiness(mapper.toEntity(document), JSON))
+    }
+
+    @Test
+    fun `toBusiness - Return null where a JSON claim holds something that is not an object`() {
+        assertNull(mapper.toBusiness("[1, 2]", JSON))
     }
 
     @Test

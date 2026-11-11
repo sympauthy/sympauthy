@@ -83,7 +83,7 @@ const val RETURN_URI_BAD_REQUEST_DESCRIPTION =
 
 /**
  * The lines of the `400` an operation answers with when a claim value it was sent fails the validation
- * of the claim's type or of the values the claim allows.
+ * of the claim's type, of the values the claim allows or of the size it holds a value to.
  */
 const val CLAIM_VALUE_BAD_REQUEST_DESCRIPTION =
     "- `user.claim_value_validator.invalid_boolean`: a value is not `true` or `false` for a claim of type " +
@@ -92,10 +92,14 @@ const val CLAIM_VALUE_BAD_REQUEST_DESCRIPTION =
         "of type `date`.\n" +
         "- `user.claim_value_validator.invalid_email`: a value is not an email address for a claim of type " +
         "`email`.\n" +
+        "- `user.claim_value_validator.invalid_json`: a value is not a JSON object for a claim of type " +
+        "`json`.\n" +
         "- `user.claim_value_validator.invalid_number`: a value is not a whole number for a claim of type " +
         "`number`.\n" +
         "- `user.claim_value_validator.invalid_phone_number`: a value is not an E.164 phone number for a " +
         "claim of type `phone_number`.\n" +
         "- `user.claim_value_validator.invalid_time_zone`: a value is not a time zone for a claim of type " +
         "`timezone`.\n" +
-        "- `user.claim_value_validator.invalid_value`: a value is not one its claim allows."
+        "- `user.claim_value_validator.invalid_value`: a value is not one its claim allows.\n" +
+        "- `user.claim_value_validator.too_large`: a value takes more bytes once serialized than its claim's " +
+        "`claims.<id>.max-size`."

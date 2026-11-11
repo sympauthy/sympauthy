@@ -85,6 +85,7 @@ class ClaimTemplatesConfigValidator(
             kind = parsed.kind,
             audienceId = parsed.audienceId,
             allowedValues = parsed.allowedValues,
+            maxSize = parsed.maxSize,
             publishedIn = parsed.publishedIn,
             publishedInWhenRequested = parsed.publishedInWhenRequested,
             acl = acl

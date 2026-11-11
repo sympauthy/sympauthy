@@ -53,6 +53,11 @@ data class ParsedClaim(
     val kind: ClaimKind?,
     val audienceId: String?,
     val allowedValues: List<Any>?,
+    /**
+     * The `max-size` the claim declares, else the one its template offers, and null where neither does —
+     * which is not yet the cap: a type holding values to one supplies it where the file says nothing.
+     */
+    val maxSize: Int?,
     val publishedIn: Set<ClaimPublicationPlace>,
     val publishedInWhenRequested: Set<ClaimPublicationPlace>,
     val acl: ParsedClaimAcl
@@ -104,6 +109,7 @@ class ClaimsConfigParser(
             kind = null,
             audienceId = null,
             allowedValues = null,
+            maxSize = null,
             // The channels the claim already reaches, which is a fact about this server rather than a
             // decision a file takes: neither channel reads a generated claim out of the collected claims,
             // so no `published-in` written here could move one. It is the truth rather than the withholding
@@ -160,6 +166,10 @@ class ClaimsConfigParser(
             }
         } else null
 
+        val maxSize = ctx.parse {
+            parser.getInt(properties, "$configKeyPrefix.max-size", ClaimConfigurationProperties::maxSize)
+        } ?: template?.maxSize
+
         // No channel, for a claim and for a template that names none: a value leaves this server where a
         // deployment said so and nowhere else. The shipped `personal` template names both, so the claims
         // the specification defines keep reaching both without every file having to say it again.
@@ -186,6 +196,7 @@ class ClaimsConfigParser(
             kind = kind,
             audienceId = audienceId,
             allowedValues = allowedValues,
+            maxSize = maxSize,
             publishedIn = publishedIn,
             publishedInWhenRequested = publishedInWhenRequested,
             acl = acl
@@ -250,6 +261,9 @@ class ClaimsConfigParser(
                     NUMBER -> parser.getLong(value, itemKey) { it }
                     DATE, EMAIL, PHONE_NUMBER, STRING, TIMEZONE ->
                         parser.getString(value, itemKey) { it }
+                    // Not converted, because a JSON claim may hold no allowed values at all and the validator
+                    // refuses the key; converting first would report the entry instead of the key.
+                    JSON -> value
                 }
             }
         }

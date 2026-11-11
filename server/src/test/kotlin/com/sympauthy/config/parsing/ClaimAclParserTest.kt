@@ -33,6 +33,7 @@ class ClaimAclParserTest {
         kind = null,
         audienceId = null,
         allowedValues = null,
+        maxSize = null,
         publishedIn = null,
         publishedInWhenRequested = null,
         acl = acl

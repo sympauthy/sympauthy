@@ -247,6 +247,18 @@ class UserCollectionManagerTest {
     }
 
     @Test
+    fun `listUsers - Offer no field for a JSON claim`() = runTest {
+        every { claimManager.listEnabledClaims() } returns listOf(emailClaim, claim("preferences", ClaimDataType.JSON))
+
+        val fields = manager.capabilities().fields.map { it.name }
+
+        assertEquals(
+            listOf("id", "status", "created_at", "last_authenticated_at", "last_refreshed_at", "email"),
+            fields
+        )
+    }
+
+    @Test
     fun `listUsers - Offer no field for a claim named as a parameter of the grammar`() = runTest {
         every { claimManager.listEnabledClaims() } returns listOf(emailClaim, claim("q"), claim("sort"))
 
