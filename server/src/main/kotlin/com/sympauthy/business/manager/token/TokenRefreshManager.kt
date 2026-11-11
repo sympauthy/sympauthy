@@ -24,6 +24,8 @@ import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.supervisorScope
 
 /**
@@ -125,41 +127,51 @@ open class TokenRefreshManager(
         val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
         val doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, client, effectiveDpopJkt))
 
-        val accessToken = accessTokenGenerator.generateAccessToken(
-            grant = grant,
-            audience = client.audience,
-            doors = doors,
-            grantType = GrantType.REFRESH_TOKEN,
-            dpopJkt = effectiveDpopJkt
-        )
-        val refreshedRefreshToken = if (shouldRefreshToken(refreshToken, accessToken)) {
-            refreshTokenGenerator.generateRefreshToken(
-                grant = grant,
-                audience = client.audience,
-                grantType = GrantType.REFRESH_TOKEN,
-                dpopJkt = effectiveDpopJkt
+        val tokens = coroutineScope {
+            val deferredAccessToken = async {
+                accessTokenGenerator.generateAccessToken(
+                    grant = grant,
+                    audience = client.audience,
+                    doors = doors,
+                    grantType = GrantType.REFRESH_TOKEN,
+                    dpopJkt = effectiveDpopJkt
+                )
+            }
+            val deferredRefreshToken = async {
+                if (shouldRefreshToken(refreshToken, deferredAccessToken.await())) {
+                    refreshTokenGenerator.generateRefreshToken(
+                        grant = grant,
+                        audience = client.audience,
+                        grantType = GrantType.REFRESH_TOKEN,
+                        dpopJkt = effectiveDpopJkt
+                    )
+                } else null
+            }
+            // A refresh reissues the identity because OpenID Connect Core §12.2 lets it, and a client holding
+            // a refreshed access token with a stale id token has no way to learn the subject changed. Whether
+            // this grant is owed one is the generator's to answer, so that the authorization code cannot
+            // answer it differently.
+            val deferredIdToken = async {
+                idTokenGenerator.generateIdToken(
+                    grant = grant,
+                    audience = client.audience,
+                    accessToken = deferredAccessToken,
+                    doors = doors,
+                    grantType = GrantType.REFRESH_TOKEN
+                )
+            }
+
+            IssuedTokens(
+                accessToken = deferredAccessToken.await(),
+                refreshToken = deferredRefreshToken.await(),
+                idToken = deferredIdToken.await()
             )
-        } else null
-        // A refresh reissues the identity because OpenID Connect Core §12.2 lets it, and a client holding
-        // a refreshed access token with a stale id token has no way to learn the subject changed. Whether
-        // this grant is owed one is the generator's to answer, so that the authorization code cannot
-        // answer it differently.
-        val idToken = idTokenGenerator.generateIdToken(
-            grant = grant,
-            audience = client.audience,
-            accessToken = accessToken,
-            doors = doors,
-            grantType = GrantType.REFRESH_TOKEN
-        )
+        }
         // Once everything that could refuse this refresh has passed, and in its transaction, so a refused one
         // moves nothing. A client-credentials grant has no person to date.
-        grant.userId?.let { userManager.markRefreshed(it, accessToken.issueDate) }
+        grant.userId?.let { userManager.markRefreshed(it, tokens.accessToken.issueDate) }
 
-        return IssuedTokens(
-            accessToken = accessToken,
-            refreshToken = refreshedRefreshToken,
-            idToken = idToken
-        )
+        return tokens
     }
 
     internal fun shouldRefreshToken(

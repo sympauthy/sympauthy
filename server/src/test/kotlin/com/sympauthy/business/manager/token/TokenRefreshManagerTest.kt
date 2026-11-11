@@ -41,7 +41,9 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -276,7 +278,7 @@ class TokenRefreshManagerTest {
         } returns refreshedRefreshToken
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -310,7 +312,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -339,7 +341,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -386,7 +388,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -421,7 +423,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
         coEvery { userManager.markRefreshed(userId, issueDate) } just runs
@@ -443,6 +445,7 @@ class TokenRefreshManagerTest {
             every { issueDate } returns now()
         }
         val idToken = mockk<EncodedAuthenticationToken>()
+        val toldAccessToken = slot<Deferred<EncodedAuthenticationToken>>()
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
@@ -456,13 +459,14 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, accessToken, doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
             )
         } returns idToken
 
         val tokens = manager.refresh(client, TokenRequest.RefreshToken("token"))
 
         assertSame(idToken, tokens.idToken)
+        assertSame(accessToken, toldAccessToken.captured.await())
     }
 
     @Test

@@ -278,8 +278,8 @@ class AccessTokenGeneratorTest {
         every { tokenMapper.toEncodedAuthenticationToken(any(), any(), any()) } returns mockk()
 
         val builder = JWTClaimsSet.Builder()
-        coEvery { jwtManager.create(JwtManager.ACCESS_KEY, any(), any()) } answers {
-            arg<JWTClaimsSet.Builder.() -> Unit>(2)(builder)
+        coEvery { jwtManager.create(JwtManager.ACCESS_KEY, any(), any()) } coAnswers {
+            arg<suspend JWTClaimsSet.Builder.() -> Unit>(2)(builder)
             "encoded-access-token"
         }
         return builder

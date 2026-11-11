@@ -30,10 +30,16 @@ class JwtManager(
     @Inject private val authConfig: AuthConfig,
 ) {
 
+    /**
+     * Sign a token with the key named [name], stating the claims [block] builds.
+     *
+     * The key is loaded before [block] runs, so a claim that waits on another token does not hold back the
+     * loading of the key as well.
+     */
     suspend fun create(
         name: String,
         headers: Map<String, Any> = emptyMap(),
-        block: JWTClaimsSet.Builder.() -> Unit
+        block: suspend JWTClaimsSet.Builder.() -> Unit
     ): String {
         val signingConfig = getSigningConfig(name)
 

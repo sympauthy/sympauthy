@@ -41,8 +41,10 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
+import io.mockk.slot
 import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -176,6 +178,7 @@ class CodeExchangeManagerTest {
         val accessToken = mockk<EncodedAuthenticationToken>()
         val refreshToken = mockk<EncodedAuthenticationToken>()
         val idToken = mockk<EncodedAuthenticationToken>()
+        val toldAccessToken = slot<Deferred<EncodedAuthenticationToken>>()
 
         stubExchangeableCode(code, userId, grant)
         coEvery { authorizationCodeManager.markExchanged(code) } returns true
@@ -190,7 +193,7 @@ class CodeExchangeManagerTest {
             idTokenGenerator.generateIdToken(
                 grant,
                 match { it.id == "test-audience" },
-                accessToken,
+                capture(toldAccessToken),
                 doors,
                 GrantType.AUTHORIZATION_CODE,
                 "nonce"
@@ -202,6 +205,7 @@ class CodeExchangeManagerTest {
         assertSame(accessToken, result.accessToken)
         assertSame(refreshToken, result.refreshToken)
         assertSame(idToken, result.idToken)
+        assertSame(accessToken, toldAccessToken.captured.await())
         verify(exactly = 1) { claimAclManager.getTokenDoors(any(), any()) }
         coVerifyOrder {
             objectLockRepository.lock(LockKey.User(userId).stripe)
