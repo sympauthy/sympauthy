@@ -166,20 +166,18 @@ open class CodeExchangeManager(
                 )
             }
         } else null
-
-        val accessToken = deferredAccessToken.await()
         val deferredIdToken = async {
             idTokenGenerator.generateIdToken(
                 grant = grant,
                 audience = client.audience,
-                accessToken = accessToken,
+                accessToken = deferredAccessToken,
                 doors = doors,
                 nonce = nonce
             )
         }
 
         IssuedTokens(
-            accessToken = accessToken,
+            accessToken = deferredAccessToken.await(),
             refreshToken = deferredRefreshToken?.await(),
             idToken = deferredIdToken.await()
         )

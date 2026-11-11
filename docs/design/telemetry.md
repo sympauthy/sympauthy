@@ -339,7 +339,7 @@ URL's is. A request finding its signing key already held opens no span for it.
 | `resolve <purpose>` | under it, each purpose the walk reaches, carrying `purpose` as the flow metrics spell it |
 | `complete flow` | the completion that ends the walk, so an authorization webhook reads as what it waited on |
 | `establish account` | deciding which account a provider's new identity is, carrying `provider_id` and `kind` |
-| `issue access_token`, `issue refresh_token`, `issue id_token` | one per token issued, whatever the grant, the id token's holding the claim reads it needs |
+| `issue access_token`, `issue refresh_token`, `issue id_token` | one per token issued, whatever the grant, the id token's holding the claim reads it needs and its wait for the access token it names in `at_hash` |
 
 **A stage a caller's mistake refused is not an error.** A token or a state refused carries `outcome`
 `refused` and the code it was refused with, and its span ends without the error status, which is

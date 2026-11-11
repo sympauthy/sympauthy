@@ -38,6 +38,7 @@ import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -46,6 +47,9 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
 import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -117,6 +121,33 @@ class IdTokenGeneratorTest {
     }
 
     @Test
+    fun `generateIdToken - Read its claims, record itself and start signing before the access token is issued`() =
+        runTest {
+            val grant = grant()
+            val builder = stubGeneration(checkNotNull(grant.userId))
+            val accessToken = CompletableDeferred<EncodedAuthenticationToken>()
+
+            val idToken = async {
+                generator.generateIdToken(grant, audience, accessToken, doors, GrantType.AUTHORIZATION_CODE)
+            }
+            runCurrent()
+
+            assertFalse(idToken.isCompleted)
+            coVerifyOrder {
+                consentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn(
+                    any(), any(), ClaimPublicationPlace.ID_TOKEN, doors, any()
+                )
+                tokenRepository.save(any())
+                jwtManager.create(JwtManager.PUBLIC_KEY, any(), any())
+            }
+
+            accessToken.complete(mockk { every { token } returns ACCESS_TOKEN })
+            idToken.await()
+
+            assertEquals("77QmUPtjPfzWtF2AnpK9RQ", builder.build().getStringClaim("at_hash"))
+        }
+
+    @Test
     fun `generateIdToken - Record the token under its grant and the grant type that issued it`() = runTest {
         val grant = grant()
 
@@ -176,7 +207,9 @@ class IdTokenGeneratorTest {
         val idToken = generator.generateIdToken(
             grant = grant,
             audience = audience,
-            accessToken = mockk { every { token } returns ACCESS_TOKEN },
+            accessToken = CompletableDeferred(
+                mockk<EncodedAuthenticationToken> { every { token } returns ACCESS_TOKEN }
+            ),
             doors = doors,
             grantType = GrantType.AUTHORIZATION_CODE
         )
@@ -392,7 +425,7 @@ class IdTokenGeneratorTest {
         }
         val builder = stubGeneration(userId = checkNotNull(grant.userId))
 
-        generator.generateIdToken(grant, audience, accessToken, doors, grantType, nonce)
+        generator.generateIdToken(grant, audience, CompletableDeferred(accessToken), doors, grantType, nonce)
 
         return builder.build()
     }
@@ -419,8 +452,8 @@ class IdTokenGeneratorTest {
         every { tokenMapper.toEncodedAuthenticationToken(any(), any(), any()) } returns mockk()
 
         val builder = JWTClaimsSet.Builder()
-        coEvery { jwtManager.create(JwtManager.PUBLIC_KEY, any(), any()) } answers {
-            arg<JWTClaimsSet.Builder.() -> Unit>(2)(builder)
+        coEvery { jwtManager.create(JwtManager.PUBLIC_KEY, any(), any()) } coAnswers {
+            arg<suspend JWTClaimsSet.Builder.() -> Unit>(2)(builder)
             "encoded-id-token"
         }
         return builder
@@ -436,7 +469,7 @@ class IdTokenGeneratorTest {
         generator.generateIdToken(
             grant = grant(userId = userId, consentedScopes = emptyList()),
             audience = audience,
-            accessToken = accessToken,
+            accessToken = CompletableDeferred(accessToken),
             doors = doors,
             grantType = GrantType.AUTHORIZATION_CODE
         )

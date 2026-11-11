@@ -23,6 +23,7 @@ import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.Deferred
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.*
@@ -49,9 +50,11 @@ class IdTokenGenerator(
      * [audience] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
      *
-     * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it. [doors]
-     * are the ones that access token comes through, the same ones it was issued through: an id token is bound
-     * to nothing itself, and is told only what the access token issued beside it may be told.
+     * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it. It is
+     * awaited only for that claim: the claims are read, the row written and the signing key loaded while it is
+     * still being issued. [doors] are the ones that access token comes through, the same ones it was issued
+     * through: an id token is bound to nothing itself, and is told only what the access token issued beside it
+     * may be told.
      *
      * The subject, the authentication time and the claims the request asked for are the [grant]'s, and only
      * the issue date, the expiry and the claim values are read again, which is what OpenID Connect Core §12.2
@@ -72,7 +75,7 @@ class IdTokenGenerator(
     suspend fun generateIdToken(
         grant: Grant,
         audience: Audience,
-        accessToken: EncodedAuthenticationToken,
+        accessToken: Deferred<EncodedAuthenticationToken>,
         doors: ClaimAclTokenDoors,
         grantType: GrantType = grant.grantType,
         nonce: String? = null
@@ -124,7 +127,7 @@ class IdTokenGenerator(
                 grant.authenticationDate?.let {
                     claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
                 }
-                claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.token))
+                claim("at_hash", advancedConfig.publicJwtAlgorithm.hashAlgorithm.atHash(accessToken.await().token))
                 // Last, and against what this token has already claimed, so that nothing a deployment named
                 // after a member the token states about its own authorization displaces it.
                 publishedClaims.publishedMembers(reserved = claims.keys).forEach { (name, value) ->
