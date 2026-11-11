@@ -1,28 +1,13 @@
 package com.sympauthy.it.compliance
 
-import com.nimbusds.jose.JOSEObjectType
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.crypto.ECDSASigner
 import com.nimbusds.jose.jwk.Curve
-import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.gen.ECKeyGenerator
-import com.nimbusds.jose.util.Base64URL
-import com.nimbusds.jose.util.JSONObjectUtils
-import com.nimbusds.jwt.JWTClaimsSet
-import com.nimbusds.jwt.SignedJWT
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
-import com.sympauthy.testcontainers.SympauthyContainer
-import com.sympauthy.testcontainers.flow.InteractiveFlowRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
-import java.util.Date
-import java.util.UUID
 
 /**
  * Compliance scenario — **an access token bound to a DPoP key is served only under the `DPoP` scheme with
@@ -48,14 +33,14 @@ class DpopBoundAccessTokenRefusedAsBearerIT : AbstractSympauthyIT() {
     fun boundAccessTokenIsServedUnderDpopAndRefusedAsBearer(database: Database) {
         withContainer(database) { sympauthy, registry ->
             val key = ECKeyGenerator(Curve.P_256).generate()
-            val accessToken = boundAccessToken(sympauthy, registry, key)
+            val accessToken = exchangeForBoundToken(sympauthy, registry, signUp(registry), key)
             val userInfoEndpoint = discovery(sympauthy).userinfoEndpoint!!
 
             val underDpop = httpGet(
                 userInfoEndpoint,
                 headers = mapOf(
                     "Authorization" to "DPoP $accessToken",
-                    "DPoP" to proof(key, "GET", userInfoEndpoint, accessToken),
+                    "DPoP" to dpopProof(key, "GET", userInfoEndpoint, accessToken),
                 ),
             )
             assertEquals(
@@ -71,47 +56,4 @@ class DpopBoundAccessTokenRefusedAsBearerIT : AbstractSympauthyIT() {
             )
         }
     }
-
-    /**
-     * The access token a sign-up through [registry]'s flow is issued when its code is exchanged beside a
-     * proof signed by [key], which binds the token to that key.
-     */
-    private fun boundAccessToken(
-        sympauthy: SympauthyContainer,
-        registry: InteractiveFlowRegistry,
-        key: ECKey,
-    ): String {
-        val tokenEndpoint = discovery(sympauthy).tokenEndpoint
-        val response = exchangeCode(
-            sympauthy, registry, signUp(registry),
-            headers = mapOf("DPoP" to proof(key, "POST", tokenEndpoint, accessToken = null)),
-        )
-        assertEquals(200, response.statusCode(), "the code exchange should succeed, body=${response.body()}")
-        val body = JSONObjectUtils.parse(response.body())
-        assertEquals("DPoP", body["token_type"], "a token request beside a proof should be issued a bound token")
-        return body["access_token"] as String
-    }
-
-    /**
-     * A DPoP proof signed by [key] for a request of [method] to [url], carrying the hash of [accessToken]
-     * where the request presents one.
-     */
-    private fun proof(key: ECKey, method: String, url: String, accessToken: String?): String {
-        val header = JWSHeader.Builder(JWSAlgorithm.ES256)
-            .type(JOSEObjectType("dpop+jwt"))
-            .jwk(key.toPublicJWK())
-            .build()
-        val claims = JWTClaimsSet.Builder()
-            .jwtID(UUID.randomUUID().toString())
-            .claim("htm", method)
-            .claim("htu", url)
-            .issueTime(Date())
-            .apply { accessToken?.let { claim("ath", hash(it)) } }
-            .build()
-        return SignedJWT(header, claims).apply { sign(ECDSASigner(key)) }.serialize()
-    }
-
-    private fun hash(accessToken: String): String = Base64URL.encode(
-        MessageDigest.getInstance("SHA-256").digest(accessToken.toByteArray(StandardCharsets.US_ASCII)),
-    ).toString()
 }
