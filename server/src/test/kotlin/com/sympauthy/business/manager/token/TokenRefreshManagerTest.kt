@@ -43,7 +43,10 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.slot
 import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -130,6 +133,8 @@ class TokenRefreshManagerTest {
 
     /** The doors every token of one response comes through. */
     private val doors = mockk<ClaimAclTokenDoors>()
+
+    private val toldAccessToken = slot<Deferred<EncodedAuthenticationToken>>()
 
     /**
      * Stubs the doors of a token issued under [grant] to [client], bound where [dpopJkt] is set, as [doors]: a
@@ -278,7 +283,7 @@ class TokenRefreshManagerTest {
         } returns refreshedRefreshToken
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -286,6 +291,7 @@ class TokenRefreshManagerTest {
 
         assertSame(accessToken, tokens.accessToken)
         assertSame(refreshedRefreshToken, tokens.refreshToken)
+        assertSame(accessToken, toldAccessToken.captured.await())
     }
 
     @Test
@@ -312,7 +318,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -321,6 +327,7 @@ class TokenRefreshManagerTest {
         assertSame(accessToken, tokens.accessToken)
         assertNull(tokens.refreshToken)
         assertNull(tokens.idToken)
+        assertSame(accessToken, toldAccessToken.captured.await())
     }
 
     @Test
@@ -341,13 +348,14 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
         val tokens = manager.refresh(client, TokenRequest.RefreshToken("token"), dpopJkt = "jkt")
 
         assertSame(accessToken, tokens.accessToken)
+        assertSame(accessToken, toldAccessToken.captured.await())
     }
 
     @Test
@@ -388,7 +396,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
 
@@ -397,6 +405,7 @@ class TokenRefreshManagerTest {
         assertSame(accessToken, tokens.accessToken)
         coVerify(exactly = 0) { consentManager.findActiveConsentByAudienceOrNull(any(), any()) }
         coVerify(exactly = 0) { userManager.markRefreshed(any(), any()) }
+        assertSame(accessToken, toldAccessToken.captured.await())
     }
 
     @Test
@@ -423,7 +432,7 @@ class TokenRefreshManagerTest {
         every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
         coEvery {
             idTokenGenerator.generateIdToken(
-                grant, match { it.id == "test-audience" }, any(), doors, GrantType.REFRESH_TOKEN
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
             )
         } returns null
         coEvery { userManager.markRefreshed(userId, issueDate) } just runs
@@ -431,6 +440,7 @@ class TokenRefreshManagerTest {
         manager.refresh(client, TokenRequest.RefreshToken("token"))
 
         coVerify(exactly = 1) { userManager.markRefreshed(userId, issueDate) }
+        assertSame(accessToken, toldAccessToken.captured.await())
     }
 
     @Test
@@ -445,7 +455,6 @@ class TokenRefreshManagerTest {
             every { issueDate } returns now()
         }
         val idToken = mockk<EncodedAuthenticationToken>()
-        val toldAccessToken = slot<Deferred<EncodedAuthenticationToken>>()
 
         coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
         coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
@@ -467,6 +476,48 @@ class TokenRefreshManagerTest {
 
         assertSame(idToken, tokens.idToken)
         assertSame(accessToken, toldAccessToken.captured.await())
+    }
+
+    @Test
+    fun `refresh - Starts the identity before the access token is issued`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockClient("test-client")
+        val audience = client.audience
+        val decodedToken = DecodedJwt(id = UUID.randomUUID().toString(), subject = "sub", keyId = null)
+        val refreshToken = mockRefreshableToken("test-client", userId)
+        val grant = refreshToken.grant
+        val accessToken = mockk<EncodedAuthenticationToken> {
+            every { issueDate } returns now()
+        }
+        val accessTokenIssued = CompletableDeferred<Unit>()
+
+        coEvery { jwtManager.decodeAndVerify(REFRESH_KEY, "token") } returns decodedToken
+        coEvery { tokenManager.getAuthenticationToken(decodedToken) } returns refreshToken
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        coEvery { userManager.markRefreshed(userId, any()) } just runs
+        coEvery { consentManager.findActiveConsentByAudienceOrNull(userId, "test-audience") } returns mockk()
+        stubDoors(grant, client, null)
+        coEvery {
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.REFRESH_TOKEN, null)
+        } coAnswers {
+            accessTokenIssued.await()
+            accessToken
+        }
+        every { manager.shouldRefreshToken(refreshToken, accessToken) } returns false
+        coEvery {
+            idTokenGenerator.generateIdToken(
+                grant, match { it.id == "test-audience" }, capture(toldAccessToken), doors, GrantType.REFRESH_TOKEN
+            )
+        } returns mockk()
+
+        val tokens = async { manager.refresh(client, TokenRequest.RefreshToken("token")) }
+        runCurrent()
+
+        assertFalse(tokens.isCompleted)
+        assertFalse(toldAccessToken.captured.isCompleted)
+
+        accessTokenIssued.complete(Unit)
+        tokens.await()
     }
 
     @Test

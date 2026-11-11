@@ -52,8 +52,9 @@ class IdTokenGenerator(
      *
      * [accessToken] is the one issued in the same response, and the token's `at_hash` claim names it. It is
      * awaited only for that claim: the claims are read, the row written and the signing key loaded while it is
-     * still being issued. [doors] are the ones that access token comes through, the same ones it was issued through: an id
-     * token is bound to nothing itself, and is told only what the access token issued beside it may be told.
+     * still being issued. [doors] are the ones that access token comes through, the same ones it was issued
+     * through: an id token is bound to nothing itself, and is told only what the access token issued beside it
+     * may be told.
      *
      * The subject, the authentication time and the claims the request asked for are the [grant]'s, and only
      * the issue date, the expiry and the claim values are read again, which is what OpenID Connect Core §12.2

@@ -44,7 +44,10 @@ import io.mockk.runs
 import io.mockk.slot
 import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -213,6 +216,43 @@ class CodeExchangeManagerTest {
             authorizationCodeManager.markExchanged(code)
             accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.AUTHORIZATION_CODE, null)
         }
+    }
+
+    @Test
+    fun `generateTokensUnder - Starts the id token before the access token is issued`() = runTest {
+        val client = mockClientWithGrantTypes(GrantType.AUTHORIZATION_CODE)
+        val audience = client.audience
+        val grant = mockk<Grant> { every { grantType } returns GrantType.AUTHORIZATION_CODE }
+        val accessToken = mockk<EncodedAuthenticationToken>()
+        val accessTokenIssued = CompletableDeferred<Unit>()
+        val toldAccessToken = slot<Deferred<EncodedAuthenticationToken>>()
+
+        stubDoors(grant, client, null)
+        coEvery {
+            accessTokenGenerator.generateAccessToken(grant, audience, doors, GrantType.AUTHORIZATION_CODE, null)
+        } coAnswers {
+            accessTokenIssued.await()
+            accessToken
+        }
+        coEvery {
+            idTokenGenerator.generateIdToken(
+                grant,
+                match { it.id == "test-audience" },
+                capture(toldAccessToken),
+                doors,
+                GrantType.AUTHORIZATION_CODE,
+                "nonce"
+            )
+        } returns mockk()
+
+        val tokens = async { manager.generateTokensUnder(grant, "nonce", client, null) }
+        runCurrent()
+
+        assertFalse(tokens.isCompleted)
+        assertFalse(toldAccessToken.captured.isCompleted)
+
+        accessTokenIssued.complete(Unit)
+        assertSame(accessToken, tokens.await().accessToken)
     }
 
     @Test
