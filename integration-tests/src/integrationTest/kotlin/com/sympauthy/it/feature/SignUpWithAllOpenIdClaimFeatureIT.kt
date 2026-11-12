@@ -119,7 +119,7 @@ class SignUpWithAllOpenIdClaimFeatureIT : AbstractSympauthyIT() {
             "picture" to "https://example.com/ada.png",
             "website" to "https://ada.example.com",
             "gender" to "female",
-            "birth_date" to "1815-12-10",
+            "birthdate" to "1815-12-10",
             "zoneinfo" to "Europe/London",
             "locale" to "en-GB",
             "email" to "ada.lovelace@example.com",

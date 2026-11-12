@@ -187,7 +187,7 @@ claims:
       collected-in-flow: SCOPE_IS_CONSENTED("profile")
       readable-by-person: SCOPE_IS_CONSENTED("profile")
       readable-by-client: SCOPE_IS_CONSENTED("profile")
-  birth_date:
+  birthdate:
     template: personal
     enabled: "false"
     type: date

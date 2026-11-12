@@ -169,7 +169,7 @@ class AuthConfigValidatorTest {
 
     @Test
     fun `validate - Refuse an identifier claim of a type that cannot identify anybody`() {
-        val ctx = validate(listOf("birth_date"), claim("birth_date", ClaimDataType.DATE))
+        val ctx = validate(listOf("birthdate"), claim("birthdate", ClaimDataType.DATE))
 
         assertEquals(
             listOf("config.auth.identifier_claim.unidentifiable_type"),

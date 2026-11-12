@@ -31,9 +31,9 @@ data class RawProviderClaims(
     val emailVerified: Boolean? = null,
 
     val gender: String? = null,
-    val birthDate: LocalDate? = null,
+    val birthdate: LocalDate? = null,
 
-    val zoneInfo: String? = null,
+    val zoneinfo: String? = null,
     val locale: String? = null,
 
     val phoneNumber: String? = null,
@@ -69,8 +69,8 @@ data class RawProviderClaims(
         OpenIdConnectClaimId.WEBSITE -> website
         OpenIdConnectClaimId.EMAIL -> email
         OpenIdConnectClaimId.GENDER -> gender
-        OpenIdConnectClaimId.BIRTH_DATE -> birthDate?.toString()
-        OpenIdConnectClaimId.ZONE_INFO -> zoneInfo
+        OpenIdConnectClaimId.BIRTHDATE -> birthdate?.toString()
+        OpenIdConnectClaimId.ZONEINFO -> zoneinfo
         OpenIdConnectClaimId.LOCALE -> locale
         OpenIdConnectClaimId.PHONE_NUMBER -> phoneNumber
         OpenIdConnectClaimId.STREET_ADDRESS -> streetAddress

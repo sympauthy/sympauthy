@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.ADDRESS
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.BIRTH_DATE
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.BIRTHDATE
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.EMAIL
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.EMAIL_VERIFIED
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.FAMILY_NAME
@@ -22,7 +22,7 @@ import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.PROFILE
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.SUB
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.UPDATED_AT
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.WEBSITE
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.ZONE_INFO
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId.ZONEINFO
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.LocalDate
@@ -112,14 +112,14 @@ data class UserInfoResource(
     @get:Schema(
         description = "Birthday of the end-user, as an ISO 8601 date." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
-    @get:JsonProperty(BIRTH_DATE)
-    val birthDate: LocalDate?,
+    @get:JsonProperty(BIRTHDATE)
+    val birthdate: LocalDate?,
     @get:Schema(
         description = "Time zone of the end-user, from the IANA time zone database, for example " +
             "`Europe/Paris`." + USERINFO_CLAIM_ABSENT_DESCRIPTION
     )
-    @get:JsonProperty(ZONE_INFO)
-    val zoneInfo: String?,
+    @get:JsonProperty(ZONEINFO)
+    val zoneinfo: String?,
     @get:Schema(
         description = "Locale of the end-user, as a BCP 47 language tag, for example `fr-FR`." +
             USERINFO_CLAIM_ABSENT_DESCRIPTION
