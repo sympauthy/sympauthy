@@ -42,7 +42,7 @@ class GrantAdministrationFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun revokesOneGrantAndLeavesTheOther(database: Database) {
         withAdminAndApp(database) { sympauthy, admin, app ->
-            val adminToken = signUpFirstAdmin(sympauthy, admin)
+            val adminToken = signUpFirstAdmin(sympauthy, admin, ADMIN_EMAIL)
             val laptop = signUpAndExchange(sympauthy, app)
             val phone = exchange(
                 sympauthy, app,
@@ -108,15 +108,6 @@ class GrantAdministrationFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    /** Redeems the first-admin bootstrap invitation, signs up, and answers the admin's access token. */
-    private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
-        val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
-        val signedUp = registry.newFlow()
-            .withInvitationToken(invitationToken)
-            .withSignUpHandler { credentials(ADMIN_EMAIL) }
-            .run()
-        return exchange(sympauthy, registry, signedUp).accessToken
-    }
 
     private fun listGrants(
         sympauthy: SympauthyContainer,

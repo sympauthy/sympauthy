@@ -50,7 +50,7 @@ class JsonClaimFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun keepsADocumentAboutAPerson(database: Database) {
         withAdminAndApp(database) { sympauthy, admin, app ->
-            val adminToken = signUpFirstAdmin(sympauthy, admin)
+            val adminToken = signUpFirstAdmin(sympauthy, admin, ADMIN_EMAIL)
             val signedUp = signUpAndExchange(sympauthy, app, EMAIL)
             val userId = UUID.fromString(subjectOf(sympauthy, signedUp.idToken))
             val callerToken = clientCredentialsToken(sympauthy, app, "users:claims:write", "users:claims:read")
@@ -169,15 +169,6 @@ class JsonClaimFeatureIT : AbstractSympauthyIT() {
         return JSONObjectUtils.parse(response.body())
     }
 
-    /** Redeems the first-admin bootstrap invitation, signs up, and answers the admin's access token. */
-    private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
-        val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
-        val signedUp = registry.newFlow()
-            .withInvitationToken(invitationToken)
-            .withSignUpHandler { credentials(ADMIN_EMAIL) }
-            .run()
-        return exchange(sympauthy, registry, signedUp).accessToken
-    }
 
     /**
      * Starts a container holding the admin client of [admin], allowed to read every claim of every user,

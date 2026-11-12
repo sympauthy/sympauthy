@@ -365,6 +365,28 @@ abstract class AbstractSympauthyIT {
         password: String = DEFAULT_PASSWORD,
     ): TokenResource = exchange(sympauthy, registry, signUp(registry, email, password))
 
+    /**
+     * Redeems the `first-admin` bootstrap invitation through [registry]'s flow, signing [email] up with the
+     * default password, and answers the access token its code is exchanged for: bound to [key] as
+     * [exchangeForBoundToken] binds it when one is given, a bearer token from [exchange] when none is.
+     */
+    protected fun signUpFirstAdmin(
+        sympauthy: SympauthyContainer,
+        registry: InteractiveFlowRegistry,
+        email: String,
+        key: ECKey? = null,
+    ): String {
+        val signedUp = registry.newFlow()
+            .withInvitationToken(sympauthy.getBootstrapInvitationToken("first-admin"))
+            .withSignUpHandler { credentials(email) }
+            .run()
+        return if (key == null) {
+            exchange(sympauthy, registry, signedUp).accessToken
+        } else {
+            exchangeForBoundToken(sympauthy, registry, signedUp, key)
+        }
+    }
+
     /** The id token of a complete sign-in with [login], as the server signed it. */
     protected fun signIn(
         sympauthy: SympauthyContainer,
