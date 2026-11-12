@@ -50,7 +50,7 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
     fun keepsAnAdministratorsPreferences(database: Database) {
         withAdminAndApp(database) { sympauthy, admin, app ->
             val key = ECKeyGenerator(Curve.P_256).generate()
-            val boundToken = signUpFirstAdmin(sympauthy, admin, key)
+            val boundToken = signUpFirstAdmin(sympauthy, admin, ADMIN_EMAIL, key)
 
             val written = patchClaims(sympauthy, key, boundToken, mapOf(CLAIM to DOCUMENT))
             assertEquals(200, written.statusCode(), "the bound write should be served, body=${written.body()}")
@@ -119,17 +119,6 @@ class AdminPreferencesFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    /**
-     * Redeems the first-admin bootstrap invitation through [registry]'s flow, and answers the access token
-     * its code is exchanged for beside a proof signed by [key].
-     */
-    private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry, key: ECKey): String {
-        val signedUp = registry.newFlow()
-            .withInvitationToken(sympauthy.getBootstrapInvitationToken("first-admin"))
-            .withSignUpHandler { credentials(ADMIN_EMAIL) }
-            .run()
-        return exchangeForBoundToken(sympauthy, registry, signedUp, key)
-    }
 
     /**
      * A `GET` of [url] under the `DPoP` scheme, with [token] and a proof signed by [key]: the generated

@@ -47,7 +47,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             database,
             build = { fixture, registry -> adminReadingContainer(fixture, registry) },
         ) { sympauthy, registry ->
-            val adminToken = signUpFirstAdmin(sympauthy, registry)
+            val adminToken = signUpFirstAdmin(sympauthy, registry, ADMIN_EMAIL)
 
             val signInPage = startAuthorization(sympauthy, registry)
             val state = queryParam(signInPage, "state") ?: fail("the redirect carried no state: $signInPage")
@@ -86,7 +86,7 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
             database,
             build = { fixture, registry -> adminReadingContainer(fixture, registry) },
         ) { sympauthy, registry ->
-            val adminToken = signUpFirstAdmin(sympauthy, registry)
+            val adminToken = signUpFirstAdmin(sympauthy, registry, ADMIN_EMAIL)
 
             val signInPage = startAuthorization(sympauthy, registry)
             val state = queryParam(signInPage, "state") ?: fail("the redirect carried no state: $signInPage")
@@ -173,15 +173,6 @@ class InteractiveFlowSessionPlacesFeatureIT : AbstractSympauthyIT() {
         .withAdmin()
         .withAdminClient(registry, "openid", "admin:interactive-flow-sessions:read")
 
-    /** Redeems the first-admin bootstrap invitation, signs up, and answers the admin's access token. */
-    private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
-        val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
-        val signedUp = registry.newFlow()
-            .withInvitationToken(invitationToken)
-            .withSignUpHandler { credentials(ADMIN_EMAIL) }
-            .run()
-        return exchange(sympauthy, registry, signedUp).accessToken
-    }
 
     private companion object {
         const val ADMIN_EMAIL = "admin@example.com"

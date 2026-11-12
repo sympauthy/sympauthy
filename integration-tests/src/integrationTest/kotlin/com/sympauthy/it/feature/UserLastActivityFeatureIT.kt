@@ -40,7 +40,7 @@ class UserLastActivityFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun lastDatesFollowThePersonAndOutliveTheirGrants(database: Database) {
         withAdminAndApp(database) { sympauthy, admin, app ->
-            val adminToken = signUpFirstAdmin(sympauthy, admin)
+            val adminToken = signUpFirstAdmin(sympauthy, admin, ADMIN_EMAIL)
             val tokens = signUpAndExchange(sympauthy, app)
             val userId = userIdOf(sympauthy, adminToken, DEFAULT_EMAIL)
             val authTime = checkNotNull(
@@ -103,7 +103,7 @@ class UserLastActivityFeatureIT : AbstractSympauthyIT() {
     @EnumSource(Database::class)
     fun collectionFiltersAndOrdersOnBothDates(database: Database) {
         withAdminAndApp(database) { sympauthy, admin, app ->
-            val adminToken = signUpFirstAdmin(sympauthy, admin)
+            val adminToken = signUpFirstAdmin(sympauthy, admin, ADMIN_EMAIL)
             val adminId = userIdOf(sympauthy, adminToken, ADMIN_EMAIL)
             val ada = signUpAndExchange(sympauthy, app)
             val adaId = userIdOf(sympauthy, adminToken, DEFAULT_EMAIL)
@@ -185,15 +185,6 @@ class UserLastActivityFeatureIT : AbstractSympauthyIT() {
         }
     }
 
-    /** Redeems the first-admin bootstrap invitation, signs up, and answers the admin's access token. */
-    private fun signUpFirstAdmin(sympauthy: SympauthyContainer, registry: InteractiveFlowRegistry): String {
-        val invitationToken = sympauthy.getBootstrapInvitationToken("first-admin")
-        val signedUp = registry.newFlow()
-            .withInvitationToken(invitationToken)
-            .withSignUpHandler { credentials(ADMIN_EMAIL) }
-            .run()
-        return exchange(sympauthy, registry, signedUp).accessToken
-    }
 
     private fun userIdOf(sympauthy: SympauthyContainer, token: String, email: String): UUID =
         withApiClient(sympauthy, token = token) { ctx ->
