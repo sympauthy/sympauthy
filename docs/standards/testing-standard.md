@@ -52,11 +52,8 @@ exception is what an assertion turns on, reaching the assertion is proof the cal
 **A verification that a call did not happen is kept.** It is often the point of the test — that a
 refused caller never reached the write, that a failure short-circuited before the side effect.
 
-**A test does not restate a name a specification gives.** A unit test asserting that `/userinfo`
-publishes `birthdate` checks the code against the same reading of OpenID Connect that the constant
-was written from. A misreading puts the same wrong name in both, and the test passes. What a test
-proves is the behaviour around the name: that a claim is published under its claim's id, whatever
-that id is.
+**A unit test does not check the name a specification gives a field.** Write the name once, in the
+constant the code publishes it from. Assert what the code does with the value instead.
 
 **Test the order as much as the result.** Prove that validation ran before the write, that a corrupt
 row failed before anything acted on it, that a session was left untouched when the purpose was not
