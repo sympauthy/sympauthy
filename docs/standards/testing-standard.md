@@ -52,8 +52,8 @@ exception is what an assertion turns on, reaching the assertion is proof the cal
 **A verification that a call did not happen is kept.** It is often the point of the test — that a
 refused caller never reached the write, that a failure short-circuited before the side effect.
 
-**A unit test does not check the name a specification gives a field.** Write the name once, in the
-constant the code publishes it from. Assert what the code does with the value instead.
+**A unit test whose point is the name a specification gives a field is not written.** Write the name
+once, in the constant the code publishes it from, and assert what the code does with the value.
 
 **Test the order as much as the result.** Prove that validation ran before the write, that a corrupt
 row failed before anything acted on it, that a session was left untouched when the purpose was not
