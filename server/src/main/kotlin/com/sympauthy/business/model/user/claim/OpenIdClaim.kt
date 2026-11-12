@@ -189,8 +189,8 @@ object OpenIdConnectClaimId {
     const val EMAIL = "email"
     const val EMAIL_VERIFIED = "email_verified"
     const val GENDER = "gender"
-    const val BIRTH_DATE = "birth_date"
-    const val ZONE_INFO = "zoneinfo"
+    const val BIRTHDATE = "birthdate"
+    const val ZONEINFO = "zoneinfo"
     const val LOCALE = "locale"
     const val PHONE_NUMBER = "phone_number"
     const val PHONE_NUMBER_VERIFIED = "phone_number_verified"
@@ -204,7 +204,7 @@ object OpenIdConnectClaimId {
     val ALL: Set<String> = setOf(
         AUTH_TIME, SUB, NAME, GIVEN_NAME, FAMILY_NAME, MIDDLE_NAME, NICKNAME,
         PREFERRED_USERNAME, PROFILE, PICTURE, WEBSITE, EMAIL, EMAIL_VERIFIED,
-        GENDER, BIRTH_DATE, ZONE_INFO, LOCALE, PHONE_NUMBER, PHONE_NUMBER_VERIFIED,
+        GENDER, BIRTHDATE, ZONEINFO, LOCALE, PHONE_NUMBER, PHONE_NUMBER_VERIFIED,
         UPDATED_AT, STREET_ADDRESS, LOCALITY, REGION, POSTAL_CODE, COUNTRY
     )
 }

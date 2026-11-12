@@ -42,9 +42,9 @@ data class ProviderUserInfoEntity(
     val emailVerified: Boolean? = null,
 
     val gender: String? = null,
-    val birthDate: LocalDate? = null,
+    val birthdate: LocalDate? = null,
 
-    val zoneInfo: String? = null,
+    val zoneinfo: String? = null,
     val locale: String? = null,
 
     val phoneNumber: String? = null,

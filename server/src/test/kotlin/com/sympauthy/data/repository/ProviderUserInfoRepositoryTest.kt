@@ -45,8 +45,8 @@ class ProviderUserInfoRepositoryTest {
         assertEquals("Ada Lovelace", stored.name)
         assertEquals("ada@example.org", stored.email)
         assertEquals(true, stored.emailVerified)
-        assertEquals(LocalDate.of(1815, 12, 10), stored.birthDate)
-        assertEquals("Europe/London", stored.zoneInfo)
+        assertEquals(LocalDate.of(1815, 12, 10), stored.birthdate)
+        assertEquals("Europe/London", stored.zoneinfo)
     }
 
     @ParameterizedTest
@@ -183,8 +183,8 @@ class ProviderUserInfoRepositoryTest {
                 name = "Ada Lovelace",
                 email = "ada@example.org",
                 emailVerified = true,
-                birthDate = LocalDate.of(1815, 12, 10),
-                zoneInfo = "Europe/London"
+                birthdate = LocalDate.of(1815, 12, 10),
+                zoneinfo = "Europe/London"
             )
         ).also { deleteOnEnd { links.deleteByProviderIdAndUserId(providerId, userId) } }
     }

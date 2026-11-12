@@ -18,9 +18,9 @@ enum class ProviderUserInfoPathKey {
     EMAIL_VERIFIED,
 
     GENDER,
-    BIRTH_DATE,
+    BIRTHDATE,
 
-    ZONE_INFO,
+    ZONEINFO,
     LOCALE,
 
     PHONE_NUMBER,

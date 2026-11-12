@@ -23,9 +23,9 @@ CREATE TABLE provider_user_info
     email_verified        boolean,
 
     gender                text,
-    birth_date            date,
+    birthdate             date,
 
-    zone_info             text,
+    zoneinfo              text,
     locale                text,
 
     phone_number          text,

@@ -28,8 +28,8 @@ class RawProviderClaimsBuilder {
     var email: String? = null
     var emailVerified: Boolean? = null
     var gender: String? = null
-    var birthDate: LocalDate? = null
-    var zoneInfo: String? = null
+    var birthdate: LocalDate? = null
+    var zoneinfo: String? = null
     var locale: String? = null
     var phoneNumber: String? = null
     var phoneNumberVerified: Boolean? = null
@@ -59,8 +59,8 @@ class RawProviderClaimsBuilder {
             EMAIL -> email = readString(document, path)
             EMAIL_VERIFIED -> emailVerified = readBoolean(document, path)
             GENDER -> gender = readString(document, path)
-            BIRTH_DATE -> birthDate = readDate(document, path)
-            ZONE_INFO -> zoneInfo = readString(document, path)
+            BIRTHDATE -> birthdate = readDate(document, path)
+            ZONEINFO -> zoneinfo = readString(document, path)
             LOCALE -> locale = readString(document, path)
             PHONE_NUMBER -> phoneNumber = readString(document, path)
             PHONE_NUMBER_VERIFIED -> phoneNumberVerified = readBoolean(document, path)
@@ -117,8 +117,8 @@ class RawProviderClaimsBuilder {
             email = email,
             emailVerified = emailVerified,
             gender = gender,
-            birthDate = birthDate,
-            zoneInfo = zoneInfo,
+            birthdate = birthdate,
+            zoneinfo = zoneinfo,
             locale = locale,
             phoneNumber = phoneNumber,
             phoneNumberVerified = phoneNumberVerified,
