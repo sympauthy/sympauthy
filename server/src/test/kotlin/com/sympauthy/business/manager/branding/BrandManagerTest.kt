@@ -55,7 +55,7 @@ class BrandManagerTest {
         client,
         RemoteCallMonitor(conditionMonitor, OpenTelemetry.noop()),
         ResourceResolver(),
-        BrandStylesheetRenderer(ResourceResolver(), ObjectMapper.getDefault())
+        BrandStylesheetRenderer(BrandTokenResolver(ResourceResolver(), ObjectMapper.getDefault(), config))
     ).also(managers::add)
 
     private fun config(

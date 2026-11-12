@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.validationcode
 
-import com.sympauthy.business.manager.mail.MailQueue
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
+import com.sympauthy.business.model.code.ValidationCodeReason.RESET_PASSWORD
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.FeaturesConfig
-import com.sympauthy.config.model.UIConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.mail.MailBrandResolver
+import com.sympauthy.mail.MailQueue
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -22,7 +22,7 @@ import java.util.*
 class ValidationCodeMailSender(
     @Inject private val mailQueue: MailQueue,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
-    @Inject private val uncheckedUIConfig: UIConfig
+    @Inject private val mailBrandResolver: MailBrandResolver
 ) : ValidationCodeMediaSender {
 
     override val media = EMAIL
@@ -43,30 +43,30 @@ class ValidationCodeMailSender(
         }
 
         val maxAge = Duration.between(LocalDateTime.now(), validationCode.expirationDate)
+        // One code serves every reason of its media: a code that also resets the password says so.
+        val mail = if (RESET_PASSWORD in validationCode.reasons) RESET_PASSWORD_MAIL else VALIDATION_CODE_MAIL
 
         mailQueue.send(
-            template = "mails/validation_code",
+            template = "mails/$mail",
             locale = Locale.US,
             receiver = email,
-            subjectKey = "mail.validation_code.subject",
+            subjectKey = "mail.$mail.subject",
             parameters = mapOf(
                 "code" to validationCode.code,
-                "displayName" to displayName()
+                "displayName" to mailBrandResolver.displayName,
+                "expiryMinutes" to maxAge.toMinutesRoundedUp().toString()
             ),
             maxAge = maxAge
         )
     }
 
     /**
-     * The name a mail is signed under. A `ui` section that failed reads as one that named nobody, since a colour
-     * written badly is no reason to stop anybody receiving their code.
+     * The minutes a reader has left, rounded up so that a code valid for 9 minutes 59 does not read as 9.
      */
-    private fun displayName(): String = (uncheckedUIConfig as? EnabledUIConfig)?.displayName ?: DEFAULT_DISPLAY_NAME
+    private fun Duration.toMinutesRoundedUp(): Long = (toSeconds() + 59).floorDiv(60).coerceAtLeast(1)
 
     private companion object {
-        /**
-         * The name a deployment that configured none is signed under, since it shows SympAuthy's brand everywhere else.
-         */
-        const val DEFAULT_DISPLAY_NAME = "SympAuthy"
+        const val VALIDATION_CODE_MAIL = "validation_code"
+        const val RESET_PASSWORD_MAIL = "reset_password"
     }
 }

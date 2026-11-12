@@ -1,8 +1,7 @@
-package com.sympauthy.business.manager.mail
+package com.sympauthy.mail
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.MAIL_BACKLOG
-import com.sympauthy.business.model.mail.QueuedMail
 import com.sympauthy.client.remoteErrorType
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity

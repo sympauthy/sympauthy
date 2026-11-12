@@ -93,7 +93,8 @@ dependencies {
 
     // Mail templating
     implementation("io.micronaut.email:micronaut-email-template")
-    runtimeOnly(libs.freemarker)
+    // The mail templates call back into the bundle through FreeMarker's method model.
+    implementation(libs.freemarker)
 
     // Mail sending (SMTP)
     implementation("io.micronaut.email:micronaut-email-javamail")
@@ -269,7 +270,10 @@ val syncDesignSystem = tasks.register<Sync>("syncDesignSystem") {
         "tokens.json" to "tokens.json",
         "logos/sympauthy-favicon.svg" to "icon.svg",
         "logos/sympauthy-icon.svg" to "logo.svg",
-        "logos/sympauthy-icon-dark.svg" to "logo-dark.svg"
+        "logos/sympauthy-icon-dark.svg" to "logo-dark.svg",
+        // The marks a mail shows: a mail client does not draw an SVG.
+        "logos/icon-192.png" to "logo.png",
+        "logos/icon-dark-512.png" to "logo-dark.png"
     )
     inputs.property("resourcesByFile", resourcesByFile)
     // Every file of the archive is a source and is excluded here rather than by an include pattern: a task whose

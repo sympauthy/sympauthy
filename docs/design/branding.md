@@ -108,6 +108,27 @@ no-cache`.** A browser revalidates and gets a `304` when nothing changed, and tw
 the same bytes answer the same tag. The paths never change, so a long `max-age` would keep showing
 the old logo for days.
 
+## Mails are drawn in the brand
+
+**A mail is the flow's auth card page drawn for a mail client**: the brand header, one card of at
+most 480px and the footer, on `ground`. `views/mails/kit.ftl` holds the pieces every mail is
+assembled from, and a mail template only orders them; its strings are the mail bundle's.
+
+**A mail reads colours as values, not variables.** A mail client applies no stylesheet it fetches and
+reads no CSS variable, so `MailBrandResolver` resolves each of the stylesheet's colours to its value,
+an alias to the colour of the token it names, and the kit inlines each value. The dark roles are repainted
+by a `prefers-color-scheme` rule where the client honours one, and left out under `dark-mode: "off"`.
+Status colours stay SympAuthy's, as on the pages.
+
+**A mail shows a PNG logo, or the name alone.** A mail client draws no SVG. `/branding/logo.png` and
+`/branding/logo-dark.png` answer the deployment's logo where it is a PNG, SympAuthy's PNG where it
+configured none, and nothing where it configured an SVG, so that its mails show its name rather than
+SympAuthy's mark. A mail links them by absolute address under `urls.root`, versioned by their content
+so that a client's image proxy does not keep the previous logo.
+
+**The brand is read when the mail is sent, not when it is queued.** A queued mail holds its
+parameters; the brand is whatever the deployment is configured with when the queue delivers it.
+
 ## What implements it
 
 **`BrandManager` holds what is answered**: it fetches and retries the images, and falls back to the
@@ -115,11 +136,13 @@ marks the build places under `branding/` in the resources. A configuration that 
 that configured nothing, since it already takes readiness down and a sign-in page is better served
 with SympAuthy's brand than with none.
 
-**`BrandStylesheetRenderer` writes the stylesheet from the design system's `tokens.json`.** That
-file and the marks beside it, its `sympauthy-favicon`, `sympauthy-icon` and `sympauthy-icon-dark`
-logos, come from the one version of `sympauthy-design` that `gradle/libs.versions.toml` declares,
-and git holds no copy. The build takes them from that tag's archive, and fails naming any of the
-four the tag does not hold.
+**`BrandTokenResolver` is the one reader of the design system's `tokens.json`**: it reads the file
+once and writes the deployment's roles over it once, so that `BrandStylesheetRenderer`, writing the
+stylesheet, and the mails cannot disagree on what a role colours or on which tokens the dark theme
+carries. That file and the marks beside it, its `sympauthy-favicon`, `sympauthy-icon` and `sympauthy-icon-dark`
+logos, and the `icon-192` and `icon-dark-512` PNGs the mails show, come from the one version of
+`sympauthy-design` that `gradle/libs.versions.toml` declares, and git holds no copy. The build takes
+them from that tag's archive, and fails naming any the tag does not hold.
 
 **A new version of the design system is a one-line bump, reviewed.** Renovate proposes each new tag,
 and nothing merges one on its own: a bump changes what every deployment's sign-in pages show, and

@@ -1,6 +1,9 @@
-package com.sympauthy.business.manager.mail
+package com.sympauthy.mail
 
 import com.sympauthy.util.renderOrNull
+import freemarker.template.TemplateMethodModelEx
+import freemarker.template.TemplateModelException
+import freemarker.template.TemplateScalarModel
 import io.micronaut.context.MessageSource
 import io.micronaut.email.*
 import io.micronaut.email.template.TemplateBody
@@ -36,6 +39,9 @@ class TemplatedMailBuilder(
 
         builder = Email.builder()
             .body(body)
+
+        model[MESSAGE_MODEL_KEY] = MessageMethod()
+        model[LANG_MODEL_KEY] = locale.toLanguageTag()
     }
 
     fun sender(email: String) = email.let(::Contact).let { this.sender(it) }
@@ -80,8 +86,26 @@ class TemplatedMailBuilder(
         return messageSource.renderOrNull(messageKey, locale, model)
     }
 
+    /**
+     * `msg(key)` in a template: the message [key] names in the mail bundle, in the locale of the mail and
+     * interpolated with its model, so that a template holds the structure and the bundle every string.
+     *
+     * A key the bundle does not hold fails the rendering rather than mailing a dotted identifier.
+     */
+    private inner class MessageMethod : TemplateMethodModelEx {
+        override fun exec(arguments: MutableList<Any?>?): Any {
+            val key = (arguments?.singleOrNull() as? TemplateScalarModel)?.asString
+                ?: throw TemplateModelException("msg takes the key of one message.")
+            return localizeMessage(key) ?: throw TemplateModelException("The mail bundle has no message $key.")
+        }
+    }
+
     companion object {
         const val TITLE_MODEL_KEY = "title"
         const val PREVIEW_TEXT_MODEL_KEY = "previewText"
+        const val BRAND_MODEL_KEY = "brand"
+        const val DISPLAY_NAME_MODEL_KEY = "displayName"
+        const val MESSAGE_MODEL_KEY = "msg"
+        const val LANG_MODEL_KEY = "lang"
     }
 }

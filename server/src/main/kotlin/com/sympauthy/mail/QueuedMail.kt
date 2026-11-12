@@ -1,4 +1,4 @@
-package com.sympauthy.business.model.mail
+package com.sympauthy.mail
 
 import java.util.*
 
