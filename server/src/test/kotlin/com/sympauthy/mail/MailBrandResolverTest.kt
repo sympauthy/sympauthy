@@ -122,4 +122,11 @@ class MailBrandResolverTest {
     fun `resolve - Shows no logo where no root URL is configured`() {
         assertFalse("logoUrl" in resolver().resolve())
     }
+
+    @Test
+    fun `resolve - Shows no logo where the root URL is local`() {
+        val brand = resolver(urls = EnabledUrlsConfig(URI.create("http://localhost:8080"))).resolve()
+
+        assertFalse("logoUrl" in brand)
+    }
 }

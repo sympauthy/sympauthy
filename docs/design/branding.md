@@ -127,6 +127,19 @@ it configured none, and nothing where it configured an SVG, so that its mails sh
 than SympAuthy's mark. A mail links them by absolute address under `urls.root`, versioned by their
 content so that a client's image proxy does not keep the previous logo.
 
+**A root URL with a local host links no logo**: a name of a single label or one reserved for a local
+network, or a loopback, private, shared or link-local address. A mail is read through its provider,
+whose image proxy fetches the logo from the internet, so a link there draws a broken image where the
+name alone would do. The host is judged as it is written and never resolved, since a deployment's
+name may resolve to a private address inside its own network and to a public one outside it.
+
+**A mail names the deployment in its subject, its header and its footer, and in a sentence that
+speaks of the deployment itself.** The subject is read in the inbox before the header is, and the
+footer says why the reader got the mail, from whom. The header shows the name above everything else,
+so the preview text, which the inbox shows beside the subject, does not repeat it, and neither does a
+sentence of the card unless the deployment is what it is about: the sign-in page a code is entered
+on, or that it never asks for one.
+
 **The brand is read when the mail is sent, not when it is queued.** A queued mail holds what it was
 sent for, a code; the brand, the name it is signed under and the minutes a code has left are read
 when the queue delivers it.

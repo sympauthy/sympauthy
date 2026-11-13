@@ -8,6 +8,7 @@ import com.sympauthy.business.model.branding.BrandImageName.LOGO
 import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
 import com.sympauthy.business.model.branding.BrandImageType
 import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.buildUponRoot
 import com.sympauthy.config.model.getOrNull
@@ -27,6 +28,10 @@ import kotlin.math.roundToInt
  * Its logo is the PNG `/branding/logo.png` answers, by absolute address: a mail client draws no SVG, and a mail is
  * read away from the server. A deployment whose logo is an SVG, or whose root URL is not configured, has mails
  * showing its name alone.
+ *
+ * **So has a deployment whose root URL is local** ([EnabledUrlsConfig.isRootLocal]): a mail is read through its
+ * provider, whose image proxy fetches the logo from the internet, so a link no mail client can reach draws a broken
+ * image where the name alone would do.
  */
 @Singleton
 class MailBrandResolver(
@@ -93,7 +98,7 @@ class MailBrandResolver(
      * not given at its own size.
      */
     private fun mailLogo(name: BrandImageName): Pair<String, Int>? {
-        val urls = uncheckedUrlsConfig.getOrNull() ?: return null
+        val urls = uncheckedUrlsConfig.getOrNull()?.takeUnless { it.isRootLocal } ?: return null
         val asset = brandManager.getMailImage(name) ?: return null
         val size = BrandImageType.pngSizeOrNull(asset.content) ?: return null
         val path = if (name == LOGO_DARK) "logo-dark.png" else "logo.png"
