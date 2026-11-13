@@ -6,10 +6,12 @@ import com.sympauthy.business.model.branding.BrandImageName.ICON
 import com.sympauthy.business.model.branding.BrandImageName.LOGO
 import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
 import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.business.model.branding.pngOf
 import com.sympauthy.client.branding.BrandImageClient
 import com.sympauthy.config.model.DisabledUIConfig
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.LocalBrandImage
+import com.sympauthy.config.model.RemoteBrandImage
 import com.sympauthy.config.model.ThemeConfig
 import com.sympauthy.config.model.UIConfig
 import com.sympauthy.monitoring.Condition
@@ -18,6 +20,7 @@ import com.sympauthy.monitoring.RemoteCallMonitor
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
+import io.micronaut.http.MediaType
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
@@ -50,13 +53,17 @@ class BrandManagerTest {
     private val otherSvg = "<svg>dark</svg>".toByteArray()
     private val managers = mutableListOf<BrandManager>()
 
-    private fun manager(config: UIConfig = config()): BrandManager = BrandManager(
-        config,
-        client,
-        RemoteCallMonitor(conditionMonitor, OpenTelemetry.noop()),
-        ResourceResolver(),
-        BrandStylesheetRenderer(BrandTokenResolver(ResourceResolver(), ObjectMapper.getDefault(), config))
-    ).also(managers::add)
+    private fun manager(config: UIConfig = config()): BrandManager {
+        val tokenResolver = BrandTokenResolver(ResourceResolver(), ObjectMapper.getDefault(), config)
+        return BrandManager(
+            config,
+            client,
+            RemoteCallMonitor(conditionMonitor, OpenTelemetry.noop()),
+            ResourceResolver(),
+            BrandStylesheetRenderer(tokenResolver),
+            tokenResolver
+        ).also(managers::add)
+    }
 
     private fun config(
         logo: ByteArray? = null,
@@ -138,6 +145,46 @@ class BrandManagerTest {
         val css = manager(config(theme = theme)).stylesheet.content.decodeToString()
 
         assertTrue("--primary: #0f766e;" in css)
+    }
+
+    @Test
+    fun `getMailImage - Answers SympAuthy's PNG logos where nothing is configured`() {
+        val manager = manager().apply { init() }
+
+        listOf(LOGO, LOGO_DARK).forEach { name ->
+            assertEquals(MediaType.IMAGE_PNG, manager.getMailImage(name)?.mediaType)
+        }
+        assertFalse(manager.getMailImage(LOGO)!!.content.contentEquals(manager.getMailImage(LOGO_DARK)!!.content))
+    }
+
+    @Test
+    fun `getMailImage - Answers the PNG a deployment configured, on dark grounds too without a dark logo`() {
+        val png = pngOf(200, 100)
+        val manager = manager(config(logo = png)).apply { init() }
+
+        assertArrayEquals(png, manager.getMailImage(LOGO)?.content)
+        assertArrayEquals(png, manager.getMailImage(LOGO_DARK)?.content)
+    }
+
+    @Test
+    fun `getMailImage - Answers nothing for an SVG a deployment configured, rather than SympAuthy's logo`() {
+        val manager = manager(config(logo = svg)).apply { init() }
+
+        assertNull(manager.getMailImage(LOGO))
+        assertNull(manager.getMailImage(LOGO_DARK))
+    }
+
+    @Test
+    fun `getMailImage - Answers nothing for an image still being fetched`() {
+        val config = EnabledUIConfig(
+            displayName = null,
+            icon = null,
+            logo = RemoteBrandImage(uri),
+            logoDark = null,
+            theme = ThemeConfig.DEFAULT
+        )
+
+        assertNull(manager(config).getMailImage(LOGO))
     }
 
     @Test

@@ -78,4 +78,28 @@ class BrandImageTest {
         assertEquals(BrandImageType.PNG, BrandImage.ofOrNull(atLimit)?.type)
         assertNull(BrandImage.ofOrNull(atLimit + 0))
     }
+
+    @Test
+    fun `pngSizeOrNull - Reads the size the header gives`() {
+        assertEquals(BrandImageSize(200, 100), BrandImageType.pngSizeOrNull(pngOf(200, 100)))
+    }
+
+    @Test
+    fun `pngSizeOrNull - Answers null for a PNG not opening with its header`() {
+        val content = pngOf(200, 100).also { "IDAT".toByteArray().copyInto(it, destinationOffset = 12) }
+
+        assertNull(BrandImageType.pngSizeOrNull(content))
+    }
+
+    @Test
+    fun `pngSizeOrNull - Answers null for a size that is not positive`() {
+        assertNull(BrandImageType.pngSizeOrNull(pngOf(-1, 100)))
+        assertNull(BrandImageType.pngSizeOrNull(pngOf(200, 0)))
+    }
+
+    @Test
+    fun `pngSizeOrNull - Answers null for what is no PNG or is cut before its size`() {
+        assertNull(BrandImageType.pngSizeOrNull("<svg/>".toByteArray()))
+        assertNull(BrandImageType.pngSizeOrNull(png))
+    }
 }

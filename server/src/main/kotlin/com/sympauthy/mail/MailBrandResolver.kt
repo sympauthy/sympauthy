@@ -2,19 +2,17 @@ package com.sympauthy.mail
 
 import com.sympauthy.business.manager.branding.BrandManager
 import com.sympauthy.business.manager.branding.BrandTokenResolver
-import com.sympauthy.business.model.branding.BrandAsset
 import com.sympauthy.business.model.branding.BrandColorValue
 import com.sympauthy.business.model.branding.BrandImageName
 import com.sympauthy.business.model.branding.BrandImageName.LOGO
 import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
+import com.sympauthy.business.model.branding.BrandImageType
 import com.sympauthy.business.model.branding.DarkMode
-import com.sympauthy.config.model.EnabledUIConfig
-import com.sympauthy.config.model.UIConfig
 import com.sympauthy.config.model.UrlsConfig
+import com.sympauthy.config.model.buildUponRoot
 import com.sympauthy.config.model.getOrNull
 import com.sympauthy.util.wireName
 import com.sympauthy.view.BrandingController.Companion.BRANDING_ENDPOINT
-import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.roundToInt
@@ -34,11 +32,8 @@ import kotlin.math.roundToInt
 class MailBrandResolver(
     @Inject private val brandTokenResolver: BrandTokenResolver,
     @Inject private val brandManager: BrandManager,
-    @Inject private val uncheckedUIConfig: UIConfig,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
-
-    private val uiConfig = uncheckedUIConfig as? EnabledUIConfig
 
     private val theme get() = brandTokenResolver.theme
 
@@ -50,13 +45,14 @@ class MailBrandResolver(
     /**
      * The name a mail is signed under: the deployment's, or SympAuthy's where it configured none.
      */
-    val displayName: String get() = uiConfig?.displayName ?: DEFAULT_DISPLAY_NAME
+    val displayName: String get() = brandManager.brand.displayName ?: DEFAULT_DISPLAY_NAME
 
     /**
      * The `brand` model of a mail. The logos are read at every mail, since a remote one resolves after startup.
      */
     fun resolve(): Map<String, Any> = buildMap {
         put("displayName", displayName)
+        put("isSympAuthy", brandManager.brand.displayName == null)
         put("darkMode", theme.darkMode.wireName)
         put("light", palette.first)
         put("dark", palette.second)
@@ -93,36 +89,21 @@ class MailBrandResolver(
 
     /**
      * The address of the PNG a mail shows for [name], versioned by its content so that a mail client's image proxy
-     * does not keep the previous logo, and its width at the 40px the kit draws it.
+     * does not keep the previous logo, and its width drawn [LOGO_HEIGHT] tall: Outlook draws an image whose width is
+     * not given at its own size.
      */
     private fun mailLogo(name: BrandImageName): Pair<String, Int>? {
-        val root = uncheckedUrlsConfig.getOrNull()?.root ?: return null
+        val urls = uncheckedUrlsConfig.getOrNull() ?: return null
         val asset = brandManager.getMailImage(name) ?: return null
-        val width = widthAtLogoHeight(asset) ?: return null
+        val size = BrandImageType.pngSizeOrNull(asset.content) ?: return null
         val path = if (name == LOGO_DARK) "logo-dark.png" else "logo.png"
-        val url = UriBuilder.of(root)
+        val url = urls.buildUponRoot()
             .path(BRANDING_ENDPOINT)
             .path(path)
             .queryParam("v", asset.etag.trim('"').take(VERSION_LENGTH))
             .build()
+        val width = (LOGO_HEIGHT.toDouble() * size.width / size.height).roundToInt().coerceAtLeast(1)
         return url.toString() to width
-    }
-
-    /**
-     * The width of a PNG drawn [LOGO_HEIGHT] tall, read from its header: Outlook draws an image whose width is not
-     * given at its own size.
-     */
-    private fun widthAtLogoHeight(asset: BrandAsset): Int? {
-        val bytes = asset.content
-        if (bytes.size < PNG_HEADER_SIZE) return null
-        val width = bytes.int(PNG_WIDTH_OFFSET)
-        val height = bytes.int(PNG_WIDTH_OFFSET + 4)
-        if (width <= 0 || height <= 0) return null
-        return (LOGO_HEIGHT.toDouble() * width / height).roundToInt().coerceAtLeast(1)
-    }
-
-    private fun ByteArray.int(offset: Int): Int = (0 until 4).fold(0) { acc, i ->
-        (acc shl 8) or (this[offset + i].toInt() and 0xff)
     }
 
     private companion object {
@@ -130,11 +111,5 @@ class MailBrandResolver(
 
         const val LOGO_HEIGHT = 40
         const val VERSION_LENGTH = 12
-
-        /**
-         * The signature, the length and type of the IHDR chunk, then its width and height.
-         */
-        const val PNG_WIDTH_OFFSET = 16
-        const val PNG_HEADER_SIZE = 24
     }
 }

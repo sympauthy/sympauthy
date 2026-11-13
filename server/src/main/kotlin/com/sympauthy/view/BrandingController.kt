@@ -73,13 +73,15 @@ class BrandingController(
      * pages live on. The server does not try to clean an SVG: these keep whatever it holds from running.
      */
     private fun answerImage(request: HttpRequest<*>, name: BrandImageName): HttpResponse<ByteArray> =
-        answer(request, brandManager.getImage(name))
-            .header(HttpHeaders.CONTENT_SECURITY_POLICY, IMAGE_CONTENT_SECURITY_POLICY)
-            .header(X_CONTENT_TYPE_OPTIONS, "nosniff")
+        answer(request, brandManager.getImage(name)).withImageHeaders()
+
+    private fun MutableHttpResponse<ByteArray>.withImageHeaders() = this
+        .header(HttpHeaders.CONTENT_SECURITY_POLICY, IMAGE_CONTENT_SECURITY_POLICY)
+        .header(X_CONTENT_TYPE_OPTIONS, "nosniff")
 
     private fun answerMailImage(request: HttpRequest<*>, name: BrandImageName): HttpResponse<ByteArray> {
         val asset = brandManager.getMailImage(name) ?: return HttpResponse.notFound()
-        return answer(request, asset).header(X_CONTENT_TYPE_OPTIONS, "nosniff")
+        return answer(request, asset).withImageHeaders()
     }
 
     private fun answer(request: HttpRequest<*>, asset: BrandAsset): MutableHttpResponse<ByteArray> {

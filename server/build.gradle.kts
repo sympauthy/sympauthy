@@ -251,7 +251,7 @@ tasks {
 }
 
 // --- Design system ------------------------------------------------------------------------------
-// The tokens and the marks BrandStylesheetRenderer and BrandManager read are the design system's own files, taken
+// The tokens and the marks BrandTokenResolver and BrandManager read are the design system's own files, taken
 // from the one version gradle/libs.versions.toml declares. See docs/design/branding.md.
 val designSystem: Configuration = configurations.create("designSystem") {
     isCanBeConsumed = false

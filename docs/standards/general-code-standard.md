@@ -52,6 +52,7 @@ change to this table before it is a class.
 | `data` | Micronaut Data, `monitoring` and the JDK | `business`, `api` |
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
 | `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
+| `mail` | `business`, `config`, `data`, `client`, `monitoring`, the Micronaut framework, the JDK | `api`, `view` |
 | `monitoring` | logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
 
 **`business` may import `api` in exactly one case**: a manager in `business.manager.auth` or
@@ -70,6 +71,13 @@ the mechanism.
 
 **A validator takes what it needs from elsewhere as a parameter**, resolved by its factory. No
 manager, no mapper and no business exception reaches `config`.
+
+**`business` never imports `mail`.** A manager reaches a mail through an interface `business`
+declares and `mail` implements, as `ValidationCodeMediaSender` is, so a use case says that a message
+goes out without depending on how it is composed, drawn or delivered.
+
+**`mail` may import `view` in exactly one case**: the path of a route a mail links to, so that the
+address a mail carries and the route answering it are one constant.
 
 **An embedded language lives in `expression`, below the layer that checks it and the layer that runs
 it.** It defines the functions, turns a string into a boolean or a failure, and is handed the values

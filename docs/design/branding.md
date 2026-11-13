@@ -21,6 +21,7 @@ documentation](https://sympauthy.github.io/technical/configuration/). How an out
 | `/branding/icon` | the favicon and small mark |
 | `/branding/logo` | the logo for light grounds |
 | `/branding/logo-dark` | the logo for dark grounds |
+| `/branding/logo.png`, `/branding/logo-dark.png` | the logos a mail shows |
 | `/branding/brand.json` | the display name and the dark mode |
 
 **Anyone can read them, without authentication.** A deployment that turned the admin off still
@@ -29,7 +30,7 @@ images rather than copying them.
 
 **`/branding` is not an API surface.** It has one audience and no gate, like the apps' own assets,
 so [the API standard](../standards/api-standard.md)'s route rules do not apply and it is not in the
-OpenAPI document. `brand.json` carries no version, because a prefix on one path of five would split
+OpenAPI document. `brand.json` carries no version, because a prefix on one of its paths would split
 a set that changes together; its body still follows the standard's JSON rules, and it answers every
 origin, since it holds nothing private and an allow-list would add a configuration step for every
 hosted flow.
@@ -114,20 +115,21 @@ the old logo for days.
 most 480px and the footer, on `ground`. `views/mails/kit.ftl` holds the pieces every mail is
 assembled from, and a mail template only orders them; its strings are the mail bundle's.
 
-**A mail reads colours as values, not variables.** A mail client applies no stylesheet it fetches and
-reads no CSS variable, so `MailBrandResolver` resolves each of the stylesheet's colours to its value,
-an alias to the colour of the token it names, and the kit inlines each value. The dark roles are repainted
-by a `prefers-color-scheme` rule where the client honours one, and left out under `dark-mode: "off"`.
-Status colours stay SympAuthy's, as on the pages.
+**A mail reads colours as values, not variables.** A mail client applies no stylesheet it fetches
+and reads no CSS variable, so `MailBrandResolver` resolves each of the stylesheet's colours to its
+value, an alias to the colour of the token it names, and the kit inlines each value. The dark roles
+the kit paints are repainted by a `prefers-color-scheme` rule where the client honours one, and left
+out under `dark-mode: "off"`. Status colours stay SympAuthy's, as on the pages.
 
-**A mail shows a PNG logo, or the name alone.** A mail client draws no SVG. `/branding/logo.png` and
-`/branding/logo-dark.png` answer the deployment's logo where it is a PNG, SympAuthy's PNG where it
-configured none, and nothing where it configured an SVG, so that its mails show its name rather than
-SympAuthy's mark. A mail links them by absolute address under `urls.root`, versioned by their content
-so that a client's image proxy does not keep the previous logo.
+**A mail shows a PNG logo, or the name alone.** A mail client draws no SVG. `/branding/logo.png`
+and `/branding/logo-dark.png` answer the deployment's logo where it is a PNG, SympAuthy's PNG where
+it configured none, and nothing where it configured an SVG, so that its mails show its name rather
+than SympAuthy's mark. A mail links them by absolute address under `urls.root`, versioned by their
+content so that a client's image proxy does not keep the previous logo.
 
-**The brand is read when the mail is sent, not when it is queued.** A queued mail holds its
-parameters; the brand is whatever the deployment is configured with when the queue delivers it.
+**The brand is read when the mail is sent, not when it is queued.** A queued mail holds what it was
+sent for, a code; the brand, the name it is signed under and the minutes a code has left are read
+when the queue delivers it.
 
 ## What implements it
 
@@ -139,10 +141,10 @@ with SympAuthy's brand than with none.
 **`BrandTokenResolver` is the one reader of the design system's `tokens.json`**: it reads the file
 once and writes the deployment's roles over it once, so that `BrandStylesheetRenderer`, writing the
 stylesheet, and the mails cannot disagree on what a role colours or on which tokens the dark theme
-carries. That file and the marks beside it, its `sympauthy-favicon`, `sympauthy-icon` and `sympauthy-icon-dark`
-logos, and the `icon-192` and `icon-dark-512` PNGs the mails show, come from the one version of
-`sympauthy-design` that `gradle/libs.versions.toml` declares, and git holds no copy. The build takes
-them from that tag's archive, and fails naming any the tag does not hold.
+carries. That file and the marks beside it, its `sympauthy-favicon`, `sympauthy-icon` and
+`sympauthy-icon-dark` logos, and the `icon-192` and `icon-dark-512` PNGs the mails show, come from
+the one version of `sympauthy-design` that `gradle/libs.versions.toml` declares, and git holds no
+copy. The build takes them from that tag's archive, and fails naming any the tag does not hold.
 
 **A new version of the design system is a one-line bump, reviewed.** Renovate proposes each new tag,
 and nothing merges one on its own: a bump changes what every deployment's sign-in pages show, and

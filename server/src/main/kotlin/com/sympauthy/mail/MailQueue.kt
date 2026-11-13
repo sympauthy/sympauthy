@@ -172,10 +172,14 @@ class MailQueue(
     private suspend fun processMail(mail: QueuedMail) {
         try {
             val builder = mailBuilderFactory
-                .builder(template = mail.template, locale = mail.locale)
+                .builder(
+                    template = mail.template,
+                    locale = mail.locale,
+                    parameters = mail.parameters,
+                    expirationDate = mail.expirationDate
+                )
                 .apply {
                     receiver(mail.receiver)
-                    mail.parameters.forEach { (key, value) -> set(key, value) }
                     localizedSubject(mail.subjectKey)
                 }
             logger.trace { "Sending mail template=${mail.template} to=${mail.receiver}." }
@@ -255,7 +259,8 @@ class MailQueue(
         locale = Locale.forLanguageTag(locale),
         receiver = receiver,
         subjectKey = subjectKey,
-        parameters = parameters
+        parameters = parameters,
+        expirationDate = expirationDate
     )
 
     companion object {

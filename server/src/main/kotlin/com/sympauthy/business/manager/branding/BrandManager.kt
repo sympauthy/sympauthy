@@ -8,7 +8,6 @@ import com.sympauthy.business.model.branding.BrandImageName
 import com.sympauthy.business.model.branding.BrandImageName.ICON
 import com.sympauthy.business.model.branding.BrandImageName.LOGO
 import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
-import com.sympauthy.business.model.branding.DarkMode
 import com.sympauthy.client.branding.BrandImageClient
 import com.sympauthy.client.remoteErrorType
 import com.sympauthy.client.remoteOutcome
@@ -58,7 +57,8 @@ class BrandManager(
     @Inject private val brandImageClient: BrandImageClient,
     @Inject private val remoteCallMonitor: RemoteCallMonitor,
     @Inject private val resourceResolver: ResourceResolver,
-    stylesheetRenderer: BrandStylesheetRenderer
+    stylesheetRenderer: BrandStylesheetRenderer,
+    brandTokenResolver: BrandTokenResolver
 ) {
 
     /**
@@ -68,12 +68,12 @@ class BrandManager(
 
     private val uiConfig = uncheckedUIConfig as? EnabledUIConfig
 
-    private val defaultImages = BrandImageName.entries.associateWith(::readDefaultImage)
+    private val defaultImages = BrandImageName.entries.associateWith { readDefaultImage(it, "svg") }
 
     /**
      * SympAuthy's logos as PNG, for the mails: a mail client does not draw an SVG.
      */
-    private val defaultMailImages = MAIL_IMAGES.associateWith(::readDefaultMailImage)
+    private val defaultMailImages = MAIL_IMAGES.associateWith { readDefaultImage(it, "png") }
 
     private val resolvedImages = ConcurrentHashMap<BrandImageName, BrandAsset>()
 
@@ -89,7 +89,7 @@ class BrandManager(
 
     val brand = Brand(
         displayName = uiConfig?.displayName,
-        darkMode = uiConfig?.theme?.darkMode ?: DarkMode.AUTO
+        darkMode = brandTokenResolver.theme.darkMode
     )
 
     @PostConstruct
@@ -176,16 +176,8 @@ class BrandManager(
                 ?: throw internalBusinessExceptionOf("branding.image.unusable", "image" to name.configName)
         }
 
-    private fun readDefaultImage(name: BrandImageName): BrandAsset {
-        val resource = "classpath:branding/${name.configName}.svg"
-        val content = resourceResolver.getResourceAsStream(resource).getOrNull()?.use { it.readAllBytes() }
-            ?: error("$resource is not in this build.")
-        val image = BrandImage.ofOrNull(content) ?: error("$resource is not an image this server would answer.")
-        return image.toAsset()
-    }
-
-    private fun readDefaultMailImage(name: BrandImageName): BrandAsset {
-        val resource = "classpath:branding/${name.configName}.png"
+    private fun readDefaultImage(name: BrandImageName, extension: String): BrandAsset {
+        val resource = "classpath:branding/${name.configName}.$extension"
         val content = resourceResolver.getResourceAsStream(resource).getOrNull()?.use { it.readAllBytes() }
             ?: error("$resource is not in this build.")
         val image = BrandImage.ofOrNull(content) ?: error("$resource is not an image this server would answer.")

@@ -12,6 +12,7 @@
 
   The model a template is rendered with:
     brand.displayName   the name the deployment signs with ("SympAuthy" when it configured none)
+    brand.isSympAuthy   true when the deployment configured no name, so the mail is signed as SympAuthy
     brand.logoUrl       optional, absolute URL of a PNG logo (mail clients do not draw SVG)
     brand.logoWidth     width of the logo at 40px tall
     brand.logoDarkUrl   optional, the PNG logo for dark grounds, and brand.logoDarkWidth
@@ -36,13 +37,25 @@
 
   Inside a card, every block is followed by space-4 (16px), as the auth card stacks its content.
   A color drawn by a block carries a class (`sa-bg-*`, `sa-fg-*`, `sa-bd-*`) naming its token, which
-  the dark rules in the head repaint where the mail client honors prefers-color-scheme.
+  the dark rules in the head repaint where the mail client honors prefers-color-scheme. A block that
+  paints a token lists it in `painted`, under the kind of its class.
 -->
 
 <#-- ===== Tokens ======================================================================== -->
 
 <#assign sans = "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
 <#assign mono = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace">
+
+<#--
+  The tokens the blocks paint, by the class they paint them with. The dark rules repaint these and no
+  others, so a mail carries no rule for a token none of its blocks uses.
+-->
+<#assign painted = {
+    "bg": ["ground", "surface", "ink-50", "ink-200", "primary", "primary-subtle", "warning-subtle", "danger-subtle"],
+    "fg": ["ink-900", "ink-500", "on-primary", "on-primary-subtle", "primary", "warning", "danger"],
+    "bd": ["ink-200", "warning-line", "danger-line"]
+}>
+<#assign paintedProperties = {"bg": "background-color", "fg": "color", "bd": "border-color"}>
 
 <#-- The light value of a color token. Light is what a client that ignores dark rules shows. -->
 <#function c token>
@@ -104,12 +117,14 @@
         }
         <#if brand.darkMode == "auto">
 
-        <#-- Dark: repaint every token a block named. Apple Mail, iOS Mail, Outlook for Mac and others honor this. -->
+        <#-- Dark: repaint every token a block paints. Apple Mail, iOS Mail, Outlook for Mac and others honor this. -->
         @media (prefers-color-scheme: dark) {
-            <#list brand.dark as token, value>
-            .sa-bg-${token} { background-color: ${value} !important; }
-            .sa-fg-${token} { color: ${value} !important; }
-            .sa-bd-${token} { border-color: ${value} !important; }
+            <#list painted as kind, tokens>
+            <#list tokens as token>
+            <#if brand.dark[token]??>
+            .sa-${kind}-${token} { ${paintedProperties[kind]}: ${brand.dark[token]} !important; }
+            </#if>
+            </#list>
             </#list>
             .sa-btn:hover { background-color: ${brand.dark["primary-hover"]} !important; }
             .sa-link:hover { color: ${brand.dark["primary-hover"]} !important; }
@@ -149,7 +164,7 @@
   A deployment whose logo is no PNG shows its name alone: mail clients do not draw SVG.
 -->
 <#macro header>
-    <#local isSympAuthy = brand.displayName == "SympAuthy">
+    <#local isSympAuthy = brand.isSympAuthy>
     <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
         <tr>
             <td align="center" style="padding:0 0 24px 0;">
@@ -349,7 +364,7 @@
                 <#if lines?markup_string?trim?has_content>
                 <p class="sa-fg-ink-500" style="${text(14, 20, 400, 'ink-500')} text-align:center; padding:0 0 8px 0;">${lines}</p>
                 </#if>
-                <p class="sa-fg-ink-500" style="${text(14, 20, 400, 'ink-500')} text-align:center;"><#if brand.displayName != "SympAuthy">${msg("mail.kit.sent_by")}<br></#if><@powered_by/></p>
+                <p class="sa-fg-ink-500" style="${text(14, 20, 400, 'ink-500')} text-align:center;"><#if !brand.isSympAuthy>${msg("mail.kit.sent_by")}<br></#if><@powered_by/></p>
             </td>
         </tr>
     </table>

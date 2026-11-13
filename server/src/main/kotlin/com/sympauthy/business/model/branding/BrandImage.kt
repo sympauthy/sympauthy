@@ -45,6 +45,30 @@ enum class BrandImageType(val mediaType: String) {
         }
 
         /**
+         * The size a PNG's header gives, or null where [content] is no PNG, does not open with its header chunk as
+         * the format requires, or gives a size that is not positive.
+         */
+        fun pngSizeOrNull(content: ByteArray): BrandImageSize? {
+            if (detectOrNull(content) != PNG || content.size < PNG_HEADER_END) return null
+            if (!IHDR.indices.all { content[PNG_CHUNK_TYPE_OFFSET + it] == IHDR[it] }) return null
+            val width = content.int(PNG_CHUNK_TYPE_OFFSET + IHDR.size)
+            val height = content.int(PNG_CHUNK_TYPE_OFFSET + IHDR.size + Int.SIZE_BYTES)
+            if (width <= 0 || height <= 0) return null
+            return BrandImageSize(width, height)
+        }
+
+        private fun ByteArray.int(offset: Int): Int = (0 until Int.SIZE_BYTES).fold(0) { acc, i ->
+            (acc shl Byte.SIZE_BITS) or (this[offset + i].toInt() and 0xff)
+        }
+
+        /**
+         * The signature, then the header chunk's length, come before its type; its width and height follow it.
+         */
+        private const val PNG_CHUNK_TYPE_OFFSET = 12
+        private const val PNG_HEADER_END = 24
+        private val IHDR = "IHDR".toByteArray(Charsets.US_ASCII)
+
+        /**
          * Whether the first element of [text] is an `svg` one, past what an XML document may open with: a byte
          * order mark, a declaration, a comment and a doctype, which an export from a drawing tool usually has.
          *
@@ -116,6 +140,14 @@ enum class BrandImageType(val mediaType: String) {
         private const val UTF8_BOM = "ï»¿"
     }
 }
+
+/**
+ * The size of an image, in pixels.
+ */
+data class BrandImageSize(
+    val width: Int,
+    val height: Int
+)
 
 /**
  * The images a deployment may configure, each answered under its [com.sympauthy.util.configName].
