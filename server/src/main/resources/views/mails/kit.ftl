@@ -13,7 +13,8 @@
   The model a template is rendered with:
     brand.displayName   the name the deployment signs with ("SympAuthy" when it configured none)
     brand.isSympAuthy   true when the deployment configured no name, so the mail is signed as SympAuthy
-    brand.logoUrl       optional, absolute URL of a PNG logo (mail clients do not draw SVG)
+    brand.logoUrl       optional, absolute URL of a PNG logo: absent where the logo is an SVG, which mail clients do
+                        not draw, or where the root URL is local, which their image proxies do not reach
     brand.logoWidth     width of the logo at 40px tall
     brand.logoDarkUrl   optional, the PNG logo for dark grounds, and brand.logoDarkWidth
     brand.darkMode      "auto" (follow the device where the client lets us) or "off"
@@ -161,7 +162,7 @@
   The brand header above the card: the logo at 40px beside the name (`flow-brand`), as the flow's
   BasePage draws it. SympAuthy's own name is its wordmark, "Symp" at 500 and "Authy" at 800, with its
   tagline under it; a deployment's name is written as it is, without a tagline.
-  A deployment whose logo is no PNG shows its name alone: mail clients do not draw SVG.
+  A mail without a logo shows the name alone: see brand.logoUrl above.
 -->
 <#macro header>
     <#local isSympAuthy = brand.isSympAuthy>

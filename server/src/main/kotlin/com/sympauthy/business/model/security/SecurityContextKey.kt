@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.security
 
-import java.net.InetAddress
+import com.sympauthy.util.inetAddressOfLiteralOrNull
 import java.security.MessageDigest
 import java.util.HexFormat
 
@@ -65,90 +65,12 @@ private fun fingerprintOf(ip: String, userAgent: String?): String {
 }
 
 /**
- * [address] rendered the one way this server spells it, or null where it is not an address literal.
- *
- * **It never resolves a name, and that is the point of doing the parsing by hand.** The value may be
- * the contents of a header, which `docs/design/security-context.md` states is the caller's to write wherever a proxy is
- * named and the origin stays reachable — so handing it to a resolver would have this server look up
- * whatever a caller put there, once per sign-in, from inside the flow. Only what is already a literal is
- * canonicalised; anything else is keyed as it stands, which costs a duplicate row at worst.
- */
-private fun canonicalAddressOrNull(address: String): String? {
-    val trimmed = address.trim().removeSurrounding("[", "]")
-    val bytes = when {
-        trimmed.contains(':') -> ipv6BytesOrNull(trimmed)
-        else -> ipv4BytesOrNull(trimmed)
-    } ?: return null
-    return InetAddress.getByAddress(bytes).hostAddress
-}
-
-/**
- * The four octets of an IPv4 literal, or null for anything else — including a name made only of digits
- * and dots, which a resolver would have gone looking for.
- */
-private fun ipv4BytesOrNull(address: String): ByteArray? {
-    val groups = address.split('.')
-    if (groups.size != 4) return null
-    val octets = groups.map { group ->
-        if (group.isEmpty() || group.length > 3 || !group.all(Char::isDigit)) return null
-        group.toInt().also { if (it > 255) return null }
-    }
-    return ByteArray(4) { octets[it].toByte() }
-}
-
-/**
- * The sixteen bytes of an IPv6 literal, or null for anything else.
- *
- * **It is spelled out here rather than delegated, because delegating it resolves names.**
- * `InetAddress.getByName` parses a literal only when the first character is a hex digit or a colon, and
- * hands everything else to the platform's name service — so a value like `.:1`, which is nothing but
- * hex digits, colons and dots, reaches a resolver. That value can be the contents of a header, which
+ * [address] rendered the one way this server spells it, or null where it is not an address literal. Only what is
+ * already a literal is canonicalised, and never by resolving it: the value may be the contents of a header, which
  * `docs/design/security-context.md` states is the caller's to write wherever a proxy is named and the origin stays
- * reachable: a blocking lookup of somebody's choosing, once per sign-in, from inside the flow.
+ * reachable. Anything else is keyed as it stands, which costs a duplicate row at worst.
  */
-private fun ipv6BytesOrNull(address: String): ByteArray? {
-    // The scope id names an interface on this machine rather than part of the address, so it is dropped.
-    val literal = address.substringBefore('%')
-    val compressedAt = literal.indexOf(COMPRESSION)
-    if (compressedAt >= 0 && literal.indexOf(COMPRESSION, compressedAt + COMPRESSION.length) >= 0) {
-        return null
-    }
-
-    val leading = groupBytesOrNull(if (compressedAt >= 0) literal.take(compressedAt) else literal)
-        ?: return null
-    val trailing = groupBytesOrNull(if (compressedAt >= 0) literal.drop(compressedAt + COMPRESSION.length) else "")
-        ?: return null
-
-    if (compressedAt < 0) {
-        return if (leading.size == ADDRESS_BYTES) leading.toByteArray() else null
-    }
-    // A compression stands for at least one group of zeros, so the halves have to leave room for one.
-    val zeros = ADDRESS_BYTES - leading.size - trailing.size
-    return if (zeros > 0) (leading + List(zeros) { ZERO } + trailing).toByteArray() else null
-}
-
-/**
- * What the colon-separated [groups] contribute, or null where any of them is not a group.
- *
- * The last may be a dotted quad, which is how the low thirty-two bits of a mapped address are written.
- */
-private fun groupBytesOrNull(groups: String): List<Byte>? {
-    if (groups.isEmpty()) return emptyList()
-    val parts = groups.split(':')
-    val bytes = mutableListOf<Byte>()
-    parts.forEachIndexed { index, part ->
-        if (index == parts.lastIndex && part.contains('.')) {
-            bytes += (ipv4BytesOrNull(part) ?: return null).toList()
-        } else {
-            if (part.isEmpty() || part.length > GROUP_DIGITS) return null
-            if (!part.all { it.isDigit() || it in HEX_LETTERS }) return null
-            val group = part.toInt(HEX_RADIX)
-            bytes += (group shr Byte.SIZE_BITS).toByte()
-            bytes += group.toByte()
-        }
-    }
-    return if (bytes.size <= ADDRESS_BYTES) bytes else null
-}
+private fun canonicalAddressOrNull(address: String): String? = inetAddressOfLiteralOrNull(address.trim())?.hostAddress
 
 /**
  * How much of a user agent is kept and keyed on. Generous for anything a browser sends, and short
@@ -162,18 +84,6 @@ const val MAX_USER_AGENT_LENGTH = 1024
  * header nobody could have meant cannot widen the row.
  */
 const val MAX_IP_LENGTH = 64
-
-private val HEX_LETTERS = ('a'..'f') + ('A'..'F')
-
-private const val COMPRESSION = "::"
-
-private const val ADDRESS_BYTES = 16
-
-private const val GROUP_DIGITS = 4
-
-private const val HEX_RADIX = 16
-
-private const val ZERO: Byte = 0
 
 /** A byte HTTP forbids in a field value, so neither half of the digest can contain the divider. */
 private const val FIELD_SEPARATOR: Byte = 0
