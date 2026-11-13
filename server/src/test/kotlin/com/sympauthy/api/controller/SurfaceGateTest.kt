@@ -53,6 +53,8 @@ class SurfaceGateTest {
         "/branding/icon" to setOf(IS_ANONYMOUS),
         "/branding/logo" to setOf(IS_ANONYMOUS),
         "/branding/logo-dark" to setOf(IS_ANONYMOUS),
+        "/branding/logo.png" to setOf(IS_ANONYMOUS),
+        "/branding/logo-dark.png" to setOf(IS_ANONYMOUS),
         "/branding/brand.json" to setOf(IS_ANONYMOUS),
     )
 

@@ -1,13 +1,12 @@
-package com.sympauthy.business.manager.validationcode
+package com.sympauthy.mail
 
-import com.sympauthy.business.manager.mail.MailQueue
+import com.sympauthy.business.manager.validationcode.ValidationCodeMediaSender
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
+import com.sympauthy.business.model.code.ValidationCodeReason.RESET_PASSWORD
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.FeaturesConfig
-import com.sympauthy.config.model.UIConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -17,12 +16,14 @@ import java.util.*
 
 /**
  * Components in charge of sending the validation code to the user by email.
+ *
+ * The mail is queued with the code alone: the brand, the name it is signed under and the minutes the code has left
+ * are read when it is sent.
  */
 @Singleton
 class ValidationCodeMailSender(
     @Inject private val mailQueue: MailQueue,
-    @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
-    @Inject private val uncheckedUIConfig: UIConfig
+    @Inject private val uncheckedFeaturesConfig: FeaturesConfig
 ) : ValidationCodeMediaSender {
 
     override val media = EMAIL
@@ -42,31 +43,21 @@ class ValidationCodeMailSender(
             "${this::class.simpleName} requires a ${media.claim} claim as parameter."
         }
 
-        val maxAge = Duration.between(LocalDateTime.now(), validationCode.expirationDate)
+        // One code serves every reason of its media: a code that also resets the password says so.
+        val mail = if (RESET_PASSWORD in validationCode.reasons) RESET_PASSWORD_MAIL else VALIDATION_CODE_MAIL
 
         mailQueue.send(
-            template = "mails/validation_code",
+            template = "mails/$mail",
             locale = Locale.US,
             receiver = email,
-            subjectKey = "mail.validation_code.subject",
-            parameters = mapOf(
-                "code" to validationCode.code,
-                "displayName" to displayName()
-            ),
-            maxAge = maxAge
+            subjectKey = "mail.$mail.subject",
+            parameters = mapOf("code" to validationCode.code),
+            maxAge = Duration.between(LocalDateTime.now(), validationCode.expirationDate)
         )
     }
 
-    /**
-     * The name a mail is signed under. A `ui` section that failed reads as one that named nobody, since a colour
-     * written badly is no reason to stop anybody receiving their code.
-     */
-    private fun displayName(): String = (uncheckedUIConfig as? EnabledUIConfig)?.displayName ?: DEFAULT_DISPLAY_NAME
-
     private companion object {
-        /**
-         * The name a deployment that configured none is signed under, since it shows SympAuthy's brand everywhere else.
-         */
-        const val DEFAULT_DISPLAY_NAME = "SympAuthy"
+        const val VALIDATION_CODE_MAIL = "validation_code"
+        const val RESET_PASSWORD_MAIL = "reset_password"
     }
 }

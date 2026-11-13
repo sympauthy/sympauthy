@@ -8,7 +8,6 @@ import com.sympauthy.business.model.branding.BrandImageName
 import com.sympauthy.business.model.branding.BrandImageName.ICON
 import com.sympauthy.business.model.branding.BrandImageName.LOGO
 import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
-import com.sympauthy.business.model.branding.DarkMode
 import com.sympauthy.client.branding.BrandImageClient
 import com.sympauthy.client.remoteErrorType
 import com.sympauthy.client.remoteOutcome
@@ -16,7 +15,6 @@ import com.sympauthy.config.model.ConfiguredBrandImage
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.LocalBrandImage
 import com.sympauthy.config.model.RemoteBrandImage
-import com.sympauthy.config.model.ThemeConfig
 import com.sympauthy.config.model.UIConfig
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.ConditionMonitor
@@ -59,7 +57,8 @@ class BrandManager(
     @Inject private val brandImageClient: BrandImageClient,
     @Inject private val remoteCallMonitor: RemoteCallMonitor,
     @Inject private val resourceResolver: ResourceResolver,
-    stylesheetRenderer: BrandStylesheetRenderer
+    stylesheetRenderer: BrandStylesheetRenderer,
+    brandTokenResolver: BrandTokenResolver
 ) {
 
     /**
@@ -69,7 +68,12 @@ class BrandManager(
 
     private val uiConfig = uncheckedUIConfig as? EnabledUIConfig
 
-    private val defaultImages = BrandImageName.entries.associateWith(::readDefaultImage)
+    private val defaultImages = BrandImageName.entries.associateWith { readDefaultImage(it, "svg") }
+
+    /**
+     * SympAuthy's logos as PNG, for the mails: a mail client does not draw an SVG.
+     */
+    private val defaultMailImages = MAIL_IMAGES.associateWith { readDefaultImage(it, "png") }
 
     private val resolvedImages = ConcurrentHashMap<BrandImageName, BrandAsset>()
 
@@ -79,13 +83,13 @@ class BrandManager(
      * The stylesheet both apps link.
      */
     val stylesheet = BrandAsset(
-        stylesheetRenderer.render(uiConfig?.theme ?: ThemeConfig.DEFAULT).toByteArray(),
+        stylesheetRenderer.render().toByteArray(),
         MediaType.TEXT_CSS
     )
 
     val brand = Brand(
         displayName = uiConfig?.displayName,
-        darkMode = uiConfig?.theme?.darkMode ?: DarkMode.AUTO
+        darkMode = brandTokenResolver.theme.darkMode
     )
 
     @PostConstruct
@@ -111,6 +115,25 @@ class BrandManager(
     fun getImage(name: BrandImageName): BrandAsset {
         val fallback = if (name == LOGO_DARK) resolvedImages[LOGO] else null
         return resolvedImages[name] ?: fallback ?: defaultImages.getValue(name)
+    }
+
+    /**
+     * What a mail shows for [name], which is [LOGO] or [LOGO_DARK]: a mail client draws a PNG but not an SVG.
+     *
+     * The deployment's image where it is a PNG, SympAuthy's PNG where the deployment configured none, and null
+     * where it configured an SVG or an image still being fetched, so that a mail shows the deployment's name rather
+     * than SympAuthy's logo. Without a dark logo of its own, a deployment's dark grounds show its logo, as on the
+     * pages.
+     */
+    fun getMailImage(name: BrandImageName): BrandAsset? {
+        require(name in MAIL_IMAGES) { "Mails show no ${name.configName}." }
+        val configured = uiConfig?.let { if (name == LOGO_DARK) it.logoDark ?: it.logo else it.logo }
+        val resolved = resolvedImages[name] ?: if (name == LOGO_DARK) resolvedImages[LOGO] else null
+        return when {
+            configured == null -> defaultMailImages.getValue(name)
+            resolved?.mediaType == MediaType.IMAGE_PNG -> resolved
+            else -> null
+        }
     }
 
     private fun resolve(name: BrandImageName, image: ConfiguredBrandImage?) {
@@ -153,8 +176,8 @@ class BrandManager(
                 ?: throw internalBusinessExceptionOf("branding.image.unusable", "image" to name.configName)
         }
 
-    private fun readDefaultImage(name: BrandImageName): BrandAsset {
-        val resource = "classpath:branding/${name.configName}.svg"
+    private fun readDefaultImage(name: BrandImageName, extension: String): BrandAsset {
+        val resource = "classpath:branding/${name.configName}.$extension"
         val content = resourceResolver.getResourceAsStream(resource).getOrNull()?.use { it.readAllBytes() }
             ?: error("$resource is not in this build.")
         val image = BrandImage.ofOrNull(content) ?: error("$resource is not an image this server would answer.")
@@ -165,6 +188,11 @@ class BrandManager(
 
     private companion object {
         const val FETCH_OPERATION = "fetch"
+
+        /**
+         * The images a mail shows.
+         */
+        val MAIL_IMAGES = setOf(LOGO, LOGO_DARK)
 
         /**
          * It reuses the conditions' quiet period, as a provider's discovery does.

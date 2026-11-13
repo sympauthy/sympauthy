@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.branding
 
 import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.LIGHT_ONLY_THEME_ROLES
 import com.sympauthy.config.model.THEME_ROLES
 import com.sympauthy.config.model.ThemeConfig
@@ -54,12 +55,20 @@ class BrandStylesheetRendererTest {
         }
     """.trimIndent()
 
-    private val renderer by lazy {
-        val resolver = mockk<ResourceResolver> {
-            every { getResourceAsStream("classpath:branding/tokens.json") } returns
+    private val ownTokens by lazy {
+        mockk<ResourceResolver> {
+            every { getResourceAsStream("classpath:branding/tokens.json") } answers {
                 Optional.of(tokens.byteInputStream())
+            }
         }
-        BrandStylesheetRenderer(resolver, ObjectMapper.getDefault())
+    }
+
+    private fun render(
+        theme: ThemeConfig = ThemeConfig.DEFAULT,
+        resourceResolver: ResourceResolver = ownTokens
+    ): String {
+        val config = EnabledUIConfig(displayName = null, icon = null, logo = null, logoDark = null, theme = theme)
+        return BrandStylesheetRenderer(BrandTokenResolver(resourceResolver, ObjectMapper.getDefault(), config)).render()
     }
 
     /**
@@ -77,7 +86,7 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - With nothing configured writes every token`() {
-        val css = renderer.render(ThemeConfig.DEFAULT)
+        val css = render()
 
         val light = css.block(lightBlock)
         assertTrue("--primary: #111111;" in light)
@@ -92,19 +101,19 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - Writes an alias as the variable it names`() {
-        val css = renderer.render(ThemeConfig.DEFAULT)
+        val css = render()
 
         assertTrue("--focus-ring: var(--primary);" in css.block(lightBlock))
     }
 
     @Test
     fun `render - Escapes a dot in a token's name`() {
-        assertTrue("--space-1\\.5: 6px;" in renderer.render(ThemeConfig.DEFAULT))
+        assertTrue("--space-1\\.5: 6px;" in render())
     }
 
     @Test
     fun `render - Writes the fonts and the type styles`() {
-        val css = renderer.render(ThemeConfig.DEFAULT)
+        val css = render()
 
         assertTrue("--font-sans: 'Plus Jakarta Sans Variable', \"Sans\", sans-serif;" in css)
         assertTrue("--font-other: serif;" in css)
@@ -117,22 +126,22 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - Writes a configured colour over its default and leaves every other token`() {
-        val configured = renderer.render(ThemeConfig(DarkMode.AUTO, mapOf("primary" to "#0f766e"), emptyMap()))
-        val default = renderer.render(ThemeConfig.DEFAULT)
+        val configured = render(ThemeConfig(DarkMode.AUTO, mapOf("primary" to "#0f766e"), emptyMap()))
+        val default = render()
 
         assertEquals(default.replace("--primary: #111111;", "--primary: #0f766e;"), configured)
     }
 
     @Test
     fun `render - Writes the accent as the stylesheet's gold`() {
-        val css = renderer.render(ThemeConfig(DarkMode.AUTO, mapOf("accent" to "#abcdef"), emptyMap()))
+        val css = render(ThemeConfig(DarkMode.AUTO, mapOf("accent" to "#abcdef"), emptyMap()))
 
         assertTrue("--gold: #abcdef;" in css.block(lightBlock))
     }
 
     @Test
     fun `render - Writes a configured nav-strong over its default, in the light block alone`() {
-        val css = renderer.render(ThemeConfig(DarkMode.AUTO, mapOf("nav-strong" to "#abcdef"), emptyMap()))
+        val css = render(ThemeConfig(DarkMode.AUTO, mapOf("nav-strong" to "#abcdef"), emptyMap()))
 
         assertTrue("--nav-strong: #abcdef;" in css.block(lightBlock))
         assertFalse("--nav-strong: #aaaaaa;" in css)
@@ -142,7 +151,7 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - Writes a dark colour under the device's preference and under a page pinning dark`() {
-        val css = renderer.render(ThemeConfig(DarkMode.AUTO, emptyMap(), mapOf("primary" to "#84c2ba")))
+        val css = render(ThemeConfig(DarkMode.AUTO, emptyMap(), mapOf("primary" to "#84c2ba")))
 
         assertTrue("--primary: #84c2ba;" in css.block(systemDarkBlock))
         assertTrue("--primary: #84c2ba;" in css.block(pinnedDarkBlock))
@@ -152,7 +161,7 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - Keeps the sidebar's roles and the single-valued tokens out of the dark blocks`() {
-        val css = renderer.render(ThemeConfig.DEFAULT)
+        val css = render()
 
         listOf(systemDarkBlock, pinnedDarkBlock).forEach { block ->
             assertFalse("--nav-" in css.block(block))
@@ -162,7 +171,7 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - Leaves the dark roles out under dark-mode off`() {
-        val css = renderer.render(ThemeConfig(DarkMode.OFF, emptyMap(), emptyMap()))
+        val css = render(ThemeConfig(DarkMode.OFF, emptyMap(), emptyMap()))
 
         assertFalse("prefers-color-scheme" in css)
         assertFalse("data-theme=\"dark\"" in css)
@@ -171,8 +180,7 @@ class BrandStylesheetRendererTest {
 
     @Test
     fun `render - Every role a deployment may colour names a token of the design system this server ships`() {
-        val shipped = BrandStylesheetRenderer(ResourceResolver(), ObjectMapper.getDefault())
-        val css = shipped.render(ThemeConfig.DEFAULT)
+        val css = render(resourceResolver = ResourceResolver())
         val light = css.block(lightBlock)
         val dark = css.block(systemDarkBlock)
 

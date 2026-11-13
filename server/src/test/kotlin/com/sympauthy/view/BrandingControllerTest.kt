@@ -5,6 +5,7 @@ import com.sympauthy.business.model.branding.Brand
 import com.sympauthy.business.model.branding.BrandAsset
 import com.sympauthy.business.model.branding.BrandImageName
 import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.business.model.branding.pngOf
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
@@ -118,6 +119,31 @@ class BrandingControllerTest {
         assertEquals("""{"display_name":"Acme","dark_mode":"auto"}""", response.body()!!.decodeToString())
         assertEquals("application/json", response.contentType.get().toString())
         response.assertRevalidated(BrandAsset(response.body()!!, "application/json").etag)
+    }
+
+    @Test
+    fun `mailLogo - Answers the PNG a mail shows, with the headers of every image`() {
+        val png = BrandAsset(pngOf(200, 100), "image/png")
+        every { manager.getMailImage(BrandImageName.LOGO) } returns png
+
+        val response = controller.mailLogo(request())
+
+        assertEquals(HttpStatus.OK, response.status)
+        assertEquals("image/png", response.contentType.get().toString())
+        assertArrayEquals(png.content, response.body())
+        assertEquals(
+            "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            response.header("Content-Security-Policy")
+        )
+        assertEquals("nosniff", response.header("X-Content-Type-Options"))
+        response.assertRevalidated(png.etag)
+    }
+
+    @Test
+    fun `mailLogoDark - Answers 404 where a mail shows no dark logo`() {
+        every { manager.getMailImage(BrandImageName.LOGO_DARK) } returns null
+
+        assertEquals(HttpStatus.NOT_FOUND, controller.mailLogoDark(request()).status)
     }
 
     @Test

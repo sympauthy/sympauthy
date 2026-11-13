@@ -54,6 +54,17 @@ class BrandingController(
     @Get("/logo-dark")
     fun logoDark(request: HttpRequest<*>): HttpResponse<ByteArray> = answerImage(request, BrandImageName.LOGO_DARK)
 
+    /**
+     * The logo a mail shows, as a PNG: a mail client does not draw an SVG. Not found where the deployment configured
+     * an SVG, so that its mails show its name rather than SympAuthy's logo.
+     */
+    @Get("/logo.png")
+    fun mailLogo(request: HttpRequest<*>): HttpResponse<ByteArray> = answerMailImage(request, BrandImageName.LOGO)
+
+    @Get("/logo-dark.png")
+    fun mailLogoDark(request: HttpRequest<*>): HttpResponse<ByteArray> =
+        answerMailImage(request, BrandImageName.LOGO_DARK)
+
     @Get("/brand.json")
     fun brand(request: HttpRequest<*>): HttpResponse<ByteArray> = answer(request, brandDocument)
 
@@ -62,9 +73,16 @@ class BrandingController(
      * pages live on. The server does not try to clean an SVG: these keep whatever it holds from running.
      */
     private fun answerImage(request: HttpRequest<*>, name: BrandImageName): HttpResponse<ByteArray> =
-        answer(request, brandManager.getImage(name))
-            .header(HttpHeaders.CONTENT_SECURITY_POLICY, IMAGE_CONTENT_SECURITY_POLICY)
-            .header(X_CONTENT_TYPE_OPTIONS, "nosniff")
+        answer(request, brandManager.getImage(name)).withImageHeaders()
+
+    private fun MutableHttpResponse<ByteArray>.withImageHeaders() = this
+        .header(HttpHeaders.CONTENT_SECURITY_POLICY, IMAGE_CONTENT_SECURITY_POLICY)
+        .header(X_CONTENT_TYPE_OPTIONS, "nosniff")
+
+    private fun answerMailImage(request: HttpRequest<*>, name: BrandImageName): HttpResponse<ByteArray> {
+        val asset = brandManager.getMailImage(name) ?: return HttpResponse.notFound()
+        return answer(request, asset).withImageHeaders()
+    }
 
     private fun answer(request: HttpRequest<*>, asset: BrandAsset): MutableHttpResponse<ByteArray> {
         val response = if (matches(request, asset)) {

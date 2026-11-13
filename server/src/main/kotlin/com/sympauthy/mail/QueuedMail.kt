@@ -1,5 +1,6 @@
-package com.sympauthy.business.model.mail
+package com.sympauthy.mail
 
+import java.time.LocalDateTime
 import java.util.*
 
 /**
@@ -29,5 +30,9 @@ data class QueuedMail(
     /**
      * Key-value pairs injected into the template model.
      */
-    val parameters: Map<String, String>
+    val parameters: Map<String, String>,
+    /**
+     * When the mail stops being worth sending, or null where it never does.
+     */
+    val expirationDate: LocalDateTime?
 )

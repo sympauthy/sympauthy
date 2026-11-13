@@ -141,7 +141,11 @@ them.
 The same test puts the failure root and its mapper beside the layers — `business` and `api` both
 throw and neither may depend on the other, which [the exception
 standard](../standards/exception-code-standard.md) holds — and it puts the health indicators there
-too, since configuration must not depend on the thing that publishes its verdict.
+too, since configuration must not depend on the thing that publishes its verdict. It puts `mail/`
+there as well: a manager decides that a message goes out, and composing the mail, drawing it in the
+brand and delivering it to the mail server is rendering and communication, not a use case. [The
+general standard](../standards/general-code-standard.md#dependency-rules) holds which way the two
+depend.
 
 ## One schema, more than one database
 
@@ -186,6 +190,7 @@ sympauthy/
 │   │   ├── exception/          LocalizedException and its mapper
 │   │   ├── expression/         the rule language, shared by config and business
 │   │   ├── health/             what the server reports about itself
+│   │   ├── mail/               drawing the mails a manager sends, and delivering them
 │   │   ├── cron/ server/ util/ view/
 │   │   └── Application.kt
 │   └── src/main/resources/

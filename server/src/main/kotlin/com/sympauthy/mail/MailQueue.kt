@@ -1,8 +1,7 @@
-package com.sympauthy.business.manager.mail
+package com.sympauthy.mail
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.MAIL_BACKLOG
-import com.sympauthy.business.model.mail.QueuedMail
 import com.sympauthy.client.remoteErrorType
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.data.model.MailQueueEntity
@@ -173,10 +172,14 @@ class MailQueue(
     private suspend fun processMail(mail: QueuedMail) {
         try {
             val builder = mailBuilderFactory
-                .builder(template = mail.template, locale = mail.locale)
+                .builder(
+                    template = mail.template,
+                    locale = mail.locale,
+                    parameters = mail.parameters,
+                    expirationDate = mail.expirationDate
+                )
                 .apply {
                     receiver(mail.receiver)
-                    mail.parameters.forEach { (key, value) -> set(key, value) }
                     localizedSubject(mail.subjectKey)
                 }
             logger.trace { "Sending mail template=${mail.template} to=${mail.receiver}." }
@@ -256,7 +259,8 @@ class MailQueue(
         locale = Locale.forLanguageTag(locale),
         receiver = receiver,
         subjectKey = subjectKey,
-        parameters = parameters
+        parameters = parameters,
+        expirationDate = expirationDate
     )
 
     companion object {
