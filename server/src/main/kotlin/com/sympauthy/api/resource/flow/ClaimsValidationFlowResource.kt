@@ -1,6 +1,7 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_CLIENT_DESCRIPTION
 import com.sympauthy.api.util.STEP_REDIRECT_URL_DESCRIPTION
 import com.sympauthy.api.util.STEP_URL_STATE_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
@@ -28,6 +29,11 @@ data class ClaimsValidationFlowResource(
     )
     @get:JsonProperty("code")
     val code: ValidationCodeResource? = null,
+
+    @get:Schema(
+        description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present."
+    )
+    val client: ClientReferenceResource? = null,
 
     @get:Schema(
         name = "redirect_url",

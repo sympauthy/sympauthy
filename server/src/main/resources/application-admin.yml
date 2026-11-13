@@ -49,6 +49,9 @@ claims:
 
 clients:
   admin:
+    # What the confirmation page and the admin console call this client. The brand header beside it
+    # already shows the deployment's own name, so the client's need not repeat it.
+    display-name: Admin
     audience: admin
     public: true
     allowed-grant-types:

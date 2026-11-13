@@ -1,6 +1,7 @@
 package com.sympauthy.api.mapper.admin
 
-import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUser
+import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -24,7 +25,7 @@ import java.util.*
 
 class AdminGrantResourceMapperTest {
 
-    private val mapper = AdminGrantResourceMapper(AdminUserResourceMapper())
+    private val mapper = AdminGrantResourceMapper(AdminUserResourceMapper(), AdminClientResourceMapper())
 
     private val createdAt: LocalDateTime = LocalDateTime.of(2026, 1, 1, 0, 0)
 
@@ -58,8 +59,11 @@ class AdminGrantResourceMapperTest {
         revokedById = revokedBy?.let { revokerId }
     )
 
-    private fun grantWithUser(grant: Grant, status: GrantStatus = GrantStatus.LIVE) =
-        GrantWithUser(GrantWithStatus(grant, status), user = null)
+    private fun grantWithUser(
+        grant: Grant,
+        status: GrantStatus = GrantStatus.LIVE,
+        client: ClientReference = ClientReference(id = grant.clientId, displayName = null)
+    ) = GrantWithUserAndClient(GrantWithStatus(grant, status), user = null, client = client)
 
     @Test
     fun `toSummaryResource - Publish the grant type and the status under the names they travel by`() {
@@ -92,7 +96,11 @@ class AdminGrantResourceMapperTest {
         )
 
         val resource = mapper.toSummaryResource(
-            GrantWithUser(GrantWithStatus(grant, GrantStatus.LIVE), UserWithIdentifierClaims(user, listOf(email)))
+            GrantWithUserAndClient(
+                GrantWithStatus(grant, GrantStatus.LIVE),
+                UserWithIdentifierClaims(user, listOf(email)),
+                ClientReference(id = grant.clientId, displayName = null)
+            )
         )
 
         assertEquals(user.id, resource.user?.userId)
@@ -104,6 +112,26 @@ class AdminGrantResourceMapperTest {
     @Test
     fun `toSummaryResource - Name nobody on a grant no person holds`() {
         assertNull(mapper.toSummaryResource(grantWithUser(grant(grantType = GrantType.CLIENT_CREDENTIALS))).user)
+    }
+
+    @Test
+    fun `toSummaryResource - Name the client by its identifier and the display name the configuration gives it`() {
+        val grant = grant()
+
+        val resource = mapper.toSummaryResource(
+            grantWithUser(grant, client = ClientReference(id = grant.clientId, displayName = "Billing portal"))
+        )
+
+        assertEquals("web", resource.client.id)
+        assertEquals("Billing portal", resource.client.displayName)
+    }
+
+    @Test
+    fun `toDetailResource - Name the client by its identifier alone where it has no display name`() {
+        val resource = mapper.toDetailResource(grantWithUser(grant()))
+
+        assertEquals("web", resource.client.id)
+        assertNull(resource.client.displayName)
     }
 
     @Test

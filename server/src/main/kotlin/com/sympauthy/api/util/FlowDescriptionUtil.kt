@@ -87,6 +87,13 @@ const val STEP_REDIRECT_URL_DESCRIPTION = "URL to send the browser to instead of
     "returns the end-user to."
 
 /**
+ * The `client` a step's response names the client by. A step that may carry a `redirect_url` instead appends
+ * that it is absent then too.
+ */
+const val STEP_CLIENT_DESCRIPTION = "Client the interactive flow session was started for, for the page to " +
+    "name. Absent when an administrator started it, or when nothing named a client."
+
+/**
  * What a step's response says of the URLs it holds.
  */
 const val STEP_URL_STATE_DESCRIPTION = "Every URL it holds that leads back into the flow already carries " +

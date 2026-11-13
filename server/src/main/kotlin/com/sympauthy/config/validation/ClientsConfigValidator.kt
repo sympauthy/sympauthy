@@ -137,6 +137,7 @@ class ClientsConfigValidator(
 
         return Client(
             id = parsed.id,
+            displayName = parsed.displayName,
             secret = parsed.secret,
             audience = audience!!,
             public = parsed.isPublic,

@@ -10,6 +10,7 @@ import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
@@ -235,6 +236,23 @@ class InteractiveFlowSessionCollectionManagerTest {
     }
 
     @Test
+    fun `listSessions - Names the client of each session, by its display name where it has one`() = runTest {
+        val webApp = entity(initiatingClientId = "web-app", sessionDate = NOW.minusMinutes(3))
+        val mobileApp = entity(initiatingClientId = "mobile-app", sessionDate = NOW.minusMinutes(2))
+        val noClient = entity(initiatingClientId = null, sessionDate = NOW.minusMinutes(1))
+        givenSessions(webApp, mobileApp, noClient)
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(
+            listOf(ClientReference("web-app", "Web app"), ClientReference("mobile-app", null), null),
+            page.items.map { it.initiatingClient }
+        )
+    }
+
+    @Test
     fun `listSessions - Keeps only the sessions the status names`() = runTest {
         // engine is left unstubbed: the ongoing session is dropped by the filter, so the walk never runs.
         val cancelled = entity(cancelDate = NOW.minusMinutes(1), redirectType = "PLAIN")
@@ -377,6 +395,18 @@ class InteractiveFlowSessionCollectionManagerTest {
         coEvery { sessionRepository.findById(id) } returns null
 
         assertNull(manager.findSessionOrNull(id))
+    }
+
+    @Test
+    fun `findSessionOrNull - Names the client the session was started for`() = runTest {
+        val session = entity(initiatingClientId = "web-app")
+        givenDetailReads(session)
+        coEvery { clientManager.findClientReference("web-app") } returns ClientReference("web-app", "Web app")
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(ClientReference("web-app", "Web app"), detail?.initiatingClient)
     }
 
     @Test
@@ -571,6 +601,7 @@ class InteractiveFlowSessionCollectionManagerTest {
         query: String? = null
     ): CollectionCriteria {
         coEvery { clientManager.listClients() } returns listOf(clientNamed("web-app"), clientNamed("mobile-app"))
+        givenClientsReferenced()
         return manager.capabilities().criteriaOf(*filters, sort = sort, query = query)
     }
 
@@ -578,6 +609,17 @@ class InteractiveFlowSessionCollectionManagerTest {
         manager.securityContextCapabilities().criteriaOf()
 
     private fun clientNamed(clientId: String): Client = mockk { every { id } returns clientId }
+
+    /**
+     * Answer the references to clients from the display names the configuration gives: `mobile-app` is declared
+     * without one.
+     */
+    private fun givenClientsReferenced() {
+        val displayNames = mapOf("web-app" to "Web app")
+        coEvery { clientManager.findClientReferences(any()) } answers {
+            firstArg<Collection<String>>().associateWith { ClientReference(it, displayNames[it]) }
+        }
+    }
 
     private fun givenSessions(vararg entities: InteractiveFlowSessionEntity) {
         coEvery { sessionRepository.findAll() } returns flowOf(*entities)

@@ -2,6 +2,7 @@ package com.sympauthy.business.manager
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.config.model.ClientsConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -30,6 +31,23 @@ class ClientManager(
      */
     suspend fun findClientByIdOrNull(id: String): Client? {
         return listClients().firstOrNull { it.id == id }
+    }
+
+    /**
+     * Return the [ClientReference] a record naming the client [id] is published with, whether the configuration
+     * still declares that client or not.
+     */
+    suspend fun findClientReference(id: String): ClientReference {
+        return ClientReference(id = id, displayName = findClientByIdOrNull(id)?.displayName)
+    }
+
+    /**
+     * Return the [ClientReference] of each of [ids], keyed by identifier, reading the configuration once for
+     * all of them.
+     */
+    suspend fun findClientReferences(ids: Collection<String>): Map<String, ClientReference> {
+        val displayNames = listClients().associate { it.id to it.displayName }
+        return ids.associateWith { ClientReference(id = it, displayName = displayNames[it]) }
     }
 
     /**

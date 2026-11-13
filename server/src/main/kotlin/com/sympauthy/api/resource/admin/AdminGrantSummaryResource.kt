@@ -18,9 +18,9 @@ data class AdminGrantSummaryResource(
     @get:Schema(description = GRANT_USER_PROPERTY_DESCRIPTION)
     @get:JsonProperty("user")
     val user: AdminUserResource?,
-    @get:Schema(description = GRANT_CLIENT_ID_PROPERTY_DESCRIPTION)
-    @get:JsonProperty("client_id")
-    val clientId: String,
+    @get:Schema(description = GRANT_CLIENT_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("client")
+    val client: AdminClientReferenceResource,
     @get:Schema(description = GRANT_AUDIENCE_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("audience_id")
     val audienceId: String,

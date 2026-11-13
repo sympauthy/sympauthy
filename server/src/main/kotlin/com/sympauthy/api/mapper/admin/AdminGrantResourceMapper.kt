@@ -3,7 +3,7 @@ package com.sympauthy.api.mapper.admin
 import com.sympauthy.api.resource.admin.AdminGrantDetailResource
 import com.sympauthy.api.resource.admin.AdminGrantRequestedClaimsResource
 import com.sympauthy.api.resource.admin.AdminGrantSummaryResource
-import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUser
+import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.util.wireName
@@ -12,16 +12,17 @@ import jakarta.inject.Singleton
 
 @Singleton
 class AdminGrantResourceMapper(
-    @Inject private val userMapper: AdminUserResourceMapper
+    @Inject private val userMapper: AdminUserResourceMapper,
+    @Inject private val clientMapper: AdminClientResourceMapper
 ) {
 
-    fun toSummaryResource(grantWithUser: GrantWithUser): AdminGrantSummaryResource {
-        val (grantWithStatus, user) = grantWithUser
+    fun toSummaryResource(grantWithUserAndClient: GrantWithUserAndClient): AdminGrantSummaryResource {
+        val (grantWithStatus, user, client) = grantWithUserAndClient
         val (grant, status) = grantWithStatus
         return AdminGrantSummaryResource(
             grantId = grant.id,
             user = user?.let(userMapper::toResource),
-            clientId = grant.clientId,
+            client = clientMapper.toReferenceResource(client),
             audienceId = grant.audienceId,
             grantType = grant.grantType.wireName,
             status = status.wireName,
@@ -37,16 +38,17 @@ class AdminGrantResourceMapper(
     }
 
     /**
-     * The detail of [grantWithUser], naming who revoked it only where an administrator did: the identifier a
-     * revocation records beside a consent revoked is whoever revoked that consent, which is the consent's to say.
+     * The detail of [grantWithUserAndClient], naming who revoked it only where an administrator did: the
+     * identifier a revocation records beside a consent revoked is whoever revoked that consent, which is the
+     * consent's to say.
      */
-    fun toDetailResource(grantWithUser: GrantWithUser): AdminGrantDetailResource {
-        val (grantWithStatus, user) = grantWithUser
+    fun toDetailResource(grantWithUserAndClient: GrantWithUserAndClient): AdminGrantDetailResource {
+        val (grantWithStatus, user, client) = grantWithUserAndClient
         val (grant, status) = grantWithStatus
         return AdminGrantDetailResource(
             grantId = grant.id,
             user = user?.let(userMapper::toResource),
-            clientId = grant.clientId,
+            client = clientMapper.toReferenceResource(client),
             audienceId = grant.audienceId,
             grantType = grant.grantType.wireName,
             status = status.wireName,

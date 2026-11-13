@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
@@ -29,6 +30,7 @@ import jakarta.inject.Inject
 class MfaChallengeController(
     @Inject private val mfaChallengeManager: InteractiveFlowSessionMfaChallengeManager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -69,7 +71,8 @@ class MfaChallengeController(
                                 method = it.type.wireName,
                                 redirectUrl = stepUriMapper.toRedirectUri(session, flow, it.step).toString()
                             )
-                        }
+                        },
+                        client = clientMapper.toResourceOrNull(session)
                     )
                 }
             }

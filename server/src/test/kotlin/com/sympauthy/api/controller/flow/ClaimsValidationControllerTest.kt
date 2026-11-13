@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.ClaimValidationInputResource
 import com.sympauthy.api.resource.flow.ClaimsValidationFlowResource
 import com.sympauthy.api.resource.flow.ResendClaimsValidationCodeResultResource
@@ -44,8 +45,16 @@ class ClaimsValidationControllerTest {
     @MockK
     lateinit var resourceMapper: ClaimsValidationFlowResultResourceMapper
 
+    @MockK
+    lateinit var clientMapper: ClientReferenceResourceMapper
+
     private val controller by lazy {
-        ClaimsValidationController(claimValidationManager, interactiveAuthFlowSessionControllerUtil, resourceMapper)
+        ClaimsValidationController(
+            claimValidationManager,
+            interactiveAuthFlowSessionControllerUtil,
+            resourceMapper,
+            clientMapper
+        )
     }
 
     private val session = mockk<OnGoingInteractiveFlowSession>()

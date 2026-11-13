@@ -1,5 +1,6 @@
 package com.sympauthy.business.model.collection
 
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.util.wireName
 
 /**
@@ -85,3 +86,10 @@ inline fun <reified E : Enum<E>> enumFieldValues(key: String): List<CollectionFi
  */
 fun fieldValues(key: String, values: Collection<String>): List<CollectionFieldValue> =
     values.map { CollectionFieldValue(it, "$key.$it") }
+
+/**
+ * The [clients] a field holds, each named under [key] and its own identifier, and read under the display
+ * name this deployment gave it where no bundle names it.
+ */
+fun clientFieldValues(key: String, clients: Collection<ClientReference>): List<CollectionFieldValue> =
+    clients.map { CollectionFieldValue(it.id, "$key.${it.id}", it.displayName ?: it.id) }

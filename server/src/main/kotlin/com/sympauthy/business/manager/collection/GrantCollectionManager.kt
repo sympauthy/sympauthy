@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
@@ -16,6 +17,7 @@ import com.sympauthy.business.model.collection.CollectionFieldType.ENUM
 import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.collection.CollectionFields
+import com.sympauthy.business.model.collection.clientFieldValues
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.grant.GrantRevokedBy
@@ -63,12 +65,12 @@ class GrantCollectionManager(
 
     /**
      * Read the page [pageParams] names of the grants [criteria] keep, each with where it stands now and the
-     * person it was opened for.
+     * person and the client it was opened for.
      */
     suspend fun listGrants(
         criteria: CollectionCriteria,
         pageParams: PageParams
-    ): Page<GrantWithUser> {
+    ): Page<GrantWithUserAndClient> {
         val grants = grantManager.listWithStatus()
         val claimsByUserId = if (criteria.query.isNullOrBlank()) {
             emptyMap()
@@ -80,17 +82,20 @@ class GrantCollectionManager(
         val rows = grants.map { GrantRow(it, it.grant.userId?.let(claimsByUserId::get).orEmpty()) }
         val page = fields().page(rows, criteria, pageParams).map(GrantRow::grant)
         val users = collectedClaimManager.listUsersWithIdentifierClaims(page.items.mapNotNull { it.grant.userId })
-        return page.map { GrantWithUser(it, it.grant.userId?.let(users::get)) }
+        val clients = clientManager.findClientReferences(page.items.map { it.grant.clientId })
+        return page.map {
+            GrantWithUserAndClient(it, it.grant.userId?.let(users::get), clients.getValue(it.grant.clientId))
+        }
     }
 
     /**
-     * Read the grant [id] with where it stands now and the person it was opened for, or null where this server
-     * holds none under that identifier — including one the cleanup job has collected.
+     * Read the grant [id] with where it stands now and the person and the client it was opened for, or null
+     * where this server holds none under that identifier — including one the cleanup job has collected.
      */
-    suspend fun findGrantOrNull(id: UUID): GrantWithUser? {
+    suspend fun findGrantOrNull(id: UUID): GrantWithUserAndClient? {
         val grant = grantManager.findWithStatusByIdOrNull(id) ?: return null
         val user = grant.grant.userId?.let { collectedClaimManager.findUserWithIdentifierClaimsOrNull(it) }
-        return GrantWithUser(grant, user)
+        return GrantWithUserAndClient(grant, user, clientManager.findClientReference(grant.grant.clientId))
     }
 
     /**
@@ -98,8 +103,9 @@ class GrantCollectionManager(
      * and which is therefore not one a caller may order by.
      *
      * **A client and an audience are offered whether the configuration still declares them or not**, since a
-     * grant opened for one it no longer declares is still stored and still revocable; one no longer declared
-     * is named by its identifier.
+     * grant opened for one it no longer declares is still stored and still revocable. Each is named by the
+     * display name the configuration gives it, and one no longer declared, or declared without one, by its
+     * identifier.
      *
      * **`scope` reads the three sets a grant holds**, granted, consented and given to the client, so it is
      * satisfied by a scope in any of them and `ne` excludes a grant holding it in any of them.
@@ -115,11 +121,14 @@ class GrantCollectionManager(
         field("id", UUID_FIELD, key = "fields.grant_id") { it.grant.grant.id }
         field("user", UUID_FIELD, key = "fields.user_id", nullable = true) { it.grant.grant.userId }
         field(
-            name = "client_id",
+            name = "client",
             type = ENUM,
-            values = fieldValues(
+            key = "fields.client_id",
+            values = clientFieldValues(
                 "fields.client_id",
-                (clientManager.listClients().map(Client::id) + grantManager.listClientIds()).distinct()
+                clientManager.findClientReferences(
+                    (clientManager.listClients().map(Client::id) + grantManager.listClientIds()).distinct()
+                ).values
             ),
             searchable = true
         ) { it.grant.grant.clientId }
@@ -178,19 +187,20 @@ class GrantCollectionManager(
          * parameters [com.sympauthy.api.util.collectionCriteriaOf] reads for something other than a criterion.
          */
         val SHADOWED_CLAIM_IDS = setOf(
-            "id", "user", "client_id", "audience_id", "grant_type", "status", "scope", "created_at",
+            "id", "user", "client", "audience_id", "grant_type", "status", "scope", "created_at",
             "expires_at", "revoked_at", "revoked_by", "actor_grant_id", "page", "size", "sort", "q"
         )
     }
 
     /**
-     * One grant of the collection, with the person it was opened for.
+     * One grant of the collection, with the person and the client it was opened for.
      *
      * [user] is absent on a grant no person holds, a `client_credentials` one.
      */
-    data class GrantWithUser(
+    data class GrantWithUserAndClient(
         val grant: GrantWithStatus,
-        val user: UserWithIdentifierClaims?
+        val user: UserWithIdentifierClaims?,
+        val client: ClientReference
     )
 
     /**

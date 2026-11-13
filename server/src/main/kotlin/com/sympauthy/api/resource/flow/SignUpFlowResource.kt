@@ -1,6 +1,7 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_CLIENT_DESCRIPTION
 import com.sympauthy.api.util.STEP_REDIRECT_URL_DESCRIPTION
 import com.sympauthy.api.util.STEP_URL_STATE_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
@@ -24,6 +25,10 @@ data class SignUpFlowResource(
     )
     @get:JsonProperty("sign_in_redirect_url")
     val signInRedirectUrl: String? = null,
+    @get:Schema(
+        description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present."
+    )
+    val client: ClientReferenceResource? = null,
     @get:Schema(
         name = "redirect_url",
         description = STEP_REDIRECT_URL_DESCRIPTION + " Absent when the end-user is expected to sign up on this " +

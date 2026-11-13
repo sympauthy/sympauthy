@@ -38,12 +38,12 @@ data class AdminInteractiveFlowSessionSummaryResource(
     @get:JsonProperty("current_purpose")
     val currentPurpose: String?,
     @get:Schema(
-        description = "Identifier of the client the interactive flow session was started for, which the " +
-                "configuration may no longer declare. Absent when an administrator started it, and when the " +
-                "authorization request that started it named no valid client."
+        description = "Client the interactive flow session was started for, which the configuration may no " +
+                "longer declare. Absent when an administrator started it, and when the authorization request " +
+                "that started it named no valid client."
     )
-    @get:JsonProperty("client_id")
-    val clientId: String?,
+    @get:JsonProperty("client")
+    val client: AdminClientReferenceResource?,
     @get:Schema(
         description = "Whether the end-user signed up during this interactive flow session. While the sign-up " +
                 "is in progress, `user` is absent."

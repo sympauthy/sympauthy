@@ -2,13 +2,16 @@ package com.sympauthy.api.controller.admin
 
 import com.sympauthy.api.mapper.admin.AdminCollectionCapabilitiesResourceMapper
 import com.sympauthy.api.mapper.admin.AdminConsentResourceMapper
+import com.sympauthy.api.resource.admin.AdminClientReferenceResource
 import com.sympauthy.api.resource.admin.AdminConsentResource
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
 import com.sympauthy.business.manager.collection.ConsentCollectionManager
+import com.sympauthy.business.manager.collection.ConsentCollectionManager.ConsentWithClient
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
@@ -71,7 +74,7 @@ class AdminConsentControllerTest {
         consentId = consentId,
         userId = userId,
         audienceId = "default",
-        promptedByClientId = "client",
+        promptedByClient = AdminClientReferenceResource(id = "client", displayName = null),
         scopes = listOf("openid"),
         consentedAt = consentedAt,
         revokedAt = null,
@@ -81,8 +84,8 @@ class AdminConsentControllerTest {
 
     @Test
     fun `listConsents - Map every consent the page holds, and publish the page it came in`() = runTest {
-        val consent = consent(id(1), consentedAt)
-        val resource = mockResource(consent.id)
+        val consent = ConsentWithClient(consent(id(1), consentedAt), ClientReference("client", null))
+        val resource = mockResource(consent.consent.id)
 
         val user = mockk<User>()
         coEvery { userManager.findByIdOrNull(userId) } returns user

@@ -1,6 +1,7 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_CLIENT_DESCRIPTION
 import com.sympauthy.api.util.STEP_URL_STATE_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
@@ -21,6 +22,10 @@ data class MfaFlowResource(
         description = "MFA methods the end-user can choose between. Absent when `redirect_url` is present."
     )
     val methods: List<MfaMethodResource>? = null,
+    @get:Schema(
+        description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present."
+    )
+    val client: ClientReferenceResource? = null,
     @get:Schema(
         description = "URL that skips the MFA enrollment and continues the flow. Absent unless the step is an " +
             "optional enrollment: `mfa.required` is `false`, and no client or administrator asked for it."

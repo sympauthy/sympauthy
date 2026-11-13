@@ -2,6 +2,7 @@ package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
@@ -50,6 +51,7 @@ class AdminInteractiveFlowSessionResourceMapperTest {
 
     private val mapper = AdminInteractiveFlowSessionResourceMapper(
         userMapper = AdminUserResourceMapper(),
+        clientMapper = AdminClientResourceMapper(),
         localizedErrorMapper = localizedErrorMapper
     )
 
@@ -63,7 +65,7 @@ class AdminInteractiveFlowSessionResourceMapperTest {
         id = UUID.randomUUID(),
         status = status,
         initiatingPurpose = InteractiveFlowPurpose.OAUTH2_AUTHORIZE,
-        initiatingClientId = "web-app",
+        initiatingClient = ClientReference(id = "web-app", displayName = "Web app"),
         flowId = "flow-id",
         user = null,
         signedUp = false,
@@ -85,6 +87,14 @@ class AdminInteractiveFlowSessionResourceMapperTest {
         errorDescriptionId = errorDescriptionId,
         errorValues = errorValues
     )
+
+    @Test
+    fun `toResource - Name the client the session was started for, with its display name`() {
+        val resource = mapper.toResource(detail(InteractiveFlowSessionStatus.ONGOING), DEFAULT_LOCALE)
+
+        assertEquals("web-app", resource.client?.id)
+        assertEquals("Web app", resource.client?.displayName)
+    }
 
     @Test
     fun `toResource - Read both messages a failure names, and keep the keys naming them`() {

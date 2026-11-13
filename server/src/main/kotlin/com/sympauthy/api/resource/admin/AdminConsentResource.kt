@@ -21,9 +21,12 @@ data class AdminConsentResource(
     @get:Schema(description = "Identifier of the audience the consent applies to.")
     @get:JsonProperty("audience_id")
     val audienceId: String,
-    @get:Schema(description = "Identifier of the client whose authorization request last updated the consent.")
-    @get:JsonProperty("prompted_by_client_id")
-    val promptedByClientId: String,
+    @get:Schema(
+        description = "Client whose authorization request last updated the consent, which the configuration may " +
+                "no longer declare."
+    )
+    @get:JsonProperty("prompted_by_client")
+    val promptedByClient: AdminClientReferenceResource,
     @get:Schema(description = "Scopes the end-user consented to for the audience.")
     val scopes: List<String>,
     @get:Schema(description = "Date and time at which the end-user consented, in UTC.")

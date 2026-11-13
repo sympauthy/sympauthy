@@ -1,6 +1,7 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_CLIENT_DESCRIPTION
 import com.sympauthy.api.util.STEP_REDIRECT_URL_DESCRIPTION
 import com.sympauthy.api.util.STEP_URL_STATE_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
@@ -26,12 +27,10 @@ data class ConfirmFlowResource(
     @get:JsonProperty("requires_reauthentication")
     val requiresReauthentication: Boolean = false,
     @get:Schema(
-        name = "initiating_client_id",
-        description = "Identifier of the client that asked for the action. Absent when an administrator asked " +
-            "for it, or when `redirect_url` is present."
+        description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present, so an action " +
+            "waiting without one was asked for by an administrator."
     )
-    @get:JsonProperty("initiating_client_id")
-    val initiatingClientId: String? = null,
+    val client: ClientReferenceResource? = null,
     @get:Schema(
         name = "redirect_url",
         description = STEP_REDIRECT_URL_DESCRIPTION + " Absent when an action is waiting for the end-user's " +

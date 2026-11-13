@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROV
 import com.sympauthy.api.controller.flow.ProvidersController.Companion.FLOW_PROVIDER_ENDPOINTS
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.mapper.flow.CollectableClaimResourceMapper
 import com.sympauthy.api.resource.flow.PasswordResource
 import com.sympauthy.api.resource.flow.ProviderResource
@@ -68,6 +69,7 @@ class SignInController(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val collectableClaimResourceMapper: CollectableClaimResourceMapper,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val uncheckedUrlsConfig: UrlsConfig
 ) {
@@ -188,7 +190,8 @@ class SignInController(
         return SignInFlowResource(
             password = password,
             providers = providers,
-            signUpRedirectUrl = signUpRedirectUrl
+            signUpRedirectUrl = signUpRedirectUrl,
+            client = clientMapper.toResourceOrNull(session)
         )
     }
 

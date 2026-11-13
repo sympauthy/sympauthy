@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.MfaFlowResource
 import com.sympauthy.api.resource.flow.MfaMethodResource
 import com.sympauthy.api.util.FLOW_FAILURE_SEE_OTHER_DESCRIPTION
@@ -37,6 +38,7 @@ import jakarta.inject.Inject
 class MfaEnrollmentController(
     @Inject private val mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
 ) {
 
@@ -78,6 +80,7 @@ class MfaEnrollmentController(
                                 redirectUrl = stepUriMapper.toRedirectUri(session, flow, it.step).toString()
                             )
                         },
+                        client = clientMapper.toResourceOrNull(session),
                         skipRedirectUrl = if (result.skippable) {
                             stepUriMapper.getMfaSkipUri(session, MFA_ENROLLMENT_SKIP_ENDPOINT).toString()
                         } else null

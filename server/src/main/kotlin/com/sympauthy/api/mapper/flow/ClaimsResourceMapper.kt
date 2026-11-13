@@ -2,6 +2,7 @@ package com.sympauthy.api.mapper.flow
 
 import com.sympauthy.api.resource.flow.ClaimValueResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
+import com.sympauthy.api.resource.flow.ClientReferenceResource
 import com.sympauthy.business.model.provider.ProviderUserInfo
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.EnabledClaim
@@ -22,6 +23,7 @@ class ClaimsResourceMapper(
         collectableClaims: List<EnabledClaim>,
         collectedClaims: List<CollectedClaim>,
         providerUserInfoList: List<ProviderUserInfo>,
+        client: ClientReferenceResource?,
         locale: Locale
     ): ClaimsFlowResource {
         val collectedByClaimId = collectedClaims.associateBy { it.claim.id }
@@ -29,7 +31,8 @@ class ClaimsResourceMapper(
         return ClaimsFlowResource(
             claims = collectableClaims.map { claim ->
                 toResource(claim, collectedByClaimId[claim.id], sortedProviderUserInfoList, locale)
-            }
+            },
+            client = client
         )
     }
 

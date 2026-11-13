@@ -5,6 +5,7 @@ import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.DATE_TIME
@@ -12,11 +13,13 @@ import com.sympauthy.business.model.collection.CollectionFieldType.ENUM
 import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFieldType.UUID
 import com.sympauthy.business.model.collection.CollectionFields
+import com.sympauthy.business.model.collection.clientFieldValues
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.oauth2.Consent
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.user.User
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -39,17 +42,21 @@ class ConsentCollectionManager(
 
     /**
      * Read the page [pageParams] names of the consents the [user] has granted and not
-     * revoked that [criteria] keep.
+     * revoked that [criteria] keep, each with the client whose authorization request last updated it.
      */
     suspend fun listUserConsents(
         user: User,
         criteria: CollectionCriteria,
         pageParams: PageParams
-    ): Page<Consent> = fields().page(
-        items = consentManager.findActiveConsentsByUser(user.id),
-        criteria = criteria,
-        pageParams = pageParams
-    )
+    ): Page<ConsentWithClient> {
+        val page = fields().page(
+            items = consentManager.findActiveConsentsByUser(user.id),
+            criteria = criteria,
+            pageParams = pageParams
+        )
+        val clients = clientManager.findClientReferences(page.items.map(Consent::promptedByClientId))
+        return page.map { ConsentWithClient(it, clients.getValue(it.promptedByClientId)) }
+    }
 
     /**
      * The fields this collection offers, ending on the consent identifier, which is unique by
@@ -71,10 +78,13 @@ class ConsentCollectionManager(
             read = Consent::audienceId
         )
         field(
-            name = "prompted_by_client_id",
+            name = "prompted_by_client",
             type = ENUM,
             key = "fields.client_id",
-            values = fieldValues("fields.client_id", clientManager.listClients().map(Client::id)),
+            values = clientFieldValues(
+                "fields.client_id",
+                clientManager.findClientReferences(clientManager.listClients().map(Client::id)).values
+            ),
             sortable = true,
             read = Consent::promptedByClientId
         )
@@ -82,4 +92,12 @@ class ConsentCollectionManager(
         field("consented_at", DATE_TIME, sortable = true, read = Consent::consentedAt)
         defaultSort("consented_at")
     }
+
+    /**
+     * One consent of the collection, with the client whose authorization request last updated it.
+     */
+    data class ConsentWithClient(
+        val consent: Consent,
+        val promptedByClient: ClientReference
+    )
 }
