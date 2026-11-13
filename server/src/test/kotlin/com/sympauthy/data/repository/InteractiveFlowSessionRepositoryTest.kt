@@ -238,6 +238,25 @@ class InteractiveFlowSessionRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `findDistinctInitiatingClientIds - Reads each client the stored sessions were started for once`(
+        database: Database
+    ) = withFixture(database) {
+        val sessions = repository<InteractiveFlowSessionRepository>()
+        val clientId = "interactive-flow-session-repository-test-client"
+        val otherClientId = "interactive-flow-session-repository-test-other-client"
+        newSession(initiatingClientId = clientId)
+        newSession(initiatingClientId = clientId)
+        newSession(initiatingClientId = otherClientId)
+        newSession(initiatingClientId = null)
+
+        val clientIds = sessions.findDistinctInitiatingClientIds()
+
+        assertEquals(1, clientIds.count { it == clientId })
+        assertTrue(otherClientId in clientIds)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `deleteByIds - Removes every session named and counts them`(database: Database) = withFixture(database) {
         val sessions = repository<InteractiveFlowSessionRepository>()
         val deleted = newSession().id!!

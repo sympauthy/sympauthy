@@ -1,5 +1,6 @@
 package com.sympauthy.api.mapper.flow
 
+import com.sympauthy.api.resource.flow.ClientReferenceResource
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
@@ -15,13 +16,15 @@ class FlowErrorResourceMapper(
 
     fun toResource(
         exception: BusinessException,
-        locale: Locale
+        locale: Locale,
+        client: ClientReferenceResource?
     ): FlowErrorResource {
         val localizedError = localizedErrorMapper.toLocalizedError(exception, locale)
         return FlowErrorResource(
             errorCode = localizedError.errorCode,
             description = localizedError.description,
             details = localizedError.details,
+            client = client,
         )
     }
 

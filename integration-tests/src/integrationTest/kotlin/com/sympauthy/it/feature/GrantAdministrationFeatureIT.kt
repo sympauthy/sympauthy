@@ -53,14 +53,14 @@ class GrantAdministrationFeatureIT : AbstractSympauthyIT() {
             assertEquals(2, listed.size, "both sign-ins should be listed as grants of the person: $listed")
             listed.forEach {
                 assertEquals(AdminGrantDetailResourceStatus.LIVE, it.status, "grant ${it.grantId} should be live")
-                assertEquals(app.clientId(), it.clientId, "grant ${it.grantId} should be the client's")
+                assertEquals(app.clientId(), it.client.id, "grant ${it.grantId} should be the client's")
                 assertEquals(
                     DEFAULT_EMAIL, it.user?.claims?.get("email"),
                     "grant ${it.grantId} should name the person by their address",
                 )
             }
             val (laptopGrant, phoneGrant) = listed
-            val adminGrants = listGrants(sympauthy, adminToken, filter = mapOf("client_id" to admin.clientId()))
+            val adminGrants = listGrants(sympauthy, adminToken, filter = mapOf("client" to admin.clientId()))
             val adminUserId = adminGrants.single().user?.userId
 
             assertEquals(1, revokeGrant(sympauthy, adminToken, phoneGrant.grantId), "one grant should be revoked")

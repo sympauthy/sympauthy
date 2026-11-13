@@ -51,6 +51,7 @@ class AdminClientControllerTest {
 
     private fun mockSummaryResource(clientId: String): AdminClientSummaryResource = AdminClientSummaryResource(
         clientId = clientId,
+        displayName = null,
         type = "confidential",
         audienceId = "default",
         allowedRedirectUris = emptyList()
@@ -58,6 +59,7 @@ class AdminClientControllerTest {
 
     private fun mockResource(clientId: String): AdminClientResource = AdminClientResource(
         clientId = clientId,
+        displayName = null,
         type = "confidential",
         audienceId = "default",
         allowedGrantTypes = listOf("authorization_code"),

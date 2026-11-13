@@ -58,6 +58,7 @@ class ClientsConfigFactoryTest {
     private fun clientProperties(
         id: String,
         template: String? = null,
+        displayName: String? = null,
         public: Boolean? = null,
         secret: String? = null,
         allowedGrantTypes: List<String>? = null,
@@ -67,6 +68,7 @@ class ClientsConfigFactoryTest {
     ): ClientConfigurationProperties {
         return ClientConfigurationProperties(id).apply {
             this.template = template
+            this.displayName = displayName
             this.public = public
             this.secret = secret
             this.allowedGrantTypes = allowedGrantTypes
@@ -511,6 +513,47 @@ class ClientsConfigFactoryTest {
         val config = result as EnabledClientsConfig
         val client = config.clients.first()
         assertSame(customFlow, client.authorizationFlow)
+    }
+
+    @Test
+    fun `provideClients - Client is named by the display name it declares`() = runTest {
+        passGrantTypesThrough()
+        val factory = factory(
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(
+            clientProperties(id = "billing-web", displayName = "Billing portal", secret = "secret"),
+            clientProperties(id = "backend", secret = "secret")
+        )
+
+        val result = factory.provideClients(clients).first() as EnabledClientsConfig
+
+        assertEquals(listOf("Billing portal", null), result.clients.map { it.displayName })
+    }
+
+    @Test
+    fun `provideClients - Client declaring a blank display name is refused`() = runTest {
+        passGrantTypesThrough()
+        val factory = factory(
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.AUTHORIZATION_CODE),
+                allowedRedirectUris = listOf("https://example.com/callback")
+            )
+        )
+        val clients = listOf(clientProperties(id = "billing-web", displayName = " ", secret = "secret"))
+
+        val result = factory.provideClients(clients).first()
+
+        assertInstanceOf(DisabledClientsConfig::class.java, result)
+        val config = result as DisabledClientsConfig
+        val error = config.configurationErrors!!.filterIsInstance<ConfigurationException>().single()
+        assertEquals("clients.billing-web.display-name", error.key)
+        assertEquals("config.empty", error.messageId)
     }
 
     @Test

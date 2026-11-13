@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
@@ -25,6 +26,7 @@ import jakarta.inject.Inject
 class ErrorController(
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
 ) {
 
     @Operation(
@@ -54,7 +56,13 @@ class ErrorController(
         interactiveAuthFlowSessionControllerUtil.fetchSessionThenAnswerFailureOrRedirect(
             state = authentication.stateOrNull,
             observedRequest = observedRequest,
-            mapFailureToResource = { flowErrorResourceMapper.toResource(it, request.locale.orDefault()) },
+            mapFailureToResource = { failure, session ->
+                flowErrorResourceMapper.toResource(
+                    exception = failure,
+                    locale = request.locale.orDefault(),
+                    client = session?.let { clientMapper.toResourceOrNull(it) }
+                )
+            },
             mapRedirectUriToResource = flowErrorResourceMapper::toResource
         )
 }

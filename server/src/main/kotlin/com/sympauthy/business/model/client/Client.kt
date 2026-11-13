@@ -6,6 +6,13 @@ import com.sympauthy.business.model.oauth2.EnabledScope
 
 data class Client(
     val id: String,
+
+    /**
+     * The name a person and an operator read the client under, in every language. null where the
+     * configuration gives it none, and the client is then shown by its [id].
+     */
+    val displayName: String? = null,
+
     val secret: String?,
 
     /**

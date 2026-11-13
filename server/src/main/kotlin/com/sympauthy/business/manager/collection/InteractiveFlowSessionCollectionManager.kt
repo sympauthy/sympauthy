@@ -1,12 +1,13 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.business.manager.CLIENT_FIELD_KEY
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
-import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN
@@ -17,7 +18,6 @@ import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFieldType.TIMEZONE
 import com.sympauthy.business.model.collection.CollectionFields
 import com.sympauthy.business.model.collection.collectionFields
-import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
@@ -135,6 +135,9 @@ class InteractiveFlowSessionCollectionManager(
         val users = collectedClaimManager.listUsersWithIdentifierClaims(
             page.items.mapNotNull(InteractiveFlowSessionRow::userId)
         )
+        val clients = clientManager.getClientReferences(
+            page.items.mapNotNull(InteractiveFlowSessionRow::initiatingClientId)
+        )
         // The sealed model is built for the page and not beside every row: it is read only to walk the
         // purposes of what is published, so a session the criteria kept but the order left off pays for
         // neither the mapping nor the walk — and a row that cannot be read back cannot take down a page it
@@ -144,7 +147,7 @@ class InteractiveFlowSessionCollectionManager(
                 entitiesById.getValue(row.id),
                 row.status
             )
-            toSummary(row, session, users)
+            toSummary(row, session, users, clients)
         }
     }
 
@@ -172,7 +175,7 @@ class InteractiveFlowSessionCollectionManager(
             id = session.id,
             status = status,
             initiatingPurpose = session.initiatingPurpose,
-            initiatingClientId = session.initiatingClientId,
+            initiatingClient = session.initiatingClientId?.let { clientManager.getClientReference(it) },
             flowId = session.flowId,
             user = entity.userId?.let { collectedClaimManager.findUserWithIdentifierClaimsOrNull(it) },
             signedUp = entity.signedUp,
@@ -277,8 +280,8 @@ class InteractiveFlowSessionCollectionManager(
         field(
             name = "client",
             type = ENUM,
-            key = "fields.client_id",
-            values = fieldValues("fields.client_id", clientManager.listClients().map(Client::id)),
+            key = CLIENT_FIELD_KEY,
+            values = clientManager.getClientFieldValues(sessionRepository.findDistinctInitiatingClientIds()),
             nullable = true,
             sortable = true,
             searchable = true,
@@ -380,7 +383,8 @@ class InteractiveFlowSessionCollectionManager(
         }
 
     /**
-     * The row [row] is published as, with the purpose driving it and the account it belongs to.
+     * The row [row] is published as, with the purpose driving it, the account it belongs to and the client it was
+     * started for.
      *
      * Called on the sessions of one page rather than on everything the criteria kept: the walk that answers
      * the current purpose asks every handler, so a session the order left off costs none of those reads.
@@ -388,13 +392,14 @@ class InteractiveFlowSessionCollectionManager(
     private suspend fun toSummary(
         row: InteractiveFlowSessionRow,
         session: InteractiveFlowSession,
-        users: Map<UUID, UserWithIdentifierClaims>
+        users: Map<UUID, UserWithIdentifierClaims>,
+        clients: Map<String, ClientReference>
     ) = InteractiveFlowSessionSummary(
         id = row.id,
         status = row.status,
         initiatingPurpose = row.initiatingPurpose,
         currentPurpose = currentPurposeOrNull(session),
-        initiatingClientId = row.initiatingClientId,
+        initiatingClient = row.initiatingClientId?.let(clients::getValue),
         signedUp = row.signedUp,
         user = row.userId?.let(users::get),
         securityContext = row.securityContexts.maxByOrNull(
@@ -441,7 +446,7 @@ class InteractiveFlowSessionCollectionManager(
         val status: InteractiveFlowSessionStatus,
         val initiatingPurpose: InteractiveFlowPurpose,
         val currentPurpose: InteractiveFlowPurpose?,
-        val initiatingClientId: String?,
+        val initiatingClient: ClientReference?,
         val signedUp: Boolean,
         val user: UserWithIdentifierClaims?,
         val securityContext: InteractiveFlowSessionSecurityContext?,
@@ -462,7 +467,7 @@ class InteractiveFlowSessionCollectionManager(
         val id: UUID,
         val status: InteractiveFlowSessionStatus,
         val initiatingPurpose: InteractiveFlowPurpose,
-        val initiatingClientId: String?,
+        val initiatingClient: ClientReference?,
         val flowId: String?,
         val user: UserWithIdentifierClaims?,
         val signedUp: Boolean,

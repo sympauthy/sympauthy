@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollDataFlowResource
 import com.sympauthy.api.resource.flow.TotpEnrollInputResource
@@ -33,6 +34,7 @@ import jakarta.inject.Inject
 @Controller("$FLOW_SURFACE/mfa/totp/enroll")
 class TotpEnrollmentController(
     @Inject private val enrollmentManager: InteractiveFlowSessionTotpEnrollmentManager,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -61,9 +63,13 @@ class TotpEnrollmentController(
         interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
             state = authentication.stateOrNull,
             observedRequest = observedRequest,
-            run = { _, _, user ->
+            run = { session, _, user ->
                 val data = enrollmentManager.getEnrollmentData(user)
-                TotpEnrollDataFlowResource(uri = data.uri, secret = data.secret)
+                TotpEnrollDataFlowResource(
+                    uri = data.uri,
+                    secret = data.secret,
+                    client = clientMapper.toResourceOrNull(session)
+                )
             }
         )
 

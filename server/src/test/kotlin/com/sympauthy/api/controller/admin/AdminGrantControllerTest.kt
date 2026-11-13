@@ -12,7 +12,8 @@ import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager
-import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUser
+import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionField
@@ -86,6 +87,8 @@ class AdminGrantControllerTest {
 
     private val grant = mockk<Grant>()
 
+    private val webClient = ClientReference(id = "web", displayName = null)
+
     private fun authenticationOf(userId: UUID): UserAuthentication = mockk {
         every { authenticationToken } returns mockk<AuthenticationToken> {
             every { grant } returns mockk { every { this@mockk.userId } returns userId }
@@ -94,7 +97,7 @@ class AdminGrantControllerTest {
 
     @Test
     fun `listGrants - Hand the manager the criteria the request carries, on the page it names`() = runTest {
-        val live = GrantWithUser(GrantWithStatus(grant, GrantStatus.LIVE), user = null)
+        val live = GrantWithUserAndClient(GrantWithStatus(grant, GrantStatus.LIVE), user = null, client = webClient)
         val resource = mockk<AdminGrantSummaryResource>()
         val criteria = slot<CollectionCriteria>()
         coEvery { grantCollectionManager.capabilities() } returns capabilities
@@ -137,7 +140,7 @@ class AdminGrantControllerTest {
 
     @Test
     fun `getGrant - Answer the detail of the grant the identifier names`() = runTest {
-        val live = GrantWithUser(GrantWithStatus(grant, GrantStatus.LIVE), user = null)
+        val live = GrantWithUserAndClient(GrantWithStatus(grant, GrantStatus.LIVE), user = null, client = webClient)
         val resource = mockk<AdminGrantDetailResource>()
         coEvery { grantCollectionManager.findGrantOrNull(grantId) } returns live
         every { grantMapper.toDetailResource(live) } returns resource

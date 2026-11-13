@@ -1,6 +1,7 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_CLIENT_DESCRIPTION
 import io.micronaut.serde.annotation.Serdeable
 import io.swagger.v3.oas.annotations.media.Schema
 
@@ -22,5 +23,9 @@ data class TotpEnrollDataFlowResource(
         description = "Secret, encoded in Base32, for an end-user typing it into an authenticator."
     )
     @get:JsonProperty("secret")
-    val secret: String
+    val secret: String,
+
+    @get:Schema(description = STEP_CLIENT_DESCRIPTION)
+    @get:JsonProperty("client")
+    val client: ClientReferenceResource? = null
 )

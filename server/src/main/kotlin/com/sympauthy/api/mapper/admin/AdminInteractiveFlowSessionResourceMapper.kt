@@ -20,12 +20,14 @@ import java.util.Locale
 /**
  * Publishes the interactive flow sessions an operator reads.
  *
- * Written by hand rather than generated because it composes [AdminUserResourceMapper]: a session names its
- * person with the resource the user collection already publishes, so a console renders both with one component.
+ * Written by hand rather than generated because it composes [AdminUserResourceMapper] and
+ * [AdminClientResourceMapper]: a session names its person and its client with the resources a grant names them
+ * with, so a console renders each with one component.
  */
 @Singleton
 class AdminInteractiveFlowSessionResourceMapper(
     @Inject private val userMapper: AdminUserResourceMapper,
+    @Inject private val clientMapper: AdminClientResourceMapper,
     @Inject private val localizedErrorMapper: LocalizedErrorMapper
 ) {
 
@@ -41,7 +43,7 @@ class AdminInteractiveFlowSessionResourceMapper(
         status = summary.status.wireName,
         initiatingPurpose = summary.initiatingPurpose.wireName,
         currentPurpose = summary.currentPurpose?.wireName,
-        clientId = summary.initiatingClientId,
+        client = summary.initiatingClient?.let(clientMapper::toReferenceResource),
         signedUp = summary.signedUp,
         user = summary.user?.let(userMapper::toResource),
         ip = summary.securityContext?.ip,
@@ -82,7 +84,7 @@ class AdminInteractiveFlowSessionResourceMapper(
             id = detail.id,
             status = detail.status.wireName,
             initiatingPurpose = detail.initiatingPurpose.wireName,
-            clientId = detail.initiatingClientId,
+            client = detail.initiatingClient?.let(clientMapper::toReferenceResource),
             flowId = detail.flowId,
             user = detail.user?.let(userMapper::toResource),
             signedUp = detail.signedUp,

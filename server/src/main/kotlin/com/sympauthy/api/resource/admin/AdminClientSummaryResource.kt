@@ -12,6 +12,9 @@ data class AdminClientSummaryResource(
     @get:Schema(description = "Identifier of the client.")
     @get:JsonProperty("client_id")
     val clientId: String,
+    @get:Schema(description = CLIENT_DISPLAY_NAME_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("display_name")
+    val displayName: String?,
     @get:Schema(
         description = "Type of the client. A `public` client holds no secret and must use PKCE.",
         allowableValues = ["public", "confidential"]

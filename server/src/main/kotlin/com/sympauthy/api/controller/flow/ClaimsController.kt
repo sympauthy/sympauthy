@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.flow.ClaimsResourceMapper
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.ClaimInputResource
 import com.sympauthy.api.resource.flow.ClaimsFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
@@ -43,6 +44,7 @@ class ClaimsController(
     @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
 ) {
@@ -82,12 +84,16 @@ class ClaimsController(
                     val providerUserInfoList = session.userId?.let {
                         providerClaimsManager.findByUserId(it)
                     } ?: emptyList()
-                    Triple(collectableClaims, collectedClaims, providerUserInfoList)
+                    claimsMapper.toResource(
+                        collectableClaims = collectableClaims,
+                        collectedClaims = collectedClaims,
+                        providerUserInfoList = providerUserInfoList,
+                        client = clientMapper.toResourceOrNull(session),
+                        locale = locale
+                    )
                 }
             },
-            mapResultToResource = { (collectableClaims, collectedClaims, providerUserInfoList) ->
-                claimsMapper.toResource(collectableClaims, collectedClaims, providerUserInfoList, locale)
-            },
+            mapResultToResource = { it },
             mapRedirectUriToResource = { claimsMapper.toResource(it) },
         )
     }

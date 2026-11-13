@@ -1,6 +1,8 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
+import com.sympauthy.api.resource.flow.ClientReferenceResource
 import com.sympauthy.api.resource.flow.ConfirmFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
@@ -34,10 +36,13 @@ class ConfirmControllerTest {
     lateinit var confirmManager: InteractiveFlowSessionConfirmManager
 
     @MockK
+    lateinit var clientMapper: ClientReferenceResourceMapper
+
+    @MockK
     lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 
     private val controller by lazy {
-        ConfirmController(confirmManager, interactiveAuthFlowSessionControllerUtil)
+        ConfirmController(confirmManager, clientMapper, interactiveAuthFlowSessionControllerUtil)
     }
 
     private val session = mockk<OnGoingInteractiveFlowSession>()
@@ -51,6 +56,8 @@ class ConfirmControllerTest {
                 every { action } returns ConfirmActionType.ENROLL_MFA
                 every { clientId } returns "client-x"
             }
+            val client = ClientReferenceResource(id = "client-x", displayName = "Billing portal")
+            coEvery { clientMapper.toResourceOrNull("client-x") } returns client
             every { session.purposes } returns
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
@@ -68,7 +75,7 @@ class ConfirmControllerTest {
             val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
             assertEquals("enroll_mfa", result.action)
-            assertEquals("client-x", result.initiatingClientId)
+            assertEquals(client, result.client)
             assertFalse(result.requiresReauthentication)
             assertNull(result.redirectUrl)
         }
@@ -80,6 +87,7 @@ class ConfirmControllerTest {
             every { action } returns ConfirmActionType.LINK_PROVIDER
             every { clientId } returns null
         }
+        coEvery { clientMapper.toResourceOrNull(null) } returns null
         every { session.purposes } returns listOf(
             InteractiveFlowPurpose.CONFIRM,
             InteractiveFlowPurpose.REAUTHENTICATION,
@@ -101,7 +109,7 @@ class ConfirmControllerTest {
         val result = controller.getConfirmation(StateAuthentication("encoded-state"), observedRequestOf())
 
         assertEquals("link_provider", result.action)
-        assertNull(result.initiatingClientId)
+        assertNull(result.client)
         assertTrue(result.requiresReauthentication)
     }
 

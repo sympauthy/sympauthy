@@ -17,6 +17,7 @@ import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -34,6 +35,7 @@ import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -209,11 +211,12 @@ class InteractiveAuthFlowSessionControllerUtilTest {
                 SuccessVerifyEncodedStateResult(session)
             coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, InteractiveFlowStep.Error)
 
-            val result = answerErrorPage()
+            val (result, answeredSession) = answerErrorPageWithSession()
 
             assertEquals("auth.interactive_flow_session.validate.expired", result.detailsId)
             assertEquals("description.oauth2.expired", result.descriptionId)
             assertEquals(mapOf("expirationDate" to "2026-08-31T10:00"), result.values)
+            assertSame(session, answeredSession)
         }
 
     @Test
@@ -227,10 +230,11 @@ class InteractiveAuthFlowSessionControllerUtilTest {
                     values = mapOf("sessionId" to sessionId)
                 )
 
-            val result = answerErrorPage()
+            val (result, answeredSession) = answerErrorPageWithSession()
 
             assertEquals("auth.interactive_flow_session.validate.missing_session", result.detailsId)
             assertEquals(mapOf("sessionId" to sessionId), result.values)
+            assertNull(answeredSession)
             coVerify(exactly = 0) { userSecurityContextManager.observe(any(), any()) }
         }
 
@@ -270,7 +274,7 @@ class InteractiveAuthFlowSessionControllerUtilTest {
             val result = util.fetchSessionThenAnswerFailureOrRedirect(
                 state = "encoded-state",
                 observedRequest = observed,
-                mapFailureToResource = { fail("Answered a failure: ${it.detailsId}") },
+                mapFailureToResource = { failure, _ -> fail("Answered a failure: ${failure.detailsId}") },
                 mapRedirectUriToResource = { it }
             )
 
@@ -313,12 +317,16 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     }
 
     /** Ask for the error page of the session `encoded-state` names, failing on a redirect. */
-    private suspend fun answerErrorPage(): BusinessException = util.fetchSessionThenAnswerFailureOrRedirect(
-        state = "encoded-state",
-        observedRequest = observed,
-        mapFailureToResource = { it },
-        mapRedirectUriToResource = { fail("Redirected to $it") }
-    )
+    private suspend fun answerErrorPage(): BusinessException = answerErrorPageWithSession().first
+
+    /** Ask for the error page as [answerErrorPage] does, keeping the session the failure was answered for. */
+    private suspend fun answerErrorPageWithSession(): Pair<BusinessException, InteractiveFlowSession?> =
+        util.fetchSessionThenAnswerFailureOrRedirect(
+            state = "encoded-state",
+            observedRequest = observed,
+            mapFailureToResource = { failure, session -> failure to session },
+            mapRedirectUriToResource = { fail("Redirected to $it") }
+        )
 
     private fun failedSession(
         errorDetailsId: String = "auth.interactive_flow_session.validate.expired",

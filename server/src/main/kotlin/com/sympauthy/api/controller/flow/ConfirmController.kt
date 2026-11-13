@@ -3,6 +3,7 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.ConfirmFlowResource
 import com.sympauthy.api.resource.flow.SimpleFlowResource
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
@@ -36,6 +37,7 @@ import jakarta.inject.Inject
 @Secured(HAS_STATE)
 class ConfirmController(
     @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -75,7 +77,7 @@ class ConfirmController(
                     ConfirmFlowResource(
                         action = confirm.action.wireName,
                         requiresReauthentication = requiresReauthentication,
-                        initiatingClientId = confirm.clientId
+                        client = clientMapper.toResourceOrNull(confirm.clientId)
                     )
                 } else {
                     null

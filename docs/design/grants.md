@@ -179,13 +179,16 @@ identifiers. It takes no scope beyond the grants' own, so whoever may read grant
 of every person holding one: knowing whose grants they are is what that scope is for, and what the
 user scope guards beyond it — the rest of their claims and their activity — stays off it. A
 `client_credentials` grant names nobody. [The design FAQ](design-faq.md#how-does-a-grant-name-the-person-it-was-opened-for)
-holds the shapes that lost.
+holds the shapes that lost. It names its client the same way, by the identifier and the display name
+the configuration gives that client, and a client the configuration no longer declares by its
+identifier alone.
 
 **A grant is found by typing the person's address or the client's identifier.** The free text
 matches the identifier claims of the person, the client and the audience, and a client or an
-audience is filtered by its identifier while the filter shows it under its display name, which
-depends on the reader's language. One the configuration no longer declares is offered too, under its
-identifier, since its grants are still stored and still revocable. [The design
+audience is filtered by its identifier while the filter shows it under a name: a client under the
+display name the configuration gives it, an audience under the one a bundle gives it in the reader's
+language. One the configuration no longer declares is offered too, under its identifier, since its
+grants are still stored and still revocable. [The design
 FAQ](design-faq.md#what-does-the-free-text-of-the-grant-collection-match) holds the names that lost.
 
 **Every grant still stored is listed, each with where it stands.** A grant is *live* while a

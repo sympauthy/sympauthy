@@ -5,6 +5,7 @@ import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControll
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
 import com.sympauthy.api.mapper.flow.ClaimsValidationFlowResultResourceMapper
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.*
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
@@ -40,7 +41,8 @@ import jakarta.inject.Inject
 class ClaimsValidationController(
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
-    @Inject private val resourceMapper: ClaimsValidationFlowResultResourceMapper
+    @Inject private val resourceMapper: ClaimsValidationFlowResultResourceMapper,
+    @Inject private val clientMapper: ClientReferenceResourceMapper
 ) {
 
     @Operation(
@@ -80,9 +82,9 @@ class ClaimsValidationController(
                     session = session,
                     user = user,
                     media = validationCodeMedia,
-                )
+                )?.let { resourceMapper.toFlowResource(it, clientMapper.toResourceOrNull(session)) }
             },
-            mapResultToResource = resourceMapper::toFlowResource,
+            mapResultToResource = { it },
             mapRedirectUriToResource = {
                 resourceMapper.toFlowResource(
                     media = validationCodeMedia,

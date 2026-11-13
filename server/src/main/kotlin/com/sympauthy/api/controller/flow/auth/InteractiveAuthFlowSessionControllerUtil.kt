@@ -360,8 +360,8 @@ class InteractiveAuthFlowSessionControllerUtil(
 
     /**
      * Resolve the session associated to the [state] for the error page, and return the result of:
-     * - [mapFailureToResource] with the failure it ended on, where it is over and its step leads to the error
-     *   page.
+     * - [mapFailureToResource] with the failure it ended on and the session, where it is over and its step
+     *   leads to the error page, or with the refusal and null, where [state] verifies to no session.
      * - [mapRedirectUriToResource] with where the end-user must be redirected instead, where it does not.
      *
      * **The error page is the one handler that answers a failure rather than redirecting to it**, so this is
@@ -376,13 +376,14 @@ class InteractiveAuthFlowSessionControllerUtil(
     suspend fun <FlowResource> fetchSessionThenAnswerFailureOrRedirect(
         state: String?,
         observedRequest: ObservedRequest,
-        mapFailureToResource: suspend (BusinessException) -> FlowResource,
+        mapFailureToResource: suspend (BusinessException, InteractiveFlowSession?) -> FlowResource,
         mapRedirectUriToResource: suspend (URI) -> FlowResource,
     ): FlowResource {
         val session = when (val verifyResult = verifyStateAndObserveRequest(state, observedRequest)) {
             is SuccessVerifyEncodedStateResult -> verifyResult.session
             is FailedVerifyEncodedStateResult -> return mapFailureToResource(
-                failureOf(verifyResult.detailsId, verifyResult.descriptionId, verifyResult.values)
+                failureOf(verifyResult.detailsId, verifyResult.descriptionId, verifyResult.values),
+                null
             )
         }
 
@@ -401,14 +402,15 @@ class InteractiveAuthFlowSessionControllerUtil(
         val (steppedSession, step) = advance(resolvedSession)
         return when {
             step == InteractiveFlowStep.AlreadyCompleted ->
-                mapFailureToResource(interactiveFlowSessionAlreadyCompletedExceptionOf())
+                mapFailureToResource(interactiveFlowSessionAlreadyCompletedExceptionOf(), steppedSession)
 
             steppedSession is FailedInteractiveFlowSession -> mapFailureToResource(
                 failureOf(
                     detailsId = steppedSession.errorDetailsId,
                     descriptionId = steppedSession.errorDescriptionId,
                     values = steppedSession.errorValues.orEmpty()
-                )
+                ),
+                steppedSession
             )
 
             else -> {

@@ -28,7 +28,7 @@ class ClaimsValidationFlowResultResourceMapperTest {
 
     @Test
     fun `toFlowResource - Publishes the media and the reasons by the names they are published under`() {
-        val resource = mapper.toFlowResource(validationCode)
+        val resource = mapper.toFlowResource(validationCode, client = null)
 
         assertEquals("sms", resource.media)
         assertEquals("sms", resource.code?.media)

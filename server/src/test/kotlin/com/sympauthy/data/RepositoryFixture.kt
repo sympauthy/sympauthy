@@ -90,7 +90,8 @@ class RepositoryFixture(val database: Database) {
     suspend fun newSession(
         purposes: Array<String> = arrayOf("OAUTH2_AUTHORIZE"),
         expirationDate: LocalDateTime = LocalDateTime.now().plusHours(1),
-        userId: UUID? = null
+        userId: UUID? = null,
+        initiatingClientId: String? = null
     ): InteractiveFlowSessionEntity {
         val sessions = database.bean<InteractiveFlowSessionRepository>()
         return sessions.save(
@@ -100,7 +101,8 @@ class RepositoryFixture(val database: Database) {
                 sessionDate = BASE_DATE,
                 flowId = "flow",
                 expirationDate = expirationDate,
-                userId = userId
+                userId = userId,
+                initiatingClientId = initiatingClientId
             )
         ).also { session -> deleteOnEnd { sessions.deleteById(session.id!!) } }
     }

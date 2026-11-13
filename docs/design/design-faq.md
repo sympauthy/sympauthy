@@ -790,8 +790,9 @@ refresh adds none, so they sign in again. No release had shipped, so nothing eas
 ### What does the free text of the grant collection match?
 
 **Decision:** The person's identifier claims, the client identifier and the audience identifier,
-each partially and ignoring case. The client and the audience are filtered by identifier, and the
-capability document shows each under its display name.
+each partially and ignoring case. The client and the audience are filtered by identifier. The
+capability document shows a client under the display name the configuration gives it, and an
+audience under the name a bundle gives it.
 
 **Options considered:**
 
@@ -801,10 +802,17 @@ capability document shows each under its display name.
 
 **Rationale:**
 
-A display name depends on the reader's language, so the same `q` would answer one collection to a
-French reader and another to an English one. A name configured on every client and audience would be
-a new key everywhere to answer a question the capability document already answers: a console's
-filter reads as names while the collection matches on what does not change with the reader.
+A name read from a bundle depends on the reader's language, and a name a deployment configures can
+change from one configuration to the next. Searching either would make the same `q` answer one
+collection to a French reader and another to an English one, or one collection this month and
+another the next. The collection matches on what changes with neither, and a console's filter still
+reads as names because the capability document names each value.
+
+A client does carry a configured name now, because a person reads it on the flow's pages and only a
+name the deployment chose tells them who is asking — [how a client is
+named](#how-is-a-client-named-to-a-person-and-to-an-operator) holds why. That name is what the
+capability document shows, and it changes nothing about what a search matches. No person reads an
+audience, so an audience still carries no name of its own.
 
 ---
 
@@ -1003,6 +1011,58 @@ no stable release, and the deployments it reaches are correctable by hand.
 independently, so a template that contradicts itself is a client's problem only where that client
 overrides neither — and the pair that decides a grant is the client's resolved one, which is what is
 checked.
+
+---
+
+### How is a client named to a person and to an operator?
+
+**Decision:** By `clients.<id>.display-name`, one string for every language, written on the client
+alone. A client without one, and one the configuration no longer declares, is shown by its
+identifier. Every administration response naming a client carries `{"id", "display_name"}` in place
+of the identifier: `client` on a grant and an interactive flow session, `prompted_by_client` on a
+consent. A filter and a sort take those names too, replacing `client_id` and
+`prompted_by_client_id`, and still match and order by identifier. The client's own resource keeps
+`client_id` and adds `display_name` beside it. Every step of the flow answering a `GET`, the error
+page included, carries `client` when a client started the session, and on the confirmation step it
+replaces `initiating_client_id`.
+
+**Options considered:**
+
+- **One string, on the client.**
+- **A name per language** (`display-name: {en: …, fr: …}`).
+- **A display name a client template carries too.**
+- **A `client_name` field beside `client_id`**, rather than an embedded object.
+- **The client on the confirmation step alone**, or on sign-in and sign-up as well.
+- **A blank display name read as absent.**
+
+**Rationale:**
+
+A client's name is a product's name, which nobody translates, and it is read the way the
+deployment's own `ui.display-name` is. A name per language would bring back what [the grant
+collection's search](#what-does-the-free-text-of-the-grant-collection-match) refused: the same
+client reading differently for different readers.
+
+A name identifies one client, and a template is shared by several, so a name on a template would
+give them all the same one. The key is not declared there, and a template writing it is refused as a
+key nothing binds.
+
+A grant and a session already embed the person they belong to, so embedding the client the same way
+lets a console draw it with one component wherever it appears. Two flat fields would draw a client
+differently from the person on the same row. The client's own resource is the exception: an object
+named after the client inside the client's resource would read as a client inside a client. A
+request still names a client by its identifier, because selecting a client is all it does with it,
+and a sort orders by it for the reason [a search
+matches](#what-does-the-free-text-of-the-grant-collection-match) it: a configured name can change
+from one configuration to the next.
+
+The claims step, where a client asks for a phone number, is where a person most needs to know who is
+asking, so every step names the client, in the answer the page already fetches. A session no client
+started, such as an enrollment an administrator asked for, carries none on any step. Once every step
+carries the client, `initiating_client_id` beside it would be a second name for the same thing.
+
+A blank name is refused with `config.empty`, as a blank value is everywhere in the configuration.
+Read as absent, a typo would start the server and show the person an identifier instead of the
+name the deployment meant.
 
 ---
 

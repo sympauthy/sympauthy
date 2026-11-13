@@ -1,10 +1,12 @@
 package com.sympauthy.api.mapper.admin
 
 import com.sympauthy.api.resource.admin.AdminAuthorizationWebhookResource
+import com.sympauthy.api.resource.admin.AdminClientReferenceResource
 import com.sympauthy.api.resource.admin.AdminClientResource
 import com.sympauthy.api.resource.admin.AdminClientSummaryResource
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.Scope
 import com.sympauthy.util.wireName
@@ -16,6 +18,7 @@ class AdminClientResourceMapper {
     fun toSummaryResource(client: Client): AdminClientSummaryResource {
         return AdminClientSummaryResource(
             clientId = client.id,
+            displayName = client.displayName,
             type = toClientType(client.public),
             audienceId = client.audience.id,
             allowedRedirectUris = client.allowedRedirectUris,
@@ -25,6 +28,7 @@ class AdminClientResourceMapper {
     fun toResource(client: Client): AdminClientResource {
         return AdminClientResource(
             clientId = client.id,
+            displayName = client.displayName,
             type = toClientType(client.public),
             audienceId = client.audience.id,
             allowedGrantTypes = client.allowedGrantTypes.map(::toGrantType),
@@ -35,6 +39,15 @@ class AdminClientResourceMapper {
             authorizationWebhook = toWebhookResource(client.authorizationWebhook),
         )
     }
+
+    /**
+     * Publish [client] as a record naming it is published with: its identifier, and the display name the
+     * configuration gives it where it gives one.
+     */
+    fun toReferenceResource(client: ClientReference) = AdminClientReferenceResource(
+        id = client.id,
+        displayName = client.displayName
+    )
 
     fun toClientType(public: Boolean): String = if (public) "public" else "confidential"
 

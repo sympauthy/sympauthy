@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import java.time.LocalDateTime
@@ -279,6 +280,27 @@ class ConsentRepositoryTest {
      * date except for the third and fourth, which share one so the identifier tiebreak is exercised, and the
      * fifth is revoked.
      */
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `findDistinctPromptedByClientIdsOfActive - Reads each client that prompted an active consent once`(
+        database: Database
+    ) = withFixture(database) {
+        val consents = repository<ConsentRepository>()
+        val clientId = "consent-repository-test-client"
+        val otherClientId = "consent-repository-test-other-client"
+        val revokedClientId = "consent-repository-test-revoked-client"
+        saveConsent(newUser(), BASE_DATE, promptedByClientId = clientId)
+        saveConsent(newUser(), BASE_DATE, promptedByClientId = clientId)
+        saveConsent(newUser(), BASE_DATE, promptedByClientId = otherClientId)
+        saveConsent(newUser(), BASE_DATE, revokedAt = BASE_DATE.plusDays(1), promptedByClientId = revokedClientId)
+
+        val clientIds = consents.findDistinctPromptedByClientIdsOfActive()
+
+        assertEquals(1, clientIds.count { it == clientId })
+        assertTrue(otherClientId in clientIds)
+        assertFalse(revokedClientId in clientIds)
+    }
+
     private suspend fun RepositoryFixture.seedAudience(): SeededAudience {
         val userIds = (0 until 5).map { newUser() }
         val consentIds = listOf(
@@ -305,14 +327,15 @@ class ConsentRepositoryTest {
         userId: UUID,
         consentedAt: LocalDateTime,
         revokedAt: LocalDateTime? = null,
-        scopes: Array<String> = arrayOf("profile")
+        scopes: Array<String> = arrayOf("profile"),
+        promptedByClientId: String = "consent-repository-test-client"
     ): UUID {
         val consents = repository<ConsentRepository>()
         return consents.save(
             ConsentEntity(
                 userId = userId,
                 audienceId = audienceId,
-                promptedByClientId = "consent-repository-test-client",
+                promptedByClientId = promptedByClientId,
                 scopes = scopes,
                 consentedAt = consentedAt,
                 revokedAt = revokedAt

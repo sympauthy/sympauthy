@@ -13,8 +13,8 @@ internal const val GRANT_USER_PROPERTY_DESCRIPTION =
         "token exchange, the user it acts as. Absent when no user holds the grant, which is the case of a " +
         "`client_credentials` one."
 
-internal const val GRANT_CLIENT_ID_PROPERTY_DESCRIPTION =
-        "Identifier of the client the grant was opened for, which the configuration may no longer declare."
+internal const val GRANT_CLIENT_PROPERTY_DESCRIPTION =
+        "Client the grant was opened for, which the configuration may no longer declare."
 
 internal const val GRANT_AUDIENCE_ID_PROPERTY_DESCRIPTION =
         "Identifier of the audience the grant was opened for, which the configuration may no longer declare."
@@ -70,9 +70,9 @@ data class AdminGrantDetailResource(
     @get:Schema(description = GRANT_USER_PROPERTY_DESCRIPTION)
     @get:JsonProperty("user")
     val user: AdminUserResource?,
-    @get:Schema(description = GRANT_CLIENT_ID_PROPERTY_DESCRIPTION)
-    @get:JsonProperty("client_id")
-    val clientId: String,
+    @get:Schema(description = GRANT_CLIENT_PROPERTY_DESCRIPTION)
+    @get:JsonProperty("client")
+    val client: AdminClientReferenceResource,
     @get:Schema(description = GRANT_AUDIENCE_ID_PROPERTY_DESCRIPTION)
     @get:JsonProperty("audience_id")
     val audienceId: String,

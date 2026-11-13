@@ -14,6 +14,7 @@ import java.net.URI
 
 data class ParsedClient(
     val id: String,
+    val displayName: String?,
     val audienceId: String?,
     val isPublic: Boolean,
     val secret: String?,
@@ -57,6 +58,12 @@ class ClientsConfigParser(
             parser.getBoolean(properties, "$configKeyPrefix.public", ClientConfigurationProperties::public)
         } ?: template?.public ?: false
 
+        // Read off the client alone: a template is shared by several clients, and one name for all of
+        // them would name none of them.
+        val displayName = ctx.parse {
+            parser.getString(properties, "$configKeyPrefix.display-name", ClientConfigurationProperties::displayName)
+        }
+
         val secret = ctx.parse {
             parser.getString(properties, "$configKeyPrefix.secret", ClientConfigurationProperties::secret)
         }
@@ -85,6 +92,7 @@ class ClientsConfigParser(
 
         return ParsedClient(
             id = properties.id,
+            displayName = displayName,
             audienceId = audienceId,
             isPublic = isPublic,
             secret = secret,

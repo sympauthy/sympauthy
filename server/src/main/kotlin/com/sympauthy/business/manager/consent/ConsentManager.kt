@@ -110,6 +110,12 @@ open class ConsentManager(
     }
 
     /**
+     * List the identifiers of the clients that prompted the active consents, whether the configuration still
+     * declares them or not.
+     */
+    suspend fun listPromptedByClientIds(): List<String> = consentRepository.findDistinctPromptedByClientIdsOfActive()
+
+    /**
      * Find all active (non-revoked) consents for the given [audienceId].
      */
     suspend fun findActiveConsentsByAudience(audienceId: String): List<Consent> {
