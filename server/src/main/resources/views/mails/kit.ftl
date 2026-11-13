@@ -354,7 +354,7 @@
 
 <#--
   The footer under the card, in `flow-small` / `ink-500`, centred: each line nested in it (why the
-  reader got the mail), then who sent it and SympAuthy's credit, as the flow's footer has it.
+  reader got the mail, which names who sent it), then SympAuthy's credit, as the flow's footer has it.
 -->
 <#macro footer>
     <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
@@ -364,7 +364,7 @@
                 <#if lines?markup_string?trim?has_content>
                 <p class="sa-fg-ink-500" style="${text(14, 20, 400, 'ink-500')} text-align:center; padding:0 0 8px 0;">${lines}</p>
                 </#if>
-                <p class="sa-fg-ink-500" style="${text(14, 20, 400, 'ink-500')} text-align:center;"><#if !brand.isSympAuthy>${msg("mail.kit.sent_by")}<br></#if><@powered_by/></p>
+                <p class="sa-fg-ink-500" style="${text(14, 20, 400, 'ink-500')} text-align:center;"><@powered_by/></p>
             </td>
         </tr>
     </table>

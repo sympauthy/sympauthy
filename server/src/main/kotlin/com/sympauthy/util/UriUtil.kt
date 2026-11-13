@@ -1,6 +1,8 @@
 package com.sympauthy.util
 
 import io.micronaut.http.uri.UriBuilder
+import java.net.Inet6Address
+import java.net.InetAddress
 import java.net.URI
 
 fun String?.toAbsoluteUri(
@@ -22,3 +24,35 @@ fun mergeUri(base: URI, uri: URI): URI {
     uri.path?.let(builder::path)
     return builder.build()
 }
+
+/**
+ * Whether the host of this URI is reserved for a machine or a local network, so that nothing on the internet can
+ * reach it: `localhost` and the names reserved for a local network, or a loopback, private or link-local address.
+ * A URI without a host is local too.
+ *
+ * The host is judged as it is written and never resolved: a name may well resolve to a private address inside its own
+ * network and to a public one outside it. An address literal is parsed by [InetAddress.ofLiteral], which never
+ * resolves a name.
+ */
+fun URI.hasLocalHost(): Boolean {
+    val host = host?.lowercase()?.removeSurrounding("[", "]") ?: return true
+    if (host == LOCALHOST || LOCAL_NAME_SUFFIXES.any(host::endsWith)) return true
+    val address = runCatching { InetAddress.ofLiteral(host) }.getOrNull() ?: return false
+    return address.isLoopbackAddress || address.isAnyLocalAddress || address.isLinkLocalAddress ||
+        address.isSiteLocalAddress || address.isUniqueLocal()
+}
+
+/**
+ * Whether this is an IPv6 unique local address (`fc00::/7`, RFC 4193), which [InetAddress.isSiteLocalAddress] leaves
+ * out: it answers only the deprecated `fec0::/10`.
+ */
+private fun InetAddress.isUniqueLocal(): Boolean =
+    this is Inet6Address && (address[0].toInt() and 0xfe) == 0xfc
+
+private const val LOCALHOST = "localhost"
+
+/**
+ * The names reserved for a machine or a local network: `localhost` (RFC 6761), mDNS (RFC 6762) and the top-level
+ * domain ICANN reserves for private use.
+ */
+private val LOCAL_NAME_SUFFIXES = listOf(".localhost", ".local", ".internal")

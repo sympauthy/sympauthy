@@ -1,6 +1,7 @@
 package com.sympauthy.config.model
 
 import com.sympauthy.config.exception.ConfigurationException
+import com.sympauthy.util.hasLocalHost
 import io.micronaut.http.uri.UriBuilder
 import java.net.URI
 
@@ -10,7 +11,14 @@ sealed class UrlsConfig(
 
 data class EnabledUrlsConfig(
     val root: URI
-) : UrlsConfig()
+) : UrlsConfig() {
+
+    /**
+     * Whether the [root] has a local host, which nothing on the internet reaches. Judged once, since the root does not
+     * change until the server restarts.
+     */
+    val isRootLocal: Boolean = root.hasLocalHost()
+}
 
 class DisabledUrlsConfig(
     configurationErrors: List<ConfigurationException>
