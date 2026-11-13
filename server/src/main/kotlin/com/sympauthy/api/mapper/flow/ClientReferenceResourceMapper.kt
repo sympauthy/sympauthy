@@ -17,8 +17,14 @@ class ClientReferenceResourceMapper(
     /**
      * The client [session] was started for, or null where an administrator started it or nothing named one.
      */
-    suspend fun toResourceOrNull(session: InteractiveFlowSession): ClientReferenceResource? {
-        val client = session.initiatingClientId?.let { clientManager.findClientReference(it) } ?: return null
+    suspend fun toResourceOrNull(session: InteractiveFlowSession): ClientReferenceResource? =
+        toResourceOrNull(session.initiatingClientId)
+
+    /**
+     * The client identified by [clientId], or null where [clientId] is null.
+     */
+    suspend fun toResourceOrNull(clientId: String?): ClientReferenceResource? {
+        val client = clientId?.let { clientManager.getClientReference(it) } ?: return null
         return ClientReferenceResource(
             id = client.id,
             displayName = client.displayName

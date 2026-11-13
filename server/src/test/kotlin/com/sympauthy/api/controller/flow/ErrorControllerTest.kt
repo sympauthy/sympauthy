@@ -1,10 +1,13 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.mapper.flow.FlowErrorResourceMapper
+import com.sympauthy.api.resource.flow.ClientReferenceResource
 import com.sympauthy.api.resource.flow.FlowErrorResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.security.StateAuthentication
 import io.micronaut.http.HttpRequest
@@ -15,6 +18,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
@@ -29,8 +33,11 @@ class ErrorControllerTest {
     @MockK
     lateinit var flowErrorResourceMapper: FlowErrorResourceMapper
 
+    @MockK
+    lateinit var clientMapper: ClientReferenceResourceMapper
+
     private val controller by lazy {
-        ErrorController(interactiveAuthFlowSessionControllerUtil, flowErrorResourceMapper)
+        ErrorController(interactiveAuthFlowSessionControllerUtil, flowErrorResourceMapper, clientMapper)
     }
 
     private val observed = observedRequestOf()
@@ -41,20 +48,45 @@ class ErrorControllerTest {
             every { locale } returns Optional.of(Locale.FRANCE)
         }
         val failure = businessExceptionOf("flow.web.invalid_flow")
+        val session = mockk<InteractiveFlowSession>()
+        val client = ClientReferenceResource(id = "billing-web", displayName = "Billing portal")
         // Matching only the observed request the controller bound is what proves it was threaded through.
         coEvery {
             interactiveAuthFlowSessionControllerUtil.fetchSessionThenAnswerFailureOrRedirect<FlowErrorResource>(
                 eq("encoded-state"), refEq(observed), any(), any()
             )
         } coAnswers {
-            arg<suspend (BusinessException) -> FlowErrorResource>(2)(failure)
+            arg<suspend (BusinessException, InteractiveFlowSession?) -> FlowErrorResource>(2)(failure, session)
         }
-        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE) } returns
-            FlowErrorResource(errorCode = "flow.web.invalid_flow")
+        coEvery { clientMapper.toResourceOrNull(session) } returns client
+        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, client) } returns
+            FlowErrorResource(errorCode = "flow.web.invalid_flow", client = client)
 
         val result = controller.getError(request, StateAuthentication("encoded-state"), observed)
 
         assertEquals("flow.web.invalid_flow", result.errorCode)
+        assertEquals(client, result.client)
+    }
+
+    @Test
+    fun `getError - Names no client where the state resolves to no session`() = runTest {
+        val request = mockk<HttpRequest<*>> {
+            every { locale } returns Optional.of(Locale.FRANCE)
+        }
+        val failure = businessExceptionOf("auth.interactive_flow_session.validate.missing_session")
+        coEvery {
+            interactiveAuthFlowSessionControllerUtil.fetchSessionThenAnswerFailureOrRedirect<FlowErrorResource>(
+                eq("encoded-state"), refEq(observed), any(), any()
+            )
+        } coAnswers {
+            arg<suspend (BusinessException, InteractiveFlowSession?) -> FlowErrorResource>(2)(failure, null)
+        }
+        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, null) } returns
+            FlowErrorResource(errorCode = "auth.interactive_flow_session.validate.missing_session")
+
+        val result = controller.getError(request, StateAuthentication("encoded-state"), observed)
+
+        assertNull(result.client)
     }
 
     @Test

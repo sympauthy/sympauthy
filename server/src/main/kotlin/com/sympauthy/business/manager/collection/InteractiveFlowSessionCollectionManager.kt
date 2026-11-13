@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.collection
 
+import com.sympauthy.business.manager.CLIENT_FIELD_KEY
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
@@ -17,7 +17,6 @@ import com.sympauthy.business.model.collection.CollectionFieldType.NUMBER
 import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFieldType.TIMEZONE
 import com.sympauthy.business.model.collection.CollectionFields
-import com.sympauthy.business.model.collection.clientFieldValues
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
@@ -136,7 +135,7 @@ class InteractiveFlowSessionCollectionManager(
         val users = collectedClaimManager.listUsersWithIdentifierClaims(
             page.items.mapNotNull(InteractiveFlowSessionRow::userId)
         )
-        val clients = clientManager.findClientReferences(
+        val clients = clientManager.getClientReferences(
             page.items.mapNotNull(InteractiveFlowSessionRow::initiatingClientId)
         )
         // The sealed model is built for the page and not beside every row: it is read only to walk the
@@ -176,7 +175,7 @@ class InteractiveFlowSessionCollectionManager(
             id = session.id,
             status = status,
             initiatingPurpose = session.initiatingPurpose,
-            initiatingClient = session.initiatingClientId?.let { clientManager.findClientReference(it) },
+            initiatingClient = session.initiatingClientId?.let { clientManager.getClientReference(it) },
             flowId = session.flowId,
             user = entity.userId?.let { collectedClaimManager.findUserWithIdentifierClaimsOrNull(it) },
             signedUp = entity.signedUp,
@@ -281,11 +280,8 @@ class InteractiveFlowSessionCollectionManager(
         field(
             name = "client",
             type = ENUM,
-            key = "fields.client_id",
-            values = clientFieldValues(
-                "fields.client_id",
-                clientManager.findClientReferences(clientManager.listClients().map(Client::id)).values
-            ),
+            key = CLIENT_FIELD_KEY,
+            values = clientManager.getClientFieldValues(sessionRepository.findDistinctInitiatingClientIds()),
             nullable = true,
             sortable = true,
             searchable = true,

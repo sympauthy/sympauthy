@@ -30,6 +30,7 @@ data class ConfirmFlowResource(
         description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present, so an action " +
             "waiting without one was asked for by an administrator."
     )
+    @get:JsonProperty("client")
     val client: ClientReferenceResource? = null,
     @get:Schema(
         name = "redirect_url",

@@ -54,9 +54,10 @@ class ConfirmControllerTest {
             val confirm = mockk<InteractiveFlowSessionConfirm> {
                 every { confirmed } returns false
                 every { action } returns ConfirmActionType.ENROLL_MFA
+                every { clientId } returns "client-x"
             }
             val client = ClientReferenceResource(id = "client-x", displayName = "Billing portal")
-            coEvery { clientMapper.toResourceOrNull(session) } returns client
+            coEvery { clientMapper.toResourceOrNull("client-x") } returns client
             every { session.purposes } returns
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
@@ -84,8 +85,9 @@ class ConfirmControllerTest {
         val confirm = mockk<InteractiveFlowSessionConfirm> {
             every { confirmed } returns false
             every { action } returns ConfirmActionType.LINK_PROVIDER
+            every { clientId } returns null
         }
-        coEvery { clientMapper.toResourceOrNull(session) } returns null
+        coEvery { clientMapper.toResourceOrNull(null) } returns null
         every { session.purposes } returns listOf(
             InteractiveFlowPurpose.CONFIRM,
             InteractiveFlowPurpose.REAUTHENTICATION,

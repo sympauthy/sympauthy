@@ -82,6 +82,12 @@ interface ConsentRepository : CoroutineCrudRepository<ConsentEntity, UUID> {
     ): Long
 
     /**
+     * The identifiers of the clients that prompted the active consents, each once.
+     */
+    @Query("SELECT DISTINCT prompted_by_client_id FROM consents WHERE revoked_at IS NULL")
+    suspend fun findDistinctPromptedByClientIdsOfActive(): List<String>
+
+    /**
      * Revoke the consent [id] **iff it is still active**, and answer 1 when it was and 0 when it had already
      * been revoked.
      *

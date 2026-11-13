@@ -77,7 +77,7 @@ class ConfirmController(
                     ConfirmFlowResource(
                         action = confirm.action.wireName,
                         requiresReauthentication = requiresReauthentication,
-                        client = clientMapper.toResourceOrNull(session)
+                        client = clientMapper.toResourceOrNull(confirm.clientId)
                     )
                 } else {
                     null

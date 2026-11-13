@@ -10,11 +10,11 @@ import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.grant.GrantStatus
@@ -81,13 +81,12 @@ class GrantCollectionManagerTest {
     /** The display names the configuration gives its clients: `backend` is declared without one. */
     private val displayNames = mapOf("web" to "Web app")
 
+    private val clientFieldValues = listOf("web", "backend", "legacy").map {
+        CollectionFieldValue(it, "fields.client_id.$it", displayNames[it] ?: it)
+    }
+
     private fun knownConfiguration() {
-        coEvery { clientManager.listClients() } returns listOf("web", "backend").map { clientId ->
-            mockk<Client> { every { id } returns clientId }
-        }
-        coEvery { clientManager.findClientReferences(any()) } answers {
-            firstArg<Collection<String>>().associateWith { ClientReference(it, displayNames[it]) }
-        }
+        coEvery { clientManager.getClientFieldValues(listOf("web", "legacy")) } returns clientFieldValues
         every { audienceManager.listAudiences() } returns listOf(
             Audience(id = "default", tokenAudience = "default")
         )
@@ -149,6 +148,13 @@ class GrantCollectionManagerTest {
     private fun knownGrants(vararg grants: GrantWithStatus) {
         coEvery { grantManager.listWithStatus() } returns grants.toList()
         coEvery { collectedClaimManager.listUsersWithIdentifierClaims(any()) } returns emptyMap()
+        knownClientReferences()
+    }
+
+    private fun knownClientReferences() {
+        coEvery { clientManager.getClientReferences(any()) } answers {
+            firstArg<Collection<String>>().associateWith { ClientReference(it, displayNames[it]) }
+        }
     }
 
     @Test
@@ -254,6 +260,7 @@ class GrantCollectionManagerTest {
             identifierClaims = emptyList()
         )
         coEvery { collectedClaimManager.listUsersWithIdentifierClaims(listOf(anaId)) } returns mapOf(anaId to ana)
+        knownClientReferences()
 
         val result = grantCollectionManager.listGrants(criteriaOf(), PageParams(page = 0, size = 2))
 
@@ -284,7 +291,7 @@ class GrantCollectionManagerTest {
         )
         coEvery { grantManager.findWithStatusByIdOrNull(anas.grant.id) } returns anas
         coEvery { collectedClaimManager.findUserWithIdentifierClaimsOrNull(anaId) } returns ana
-        coEvery { clientManager.findClientReference("web") } returns ClientReference("web", "Web app")
+        coEvery { clientManager.getClientReference("web") } returns ClientReference("web", "Web app")
 
         assertEquals(
             GrantWithUserAndClient(anas, ana, ClientReference("web", "Web app")),
@@ -312,19 +319,10 @@ class GrantCollectionManagerTest {
     }
 
     @Test
-    fun `capabilities - Offer a client the configuration no longer declares, since its grants are still stored`() =
-        runTest {
-            val client = capabilities().fieldOrNull("client")
-
-            assertEquals(listOf("web", "backend", "legacy"), client?.values?.map { it.value })
-            assertEquals("legacy", client?.values?.last()?.defaultName)
-        }
-
-    @Test
-    fun `capabilities - Name a client by the display name the configuration gives it`() = runTest {
+    fun `capabilities - Offer the clients the stored grants were opened for beside the declared ones`() = runTest {
         val client = capabilities().fieldOrNull("client")
 
-        assertEquals(listOf("Web app", "backend", "legacy"), client?.values?.map { it.defaultName })
+        assertEquals(clientFieldValues, client?.values)
         assertEquals("fields.client_id", client?.key)
     }
 

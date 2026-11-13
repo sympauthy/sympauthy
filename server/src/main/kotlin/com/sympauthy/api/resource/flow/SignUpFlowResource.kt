@@ -28,6 +28,7 @@ data class SignUpFlowResource(
     @get:Schema(
         description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present."
     )
+    @get:JsonProperty("client")
     val client: ClientReferenceResource? = null,
     @get:Schema(
         name = "redirect_url",

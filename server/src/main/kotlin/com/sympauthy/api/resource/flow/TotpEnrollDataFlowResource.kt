@@ -26,5 +26,6 @@ data class TotpEnrollDataFlowResource(
     val secret: String,
 
     @get:Schema(description = STEP_CLIENT_DESCRIPTION)
+    @get:JsonProperty("client")
     val client: ClientReferenceResource? = null
 )

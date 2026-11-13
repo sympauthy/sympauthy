@@ -3,6 +3,7 @@ package com.sympauthy.business.manager
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.ClientReference
+import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.config.model.ClientsConfig
 import com.sympauthy.config.model.EnabledClientsConfig
 import io.mockk.every
@@ -73,28 +74,28 @@ class ClientManagerTest {
     }
 
     @Test
-    fun `findClientReference - Name a declared client by the display name the configuration gives it`() = runTest {
+    fun `getClientReference - Name a declared client by the display name the configuration gives it`() = runTest {
         val client = mockClient("billing-web")
         every { client.displayName } returns "Billing portal"
         val clientManager = ClientManager(flowOf<ClientsConfig>(EnabledClientsConfig(clients = listOf(client))))
 
-        val result = clientManager.findClientReference("billing-web")
+        val result = clientManager.getClientReference("billing-web")
 
         assertEquals(ClientReference(id = "billing-web", displayName = "Billing portal"), result)
     }
 
     @Test
-    fun `findClientReference - Name a client the configuration no longer declares by its identifier alone`() =
+    fun `getClientReference - Name a client the configuration no longer declares by its identifier alone`() =
         runTest {
             val clientManager = ClientManager(flowOf<ClientsConfig>(EnabledClientsConfig(clients = emptyList())))
 
-            val result = clientManager.findClientReference("legacy")
+            val result = clientManager.getClientReference("legacy")
 
             assertEquals(ClientReference(id = "legacy", displayName = null), result)
         }
 
     @Test
-    fun `findClientReferences - Name each client, declared with a display name, without one or not at all`() =
+    fun `getClientReferences - Name each client, declared with a display name, without one or not at all`() =
         runTest {
             val named = mockClient("billing-web")
             every { named.displayName } returns "Billing portal"
@@ -104,13 +105,36 @@ class ClientManagerTest {
                 flowOf<ClientsConfig>(EnabledClientsConfig(clients = listOf(named, unnamed)))
             )
 
-            val result = clientManager.findClientReferences(listOf("billing-web", "backend", "legacy"))
+            val result = clientManager.getClientReferences(listOf("billing-web", "backend", "legacy"))
 
             assertEquals(
                 mapOf(
                     "billing-web" to ClientReference(id = "billing-web", displayName = "Billing portal"),
                     "backend" to ClientReference(id = "backend", displayName = null),
                     "legacy" to ClientReference(id = "legacy", displayName = null)
+                ),
+                result
+            )
+        }
+
+    @Test
+    fun `getClientFieldValues - Offer every declared client, then each stored one no longer declared, once`() =
+        runTest {
+            val named = mockClient("billing-web")
+            every { named.displayName } returns "Billing portal"
+            val unnamed = mockClient("backend")
+            every { unnamed.displayName } returns null
+            val clientManager = ClientManager(
+                flowOf<ClientsConfig>(EnabledClientsConfig(clients = listOf(named, unnamed)))
+            )
+
+            val result = clientManager.getClientFieldValues(listOf("legacy", "billing-web", "legacy"))
+
+            assertEquals(
+                listOf(
+                    CollectionFieldValue("billing-web", "fields.client_id.billing-web", "Billing portal"),
+                    CollectionFieldValue("backend", "fields.client_id.backend", "backend"),
+                    CollectionFieldValue("legacy", "fields.client_id.legacy", "legacy")
                 ),
                 result
             )

@@ -1020,8 +1020,10 @@ checked.
 alone. A client without one, and one the configuration no longer declares, is shown by its
 identifier. Every administration response naming a client carries `{"id", "display_name"}` in place
 of the identifier: `client` on a grant and an interactive flow session, `prompted_by_client` on a
-consent. The client's own resource keeps `client_id` and adds `display_name` beside it. Every step of
-the flow carries `client` when a client started the session, and on the confirmation step it
+consent. A filter and a sort take those names too, replacing `client_id` and
+`prompted_by_client_id`, and still match and order by identifier. The client's own resource keeps
+`client_id` and adds `display_name` beside it. Every step of the flow answering a `GET`, the error
+page included, carries `client` when a client started the session, and on the confirmation step it
 replaces `initiating_client_id`.
 
 **Options considered:**
@@ -1048,7 +1050,10 @@ A grant and a session already embed the person they belong to, so embedding the 
 lets a console draw it with one component wherever it appears. Two flat fields would draw a client
 differently from the person on the same row. The client's own resource is the exception: an object
 named after the client inside the client's resource would read as a client inside a client. A
-request still names a client by its identifier, because selecting a client is all it does with it.
+request still names a client by its identifier, because selecting a client is all it does with it,
+and a sort orders by it for the reason [a search
+matches](#what-does-the-free-text-of-the-grant-collection-match) it: a configured name can change
+from one configuration to the next.
 
 The claims step, where a client asks for a phone number, is where a person most needs to know who is
 asking, so every step names the client, in the answer the page already fetches. A session no client

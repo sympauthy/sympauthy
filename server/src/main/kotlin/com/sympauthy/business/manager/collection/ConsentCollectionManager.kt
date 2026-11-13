@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.collection
 
 import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.CLIENT_FIELD_KEY
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
@@ -13,7 +13,6 @@ import com.sympauthy.business.model.collection.CollectionFieldType.ENUM
 import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFieldType.UUID
 import com.sympauthy.business.model.collection.CollectionFields
-import com.sympauthy.business.model.collection.clientFieldValues
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.oauth2.Consent
@@ -54,7 +53,7 @@ class ConsentCollectionManager(
             criteria = criteria,
             pageParams = pageParams
         )
-        val clients = clientManager.findClientReferences(page.items.map(Consent::promptedByClientId))
+        val clients = clientManager.getClientReferences(page.items.map(Consent::promptedByClientId))
         return page.map { ConsentWithClient(it, clients.getValue(it.promptedByClientId)) }
     }
 
@@ -80,11 +79,8 @@ class ConsentCollectionManager(
         field(
             name = "prompted_by_client",
             type = ENUM,
-            key = "fields.client_id",
-            values = clientFieldValues(
-                "fields.client_id",
-                clientManager.findClientReferences(clientManager.listClients().map(Client::id)).values
-            ),
+            key = CLIENT_FIELD_KEY,
+            values = clientManager.getClientFieldValues(consentManager.listPromptedByClientIds()),
             sortable = true,
             read = Consent::promptedByClientId
         )

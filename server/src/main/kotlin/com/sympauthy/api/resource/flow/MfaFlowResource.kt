@@ -25,6 +25,7 @@ data class MfaFlowResource(
     @get:Schema(
         description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present."
     )
+    @get:JsonProperty("client")
     val client: ClientReferenceResource? = null,
     @get:Schema(
         description = "URL that skips the MFA enrollment and continues the flow. Absent unless the step is an " +

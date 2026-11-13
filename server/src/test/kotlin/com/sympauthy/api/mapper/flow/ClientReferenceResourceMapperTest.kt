@@ -27,7 +27,7 @@ class ClientReferenceResourceMapperTest {
     @Test
     fun `toResourceOrNull - Name the client the session was started for, with its display name`() = runTest {
         val session = mockk<InteractiveFlowSession> { every { initiatingClientId } returns "billing-web" }
-        coEvery { clientManager.findClientReference("billing-web") } returns
+        coEvery { clientManager.getClientReference("billing-web") } returns
             ClientReference(id = "billing-web", displayName = "Billing portal")
 
         val resource = mapper.toResourceOrNull(session)

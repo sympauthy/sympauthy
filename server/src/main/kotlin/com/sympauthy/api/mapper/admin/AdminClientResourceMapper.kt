@@ -41,8 +41,8 @@ class AdminClientResourceMapper {
     }
 
     /**
-     * Publish [client] where a grant, a consent or an interactive flow session names it, so a console renders
-     * every one of them with one component.
+     * Publish [client] as a record naming it is published with: its identifier, and the display name the
+     * configuration gives it where it gives one.
      */
     fun toReferenceResource(client: ClientReference) = AdminClientReferenceResource(
         id = client.id,

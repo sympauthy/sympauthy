@@ -3,6 +3,7 @@ package com.sympauthy.business.manager
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.ClientReference
+import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.config.model.ClientsConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject
@@ -37,7 +38,7 @@ class ClientManager(
      * Return the [ClientReference] a record naming the client [id] is published with, whether the configuration
      * still declares that client or not.
      */
-    suspend fun findClientReference(id: String): ClientReference {
+    suspend fun getClientReference(id: String): ClientReference {
         return ClientReference(id = id, displayName = findClientByIdOrNull(id)?.displayName)
     }
 
@@ -45,9 +46,26 @@ class ClientManager(
      * Return the [ClientReference] of each of [ids], keyed by identifier, reading the configuration once for
      * all of them.
      */
-    suspend fun findClientReferences(ids: Collection<String>): Map<String, ClientReference> {
+    suspend fun getClientReferences(ids: Collection<String>): Map<String, ClientReference> {
         val displayNames = listClients().associate { it.id to it.displayName }
         return ids.associateWith { ClientReference(id = it, displayName = displayNames[it]) }
+    }
+
+    /**
+     * Return the values of a collection field over clients: every client the configuration declares, then each
+     * of [storedIds] it no longer declares, so a row naming one is still one a caller can filter on.
+     *
+     * Each value is named under `fields.client_id` and its identifier, and read under the display name the
+     * configuration gives it where no bundle names it, or under its identifier where it has none.
+     */
+    suspend fun getClientFieldValues(storedIds: Collection<String>): List<CollectionFieldValue> {
+        val clients = listClients()
+        val declaredIds = clients.map(Client::id).toSet()
+        val references = clients.map { ClientReference(id = it.id, displayName = it.displayName) } +
+            storedIds.distinct().filterNot(declaredIds::contains).map { ClientReference(id = it, displayName = null) }
+        return references.map {
+            CollectionFieldValue(it.id, "$CLIENT_FIELD_KEY.${it.id}", it.displayName ?: it.id)
+        }
     }
 
     /**
@@ -102,3 +120,8 @@ class ClientManager(
         return listClients().firstOrNull { it.id == clientId && it.secret == clientSecret }
     }
 }
+
+/**
+ * The display key every collection field over clients is named under.
+ */
+const val CLIENT_FIELD_KEY = "fields.client_id"

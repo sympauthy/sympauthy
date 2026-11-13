@@ -58,6 +58,17 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
     suspend fun findExpired(): List<InteractiveFlowSessionEntity>
 
     /**
+     * The identifiers of the clients the stored sessions were started for, each once.
+     */
+    @Query(
+        """
+        SELECT DISTINCT initiating_client_id FROM interactive_flow_sessions
+        WHERE initiating_client_id IS NOT NULL
+        """
+    )
+    suspend fun findDistinctInitiatingClientIds(): List<String>
+
+    /**
      * Version-guarded update of the ordered purpose list.
      */
     @Query(

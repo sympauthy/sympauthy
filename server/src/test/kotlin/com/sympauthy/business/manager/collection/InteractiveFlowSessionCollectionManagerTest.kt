@@ -9,9 +9,9 @@ import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
-import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.model.collection.CollectionFieldValue
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -277,6 +277,18 @@ class InteractiveFlowSessionCollectionManagerTest {
     }
 
     @Test
+    fun `listSessions - Keeps the sessions of a client the configuration no longer declares`() = runTest {
+        val matching = entity(initiatingClientId = "legacy")
+        givenSessions(matching, entity(initiatingClientId = "web-app"))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf("client" to "legacy"), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
     fun `listSessions - Orders by the date the session started, oldest first`() = runTest {
         val older = entity(sessionDate = NOW.minusMinutes(5))
         val newer = entity(sessionDate = NOW.minusMinutes(1))
@@ -401,7 +413,7 @@ class InteractiveFlowSessionCollectionManagerTest {
     fun `findSessionOrNull - Names the client the session was started for`() = runTest {
         val session = entity(initiatingClientId = "web-app")
         givenDetailReads(session)
-        coEvery { clientManager.findClientReference("web-app") } returns ClientReference("web-app", "Web app")
+        coEvery { clientManager.getClientReference("web-app") } returns ClientReference("web-app", "Web app")
         coEvery { engine.currentPurposeOrNull(any()) } returns null
 
         val detail = manager.findSessionOrNull(session.id!!)
@@ -600,7 +612,9 @@ class InteractiveFlowSessionCollectionManagerTest {
         sort: String? = null,
         query: String? = null
     ): CollectionCriteria {
-        coEvery { clientManager.listClients() } returns listOf(clientNamed("web-app"), clientNamed("mobile-app"))
+        coEvery { sessionRepository.findDistinctInitiatingClientIds() } returns listOf("web-app", "legacy")
+        coEvery { clientManager.getClientFieldValues(listOf("web-app", "legacy")) } returns
+            listOf("web-app", "mobile-app", "legacy").map { CollectionFieldValue(it, "fields.client_id.$it") }
         givenClientsReferenced()
         return manager.capabilities().criteriaOf(*filters, sort = sort, query = query)
     }
@@ -608,15 +622,13 @@ class InteractiveFlowSessionCollectionManagerTest {
     private suspend fun placeCriteria(): CollectionCriteria =
         manager.securityContextCapabilities().criteriaOf()
 
-    private fun clientNamed(clientId: String): Client = mockk { every { id } returns clientId }
-
     /**
      * Answer the references to clients from the display names the configuration gives: `mobile-app` is declared
      * without one.
      */
     private fun givenClientsReferenced() {
         val displayNames = mapOf("web-app" to "Web app")
-        coEvery { clientManager.findClientReferences(any()) } answers {
+        coEvery { clientManager.getClientReferences(any()) } answers {
             firstArg<Collection<String>>().associateWith { ClientReference(it, displayNames[it]) }
         }
     }

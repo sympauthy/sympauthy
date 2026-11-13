@@ -49,8 +49,8 @@ claims:
 
 clients:
   admin:
-    # What the confirmation page and the admin console call this client. The brand header beside it
-    # already shows the deployment's own name, so the client's need not repeat it.
+    # Without the deployment's name: the brand header the flow's pages show beside it already carries
+    # that name.
     display-name: Admin
     audience: admin
     public: true

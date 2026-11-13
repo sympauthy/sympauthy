@@ -279,10 +279,12 @@ configuration fields are absent, and the client tests for the redirect first.
 no purpose, no OAuth2 request data. What the pages are allowed to know is what they have to render,
 because everything else is a decision the server has already made and the client must not re-make.
 
-**Every step names the client the session was started for**, in a `client` holding its identifier
-and the display name the configuration gives it, so a page can say who is asking on any step. It is
-absent on a session no client started, such as an enrollment an administrator asked for, and absent
-beside a redirect, like every other field. [The design
+**Every step answering a `GET` names the client the session was started for**, the error page
+included, in a `client` holding its identifier and the display name the configuration gives it. A
+page can then say who is asking on any step it draws, and the error page can offer a way back to
+the client. It is absent on a session no client started, such as an enrollment an administrator
+asked for, on an error page whose `state` resolves to no session, and beside a redirect, like every
+other field. [The design
 FAQ](design-faq.md#how-is-a-client-named-to-a-person-and-to-an-operator) holds the shapes that lost.
 
 **Every URL in a flow response carries the state.** They are built through the step URI mapper,
