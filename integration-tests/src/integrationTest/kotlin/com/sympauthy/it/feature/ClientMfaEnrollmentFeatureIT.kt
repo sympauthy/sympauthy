@@ -61,10 +61,7 @@ class ClientMfaEnrollmentFeatureIT : AbstractSympauthyIT() {
             val flow = registry.newFlow()
                 .withConfirmHandler { resource ->
                     assertEquals("enroll_mfa", resource.action(), "confirm should describe the action")
-                    // The driver models the confirmation as it was before it carried `client`, which only the
-                    // answer as it arrived holds.
-                    val client = resource.raw()["client"] as? Map<*, *>
-                    assertEquals(clientId, client?.get("id"), "confirm should name the client that started it")
+                    assertEquals(clientId, resource.client()?.id(), "confirm should name the client that started it")
                     ConfirmDecision.CONFIRM
                 }
                 .withTotpEnrollmentHandler { data -> Totp.code(data.secret()) }
