@@ -217,16 +217,13 @@ class AdminUserProviderControllerTest {
         coEvery { providerManager.listEnabledProviders() } returns
             listOf(mockk<EnabledProvider> { every { id } returns "discord" })
         every {
-            clientRedirectUriManager.parseRequestedRedirectUri(
-                client,
-                "https://client.example.com/linked",
-                recoverable = true
-            )
+            clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/linked")
         } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // Admin-initiated: initiatingClientId must be null (confirmation shows "an administrator").
         coEvery {
-            linkProviderManager.startLinkProviderSession(user, "discord", returnUri, flow, null, null)
+            linkProviderManager.startLinkProviderSession(user, "discord", returnUri, null, flow, null)
         } returns session
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -245,7 +242,7 @@ class AdminUserProviderControllerTest {
         assertEquals(nextUri.toString(), result.redirectUrl)
         coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
         coVerify {
-            linkProviderManager.startLinkProviderSession(user, "discord", returnUri, flow, null, null)
+            linkProviderManager.startLinkProviderSession(user, "discord", returnUri, null, flow, null)
         }
     }
 

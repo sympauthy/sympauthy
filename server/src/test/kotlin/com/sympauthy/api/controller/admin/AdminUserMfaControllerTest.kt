@@ -239,17 +239,14 @@ class AdminUserMfaControllerTest {
             coEvery { userManager.findByIdOrNull(userId) } returns user
             coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
             every {
-                clientRedirectUriManager.parseRequestedRedirectUri(
-                    client,
-                    "https://client.example.com/done",
-                    recoverable = true
-                )
+                clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/done")
             } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             // Admin-initiated: the initiating client id must be null (rendered as "an administrator"). Keying
             // the stub on null means the test only reaches the assertion when the controller passes null.
             coEvery {
-                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, null, null)
+                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, null, flow, null)
             } returns session
             coEvery { engine.advance(session) } returns
                 InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -271,10 +268,9 @@ class AdminUserMfaControllerTest {
         }
 
     @Test
-    fun `startEnrollment - Validates and forwards the optional cancel URI`() = runTest {
+    fun `startEnrollment - Forwards the return state to the client return URI`() = runTest {
         val client = mockk<Client>()
-        val returnUri = URI.create("https://client.example.com/done")
-        val cancelUri = URI.create("https://client.example.com/cancelled")
+        val returnUri = URI.create("https://client.example.com/account")
         val flow = mockk<InteractiveFlow>()
         val session = mockk<OnGoingInteractiveFlowSession>()
         val steppedSession = mockk<OnGoingInteractiveFlowSession>()
@@ -282,24 +278,12 @@ class AdminUserMfaControllerTest {
 
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
-        every {
-            clientRedirectUriManager.parseRequestedRedirectUri(
-                client,
-                "https://client.example.com/done",
-                recoverable = true
-            )
-        } returns returnUri
-        every {
-            clientRedirectUriManager.parseRequestedRedirectUri(
-                client,
-                "https://client.example.com/cancelled",
-                recoverable = true
-            )
-        } returns cancelUri
+        every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState("xyz") } returns "xyz"
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
-        // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.
+        // The stub only matches (and thus drives the redirect) when the return state is threaded through.
         coEvery {
-            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, null, cancelUri)
+            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, "xyz", flow, null)
         } returns session
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
@@ -310,11 +294,7 @@ class AdminUserMfaControllerTest {
         val result = controller().startEnrollment(
             userId,
             observed,
-            AdminUserMfaEnrollmentInputResource(
-                clientId = "client-id",
-                returnUri = "https://client.example.com/done",
-                cancelUri = "https://client.example.com/cancelled"
-            )
+            AdminUserMfaEnrollmentInputResource(clientId = "client-id", returnState = "xyz")
         )
 
         assertEquals(redirectUri.toString(), result.redirectUrl)

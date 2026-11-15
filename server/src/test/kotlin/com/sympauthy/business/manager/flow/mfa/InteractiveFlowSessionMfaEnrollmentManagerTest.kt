@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.ConfirmActionType
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
@@ -69,11 +70,10 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
 
     @Test
     @Suppress("MaxLineLength")
-    fun `startMfaEnrollmentSession - Creates a PLAIN session with the return and cancel URIs, and sets the user`() = runTest {
+    fun `startMfaEnrollmentSession - Creates a PLAIN session with the return URI and state, and sets the user`() = runTest {
         val manager = managerWith(optionalMfa)
         coJustRun { userManager.checkPromoted(user.id) }
         val returnUri = URI.create("https://client.example.com/enrolled")
-        val cancelUri = URI.create("https://client.example.com/cancelled")
         val flow = mockk<AuthorizationFlow>()
         val newSession = mockk<OnGoingInteractiveFlowSession>()
         val withUser = mockk<OnGoingInteractiveFlowSession>()
@@ -83,9 +83,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
                 initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
                 initiatingClientId = clientId,
                 flow = flow,
-                successRedirectUri = returnUri,
-                redirectType = InteractiveFlowRedirectType.PLAIN,
-                cancelRedirectUri = cancelUri,
+                handBack = InteractiveFlowHandBack(returnUri, InteractiveFlowRedirectType.PLAIN, "xyz"),
             )
         } returns newSession
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
@@ -93,14 +91,14 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, clientId)
         } returns mockk()
 
-        val result = manager.startMfaEnrollmentSession(user, returnUri, flow, clientId, cancelUri)
+        val result = manager.startMfaEnrollmentSession(user, returnUri, "xyz", flow, clientId)
 
         assertSame(withUser, result)
         coVerify { confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, clientId) }
     }
 
     @Test
-    fun `startMfaEnrollmentSession - Passes a null cancel URI through when none is provided`() = runTest {
+    fun `startMfaEnrollmentSession - Passes a null return state through when none is provided`() = runTest {
         val manager = managerWith(optionalMfa)
         coJustRun { userManager.checkPromoted(user.id) }
         val returnUri = URI.create("https://client.example.com/enrolled")
@@ -113,9 +111,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
                 initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
                 initiatingClientId = clientId,
                 flow = flow,
-                successRedirectUri = returnUri,
-                redirectType = InteractiveFlowRedirectType.PLAIN,
-                cancelRedirectUri = null,
+                handBack = InteractiveFlowHandBack(returnUri, InteractiveFlowRedirectType.PLAIN),
             )
         } returns newSession
         coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
@@ -123,7 +119,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
             confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, clientId)
         } returns mockk()
 
-        val result = manager.startMfaEnrollmentSession(user, returnUri, flow, clientId)
+        val result = manager.startMfaEnrollmentSession(user, returnUri, null, flow, clientId)
 
         assertSame(withUser, result)
     }
@@ -140,13 +136,14 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
                 manager.startMfaEnrollmentSession(
                     user,
                     URI.create("https://client.example.com/enrolled"),
+                    null,
                     mockk(),
                     clientId,
                 )
             },
         )
 
-        coVerify(exactly = 0) { sessionManager.newSession(any(), any(), any(), any(), any(), any(), any(), any()) }
+        coVerify(exactly = 0) { sessionManager.newSession(any(), any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -165,9 +162,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
                     initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
                     initiatingClientId = null,
                     flow = flow,
-                    successRedirectUri = returnUri,
-                    redirectType = InteractiveFlowRedirectType.PLAIN,
-                    cancelRedirectUri = null,
+                    handBack = InteractiveFlowHandBack(returnUri, InteractiveFlowRedirectType.PLAIN),
                 )
             } returns newSession
             coEvery { sessionManager.setAuthenticatedUserId(newSession, userId) } returns withUser
@@ -176,7 +171,7 @@ class InteractiveFlowSessionMfaEnrollmentManagerTest {
                 confirmManager.setConfirm(withUser, ConfirmActionType.ENROLL_MFA, null)
             } returns mockk()
 
-            val result = manager.startMfaEnrollmentSession(user, returnUri, flow, initiatingClientId = null)
+            val result = manager.startMfaEnrollmentSession(user, returnUri, null, flow, initiatingClientId = null)
 
             assertSame(withUser, result)
         }

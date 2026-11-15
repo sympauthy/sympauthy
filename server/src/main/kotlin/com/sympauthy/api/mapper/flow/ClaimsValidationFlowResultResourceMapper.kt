@@ -15,12 +15,14 @@ class ClaimsValidationFlowResultResourceMapper {
 
     fun toFlowResource(
         validationCode: ValidationCode,
-        client: ClientReferenceResource?
+        client: ClientReferenceResource?,
+        cancelUrl: String?
     ): ClaimsValidationFlowResource {
         return ClaimsValidationFlowResource(
             media = validationCode.media.wireName,
             code = toResource(validationCode),
             client = client,
+            cancelUrl = cancelUrl,
             redirectUrl = null,
         )
     }

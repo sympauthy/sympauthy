@@ -14,15 +14,19 @@ data class ClientProviderLinkInputResource(
     @get:JsonProperty("access_token")
     val accessToken: String?,
     @get:Schema(
-        description = "URL the end-user's browser is sent to once the link completes. It must be one of this " +
-            "client's `clients.<id>.allowed-redirect-uris`. When absent, the request is refused."
+        description = "URL the end-user's browser is sent to once the link ends, whether it completed or not. " +
+            "It must be this client's `clients.<id>.return-uri` or one of its `clients.<id>.allowed-return-uris`. " +
+            "When absent, `clients.<id>.return-uri`, and the request is refused where the configuration gives " +
+            "none."
     )
     @get:JsonProperty("return_uri")
-    val returnUri: String?,
+    val returnUri: String? = null,
     @get:Schema(
-        description = "URL the end-user's browser is sent to if the end-user cancels the link. It must be one of " +
-            "this client's `clients.<id>.allowed-redirect-uris`. When absent, the link cannot be cancelled."
+        description = "Value this server sends back unchanged as `sympauthy_return_state` when it sends the " +
+            "end-user's browser to the return URL, so the client can tell that return from one it did not ask " +
+            "for. At most 512 characters. " +
+            "When absent, the browser is sent back without one."
     )
-    @get:JsonProperty("cancel_uri")
-    val cancelUri: String? = null
+    @get:JsonProperty("return_state")
+    val returnState: String? = null
 )

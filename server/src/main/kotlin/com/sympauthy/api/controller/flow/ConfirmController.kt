@@ -31,21 +31,22 @@ import jakarta.inject.Inject
  * Drives the confirmation step of an interactive flow: the signed-in end-user must explicitly approve an
  * action a client (or an administrator) initiated on their behalf (an
  * [com.sympauthy.business.model.flow.InteractiveFlowPurpose.CONFIRM] gate)
- * before the rest of the flow runs. Denial is handled by cancelling the flow via `POST /api/v1/flow/cancel`.
+ * before the rest of the flow runs. Denial is the end-user leaving the flow through the step's `cancel_url`.
  */
 @Controller("$FLOW_SURFACE/confirm")
 @Secured(HAS_STATE)
 class ConfirmController(
     @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,
     @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
     @Operation(
         description = "Retrieve the confirmation step: the action a client or an administrator asked for on the " +
-            "end-user's behalf, for the end-user to approve with `POST /api/v1/flow/confirm` or decline with " +
-            "`POST /api/v1/flow/cancel`. When there is no action waiting for approval, the response carries " +
-            "only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
+            "end-user's behalf, for the end-user to approve with `POST /api/v1/flow/confirm` or decline by " +
+            "sending the browser to `cancel_url`. When there is no action waiting for approval, the response " +
+            "carries only `redirect_url`. " + FLOW_FAILURE_DESCRIPTION,
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -77,7 +78,8 @@ class ConfirmController(
                     ConfirmFlowResource(
                         action = confirm.action.wireName,
                         requiresReauthentication = requiresReauthentication,
-                        client = clientMapper.toResourceOrNull(confirm.clientId)
+                        client = clientMapper.toResourceOrNull(confirm.clientId),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session, authentication.stateOrNull)?.toString()
                     )
                 } else {
                     null

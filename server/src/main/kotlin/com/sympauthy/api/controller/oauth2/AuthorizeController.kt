@@ -39,8 +39,9 @@ open class AuthorizeController(
 
     @Operation(
         description = "Start the flow answering an authorization request, OAuth 2.1 §4.1.1. Once the end-user " +
-            "completes the flow, the browser is sent to `redirect_uri` with `code`; when the end-user cancels " +
-            "it, with `error` set to `access_denied`. Either carries `state` when the authorization request did.",
+            "completes the flow, the browser is sent to `redirect_uri` with `code`; when the end-user leaves " +
+            "it, with `error` set to `access_denied`, or to the error answering why the authorization request " +
+            "failed. Either carries `state` when the authorization request did.",
         tags = ["oauth2"],
         parameters = [
             Parameter(
@@ -184,7 +185,9 @@ open class AuthorizeController(
                     "interactive flow session. When the authorization request fails — `client_id` is missing " +
                     "or unknown, the client is not allowed the `authorization_code` grant, or a parameter is " +
                     "refused as its description says — the interactive flow session fails and the browser is " +
-                    "sent to the error page of the flow instead, never to `redirect_uri`."
+                    "sent to the error page of the flow instead of `redirect_uri`. The error page leads to " +
+                    "`redirect_uri` only when the end-user leaves it, and never where `client_id` or " +
+                    "`redirect_uri` was refused."
             ),
             ApiResponse(
                 responseCode = "400",

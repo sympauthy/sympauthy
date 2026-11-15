@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*
@@ -162,6 +163,24 @@ class InteractiveFlowSessionOAuth2MapperTest {
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
     }
 
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - maps the error recorded for a refused request`() {
+        val result = mapper.toInteractiveFlowSessionOAuth2(entity(requestError = "invalid_scope"))
+
+        assertEquals(OAuth2ErrorCode.INVALID_SCOPE, result.requestError)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when the recorded request error is unknown`() {
+        val entity = entity(requestError = "not_an_error")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(mapOf("property" to "requestError"), exception.values)
+    }
+
     private fun entity(
         sessionId: UUID = UUID.randomUUID(),
         consentedBy: String? = null,
@@ -171,6 +190,7 @@ class InteractiveFlowSessionOAuth2MapperTest {
         requestedScopes: Array<String> = arrayOf("openid"),
         codeChallenge: String? = null,
         codeChallengeMethod: String? = null,
+        requestError: String? = null,
     ): InteractiveFlowSessionOAuth2Entity {
         return InteractiveFlowSessionOAuth2Entity(
             sessionId = sessionId,
@@ -181,6 +201,7 @@ class InteractiveFlowSessionOAuth2MapperTest {
             codeChallengeMethod = codeChallengeMethod,
             consentedBy = consentedBy,
             grantedBy = grantedBy,
+            requestError = requestError,
         )
     }
 }

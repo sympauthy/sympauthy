@@ -67,6 +67,8 @@ class AdminClientControllerTest {
         allowedScopes = emptyList(),
         defaultScopes = emptyList(),
         allowedRedirectUris = emptyList(),
+        returnUri = null,
+        allowedReturnUris = emptyList(),
         authorizationWebhook = null
     )
 

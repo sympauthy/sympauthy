@@ -63,6 +63,7 @@ class ClientsConfigFactoryTest {
         secret: String? = null,
         allowedGrantTypes: List<String>? = null,
         allowedRedirectUris: List<String>? = null,
+        returnUri: String? = null,
         allowedScopes: List<String>? = null,
         defaultScopes: List<String>? = null
     ): ClientConfigurationProperties {
@@ -73,6 +74,7 @@ class ClientsConfigFactoryTest {
             this.secret = secret
             this.allowedGrantTypes = allowedGrantTypes
             this.allowedRedirectUris = allowedRedirectUris
+            this.returnUri = returnUri
             this.allowedScopes = allowedScopes
             this.defaultScopes = defaultScopes
         }
@@ -87,6 +89,8 @@ class ClientsConfigFactoryTest {
         allowedGrantTypes: Set<GrantType>? = null,
         authorizationFlow: AuthorizationFlow? = null,
         allowedRedirectUris: List<String>? = null,
+        returnUri: String? = null,
+        allowedReturnUris: List<String>? = null,
         allowedScopes: Set<EnabledScope>? = null,
         defaultScopes: List<EnabledScope>? = null
     ): ClientTemplate {
@@ -97,6 +101,8 @@ class ClientsConfigFactoryTest {
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlow = authorizationFlow,
             allowedRedirectUris = allowedRedirectUris,
+            returnUri = returnUri,
+            allowedReturnUris = allowedReturnUris,
             allowedScopes = allowedScopes,
             defaultScopes = defaultScopes,
             authorizationWebhook = null
@@ -513,6 +519,46 @@ class ClientsConfigFactoryTest {
         val config = result as EnabledClientsConfig
         val client = config.clients.first()
         assertSame(customFlow, client.authorizationFlow)
+    }
+
+    @Test
+    fun `provideClients - Client inherits the return URIs of its template`() = runTest {
+        passGrantTypesThrough()
+        val factory = factory(
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS),
+                returnUri = "https://app.example.com/account",
+                allowedReturnUris = listOf("myapp://account")
+            )
+        )
+
+        val result = factory.provideClients(listOf(clientProperties(id = "my-app", secret = "secret"))).first()
+
+        val client = (result as EnabledClientsConfig).clients.single()
+        assertEquals("https://app.example.com/account", client.returnUri)
+        assertEquals(listOf("myapp://account"), client.allowedReturnUris)
+    }
+
+    @Test
+    fun `provideClients - Client return URI replaces the one of its template`() = runTest {
+        passGrantTypesThrough()
+        coEvery { fieldParser.parseUri(any(), any(), any(), any(), any()) } answers { arg(3) }
+        val factory = factory(
+            clientTemplate(
+                id = "default",
+                allowedGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS),
+                returnUri = "https://app.example.com/account"
+            )
+        )
+        val clients = listOf(
+            clientProperties(id = "my-app", secret = "secret", returnUri = "https://other.example.com/account")
+        )
+
+        val result = factory.provideClients(clients).first()
+
+        val client = (result as EnabledClientsConfig).clients.single()
+        assertEquals("https://other.example.com/account", client.returnUri)
     }
 
     @Test

@@ -27,6 +27,7 @@ class ErrorController(
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val flowErrorResourceMapper: FlowErrorResourceMapper,
     @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
 ) {
 
     @Operation(
@@ -60,7 +61,10 @@ class ErrorController(
                 flowErrorResourceMapper.toResource(
                     exception = failure,
                     locale = request.locale.orDefault(),
-                    client = session?.let { clientMapper.toResourceOrNull(it) }
+                    client = session?.let { clientMapper.toResourceOrNull(it) },
+                    cancelUrl = session
+                        ?.let { stepUriMapper.getCancelUriOrNull(it, authentication.stateOrNull) }
+                        ?.toString()
                 )
             },
             mapRedirectUriToResource = flowErrorResourceMapper::toResource

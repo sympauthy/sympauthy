@@ -16,6 +16,8 @@ data class ParsedClientTemplate(
     val allowedGrantTypes: Set<GrantType>?,
     val authorizationFlowId: String?,
     val allowedRedirectUris: List<String>?,
+    val returnUri: String?,
+    val allowedReturnUris: List<String>?,
     val allowedScopes: List<String>?,
     val defaultScopes: List<String>?,
     val authorizationWebhook: ParsedAuthorizationWebhook?
@@ -55,9 +57,17 @@ class ClientTemplatesConfigParser(
             ctx, "$configKeyPrefix.allowed-grant-types", properties.allowedGrantTypes
         )
 
-        val allowedRedirectUris = fieldParser.parseRedirectUris(
+        val allowedRedirectUris = fieldParser.parseUris(
             ctx, "$configKeyPrefix.allowed-redirect-uris", properties.uris, properties.allowedRedirectUris,
             rootUri
+        )
+
+        val returnUri = fieldParser.parseUri(
+            ctx, "$configKeyPrefix.return-uri", properties.uris, properties.returnUri, rootUri
+        )
+
+        val allowedReturnUris = fieldParser.parseUris(
+            ctx, "$configKeyPrefix.allowed-return-uris", properties.uris, properties.allowedReturnUris, rootUri
         )
 
         val authorizationWebhook = fieldParser.parseWebhook(
@@ -71,6 +81,8 @@ class ClientTemplatesConfigParser(
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlowId = properties.authorizationFlow,
             allowedRedirectUris = allowedRedirectUris,
+            returnUri = returnUri,
+            allowedReturnUris = allowedReturnUris,
             allowedScopes = properties.allowedScopes,
             defaultScopes = properties.defaultScopes,
             authorizationWebhook = authorizationWebhook

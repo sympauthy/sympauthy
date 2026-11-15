@@ -49,6 +49,21 @@ data class Client(
     val allowedRedirectUris: List<String> = emptyList(),
 
     /**
+     * Where a person lands after a flow this client, or an administrator for it, started — such as enrolling a
+     * second factor — when the request starting it names no return URI. null where the configuration declares
+     * none, and such a request is then refused.
+     *
+     * Never a destination for an authorization code: those go only to [allowedRedirectUris].
+     */
+    val returnUri: String? = null,
+
+    /**
+     * The return URIs a request starting a flow may name besides [returnUri], compared as [allowedRedirectUris]
+     * are.
+     */
+    val allowedReturnUris: List<String> = emptyList(),
+
+    /**
      * Set of [EnabledScope] that can be issued to a token request by this [Client].
      * When null, all scopes are allowed.
      */

@@ -34,8 +34,8 @@ A session's purposes are **ordered**, gates first and the initiating purpose las
 `InteractiveFlowSession` is the primitive, and it is sealed: its subtypes are the states a flow can
 be in, `OnGoing` and the terminal ones beside it. **It carries only flow-generic state** — what the
 engine needs to sequence purposes over it and to hand the person back where they came from, such as
-the ordered purpose list and the redirect to take on success. The type is the authority on which
-fields those are.
+the ordered purpose list and [where it hands them back](#how-a-session-hands-the-person-back). The
+type is the authority on which fields those are.
 
 **Which purpose and which client started it are stored rather than derived**, and set once. Gates
 are prepended and follow-ups inserted at runtime, so no positional rule over the purpose list stays
@@ -69,6 +69,66 @@ submit, or a replayed callback all become one write that succeeds and one that f
 moved, rather than two writes that both look fine. The one that lost is sent where the session now
 stands: where its sibling ended it, or to the error page when the session was still running, since a
 conflict fails it.
+
+## How a session hands the person back
+
+**A session hands the person back to whoever started it, whatever way it ends.** Where to is decided
+once, when the session starts, and kept on the session itself rather than on the record of the
+purpose that started it — so a failed session, which [reads no attached record](#the-session), still
+knows where its person goes. A session whose start request named nowhere this server may send them
+has nowhere to go, and is left only through its error page: an authorization request from an
+unknown client, or naming a redirect URI the client does not declare.
+
+**An authorization answers through the protocol**, on the request's redirect URI: its code when it
+completes, an OAuth2 error when it does not. What that error is, and when there is none, is [the
+authorization's](oauth2-authorization.md#how-the-session-ends) to say.
+
+**Any other flow a client started returns to a page the client declared.** Enrolling a second factor
+and linking a provider are the purposes started that way today, by the client from its own account
+screen or by an administrator for it. `clients.<id>.return-uri` is where they return, and a start
+request may name another URL as `return_uri` only where the client lists it under
+`allowed-return-uris`, compared as [a redirect URI is](security.md#the-protocol-surfaces). A client
+declaring neither cannot start one, so every such flow that starts has somewhere to return to. A
+return destination is never a redirect URI: a page that was not built to exchange a code would leave
+it in its URL, so the two lists are never read for each other. [The design
+FAQ](design-faq.md#where-does-a-flow-a-client-started-return-the-person-to) holds the shapes that
+lost.
+
+**The return names the flow, and how it ended where it did not complete.** `sympauthy_flow` is
+the value [the session's initiating purpose is published
+by](#a-purpose-is-published-by-its-value-alone), so one page can serve every flow and branch on it.
+`sympauthy_flow_error` is present only where the flow did not complete, and holds the code the error
+page publishes for the same failure — `auth.interactive_flow_session.cancelled` where the person
+left a session still running. The names are prefixed because the page is the client's own and may
+already use OAuth2's `error` and `state`.
+
+**A start request may carry a `return_state`, which comes back unchanged as
+`sympauthy_return_state`.** The return is a plain redirect anyone can link a person to, so a client
+that sent a value it can check tells a real return from a forged one, as OAuth2's `state` lets it do
+for an authorization. Even so, the parameters say what to show the person; what the account now
+holds is read through the client API. [The design
+FAQ](design-faq.md#what-does-a-return-destination-receive) holds the names that lost.
+
+### Leaving is a link through this server
+
+**Every page of every flow lets the person leave it.** Each step answering a `GET` carries a
+`cancel_url` leading to `GET /api/v1/flow/cancel`, which ends a session still running as cancelled —
+its admin page and the flow metric say so — and redirects the person where the session hands them
+back. A session that has already ended keeps its outcome, and the person is only sent away, told
+what ended it: one that completed or was cancelled before its expiration passed is never answered as
+expired, though the flow sends it to the error page as it does every expired session. A session the
+link cannot end is shown the step it stands on and never advanced, and a state that resolves to no
+session is sent to the error page, which answers its refusal.
+
+**It ends a session on a `GET` and answers with a redirect, departing from two rules
+deliberately.** [The API standard](../standards/api-standard.md#routes) has an action that is not a
+state change on a resource sent as a `POST`, and a [step endpoint](#writing-a-step-endpoint) answers
+with JSON rather than navigating the browser. A plain link works from every page without the page
+sending a request first. It is safe here because the link appears only on a page the person is
+looking at, never in a mail, and a browser does not prefetch a plain link unless the page asks it
+to; the state it carries is already in every URL a flow response holds. Leaving is not a step, so a
+step still exposes at most two operations. [The design
+FAQ](design-faq.md#how-does-a-person-leave-a-flow) holds the shapes that lost.
 
 ## The engine
 
@@ -240,10 +300,12 @@ Adding a purpose, adding a step and writing the endpoint that serves one are eac
    and a manager that reads and writes it.
 4. Give it an entry point. There is no generic "start a flow" endpoint: each purpose is initiated by
    whatever asks for it, which creates the session with the ordered purpose list, names the client
-   it is for, and persists any attached record **in the same transaction** — then hands the session
-   it got back to `InteractiveAuthFlowSessionControllerUtil`, which records where it was started
-   from, as [the `api` layer standard](../standards/api-layer-code-standard.md#the-flow-controller)
-   requires.
+   it is for and [where it hands the person back](#how-a-session-hands-the-person-back), and
+   persists any attached record **in the same transaction** — then hands the session it got back to
+   `InteractiveAuthFlowSessionControllerUtil`, which records where it was started from, as [the
+   `api` layer standard](../standards/api-layer-code-standard.md#the-flow-controller) requires. A
+   purpose a client starts resolves its `return_uri` the way the existing ones do, rather than
+   adding a key every client has to consider.
 5. Test the handler's branches directly — including that `debugInformation` answers for a session
    with no user, no attached record and a terminal status with every code it emits, and that no
    credential is among them — list its codes where the admin API describes them, and add an
@@ -281,10 +343,16 @@ because everything else is a decision the server has already made and the client
 
 **Every step answering a `GET` names the client the session was started for**, the error page
 included, in a `client` holding its identifier and the display name the configuration gives it. A
-page can then say who is asking on any step it draws, and the error page can offer a way back to
-the client. It is absent on a session no client started, such as an enrollment an administrator
-asked for, on an error page whose `state` resolves to no session, and beside a redirect, like every
-other field. [The design
+page can then say who is asking on any step it draws. It is absent on a session no client started,
+such as an enrollment an administrator asked for, on an error page whose `state` resolves to no
+session, and beside a redirect, like every other field.
+
+**Every step answering a `GET` carries a `cancel_url`, the error page included**, so a person can
+[leave the flow](#leaving-is-a-link-through-this-server) from whichever page they are on. It is
+absent where there is nowhere to send them: the `state` resolves to no session, the session has
+[nowhere to hand them back](#how-a-session-hands-the-person-back), or it is an authorization that
+has already completed, whose code went to the client and to which OAuth2 defines no second answer.
+It is absent beside a redirect too, like every other field. [The design
 FAQ](design-faq.md#how-is-a-client-named-to-a-person-and-to-an-operator) holds the shapes that lost.
 
 **Every URL in a flow response carries the state.** They are built through the step URI mapper,
@@ -313,6 +381,14 @@ therefore only the places of flows that never finished. It is the one thing a se
 contents outlive it — deliberately, because [the security context](security-context.md) keeps a
 place for months and a session for half an hour, and only the row a proof stamped is ever read that
 way.
+
+**It does not give one flow a return destination of its own.** A client's return URI serves every
+flow it starts, and one page branches on `sympauthy_flow`. A deployment needing a separate page per
+flow is open: a map of flows on the client, keyed by purpose and reusing the same keys, can be added
+without changing any key the client declares today.
+
+**It does not record who left, or from which step.** A session's outcome and the flow metric say a
+person left; a trail of each departure belongs to an audit log nothing writes yet.
 
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take

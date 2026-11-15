@@ -94,6 +94,17 @@ open class InteractiveFlowEngine(
         }
     }
 
+    /**
+     * Return the step [session] stands on — the one the first purpose still needing a step asks for — or null when
+     * every purpose has resolved. Read-only, as [currentPurposeOrNull] is: it neither records a purpose complete nor
+     * completes the session.
+     */
+    suspend fun currentStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep? {
+        return session.purposes.firstNotNullOfOrNull { purpose ->
+            purposeRegistry.getForPurpose(purpose).nextStepOrNull(session)
+        }
+    }
+
     private suspend fun advanceOnGoing(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
         // Walk the purposes in order; the first one that still needs a step yields it. `purposes` is re-read
         // every iteration so follow-up purposes appended while resolving are visited too.

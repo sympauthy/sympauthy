@@ -3,7 +3,6 @@ package com.sympauthy.business.manager.flow
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
@@ -21,7 +20,6 @@ import com.sympauthy.monitoring.telemetry.nanosToSeconds
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import java.net.URI
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
@@ -74,9 +72,7 @@ open class InteractiveFlowSessionManager(
         initiatingPurpose: InteractiveFlowPurpose,
         initiatingClientId: String?,
         flow: AuthorizationFlow? = null,
-        successRedirectUri: URI? = null,
-        redirectType: InteractiveFlowRedirectType? = null,
-        cancelRedirectUri: URI? = null,
+        handBack: InteractiveFlowHandBack? = null,
         error: BusinessException? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
@@ -89,9 +85,9 @@ open class InteractiveFlowSessionManager(
             sessionDate = now,
             expirationDate = now.plus(uncheckedAuthConfig.orThrow().interactiveFlow.expiration),
 
-            successRedirectUri = successRedirectUri?.toString(),
-            redirectType = redirectType?.name,
-            cancelRedirectUri = cancelRedirectUri?.toString(),
+            redirectUri = handBack?.uri?.toString(),
+            redirectType = handBack?.type?.name,
+            returnState = handBack?.returnState,
 
             errorDate = error?.let { now },
             errorDetailsId = error?.detailsId,
@@ -273,7 +269,8 @@ open class InteractiveFlowSessionManager(
             errorDescriptionId = error.descriptionId,
             errorValues = error.values,
             expirationDate = session.expirationDate,
-            startedBy = session.startedBy
+            startedBy = session.startedBy,
+            handBack = session.handBack
         )
     }
 
@@ -281,24 +278,15 @@ open class InteractiveFlowSessionManager(
      * Mark the [session] as cancelled by the end-user, persist the cancellation date, and return the resulting
      * [CancelledInteractiveFlowSession].
      *
-     * A [InteractiveFlowRedirectType.PLAIN] session with no cancellation URI has nowhere to hand the user back
-     * to: this throws a recoverable [BusinessException] before transitioning, so the flow stays ongoing and the
-     * caller gets a bad request rather than an un-buildable redirect. (An
-     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE] session always cancels back to the client redirect URI
-     * with the OAuth2 `error=access_denied` response.)
+     * Throws the internal `auth.interactive_flow_session.cancel.missing_redirect` before writing anything where
+     * [session] has no [InteractiveFlowSession.handBack]: a cancelled session hands the end-user back, and such
+     * a session has nowhere to.
      */
     suspend fun markAsCancelled(
         session: OnGoingInteractiveFlowSession
     ): CancelledInteractiveFlowSession {
-        val redirectType = session.redirectType
+        val handBack = session.handBack
             ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.cancel.missing_redirect")
-        if (redirectType == InteractiveFlowRedirectType.PLAIN && session.cancelRedirectUri == null) {
-            throw recoverableBusinessExceptionOf(
-                "auth.interactive_flow_session.cancel.no_cancel_target",
-                "description.auth.interactive_flow_session.cancel.no_cancel_target"
-            )
-        }
-
         val cancelDate = LocalDateTime.now()
         val updated = sessionRepository.updateCancelDate(
             id = session.id,
@@ -315,10 +303,8 @@ open class InteractiveFlowSessionManager(
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             startedBy = session.startedBy,
+            handBack = handBack,
             userId = session.userId,
-            redirectType = redirectType,
-            successRedirectUri = session.successRedirectUri,
-            cancelRedirectUri = session.cancelRedirectUri,
             cancelDate = cancelDate,
         )
     }
@@ -388,6 +374,8 @@ open class InteractiveFlowSessionManager(
         val userId = session.userId ?: throw businessExceptionOf(
             "auth.interactive_flow_session.complete.missing_user"
         )
+        val handBack = session.handBack
+            ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect")
         val completeDate = LocalDateTime.now()
         val updated = sessionRepository.updateCompleteDate(
             id = session.id,
@@ -403,17 +391,13 @@ open class InteractiveFlowSessionManager(
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             startedBy = session.startedBy,
+            handBack = handBack,
             sessionDate = session.sessionDate,
             userId = userId,
             signedUp = session.signedUp,
             completedPurposes = session.completedPurposes,
             mfaPassedDate = session.mfaPassedDate,
             completeDate = completeDate,
-            successRedirectUri = session.successRedirectUri
-                ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect"),
-            redirectType = session.redirectType
-                ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect"),
-            cancelRedirectUri = session.cancelRedirectUri,
         )
     }
 

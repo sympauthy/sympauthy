@@ -13,10 +13,13 @@ import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManage
 import com.sympauthy.business.manager.security.UserSecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
+import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
@@ -85,6 +88,11 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     }
 
     private val observed = observedRequestOf()
+
+    private val plainHandBack = InteractiveFlowHandBack(
+        uri = URI.create("https://client.example.com/account"),
+        type = InteractiveFlowRedirectType.PLAIN
+    )
 
     @Test
     fun `fetchSessionAndObserveRequest - Records where the request that resolved the session came from`() = runTest {
@@ -319,6 +327,83 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     /** Ask for the error page of the session `encoded-state` names, failing on a redirect. */
     private suspend fun answerErrorPage(): BusinessException = answerErrorPageWithSession().first
 
+    @Test
+    fun `fetchSessionThenLeave - Cancels a running session and sends the end-user where leaving it leads`() =
+        runTest {
+            val session = ongoing(UUID.randomUUID())
+            val cancelled = mockk<CancelledInteractiveFlowSession>()
+            val leaveUri = URI.create("https://client.example.com/account?sympauthy_flow=mfa_enrollment")
+            every { session.handBack } returns plainHandBack
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                SuccessVerifyEncodedStateResult(session)
+            coEvery { sessionManager.markAsCancelled(session) } returns cancelled
+            coEvery { stepUriMapper.getLeaveUriOrNull(cancelled) } returns leaveUri
+
+            assertEquals(leaveUri, util.fetchSessionThenLeave("encoded-state", observed))
+        }
+
+    @Test
+    fun `fetchSessionThenLeave - Leaves a session that has ended as it is`() = runTest {
+        val session = failedSession()
+        val leaveUri = URI.create("https://client.example.com/callback?error=access_denied")
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            SuccessVerifyEncodedStateResult(session)
+        coEvery { stepUriMapper.getLeaveUriOrNull(session) } returns leaveUri
+
+        assertEquals(leaveUri, util.fetchSessionThenLeave("encoded-state", observed))
+
+        coVerify(exactly = 0) { sessionManager.markAsCancelled(any()) }
+    }
+
+    @Test
+    fun `fetchSessionThenLeave - Sends the end-user where a session with no way out stands`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession> { every { flowId } returns "flow-id" }
+        val flow = mockk<InteractiveFlow>()
+        val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            SuccessVerifyEncodedStateResult(session)
+        coEvery { stepUriMapper.getLeaveUriOrNull(session) } returns null
+        coEvery { interactiveAuthFlowSessionManager.findById("flow-id") } returns flow
+        coEvery { engine.advance(session) } returns
+            InteractiveFlowStepResult(session, InteractiveFlowStep.AlreadyCompleted)
+        coEvery { stepUriMapper.toRedirectUri(session, flow, InteractiveFlowStep.AlreadyCompleted) } returns errorUri
+
+        assertEquals(errorUri, util.fetchSessionThenLeave("encoded-state", observed))
+    }
+
+    @Test
+    fun `fetchSessionThenLeave - Shows the step a running session with nowhere to go stands on, advancing nothing`() =
+        runTest {
+            val session = ongoing(UUID.randomUUID())
+            val flow = mockk<InteractiveFlow>()
+            val stepUri = URI.create("https://flow.example.com/sign-in?state=encoded-state")
+            every { session.handBack } returns null
+            every { session.flowId } returns "flow-id"
+            coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+                SuccessVerifyEncodedStateResult(session)
+            coEvery { stepUriMapper.getLeaveUriOrNull(session) } returns null
+            coEvery { interactiveAuthFlowSessionManager.findById("flow-id") } returns flow
+            coEvery { engine.currentStepOrNull(session) } returns InteractiveFlowStep.SignIn
+            coEvery { stepUriMapper.toRedirectUri(session, flow, InteractiveFlowStep.SignIn) } returns stepUri
+
+            assertEquals(stepUri, util.fetchSessionThenLeave("encoded-state", observed))
+
+            coVerify(exactly = 0) { sessionManager.markAsCancelled(any()) }
+            coVerify(exactly = 0) { engine.advance(any()) }
+        }
+
+    @Test
+    fun `fetchSessionThenLeave - Carries a state resolving to no session to the error page`() = runTest {
+        val flow = mockk<InteractiveFlow>()
+        val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+        coEvery { sessionManager.verifyEncodedInternalState("encoded-state") } returns
+            FailedVerifyEncodedStateResult(detailsId = "auth.interactive_flow_session.validate.wrong_signature")
+        coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+        every { stepUriMapper.getErrorUri("encoded-state", flow) } returns errorUri
+
+        assertEquals(errorUri, util.fetchSessionThenLeave("encoded-state", observed))
+    }
+
     /** Ask for the error page as [answerErrorPage] does, keeping the session the failure was answered for. */
     private suspend fun answerErrorPageWithSession(): Pair<BusinessException, InteractiveFlowSession?> =
         util.fetchSessionThenAnswerFailureOrRedirect(
@@ -340,6 +425,7 @@ class InteractiveAuthFlowSessionControllerUtilTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.of(2026, 8, 31, 10, 0),
         startedBy = null,
+        handBack = null,
         errorDetailsId = errorDetailsId,
         errorDescriptionId = errorDescriptionId,
         errorValues = errorValues,

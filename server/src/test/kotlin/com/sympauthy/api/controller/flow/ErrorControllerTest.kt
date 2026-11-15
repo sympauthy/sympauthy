@@ -36,8 +36,11 @@ class ErrorControllerTest {
     @MockK
     lateinit var clientMapper: ClientReferenceResourceMapper
 
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
     private val controller by lazy {
-        ErrorController(interactiveAuthFlowSessionControllerUtil, flowErrorResourceMapper, clientMapper)
+        ErrorController(interactiveAuthFlowSessionControllerUtil, flowErrorResourceMapper, clientMapper, stepUriMapper)
     }
 
     private val observed = observedRequestOf()
@@ -58,18 +61,21 @@ class ErrorControllerTest {
         } coAnswers {
             arg<suspend (BusinessException, InteractiveFlowSession?) -> FlowErrorResource>(2)(failure, session)
         }
+        val cancelUri = URI.create("https://auth.example.com/api/v1/flow/cancel?state=encoded-state")
         coEvery { clientMapper.toResourceOrNull(session) } returns client
-        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, client) } returns
-            FlowErrorResource(errorCode = "flow.web.invalid_flow", client = client)
+        coEvery { stepUriMapper.getCancelUriOrNull(session, "encoded-state") } returns cancelUri
+        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, client, cancelUri.toString()) } returns
+            FlowErrorResource(errorCode = "flow.web.invalid_flow", client = client, cancelUrl = cancelUri.toString())
 
         val result = controller.getError(request, StateAuthentication("encoded-state"), observed)
 
         assertEquals("flow.web.invalid_flow", result.errorCode)
         assertEquals(client, result.client)
+        assertEquals(cancelUri.toString(), result.cancelUrl)
     }
 
     @Test
-    fun `getError - Names no client where the state resolves to no session`() = runTest {
+    fun `getError - Names no client and offers no way out where the state resolves to no session`() = runTest {
         val request = mockk<HttpRequest<*>> {
             every { locale } returns Optional.of(Locale.FRANCE)
         }
@@ -81,12 +87,13 @@ class ErrorControllerTest {
         } coAnswers {
             arg<suspend (BusinessException, InteractiveFlowSession?) -> FlowErrorResource>(2)(failure, null)
         }
-        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, null) } returns
+        every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, null, null) } returns
             FlowErrorResource(errorCode = "auth.interactive_flow_session.validate.missing_session")
 
         val result = controller.getError(request, StateAuthentication("encoded-state"), observed)
 
         assertNull(result.client)
+        assertNull(result.cancelUrl)
     }
 
     @Test

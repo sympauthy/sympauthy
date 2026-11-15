@@ -3,13 +3,17 @@ package com.sympauthy.api.controller.flow
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.filter.ObservedRequestFilter.Companion.OBSERVED_REQUEST
+import com.sympauthy.api.mapper.flow.ClientReferenceResourceMapper
 import com.sympauthy.api.resource.flow.SimpleFlowResource
+import com.sympauthy.api.resource.flow.TotpChallengeFlowResource
 import com.sympauthy.api.resource.flow.TotpChallengeInputResource
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_FAILURE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
+import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
+import com.sympauthy.api.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpChallengeManager
 import com.sympauthy.business.model.security.ObservedRequest
@@ -17,6 +21,7 @@ import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.annotation.Controller
+import io.micronaut.http.annotation.Get
 import io.micronaut.http.annotation.Post
 import io.micronaut.http.annotation.RequestAttribute
 import io.micronaut.security.annotation.Secured
@@ -29,8 +34,42 @@ import jakarta.inject.Inject
 @Controller("$FLOW_SURFACE/mfa/totp")
 class TotpChallengeController(
     @Inject private val challengeManager: InteractiveFlowSessionTotpChallengeManager,
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
+
+    @Operation(
+        description = "Retrieve the MFA challenge step asking the end-user for a TOTP code.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The client the interactive flow session was started for, and the URL leaving it.",
+                useReturnTypeSchema = true
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = FLOW_STATE_BAD_REQUEST_DESCRIPTION + FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTION
+            ),
+            ApiResponse(responseCode = "401", description = FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION)
+        ],
+        tags = ["flow"]
+    )
+    @Get
+    suspend fun getChallenge(
+        authentication: Authentication,
+        @RequestAttribute(OBSERVED_REQUEST) observedRequest: ObservedRequest
+    ): TotpChallengeFlowResource =
+        interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionWithUserThenRun(
+            state = authentication.stateOrNull,
+            observedRequest = observedRequest,
+            run = { session, _, _ ->
+                TotpChallengeFlowResource(
+                    client = clientMapper.toResourceOrNull(session),
+                    cancelUrl = stepUriMapper.getCancelUriOrNull(session, authentication.stateOrNull)?.toString()
+                )
+            }
+        )
 
     @Operation(
         description = "Pass the MFA challenge with the TOTP code the end-user's authenticator shows. " +

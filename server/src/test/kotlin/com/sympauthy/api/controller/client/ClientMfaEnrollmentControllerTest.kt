@@ -4,6 +4,7 @@ import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.resource.client.ClientMfaEnrollmentInputResource
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
@@ -110,15 +111,12 @@ class ClientMfaEnrollmentControllerTest {
             coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
             coEvery { userManager.findByIdOrNull(userId) } returns user
             every {
-                clientRedirectUriManager.parseRequestedRedirectUri(
-                    client,
-                    "https://client.example.com/done",
-                    recoverable = true
-                )
+                clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/done")
             } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
-                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, "client-id")
+                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, null, flow, "client-id")
             } returns session
             coEvery { engine.advance(session) } returns
                 InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
@@ -142,7 +140,7 @@ class ClientMfaEnrollmentControllerTest {
         }
 
     @Test
-    fun `startEnrollment - Validates and forwards the optional cancel URI`() = runTest {
+    fun `startEnrollment - Forwards the return state`() = runTest {
         val userId = UUID.randomUUID()
         val user = mockk<User>()
         val client = mockk<Client>()
@@ -150,8 +148,7 @@ class ClientMfaEnrollmentControllerTest {
         val userToken = mockk<AuthenticationToken> {
             every { grant } returns mockk { every { this@mockk.userId } returns userId }
         }
-        val returnUri = URI.create("https://client.example.com/done")
-        val cancelUri = URI.create("https://client.example.com/cancelled")
+        val returnUri = URI.create("https://client.example.com/account")
         val flow = mockk<InteractiveFlow>()
         val session = mockk<OnGoingInteractiveFlowSession>()
         val steppedSession = mockk<OnGoingInteractiveFlowSession>()
@@ -160,24 +157,12 @@ class ClientMfaEnrollmentControllerTest {
         every { client.id } returns "client-id"
         coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
         coEvery { userManager.findByIdOrNull(userId) } returns user
-        every {
-            clientRedirectUriManager.parseRequestedRedirectUri(
-                client,
-                "https://client.example.com/done",
-                recoverable = true
-            )
-        } returns returnUri
-        every {
-            clientRedirectUriManager.parseRequestedRedirectUri(
-                client,
-                "https://client.example.com/cancelled",
-                recoverable = true
-            )
-        } returns cancelUri
+        every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState("xyz") } returns "xyz"
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
-        // The stub only matches (and thus drives the redirect) when the validated cancel URI is threaded through.
+        // The stub only matches (and thus drives the redirect) when the return state is threaded through.
         coEvery {
-            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, flow, "client-id", cancelUri)
+            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, "xyz", flow, "client-id")
         } returns session
         coEvery { engine.advance(session) } returns
             InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
@@ -189,14 +174,36 @@ class ClientMfaEnrollmentControllerTest {
         val result = controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
             authentication,
             observed,
-            ClientMfaEnrollmentInputResource(
-                accessToken = "user-access-token",
-                returnUri = "https://client.example.com/done",
-                cancelUri = "https://client.example.com/cancelled"
-            )
+            ClientMfaEnrollmentInputResource(accessToken = "user-access-token", returnState = "xyz")
         )
 
         assertEquals(enrollUri.toString(), result.redirectUrl)
+    }
+
+    @Test
+    fun `startEnrollment - Fails with the return URI refusal and starts no session`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } throws
+            recoverableBusinessExceptionOf("client.return_uri.missing", "description.client.return_uri.missing")
+
+        val exception = assertThrows<BusinessException> {
+            controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(accessToken = "user-access-token")
+            )
+        }
+
+        assertEquals("client.return_uri.missing", exception.detailsId)
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -215,7 +222,7 @@ class ClientMfaEnrollmentControllerTest {
         }
 
         assertEquals("client.mfa.enrollment.mfa_disabled", exception.detailsId)
-        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -237,7 +244,7 @@ class ClientMfaEnrollmentControllerTest {
         }
 
         assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
-        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
     }
 
     @Test
@@ -263,7 +270,7 @@ class ClientMfaEnrollmentControllerTest {
             }
 
             assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
-            coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
         }
 
     @Test
@@ -290,6 +297,6 @@ class ClientMfaEnrollmentControllerTest {
         }
 
         assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
-        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any()) }
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
     }
 }

@@ -144,6 +144,8 @@ class ClientsConfigValidator(
             allowedGrantTypes = allowedGrantTypes!!,
             authorizationFlow = authorizationFlow,
             allowedRedirectUris = allowedRedirectUris!!,
+            returnUri = parsed.returnUri,
+            allowedReturnUris = parsed.allowedReturnUris.orEmpty(),
             allowedScopes = allowedScopes,
             defaultScopes = defaultScopes,
             authorizationWebhook = authorizationWebhook

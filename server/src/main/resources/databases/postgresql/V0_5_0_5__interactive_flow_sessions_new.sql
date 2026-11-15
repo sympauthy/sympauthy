@@ -14,9 +14,9 @@ CREATE TABLE interactive_flow_sessions
 
     mfa_passed_date      timestamp,
 
-    success_redirect_uri text,
+    redirect_uri         text,
     redirect_type        text,
-    cancel_redirect_uri  text,
+    return_state         text,
 
     completed_purposes   text[]    NOT NULL DEFAULT '{}',
     complete_date        timestamp,

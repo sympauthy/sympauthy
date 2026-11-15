@@ -1,6 +1,7 @@
 package com.sympauthy.api.resource.flow
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.util.STEP_CANCEL_URL_DESCRIPTION
 import com.sympauthy.api.util.STEP_CLIENT_DESCRIPTION
 import com.sympauthy.api.util.STEP_REDIRECT_URL_DESCRIPTION
 import com.sympauthy.api.util.STEP_URL_STATE_DESCRIPTION
@@ -38,6 +39,14 @@ class FlowErrorResource(
     )
     @get:JsonProperty("client")
     val client: ClientReferenceResource? = null,
+
+    @get:Schema(
+        name = "cancel_url",
+        description = STEP_CANCEL_URL_DESCRIPTION + " Absent too when the `state` resolves to no " +
+            "interactive flow session, and when `redirect_url` is present."
+    )
+    @get:JsonProperty("cancel_url")
+    val cancelUrl: String? = null,
 
     @get:Schema(
         name = "redirect_url",

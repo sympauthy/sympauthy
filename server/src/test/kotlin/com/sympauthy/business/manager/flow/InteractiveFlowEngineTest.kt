@@ -7,6 +7,7 @@ import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowStep
@@ -459,6 +460,33 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
+    fun `currentStepOrNull - Returns the step the first unresolved purpose asks for, completing nothing`() =
+        runTest {
+            val session = onGoingSession(
+                listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.REAUTHENTICATION)
+            )
+            val confirmHandler = mockk<InteractiveFlowPurposeHandler>()
+            val reauthHandler = mockk<InteractiveFlowPurposeHandler>()
+            every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.CONFIRM) } returns confirmHandler
+            every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.REAUTHENTICATION) } returns reauthHandler
+            coEvery { confirmHandler.nextStepOrNull(session) } returns null
+            coEvery { reauthHandler.nextStepOrNull(session) } returns InteractiveFlowStep.SignIn
+
+            assertEquals(InteractiveFlowStep.SignIn, engine.currentStepOrNull(session))
+            coVerify(exactly = 0) { sessionManager.markPurposeAsCompleted(any(), any()) }
+        }
+
+    @Test
+    fun `currentStepOrNull - Returns null when every purpose has resolved`() = runTest {
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+        coEvery { handler.nextStepOrNull(session) } returns null
+
+        assertNull(engine.currentStepOrNull(session))
+    }
+
+    @Test
     fun `advance - Promotes what the session signed up between preparing the terminal effects and applying them`() =
         runTest {
             val userId = UUID.randomUUID()
@@ -605,6 +633,7 @@ class InteractiveFlowEngineTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         startedBy = null,
+        handBack = null,
         sessionDate = LocalDateTime.now(),
         userId = userId,
     )
@@ -617,11 +646,13 @@ class InteractiveFlowEngineTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         startedBy = null,
+        handBack = InteractiveFlowHandBack(
+            uri = URI.create("https://client.example.com/callback"),
+            type = InteractiveFlowRedirectType.AUTHORIZATION_CODE
+        ),
         sessionDate = LocalDateTime.now(),
         userId = UUID.randomUUID(),
         completeDate = LocalDateTime.now(),
-        successRedirectUri = URI.create("https://client.example.com/callback"),
-        redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
     )
 
     private fun cancelledSession() = CancelledInteractiveFlowSession(
@@ -632,10 +663,11 @@ class InteractiveFlowEngineTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         startedBy = null,
+        handBack = InteractiveFlowHandBack(
+            uri = URI.create("https://client.example.com/callback"),
+            type = InteractiveFlowRedirectType.AUTHORIZATION_CODE
+        ),
         userId = UUID.randomUUID(),
-        redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
-        successRedirectUri = URI.create("https://client.example.com/callback"),
-        cancelRedirectUri = URI.create("https://client.example.com/callback"),
         cancelDate = LocalDateTime.now(),
     )
 
@@ -647,6 +679,7 @@ class InteractiveFlowEngineTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         startedBy = null,
+        handBack = null,
         errorDetailsId = "error",
         errorDate = LocalDateTime.now(),
     )

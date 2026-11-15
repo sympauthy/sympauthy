@@ -59,6 +59,8 @@ class ClientTemplatesConfigValidator(
             allowedGrantTypes = allowedGrantTypes,
             authorizationFlow = authorizationFlow,
             allowedRedirectUris = parsed.allowedRedirectUris,
+            returnUri = parsed.returnUri,
+            allowedReturnUris = parsed.allowedReturnUris,
             allowedScopes = allowedScopes,
             defaultScopes = defaultScopes,
             authorizationWebhook = authorizationWebhook

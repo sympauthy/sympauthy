@@ -3,7 +3,6 @@ package com.sympauthy.business.model.flow
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.Expirable
 import com.sympauthy.monitoring.telemetry.SpanReference
-import java.net.URI
 import java.time.LocalDateTime
 import java.util.*
 
@@ -75,7 +74,16 @@ sealed class InteractiveFlowSession(
      * where that request was not traced, and set once when the session is created.
      */
     val startedBy: SpanReference?
-) : Expirable
+) : Expirable {
+    /**
+     * Where and how the end-user is handed back to whoever started the session, whatever way it ends. Set once
+     * when the session is created, and null where the start request named nowhere this server may send the
+     * end-user back to — an authorization request from an unknown client, or naming a redirect URI the client
+     * does not declare — so such a session is left only through its error page. A completed and a cancelled
+     * session always carry one.
+     */
+    abstract val handBack: InteractiveFlowHandBack?
+}
 
 /**
  * Represents an interactive flow session that is ongoing.
@@ -88,6 +96,7 @@ class OnGoingInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
+    override val handBack: InteractiveFlowHandBack?,
 
     /**
      * When the user initiated the session.
@@ -131,29 +140,6 @@ class OnGoingInteractiveFlowSession(
      */
     val mfaPassedDate: LocalDateTime? = null,
 
-    /**
-     * The URI the end-user is handed back to once the session completes. How it is decorated is driven by
-     * [redirectType] (an authorization code is appended for [InteractiveFlowRedirectType.AUTHORIZATION_CODE],
-     * nothing for [InteractiveFlowRedirectType.PLAIN]).
-     *
-     * Null while the session is still being set up, or when the initiating request failed validation and has
-     * no usable redirect target.
-     */
-    val successRedirectUri: URI? = null,
-
-    /**
-     * How the end-user must be handed back to the initiator on a terminal status. Null until the session's
-     * redirect target has been set.
-     */
-    val redirectType: InteractiveFlowRedirectType? = null,
-
-    /**
-     * The URI the end-user is handed back to when they cancel the session. For an
-     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE] session this is the client redirect URI (the OAuth2
-     * `error=access_denied` response is returned there); for a [InteractiveFlowRedirectType.PLAIN] session
-     * this is a caller-provided cancel URI, and may be null when the flow does not offer cancellation.
-     */
-    val cancelRedirectUri: URI? = null,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
@@ -183,15 +169,13 @@ class OnGoingInteractiveFlowSession(
         flowId = this.flowId,
         expirationDate = this.expirationDate,
         startedBy = this.startedBy,
+        handBack = this.handBack,
         sessionDate = this.sessionDate,
         version = version ?: this.version,
         userId = userId ?: this.userId,
         signedUp = signedUp ?: this.signedUp,
         completedPurposes = completedPurposes ?: this.completedPurposes,
         mfaPassedDate = mfaPassedDate ?: this.mfaPassedDate,
-        successRedirectUri = this.successRedirectUri,
-        redirectType = this.redirectType,
-        cancelRedirectUri = this.cancelRedirectUri,
     )
 }
 
@@ -209,6 +193,7 @@ class CompletedInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
+    override val handBack: InteractiveFlowHandBack,
 
     /**
      * When the user initiated the session.
@@ -241,24 +226,6 @@ class CompletedInteractiveFlowSession(
      * When the user has completed the interactive flow.
      */
     val completeDate: LocalDateTime,
-
-    /**
-     * The URI the end-user must be handed back to now the session has completed. Decorated according to
-     * [redirectType].
-     */
-    val successRedirectUri: URI,
-
-    /**
-     * How the end-user must be handed back to the initiator: an authorization code is appended for
-     * [InteractiveFlowRedirectType.AUTHORIZATION_CODE], nothing for [InteractiveFlowRedirectType.PLAIN].
-     */
-    val redirectType: InteractiveFlowRedirectType,
-
-    /**
-     * The URI the end-user would have been handed back to had they cancelled the session. Carried for
-     * symmetry; may be null when the flow does not offer cancellation.
-     */
-    val cancelRedirectUri: URI? = null,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
@@ -280,6 +247,7 @@ class FailedInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
+    override val handBack: InteractiveFlowHandBack?,
 
     /**
      * Identifier of the message detailing, in a technical way, the error which caused this session to fail.
@@ -302,6 +270,14 @@ class FailedInteractiveFlowSession(
      * When the interactive flow failed.
      */
     val errorDate: LocalDateTime,
+
+    /**
+     * What the session had become when its expiration passed, where this failure is that expiry rather than one
+     * recorded on the session: [InteractiveFlowSessionStatus.COMPLETED] or [InteractiveFlowSessionStatus.CANCELLED]
+     * where it had already ended, [InteractiveFlowSessionStatus.EXPIRED] where it was still running. Null for a
+     * recorded failure.
+     */
+    val statusAtExpiry: InteractiveFlowSessionStatus? = null,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
@@ -343,6 +319,15 @@ fun interactiveFlowSessionAlreadyCompletedExceptionOf() = businessExceptionOf(
 )
 
 /**
+ * The code a session the end-user left while it was still running is published under, beside the codes of the
+ * failures a session ends on, to whoever the session hands the end-user back to.
+ *
+ * **Nothing throws it.** Leaving is not a failure, and no message renders it: a cancelled session never
+ * reaches the error page.
+ */
+const val CANCELLED_DETAILS_ID = "auth.interactive_flow_session.cancelled"
+
+/**
  * Detail id of the failure [interactiveFlowSessionConcurrentModificationExceptionOf] builds, for the flow's
  * error handling to tell it apart (see
  * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]).
@@ -367,8 +352,8 @@ fun interactiveFlowSessionConcurrentModificationExceptionOf(session: Interactive
  * Represents an interactive flow session the end-user cancelled.
  *
  * Distinct from a [FailedInteractiveFlowSession]: a failed session routes the end-user to the flow's error
- * page, whereas a cancelled session hands the end-user back to the flow's initiator on the cancellation
- * redirect (the OAuth2 `error=access_denied` response, or a caller-provided cancel URI).
+ * page, whereas a cancelled session hands the end-user back to the flow's initiator (the OAuth2
+ * `error=access_denied` response, or the return URI saying the flow was cancelled).
  */
 class CancelledInteractiveFlowSession(
     id: UUID,
@@ -378,30 +363,13 @@ class CancelledInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
+    override val handBack: InteractiveFlowHandBack,
 
     /**
      * The identifier of the user that had been authenticated when the session was cancelled.
      * Null when the user cancelled before identifying themselves (e.g. at the sign-in step).
      */
     val userId: UUID?,
-
-    /**
-     * How the end-user must be handed back to the initiator on cancellation.
-     */
-    val redirectType: InteractiveFlowRedirectType,
-
-    /**
-     * The URI the end-user was handed back to on completion had the session succeeded. Carried for symmetry;
-     * null when the initiating request had no usable redirect target.
-     */
-    val successRedirectUri: URI?,
-
-    /**
-     * The URI the end-user is handed back to on cancellation. For [InteractiveFlowRedirectType.PLAIN] this is
-     * the caller-provided cancel URI; for [InteractiveFlowRedirectType.AUTHORIZATION_CODE] this is the client
-     * redirect URI where the OAuth2 `error=access_denied` response is returned.
-     */
-    val cancelRedirectUri: URI?,
 
     /**
      * When the end-user cancelled the interactive flow.
@@ -432,6 +400,18 @@ val InteractiveFlowSession.userIdOrNull: UUID?
         is CompletedInteractiveFlowSession -> userId
         is CancelledInteractiveFlowSession -> userId
         is FailedInteractiveFlowSession -> null
+    }
+
+/**
+ * What became of this session, as [InteractiveFlowSessionStatus] reads it: an expiry ends only a session that was
+ * still running, so one that had completed or been cancelled before its expiration passed answers that ending.
+ */
+val InteractiveFlowSession.status: InteractiveFlowSessionStatus
+    get() = when (this) {
+        is OnGoingInteractiveFlowSession -> InteractiveFlowSessionStatus.ONGOING
+        is CompletedInteractiveFlowSession -> InteractiveFlowSessionStatus.COMPLETED
+        is CancelledInteractiveFlowSession -> InteractiveFlowSessionStatus.CANCELLED
+        is FailedInteractiveFlowSession -> statusAtExpiry ?: InteractiveFlowSessionStatus.FAILED
     }
 
 /**

@@ -110,16 +110,19 @@ class InteractiveAuthFlowSessionManager(
         authorizationRequest: UncheckedAuthorizationRequest
     ): Pair<InteractiveFlowSession, InteractiveFlow> {
         val (client, clientException) = try {
-            val client = clientManager.parseRequestedClient(authorizationRequest.clientId)
-            if (!client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
-                throw businessExceptionOf(
-                    detailsId = "authorize.unauthorized_grant_type",
-                    descriptionId = "description.authorize.unauthorized_grant_type"
-                )
-            }
-            client to null
+            clientManager.parseRequestedClient(authorizationRequest.clientId) to null
         } catch (e: BusinessException) {
             null to e
+        }
+        // The client is kept when it may not use this grant: the redirect URI it declares is where that refusal
+        // is answered.
+        val grantException = if (client != null && !client.supportsGrantType(GrantType.AUTHORIZATION_CODE)) {
+            businessExceptionOf(
+                detailsId = "authorize.unauthorized_grant_type",
+                descriptionId = "description.authorize.unauthorized_grant_type"
+            )
+        } else {
+            null
         }
 
         val authorizationFlowId = client?.authorizationFlow?.id
@@ -156,8 +159,7 @@ class InteractiveAuthFlowSessionManager(
             try {
                 clientRedirectUriManager.parseRequestedRedirectUri(
                     client = client,
-                    uncheckedRedirectUri = authorizationRequest.redirectUri,
-                    recoverable = false
+                    uncheckedRedirectUri = authorizationRequest.redirectUri
                 ) to null
             } catch (e: BusinessException) {
                 null to e
@@ -190,6 +192,26 @@ class InteractiveAuthFlowSessionManager(
             null to null
         }
 
+        // The first refusal is the one reported, with the error RFC 6749 §4.1.2.1 or OpenID Connect Core §3.1.2.6
+        // names for the parameter it refuses.
+        val requestObjectError = if (authorizationRequest.requestObject.isNullOrBlank()) {
+            OAuth2ErrorCode.REQUEST_URI_NOT_SUPPORTED
+        } else {
+            OAuth2ErrorCode.REQUEST_NOT_SUPPORTED
+        }
+        val refusal = listOf(
+            clientException to OAuth2ErrorCode.INVALID_REQUEST,
+            grantException to OAuth2ErrorCode.UNAUTHORIZED_CLIENT,
+            flowException to OAuth2ErrorCode.SERVER_ERROR,
+            requestObjectException to requestObjectError,
+            scopeException to OAuth2ErrorCode.INVALID_SCOPE,
+            redirectUriException to OAuth2ErrorCode.INVALID_REQUEST,
+            pkceException to OAuth2ErrorCode.INVALID_REQUEST,
+            invitationException to OAuth2ErrorCode.INVALID_REQUEST,
+            maxAgeException to OAuth2ErrorCode.INVALID_REQUEST,
+            requestedClaimsException to OAuth2ErrorCode.INVALID_REQUEST
+        ).firstNotNullOfOrNull { (exception, error) -> exception?.let { it to error } }
+
         val session = oauth2Manager.startOAuth2Session(
             client = client,
             clientState = authorizationRequest.state,
@@ -201,17 +223,8 @@ class InteractiveAuthFlowSessionManager(
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
             invitationId = invitation?.id,
-            error = listOfNotNull(
-                clientException,
-                flowException,
-                requestObjectException,
-                scopeException,
-                redirectUriException,
-                pkceException,
-                invitationException,
-                maxAgeException,
-                requestedClaimsException
-            ).firstOrNull()
+            error = refusal?.first,
+            requestError = refusal?.second
         )
         return session to flow
     }

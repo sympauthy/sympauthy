@@ -20,8 +20,14 @@ Which prefix belongs to which surface, and why only some carry a version, is
 **A path segment is a lowercase plural noun.** The verb is the method, and a segment needing two
 words is kebab-case.
 
-**An action that is not a state change on a resource is a `POST` to a sub-path under it.** Ending a
-session, skipping a step and revoking an invitation are written that way.
+**An action that is not a state change on a resource is a `POST` to a sub-path under it.** Skipping
+a step and revoking an invitation are written that way.
+
+**Leaving an interactive flow is the one action written as a `GET`**, and it answers with a redirect
+rather than JSON: it is a link every page of a flow offers, followed without the page sending a
+request first. [Interactive
+flow](../design/interactive-flow.md#leaving-is-a-link-through-this-server) argues why that is safe
+there, and nowhere else is it.
 
 **An action reaching many items is a `POST` to a sub-path of their collection, its body naming
 them.** It names them by identifier — their own, or those of what they belong to — and never by the

@@ -63,6 +63,18 @@ data class AdminClientResource(
     @get:JsonProperty("allowed_redirect_uris")
     val allowedRedirectUris: List<String>,
     @get:Schema(
+        description = "URL a flow the client starts for an end-user, such as an MFA enrollment, sends the " +
+                "end-user back to when the request starting it names no `return_uri`. Absent when the " +
+                "configuration gives the client none."
+    )
+    @get:JsonProperty("return_uri")
+    val returnUri: String?,
+    @get:Schema(
+        description = "URLs, besides `return_uri`, a request starting such a flow may name as its `return_uri`."
+    )
+    @get:JsonProperty("allowed_return_uris")
+    val allowedReturnUris: List<String>,
+    @get:Schema(
         description = "Webhook this server calls to decide which scopes to grant the client. Absent when none " +
                 "is configured."
     )

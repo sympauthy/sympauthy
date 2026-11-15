@@ -64,9 +64,32 @@ with a body of its own refuses it as over, as it refuses every session that has 
 code out again would give it to whoever holds the state, which outlives the flow and travels in
 URLs, and would send the client a code it has already exchanged.
 
-**Cancelling answers the client with `access_denied`.** A person declining is the client's to know,
-so the session hands them back to the redirect URI with the error RFC 6749 §4.1.2.1 names and the
-client's `state` echoed, and no code.
+**Leaving answers the client through the protocol.** The client has a request waiting, and RFC 6749
+§4.1.2.1 has it told the outcome on its callback, so a person [leaving the
+flow](interactive-flow.md#leaving-is-a-link-through-this-server) is handed back to the redirect URI
+with an error, the client's `state` echoed, and no code. Leaving a session still running answers
+`access_denied`: a person declining is the client's to know.
+
+**Leaving a failed authorization answers the error the authorize endpoint decided when it refused
+the request.** That endpoint knows which parameter it refused, so it records the error the
+specifications name for it beside the request — `invalid_scope` for a scope,
+`unauthorized_client` for a client not allowed the `authorization_code` grant,
+`request_not_supported` or `request_uri_not_supported` for a request object, `server_error` for an
+authorization flow the configuration no longer declares, `invalid_request` for any other parameter.
+Anything that ended the authorization once the person was going through the flow, including its
+expiry, answers `access_denied`: the client could not have corrected it, so nothing is recorded
+then, and the code a failure was raised with is never read for the answer.
+
+**That redirect is OAuth2's, and carries nothing of this server's own.** It is parsed by client
+libraries that know nothing of a [return destination's
+parameters](interactive-flow.md#how-a-session-hands-the-person-back), and `error_description` is
+where any detail would go — so a client that only signs people in never needs a return destination.
+
+**Some authorizations cannot be left.** A request from an unknown client, or naming a redirect URI
+the client does not declare, is never redirected, as RFC 6749 §4.1.2.1 forbids; its error page
+offers no way out. Neither does an authorization that has already completed: its code went to the
+client, and OAuth2 defines no second answer that would not contradict it. That holds once it has
+expired too, for as long as the session is still kept.
 
 ## What the code is good for
 

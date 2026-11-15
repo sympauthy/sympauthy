@@ -82,7 +82,7 @@ class SignUpController(
             observedRequest = observedRequest,
             run = { session, flow ->
                 if (signUpApplies(session)) {
-                    buildSignUpConfiguration(session, flow, locale)
+                    buildSignUpConfiguration(session, flow, locale, authentication.stateOrNull)
                 } else {
                     null
                 }
@@ -109,7 +109,8 @@ class SignUpController(
     private suspend fun buildSignUpConfiguration(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow,
-        locale: Locale
+        locale: Locale,
+        state: String?
     ): SignUpFlowResource {
         val password = if (passwordFlowManager.signUpEnabled) {
             PasswordResource(
@@ -124,7 +125,8 @@ class SignUpController(
         return SignUpFlowResource(
             password = password,
             signInRedirectUrl = signInRedirectUrl,
-            client = clientMapper.toResourceOrNull(session)
+            client = clientMapper.toResourceOrNull(session),
+            cancelUrl = stepUriMapper.getCancelUriOrNull(session, state)?.toString()
         )
     }
 

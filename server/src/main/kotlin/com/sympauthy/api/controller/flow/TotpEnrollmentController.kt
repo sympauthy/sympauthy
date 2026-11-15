@@ -35,6 +35,7 @@ import jakarta.inject.Inject
 class TotpEnrollmentController(
     @Inject private val enrollmentManager: InteractiveFlowSessionTotpEnrollmentManager,
     @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -68,7 +69,8 @@ class TotpEnrollmentController(
                 TotpEnrollDataFlowResource(
                     uri = data.uri,
                     secret = data.secret,
-                    client = clientMapper.toResourceOrNull(session)
+                    client = clientMapper.toResourceOrNull(session),
+                    cancelUrl = stepUriMapper.getCancelUriOrNull(session, authentication.stateOrNull)?.toString()
                 )
             }
         )
