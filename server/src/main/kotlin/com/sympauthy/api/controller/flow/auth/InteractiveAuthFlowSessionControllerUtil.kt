@@ -421,6 +421,49 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
+     * Resolve the session associated to the [state], end it as cancelled where it is still running, and return
+     * the [URI] the end-user leaving it is sent to — where [InteractiveFlowStepUriMapper.getLeaveUriOrNull] sends
+     * them from where the session now stands.
+     *
+     * A session already over keeps its outcome, and the end-user is only sent away. One that offers no way out —
+     * it has nowhere to hand the end-user back to, or it is an authorization that has already completed — is
+     * left as it is, and the end-user is sent where it stands instead: its current step, or its error page. A
+     * [state] that resolves to no session is carried to the default flow's error page, for that page to answer
+     * the refusal.
+     *
+     * A failure ending the session is handled as any other step's: one that lost to a concurrent request is
+     * routed by the session that request left, and any other fails the session, which is then left as failed.
+     */
+    suspend fun fetchSessionThenLeave(
+        state: String?,
+        observedRequest: ObservedRequest
+    ): URI {
+        val session = when (val verifyResult = verifyStateAndObserveRequest(state, observedRequest)) {
+            is SuccessVerifyEncodedStateResult -> verifyResult.session
+            is FailedVerifyEncodedStateResult -> return stepUriMapper.getErrorUri(
+                state = state.orEmpty(),
+                flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
+            )
+        }
+
+        val leftSession = if (session is OnGoingInteractiveFlowSession && session.handBack != null) {
+            try {
+                sessionManager.markAsCancelled(session)
+            } catch (e: BusinessException) {
+                handleException(session, e)
+            }
+        } else session
+
+        stepUriMapper.getLeaveUriOrNull(leftSession)?.let { return it }
+        val flow = try {
+            interactiveAuthFlowSessionManager.findById(leftSession.flowId)
+        } catch (_: BusinessException) {
+            interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
+        }
+        return redirectToCurrentStep(leftSession, flow)
+    }
+
+    /**
      * The non-recoverable failure named by [detailsId] and [descriptionId], carrying the [values] both of its
      * messages interpolate.
      *

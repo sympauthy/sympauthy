@@ -48,12 +48,16 @@ class ClaimsValidationControllerTest {
     @MockK
     lateinit var clientMapper: ClientReferenceResourceMapper
 
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
     private val controller by lazy {
         ClaimsValidationController(
             claimValidationManager,
             interactiveAuthFlowSessionControllerUtil,
             resourceMapper,
-            clientMapper
+            clientMapper,
+            stepUriMapper
         )
     }
 

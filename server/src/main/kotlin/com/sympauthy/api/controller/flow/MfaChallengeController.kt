@@ -72,7 +72,8 @@ class MfaChallengeController(
                                 redirectUrl = stepUriMapper.toRedirectUri(session, flow, it.step).toString()
                             )
                         },
-                        client = clientMapper.toResourceOrNull(session)
+                        client = clientMapper.toResourceOrNull(session),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString()
                     )
                 }
             }

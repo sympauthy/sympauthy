@@ -156,8 +156,7 @@ class InteractiveAuthFlowSessionManager(
             try {
                 clientRedirectUriManager.parseRequestedRedirectUri(
                     client = client,
-                    uncheckedRedirectUri = authorizationRequest.redirectUri,
-                    recoverable = false
+                    uncheckedRedirectUri = authorizationRequest.redirectUri
                 ) to null
             } catch (e: BusinessException) {
                 null to e

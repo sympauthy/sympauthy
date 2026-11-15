@@ -1,20 +1,15 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.api.resource.flow.SimpleFlowResource
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
-import com.sympauthy.business.model.flow.InteractiveFlow
-import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.security.StateAuthentication
+import io.micronaut.http.HttpHeaders
+import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.URI
@@ -23,37 +18,24 @@ import java.net.URI
 class CancelControllerTest {
 
     @MockK
-    lateinit var sessionManager: InteractiveFlowSessionManager
-
-    @MockK
     lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 
     private val controller by lazy {
-        CancelController(sessionManager, interactiveAuthFlowSessionControllerUtil)
+        CancelController(interactiveAuthFlowSessionControllerUtil)
     }
 
     @Test
-    fun `cancel - Marks the session as cancelled and returns the cancel redirect URL`() = runTest {
-        val ongoingSession = mockk<OnGoingInteractiveFlowSession>()
-        val flow = mockk<InteractiveFlow>()
-        val cancelledSession = mockk<CancelledInteractiveFlowSession>()
-        val cancelUri = URI.create("https://client.example.com/callback?error=access_denied")
-
-        coEvery { sessionManager.markAsCancelled(ongoingSession) } returns cancelledSession
-        // Exercise the update + redirect lambdas the controller passes to the shared plumbing.
+    fun `cancel - Redirects the browser where leaving the session sends it`() = runTest {
+        val observed = observedRequestOf()
+        val leaveUri = URI.create("https://client.example.com/callback?error=access_denied")
+        // Matching only the observed request the controller bound is what proves it was threaded through.
         coEvery {
-            interactiveAuthFlowSessionControllerUtil.fetchOnGoingSessionThenUpdateAndRedirect<SimpleFlowResource>(
-                eq("encoded-state"), any(), any(), any()
-            )
-        } coAnswers {
-            val update = arg<suspend (OnGoingInteractiveFlowSession, InteractiveFlow) -> Any>(2)
-            val mapRedirectUriToResource = arg<suspend (URI) -> SimpleFlowResource>(3)
-            assertSame(cancelledSession, update(ongoingSession, flow))
-            mapRedirectUriToResource(cancelUri)
-        }
+            interactiveAuthFlowSessionControllerUtil.fetchSessionThenLeave("encoded-state", refEq(observed))
+        } returns leaveUri
 
-        val result = controller.cancel(StateAuthentication("encoded-state"), observedRequestOf())
+        val result = controller.cancel(StateAuthentication("encoded-state"), observed)
 
-        assertEquals(cancelUri.toString(), result.redirectUrl)
+        assertEquals(HttpStatus.SEE_OTHER, result.status)
+        assertEquals(leaveUri.toString(), result.header(HttpHeaders.LOCATION))
     }
 }

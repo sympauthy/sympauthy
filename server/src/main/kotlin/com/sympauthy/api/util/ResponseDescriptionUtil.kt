@@ -72,14 +72,22 @@ const val INVITATION_EXPIRES_AT_BAD_REQUEST_DESCRIPTION =
 const val BODY_TOO_LARGE_RESPONSE_DESCRIPTION = "- `body.too_large`: the body is larger than this server accepts."
 
 /**
- * The lines of the `400` an operation answers with when it refuses the `return_uri` or the `cancel_uri`
- * of its body, each checked against the client the interactive flow session returns into.
+ * The lines of the `400` an operation answers with when it refuses the `return_uri` of its body, checked
+ * against the client the interactive flow session returns into.
  */
 const val RETURN_URI_BAD_REQUEST_DESCRIPTION =
-    "- `client.redirect_uri.missing`: `return_uri` is absent or blank, or `cancel_uri` is blank.\n" +
-        "- `client.redirect_uri.invalid`: `return_uri` or `cancel_uri` cannot be read as a URL.\n" +
-        "- `client.redirect_uri.not_allowed`: `return_uri` or `cancel_uri` is not one of the client's " +
-        "`clients.<id>.allowed-redirect-uris`."
+    "- `client.return_uri.missing`: `return_uri` is absent or blank, and the configuration gives the client no " +
+        "`clients.<id>.return-uri`.\n" +
+        "- `client.return_uri.invalid`: `return_uri` cannot be read as a URL.\n" +
+        "- `client.return_uri.not_allowed`: `return_uri` is neither the client's `clients.<id>.return-uri` nor " +
+        "one of its `clients.<id>.allowed-return-uris`."
+
+/**
+ * What an operation starting an interactive flow session a client returns from says of that return.
+ */
+const val RETURN_URL_DESCRIPTION = "The browser is sent back to `return_uri` however the interactive flow " +
+    "session ends, with `sympauthy_flow` naming the flow, `sympauthy_flow_error` naming how it ended where it " +
+    "did not complete, and `sympauthy_return_state` where the request carried a `return_state`."
 
 /**
  * The lines of the `400` an operation answers with when a claim value it was sent fails the validation

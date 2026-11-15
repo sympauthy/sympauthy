@@ -49,6 +49,8 @@ data class ClientTemplate(
     val allowedGrantTypes: Set<GrantType>?,
     val authorizationFlow: AuthorizationFlow?,
     val allowedRedirectUris: List<String>?,
+    val returnUri: String?,
+    val allowedReturnUris: List<String>?,
     val allowedScopes: Set<EnabledScope>?,
     val defaultScopes: List<EnabledScope>?,
     val authorizationWebhook: AuthorizationWebhook?

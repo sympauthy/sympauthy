@@ -21,6 +21,7 @@ import com.sympauthy.api.util.PAGE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.PaginationUtil
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.RETURN_URL_DESCRIPTION
 import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
@@ -202,7 +203,8 @@ class AdminUserMfaController(
     @Operation(
         description = "Start enrolling an MFA method for a user. Send the end-user's browser to " +
                 "`redirect_url`: the end-user confirms a request made by an administrator, enrolls the MFA " +
-                "method, and is sent back to `return_uri`.",
+                "method, and is sent back to `return_uri`. " +
+                RETURN_URL_DESCRIPTION,
         tags = ["admin"],
         responses = [
             ApiResponse(
@@ -252,25 +254,17 @@ class AdminUserMfaController(
             ?.let { clientManager.findClientByIdOrNull(it) }
             .orNotFound()
 
-        // Validate the return URI (and the optional cancel URI) against the named client's registered
-        // redirect URIs to avoid open redirects. recoverable = true: a bad URI is a bad request from the
-        // calling administrator (400), not a server error.
-        val returnUri = clientRedirectUriManager.parseRequestedRedirectUri(
-            client,
-            resource.returnUri,
-            recoverable = true
-        )
-        val cancelUri = resource.cancelUri
-            ?.let { clientRedirectUriManager.parseRequestedRedirectUri(client, it, recoverable = true) }
+        // Checked against the return URIs the client declared, so the browser is never sent anywhere else.
+        val returnUri = clientRedirectUriManager.parseRequestedReturnUri(client, resource.returnUri)
 
         // Admin-initiated: pass a null client id so the confirmation shows "an administrator".
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = mfaEnrollmentManager.startMfaEnrollmentSession(
             user = user,
             returnUri = returnUri,
+            returnState = resource.returnState,
             flow = flow,
-            initiatingClientId = null,
-            cancelUri = cancelUri
+            initiatingClientId = null
         )
         interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 

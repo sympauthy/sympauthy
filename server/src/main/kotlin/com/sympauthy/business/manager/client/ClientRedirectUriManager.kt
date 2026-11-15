@@ -1,19 +1,20 @@
 package com.sympauthy.business.manager.client
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.client.Client
+import io.micronaut.http.HttpStatus.BAD_REQUEST
 import jakarta.inject.Singleton
 import java.net.URI
 import java.net.URISyntaxException
 
 /**
- * Validates redirect URIs against a [Client]'s registered redirect URIs — the OAuth2 `redirect_uri` of
- * the browser authorize flow as well as the `return_uri` / `cancel_uri` of the standalone client- and
- * admin-initiated flows (e.g. MFA enrollment).
+ * Validates the URLs a request asks to send a person back to against what a [Client] declared: the OAuth2
+ * `redirect_uri` of an authorization against its redirect URIs, and the `return_uri` of a flow a client or an
+ * administrator started against its return URIs.
  *
- * This is intentionally decoupled from any particular flow purpose: every consumer validates a
- * caller-supplied redirect URI the same way. They differ only in how a rejection should surface, which
- * the caller controls via the `recoverable` flag on [parseRequestedRedirectUri].
+ * The two lists are never read for each other. A redirect URI is where an authorization code goes, and a page
+ * declared as a return destination was not built to exchange one, so it never receives one.
  */
 @Singleton
 class ClientRedirectUriManager {
@@ -23,22 +24,16 @@ class ClientRedirectUriManager {
      * the validated [URI]. One that is missing, malformed or not registered throws a [BusinessException]
      * whose detail id says which of the three it was.
      *
-     * [recoverable] is the flag that exception carries, and it decides where the rejection goes. Pass
-     * `false` where there is a flow to fail: the failure is caught and the session failed, so the end-user
-     * reaches the flow's error page rather than an unusable redirect URI. Pass `true` where there is none
-     * and the redirect URI arrived as a request parameter, so that it is answered as a `400`.
-     *
-     * The exception is built with the constructor rather than a factory because the flag is a parameter
-     * here, and no factory takes it as one.
+     * The exception is not recoverable: the authorization the redirect URI arrived with fails, so the end-user
+     * reaches the flow's error page rather than an unusable redirect URI.
      */
     fun parseRequestedRedirectUri(
         client: Client,
-        uncheckedRedirectUri: String?,
-        recoverable: Boolean
+        uncheckedRedirectUri: String?
     ): URI {
         if (uncheckedRedirectUri.isNullOrBlank()) {
             throw BusinessException(
-                recoverable = recoverable,
+                recoverable = false,
                 detailsId = "client.redirect_uri.missing",
                 descriptionId = "description.client.redirect_uri.missing"
             )
@@ -47,7 +42,7 @@ class ClientRedirectUriManager {
             URI(uncheckedRedirectUri)
         } catch (e: URISyntaxException) {
             throw BusinessException(
-                recoverable = recoverable,
+                recoverable = false,
                 detailsId = "client.redirect_uri.invalid",
                 descriptionId = "description.client.redirect_uri.invalid",
                 values = mapOf("redirect_uri" to uncheckedRedirectUri, "message" to (e.message ?: "")),
@@ -57,13 +52,58 @@ class ClientRedirectUriManager {
 
         if (!matchesAllowedRedirectUri(uncheckedRedirectUri, client.allowedRedirectUris)) {
             throw BusinessException(
-                recoverable = recoverable,
+                recoverable = false,
                 detailsId = "client.redirect_uri.not_allowed",
                 descriptionId = "description.client.redirect_uri.not_allowed",
                 values = mapOf("redirect_uri" to uncheckedRedirectUri)
             )
         }
         return redirectURI
+    }
+
+    /**
+     * Parses [uncheckedReturnUri] and checks it against [client]'s return URIs, returning the validated [URI]:
+     * [Client.returnUri] where [uncheckedReturnUri] is null or blank, and otherwise [uncheckedReturnUri] where
+     * it is [Client.returnUri] or one of [Client.allowedReturnUris], compared as a redirect URI is.
+     *
+     * Throws a recoverable [BusinessException], since the URL is the request's own to correct:
+     * - `client.return_uri.missing` where the request names none and the client declares no return URI.
+     * - `client.return_uri.invalid` where the URL cannot be parsed.
+     * - `client.return_uri.not_allowed` where the client declares neither as this URL.
+     */
+    fun parseRequestedReturnUri(
+        client: Client,
+        uncheckedReturnUri: String?
+    ): URI {
+        val returnUri = uncheckedReturnUri?.takeIf { it.isNotBlank() }
+            ?: client.returnUri
+            ?: throw recoverableBusinessExceptionOf(
+                "client.return_uri.missing",
+                "description.client.return_uri.missing",
+                "clientId" to client.id
+            )
+        val parsedReturnUri = try {
+            URI(returnUri)
+        } catch (e: URISyntaxException) {
+            throw BusinessException(
+                recoverable = true,
+                detailsId = "client.return_uri.invalid",
+                descriptionId = "description.client.return_uri.invalid",
+                recommendedStatus = BAD_REQUEST,
+                values = mapOf("return_uri" to returnUri, "message" to (e.message ?: "")),
+                throwable = e
+            )
+        }
+
+        val allowedReturnUris = listOfNotNull(client.returnUri) + client.allowedReturnUris
+        if (!matchesAllowedRedirectUri(returnUri, allowedReturnUris)) {
+            throw recoverableBusinessExceptionOf(
+                "client.return_uri.not_allowed",
+                "description.client.return_uri.not_allowed",
+                "return_uri" to returnUri
+            )
+        }
+        return parsedReturnUri
     }
 
     /**

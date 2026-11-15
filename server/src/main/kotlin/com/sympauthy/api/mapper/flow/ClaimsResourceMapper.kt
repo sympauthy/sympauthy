@@ -24,6 +24,7 @@ class ClaimsResourceMapper(
         collectedClaims: List<CollectedClaim>,
         providerUserInfoList: List<ProviderUserInfo>,
         client: ClientReferenceResource?,
+        cancelUrl: String?,
         locale: Locale
     ): ClaimsFlowResource {
         val collectedByClaimId = collectedClaims.associateBy { it.claim.id }
@@ -32,7 +33,8 @@ class ClaimsResourceMapper(
             claims = collectableClaims.map { claim ->
                 toResource(claim, collectedByClaimId[claim.id], sortedProviderUserInfoList, locale)
             },
-            client = client
+            client = client,
+            cancelUrl = cancelUrl
         )
     }
 

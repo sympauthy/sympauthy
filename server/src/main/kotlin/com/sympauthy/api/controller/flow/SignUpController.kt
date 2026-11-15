@@ -124,7 +124,8 @@ class SignUpController(
         return SignUpFlowResource(
             password = password,
             signInRedirectUrl = signInRedirectUrl,
-            client = clientMapper.toResourceOrNull(session)
+            client = clientMapper.toResourceOrNull(session),
+            cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString()
         )
     }
 

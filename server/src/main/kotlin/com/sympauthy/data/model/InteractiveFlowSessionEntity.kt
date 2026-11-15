@@ -37,10 +37,13 @@ class InteractiveFlowSessionEntity(
 
     val mfaPassedDate: LocalDateTime? = null,
 
-    /** Terminal redirect: where and how the end-user is handed back to the flow's initiator. */
-    val successRedirectUri: String? = null,
+    /**
+     * Where and how the end-user is handed back to the flow's initiator, whatever way the session ends: the
+     * URI and its type both set or both null, with the start request's `return_state` beside them.
+     */
+    val redirectUri: String? = null,
     val redirectType: String? = null,
-    val cancelRedirectUri: String? = null,
+    val returnState: String? = null,
 
     val completedPurposes: Array<String> = emptyArray(),
     val completeDate: LocalDateTime? = null,

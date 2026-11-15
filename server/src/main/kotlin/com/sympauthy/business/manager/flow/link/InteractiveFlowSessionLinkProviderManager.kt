@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionLinkProviderMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.ConfirmActionType
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -68,8 +69,9 @@ open class InteractiveFlowSessionLinkProviderManager(
 
     /**
      * Start a [InteractiveFlowPurpose.LINK_PROVIDER] session for the already-identified [userId] to link the
-     * provider [providerId] to their account, returning the end-user to [returnUri] on success (or [cancelUri]
-     * on cancellation, as a [InteractiveFlowRedirectType.PLAIN] redirect), in a single transaction.
+     * provider [providerId] to their account, returning the end-user to [returnUri] however it ends (as a
+     * [InteractiveFlowRedirectType.PLAIN] redirect, with the [returnState] the request carried), in a single
+     * transaction.
      *
      * The action is initiated on the end-user's behalf — by a client, or by an administrator when
      * [initiatingClientId] is null — so the session is gated by a prepended [InteractiveFlowPurpose.CONFIRM]
@@ -95,17 +97,17 @@ open class InteractiveFlowSessionLinkProviderManager(
      * credential to an account that does not exist yet, and could be made to exist afterwards by whoever owns
      * that session.
      *
-     * The [returnUri] and [cancelUri] must have been validated (e.g. against the named client's registered
-     * redirect URIs) by the caller before reaching here.
+     * The [returnUri] must have been validated against the named client's return URIs by the caller before
+     * reaching here.
      */
     @Transactional
     open suspend fun startLinkProviderSession(
         user: User,
         providerId: String,
         returnUri: URI,
+        returnState: String?,
         flow: AuthorizationFlow,
         initiatingClientId: String?,
-        cancelUri: URI? = null,
     ): OnGoingInteractiveFlowSession {
         // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
         // again inside this transaction rather than taken from a copy the caller may have read earlier.
@@ -119,9 +121,7 @@ open class InteractiveFlowSessionLinkProviderManager(
             initiatingPurpose = InteractiveFlowPurpose.LINK_PROVIDER,
             initiatingClientId = initiatingClientId,
             flow = flow,
-            successRedirectUri = returnUri,
-            redirectType = InteractiveFlowRedirectType.PLAIN,
-            cancelRedirectUri = cancelUri,
+            handBack = InteractiveFlowHandBack(returnUri, InteractiveFlowRedirectType.PLAIN, returnState),
         ) as? OnGoingInteractiveFlowSession
             ?: throw internalBusinessExceptionOf("flow.link_provider.start.not_ongoing")
         val sessionWithUser = sessionManager.setAuthenticatedUserId(session, user.id)

@@ -102,16 +102,12 @@ class ClientProviderLinkControllerTest {
             coEvery { providerManager.listEnabledProviders() } returns
                 listOf(mockk<EnabledProvider> { every { id } returns "discord" })
             every {
-                clientRedirectUriManager.parseRequestedRedirectUri(
-                    client,
-                    "https://client.example.com/linked",
-                    recoverable = true
-                )
+                clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/linked")
             } returns returnUri
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
                 linkProviderManager.startLinkProviderSession(
-                    user, "discord", returnUri, flow, "client-id", null
+                    user, "discord", returnUri, null, flow, "client-id"
                 )
             } returns session
             coEvery { engine.advance(session) } returns

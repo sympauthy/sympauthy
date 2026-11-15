@@ -4,6 +4,7 @@ import com.sympauthy.api.client.api.FlowApi
 import com.sympauthy.it.AbstractSympauthyIT
 import com.sympauthy.it.Database
 import io.micronaut.http.client.exceptions.HttpClientResponseException
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -19,9 +20,10 @@ import org.junit.jupiter.params.provider.EnumSource
  * session could still be advanced, an attacker holding the state could complete an authorization the user
  * had explicitly declined.
  *
- * This starts an authorization, cancels it, then replays the same state against a state-secured step that
- * requires an ongoing session (`GET /api/v1/flow/mfa/challenge`) and asserts it is rejected with
- * `400 ctrl.flow.not_ongoing`, on each supported database.
+ * This starts an authorization, leaves it through the `cancel_url` its sign-in step offers, then replays
+ * the same state against a state-secured step that requires an ongoing session
+ * (`GET /api/v1/flow/mfa/challenge`) and asserts it is rejected with `400 ctrl.flow.not_ongoing`, on each
+ * supported database.
  *
  * Source: [OAuth 2.1 §7.1 (Access Token / credential handling)](
  * https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-7.1) — cancellation is a terminal
@@ -40,7 +42,10 @@ class CancelledFlowStateNotReplayableIT : AbstractSympauthyIT() {
 
             withApiClient(sympauthy, state = internalState) { ctx ->
                 val flowApi = ctx.getBean(FlowApi::class.java)
-                flowApi.cancel().block()
+                val cancelUrl = checkNotNull(flowApi.getSignInConfiguration().block()?.cancelUrl) {
+                    "the sign-in step should offer a cancel_url"
+                }
+                assertEquals(303, withFlowClient(sympauthy) { it.get(cancelUrl) }.status)
 
                 val message = "replaying a cancelled flow's state must be rejected as no longer ongoing"
                 val replay = assertThrows<HttpClientResponseException>(message) {

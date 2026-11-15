@@ -20,6 +20,8 @@ class ClientTemplateConfigurationProperties(
     var uris: Map<String, String>? = null
     var allowedGrantTypes: List<String>? = null
     var allowedRedirectUris: List<String>? = null
+    var returnUri: String? = null
+    var allowedReturnUris: List<String>? = null
     var allowedScopes: List<String>? = null
     var defaultScopes: List<String>? = null
     var authorizationWebhook: AuthorizationWebhookConfig? = null

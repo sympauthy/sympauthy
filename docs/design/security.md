@@ -23,6 +23,12 @@ request carries PKCE, a redirect URI is compared as the exact string the client 
 of a loopback address aside, and the implicit and password grants are not offered: `ResponseType`
 and `GrantType` are the authority on what is.
 
+**A code goes only to a URL declared to receive one.** A flow a client started [returns the
+person](interactive-flow.md#how-a-session-hands-the-person-back) to a page compared the same way,
+against the client's return URIs, and neither list is ever read for the other. A page that was not
+built to exchange a code would leave one in its URL, where the browser history and the `Referer`
+header can expose it.
+
 **The OAuth2 surface is protected by the protocol, not by a role.** Client authentication, PKCE,
 redirect-URI matching, the signed state, [one-time authorization
 codes](oauth2-authorization.md#a-code-is-exchanged-once): the endpoints are anonymous because a

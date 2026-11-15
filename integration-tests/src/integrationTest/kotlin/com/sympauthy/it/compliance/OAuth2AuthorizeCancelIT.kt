@@ -21,9 +21,9 @@ import org.junit.jupiter.params.provider.EnumSource
  * channel and risk handing out a credential for a flow the user rejected.
  *
  * This starts a real authorization request, captures the signed internal state from the `303` to the
- * sign-in page, cancels the flow via `POST /api/v1/flow/cancel`, and asserts the returned redirect is
- * the client `redirect_uri` carrying `error=access_denied` with the client `state` echoed and **no
- * `code`**, on each supported database.
+ * sign-in page, follows the `cancel_url` the sign-in step offers, and asserts it redirects to the client
+ * `redirect_uri` carrying `error=access_denied` with the client `state` echoed, **no `code`**, and none of
+ * the parameters a return destination of this server's own receives, on each supported database.
  *
  * Source: [RFC 6749 §4.1.2.1 (Authorization Code Grant — Error Response)](
  * https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1).
@@ -41,9 +41,12 @@ class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
                 internalState(authorize)
             }
 
-            val redirect = withApiClient(sympauthy, state = internalState) { ctx ->
-                ctx.getBean(FlowApi::class.java).cancel().block()
-            }?.redirectUrl ?: error("the cancel answered an empty body")
+            val cancelUrl = withApiClient(sympauthy, state = internalState) { ctx ->
+                ctx.getBean(FlowApi::class.java).getSignInConfiguration().block()?.cancelUrl
+            } ?: error("the sign-in step should offer a cancel_url")
+            val leave = withFlowClient(sympauthy) { it.get(cancelUrl) }
+            assertEquals(303, leave.status, "leaving should redirect the browser")
+            val redirect = leave.location ?: error("leaving should name where the browser goes")
 
             assertTrue(
                 redirect.startsWith(registry.redirectUri()),
@@ -60,6 +63,10 @@ class OAuth2AuthorizeCancelIT : AbstractSympauthyIT() {
             assertNull(
                 queryParam(redirect, "code"),
                 "a cancelled authorization must not mint an authorization code, was: $redirect",
+            )
+            assertNull(
+                queryParam(redirect, "sympauthy_flow"),
+                "an authorization answers through the protocol alone, was: $redirect",
             )
         }
     }

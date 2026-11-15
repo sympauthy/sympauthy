@@ -36,15 +36,13 @@ class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
+            handBack = handBack(entity),
             sessionDate = entity.sessionDate,
             version = entity.version,
             userId = entity.userId,
             signedUp = entity.signedUp,
             completedPurposes = purposes(entity.completedPurposes, "completedPurposes"),
             mfaPassedDate = entity.mfaPassedDate,
-            successRedirectUri = uri(entity.successRedirectUri, "successRedirectUri"),
-            redirectType = redirectType(entity.redirectType),
-            cancelRedirectUri = uri(entity.cancelRedirectUri, "cancelRedirectUri"),
         )
     }
 
@@ -57,17 +55,13 @@ class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
+            handBack = handBack(entity),
             sessionDate = entity.sessionDate,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
             signedUp = entity.signedUp,
             completedPurposes = purposes(entity.completedPurposes, "completedPurposes"),
             mfaPassedDate = entity.mfaPassedDate,
             completeDate = entity.completeDate ?: throw invalidBusinessException("completeDate"),
-            successRedirectUri = uri(entity.successRedirectUri, "successRedirectUri")
-                ?: throw invalidBusinessException("successRedirectUri"),
-            redirectType = redirectType(entity.redirectType)
-                ?: throw invalidBusinessException("redirectType"),
-            cancelRedirectUri = uri(entity.cancelRedirectUri, "cancelRedirectUri"),
         )
     }
 
@@ -80,11 +74,8 @@ class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
+            handBack = handBack(entity),
             userId = entity.userId,
-            redirectType = redirectType(entity.redirectType)
-                ?: throw invalidBusinessException("redirectType"),
-            successRedirectUri = uri(entity.successRedirectUri, "successRedirectUri"),
-            cancelRedirectUri = uri(entity.cancelRedirectUri, "cancelRedirectUri"),
             cancelDate = entity.cancelDate ?: throw invalidBusinessException("cancelDate"),
         )
     }
@@ -98,6 +89,7 @@ class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
+            handBack = handBack(entity),
             errorDetailsId = entity.errorDetailsId ?: throw invalidBusinessException("errorDetailsId"),
             errorDescriptionId = entity.errorDescriptionId,
             errorValues = entity.errorValues,
@@ -118,6 +110,7 @@ class InteractiveFlowSessionMapper {
             errorValues = expired.values,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
+            handBack = handBack(entity),
             errorDate = entity.expirationDate,
         )
     }
@@ -206,29 +199,26 @@ class InteractiveFlowSessionMapper {
     }
 
     /**
-     * The redirect type [redirectType] names, or null where the session has no terminal redirect.
+     * Where the session [entity] hands the end-user back to, or null where it holds neither the URI nor its
+     * type. A row holding one without the other is refused.
      */
-    private fun redirectType(redirectType: String?): InteractiveFlowRedirectType? {
-        return redirectType?.let {
-            try {
-                InteractiveFlowRedirectType.valueOf(it)
+    private fun handBack(entity: InteractiveFlowSessionEntity): InteractiveFlowHandBack? {
+        if (entity.redirectUri == null && entity.redirectType == null) return null
+        val redirectUri = entity.redirectUri ?: throw invalidBusinessException("redirectUri")
+        val redirectType = entity.redirectType ?: throw invalidBusinessException("redirectType")
+        return InteractiveFlowHandBack(
+            uri = try {
+                URI.create(redirectUri)
+            } catch (e: IllegalArgumentException) {
+                throw invalidBusinessException("redirectUri", e)
+            },
+            type = try {
+                InteractiveFlowRedirectType.valueOf(redirectType)
             } catch (e: IllegalArgumentException) {
                 throw invalidBusinessException("redirectType", e)
-            }
-        }
-    }
-
-    /**
-     * The [uri] the column [property] holds, or null where it holds none.
-     */
-    private fun uri(uri: String?, property: String): URI? {
-        return uri?.let {
-            try {
-                URI.create(it)
-            } catch (e: IllegalArgumentException) {
-                throw invalidBusinessException(property, e)
-            }
-        }
+            },
+            returnState = entity.returnState
+        )
     }
 
     private fun invalidBusinessException(

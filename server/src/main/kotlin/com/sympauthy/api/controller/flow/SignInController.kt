@@ -191,7 +191,8 @@ class SignInController(
             password = password,
             providers = providers,
             signUpRedirectUrl = signUpRedirectUrl,
-            client = clientMapper.toResourceOrNull(session)
+            client = clientMapper.toResourceOrNull(session),
+            cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString()
         )
     }
 

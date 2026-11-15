@@ -7,13 +7,21 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
+import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthorizationCode
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_SCOPE
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNAUTHORIZED_CLIENT
+import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -25,6 +33,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
@@ -49,6 +58,35 @@ class InteractiveFlowStepUriMapperTest {
     @SpyK
     @InjectMockKs
     lateinit var mapper: InteractiveFlowStepUriMapper
+
+    private val authorizationCodeHandBack = InteractiveFlowHandBack(
+        uri = URI.create("https://www.example.com"),
+        type = InteractiveFlowRedirectType.AUTHORIZATION_CODE
+    )
+
+    private val plainHandBack = InteractiveFlowHandBack(
+        uri = URI.create("https://client.example.com/account"),
+        type = InteractiveFlowRedirectType.PLAIN,
+        returnState = "xyz"
+    )
+
+    private val oauth2 = InteractiveFlowSessionOAuth2(
+        sessionId = UUID.randomUUID(),
+        clientId = "test-client",
+        redirectUri = "https://www.example.com",
+        requestedScopes = emptyList(),
+        state = "clientState"
+    )
+
+    /**
+     * A mapper reading the URLs of a deployment served at `https://auth.example.com`.
+     */
+    private fun urlsMapper() = InteractiveFlowStepUriMapper(
+        sessionManager,
+        oauth2Manager,
+        authorizationCodeManager,
+        EnabledUrlsConfig(root = URI.create("https://auth.example.com"))
+    )
 
     @Test
     fun `toRedirectUri - CollectClaims maps to collectClaimsUri with state appended`() = runTest {
@@ -120,16 +158,8 @@ class InteractiveFlowStepUriMapperTest {
     @Suppress("MaxLineLength")
     fun `toRedirectUri - Complete for AUTHORIZATION_CODE hands its code to the client without internal state`() = runTest {
         val session = mockk<CompletedInteractiveFlowSession> {
-            every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE
-            every { successRedirectUri } returns URI.create("https://www.example.com")
+            every { handBack } returns authorizationCodeHandBack
         }
-        val oauth2 = InteractiveFlowSessionOAuth2(
-            sessionId = UUID.randomUUID(),
-            clientId = "test-client",
-            redirectUri = "https://www.example.com",
-            requestedScopes = emptyList(),
-            state = "clientState"
-        )
         val authorizationCode = mockk<AuthorizationCode> { every { code } returns "authorizationCode" }
         coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
         coEvery { authorizationCodeManager.fetchCode(session) } returns authorizationCode
@@ -140,17 +170,21 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
-    fun `toRedirectUri - Complete for PLAIN redirects to the success URI verbatim`() = runTest {
-        val session = mockk<CompletedInteractiveFlowSession> {
-            every { redirectType } returns InteractiveFlowRedirectType.PLAIN
-            every { successRedirectUri } returns URI.create("https://client.example.com/enrolled")
+    fun `toRedirectUri - Complete for PLAIN returns to the return URI naming the flow and the return state`() =
+        runTest {
+            val session = mockk<CompletedInteractiveFlowSession> {
+                every { handBack } returns plainHandBack
+                every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+            }
+
+            val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
+
+            assertEquals(
+                "https://client.example.com/account?sympauthy_flow=mfa_enrollment&sympauthy_return_state=xyz",
+                result.toString()
+            )
+            coVerify(exactly = 0) { authorizationCodeManager.fetchCode(any()) }
         }
-
-        val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Complete)
-
-        assertEquals("https://client.example.com/enrolled", result.toString())
-        coVerify(exactly = 0) { authorizationCodeManager.fetchCode(any()) }
-    }
 
     @Test
     fun `toRedirectUri - AlreadyCompleted maps to errorUri with state appended`() = runTest {
@@ -179,17 +213,9 @@ class InteractiveFlowStepUriMapperTest {
     @Suppress("MaxLineLength")
     fun `toRedirectUri - Cancel for AUTHORIZATION_CODE returns the OAuth2 access_denied response without a code`() = runTest {
         val session = mockk<CancelledInteractiveFlowSession> {
-            every { redirectType } returns InteractiveFlowRedirectType.AUTHORIZATION_CODE
-            every { cancelRedirectUri } returns URI.create("https://www.example.com")
+            every { handBack } returns authorizationCodeHandBack
         }
-        val oauth2 = InteractiveFlowSessionOAuth2(
-            sessionId = UUID.randomUUID(),
-            clientId = "test-client",
-            redirectUri = "https://www.example.com",
-            requestedScopes = emptyList(),
-            state = "clientState"
-        )
-        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
 
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
 
@@ -198,15 +224,118 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
-    fun `toRedirectUri - Cancel for PLAIN redirects to the cancel URI verbatim`() = runTest {
+    fun `toRedirectUri - Cancel for PLAIN returns to the return URI saying the flow was cancelled`() = runTest {
         val session = mockk<CancelledInteractiveFlowSession> {
-            every { redirectType } returns InteractiveFlowRedirectType.PLAIN
-            every { cancelRedirectUri } returns URI.create("https://client.example.com/cancelled")
+            every { handBack } returns plainHandBack.copy(returnState = null)
+            every { initiatingPurpose } returns InteractiveFlowPurpose.LINK_PROVIDER
         }
 
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
 
-        assertEquals("https://client.example.com/cancelled", result.toString())
+        assertEquals(
+            "https://client.example.com/account?sympauthy_flow=link_provider" +
+                "&sympauthy_flow_error=auth.interactive_flow_session.cancelled",
+            result.toString()
+        )
+    }
+
+    @Test
+    fun `getLeaveUriOrNull - Returns a failed PLAIN session to the return URI with the code it failed with`() =
+        runTest {
+            val session = mockk<FailedInteractiveFlowSession> {
+                every { handBack } returns plainHandBack
+                every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+                every { errorDetailsId } returns "auth.interactive_flow_session.validate.expired"
+            }
+
+            val result = mapper.getLeaveUriOrNull(session)
+
+            assertEquals(
+                "https://client.example.com/account?sympauthy_flow=mfa_enrollment" +
+                    "&sympauthy_flow_error=auth.interactive_flow_session.validate.expired&sympauthy_return_state=xyz",
+                result.toString()
+            )
+        }
+
+    @Test
+    fun `getLeaveUriOrNull - Returns a completed PLAIN session to the return URI without an error`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession> {
+            every { handBack } returns plainHandBack.copy(returnState = null)
+            every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+        }
+
+        val result = mapper.getLeaveUriOrNull(session)
+
+        assertEquals("https://client.example.com/account?sympauthy_flow=mfa_enrollment", result.toString())
+    }
+
+    @Test
+    fun `getLeaveUriOrNull - Answers a failed authorization with the error its failure maps to`() = runTest {
+        val session = mockk<FailedInteractiveFlowSession> {
+            every { handBack } returns authorizationCodeHandBack
+            every { errorDetailsId } returns "scope.parse_requested.not_allowed"
+        }
+        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
+
+        val result = mapper.getLeaveUriOrNull(session)
+
+        assertEquals("https://www.example.com?error=invalid_scope", result.toString())
+    }
+
+    @Test
+    fun `getLeaveUriOrNull - Sends nowhere a running session, a completed authorization or a refused one`() =
+        runTest {
+            val onGoing = mockk<OnGoingInteractiveFlowSession> { every { handBack } returns plainHandBack }
+            val completedAuthorization = mockk<CompletedInteractiveFlowSession> {
+                every { handBack } returns authorizationCodeHandBack
+            }
+            val refusedAuthorization = mockk<FailedInteractiveFlowSession> { every { handBack } returns null }
+
+            assertNull(mapper.getLeaveUriOrNull(onGoing))
+            assertNull(mapper.getLeaveUriOrNull(completedAuthorization))
+            assertNull(mapper.getLeaveUriOrNull(refusedAuthorization))
+        }
+
+    @Test
+    fun `getAuthorizationErrorCode - Names what the client got wrong, and access_denied for anything else`() {
+        assertEquals(INVALID_SCOPE, mapper.getAuthorizationErrorCode("scope.audience_mismatch"))
+        assertEquals(UNAUTHORIZED_CLIENT, mapper.getAuthorizationErrorCode("authorize.unauthorized_grant_type"))
+        assertEquals(INVALID_REQUEST, mapper.getAuthorizationErrorCode("authorize.pkce.missing_code_challenge"))
+        assertEquals(INVALID_REQUEST, mapper.getAuthorizationErrorCode("claim.parse_requested.invalid"))
+        assertEquals(INVALID_REQUEST, mapper.getAuthorizationErrorCode("invitation.expired"))
+        assertEquals(ACCESS_DENIED, mapper.getAuthorizationErrorCode("auth.interactive_flow_session.validate.expired"))
+    }
+
+    @Test
+    fun `getCancelUriOrNull - Links to the cancel endpoint with the state`() = runTest {
+        val session = mockk<FailedInteractiveFlowSession> { every { handBack } returns authorizationCodeHandBack }
+        coEvery { sessionManager.encodeState(session) } returns "encodedState"
+
+        val result = urlsMapper().getCancelUriOrNull(session)
+
+        assertEquals("https://auth.example.com/api/v1/flow/cancel?state=encodedState", result.toString())
+    }
+
+    @Test
+    fun `getCancelUriOrNull - Offers no way out of a completed authorization or a session without hand-back`() =
+        runTest {
+            val completedAuthorization = mockk<CompletedInteractiveFlowSession> {
+                every { handBack } returns authorizationCodeHandBack
+            }
+            val refusedAuthorization = mockk<FailedInteractiveFlowSession> { every { handBack } returns null }
+
+            assertNull(urlsMapper().getCancelUriOrNull(completedAuthorization))
+            assertNull(urlsMapper().getCancelUriOrNull(refusedAuthorization))
+        }
+
+    @Test
+    fun `getCancelUriOrNull - Offers a way out of a completed PLAIN session`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession> { every { handBack } returns plainHandBack }
+        coEvery { sessionManager.encodeState(session) } returns "encodedState"
+
+        val result = urlsMapper().getCancelUriOrNull(session)
+
+        assertEquals("https://auth.example.com/api/v1/flow/cancel?state=encodedState", result.toString())
     }
 
     @Test

@@ -17,7 +17,8 @@ class FlowErrorResourceMapper(
     fun toResource(
         exception: BusinessException,
         locale: Locale,
-        client: ClientReferenceResource?
+        client: ClientReferenceResource?,
+        cancelUrl: String?
     ): FlowErrorResource {
         val localizedError = localizedErrorMapper.toLocalizedError(exception, locale)
         return FlowErrorResource(
@@ -25,6 +26,7 @@ class FlowErrorResourceMapper(
             description = localizedError.description,
             details = localizedError.details,
             client = client,
+            cancelUrl = cancelUrl,
         )
     }
 

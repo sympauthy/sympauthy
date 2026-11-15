@@ -38,6 +38,7 @@ import jakarta.inject.Inject
 class ConfirmController(
     @Inject private val confirmManager: InteractiveFlowSessionConfirmManager,
     @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 ) {
 
@@ -77,7 +78,8 @@ class ConfirmController(
                     ConfirmFlowResource(
                         action = confirm.action.wireName,
                         requiresReauthentication = requiresReauthentication,
-                        client = clientMapper.toResourceOrNull(confirm.clientId)
+                        client = clientMapper.toResourceOrNull(confirm.clientId),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString()
                     )
                 } else {
                     null

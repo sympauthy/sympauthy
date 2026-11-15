@@ -42,7 +42,8 @@ class ClaimsValidationController(
     @Inject private val claimValidationManager: InteractiveAuthFlowSessionClaimValidationManager,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
     @Inject private val resourceMapper: ClaimsValidationFlowResultResourceMapper,
-    @Inject private val clientMapper: ClientReferenceResourceMapper
+    @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper
 ) {
 
     @Operation(
@@ -82,7 +83,13 @@ class ClaimsValidationController(
                     session = session,
                     user = user,
                     media = validationCodeMedia,
-                )?.let { resourceMapper.toFlowResource(it, clientMapper.toResourceOrNull(session)) }
+                )?.let {
+                    resourceMapper.toFlowResource(
+                        validationCode = it,
+                        client = clientMapper.toResourceOrNull(session),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString()
+                    )
+                }
             },
             mapResultToResource = { it },
             mapRedirectUriToResource = {

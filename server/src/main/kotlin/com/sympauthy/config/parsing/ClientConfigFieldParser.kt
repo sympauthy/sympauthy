@@ -61,31 +61,47 @@ class ClientConfigFieldParser(
     }
 
     /**
-     * Resolve template variables in redirect URIs and parse them.
+     * Resolve template variables in a list of absolute URLs, such as the redirect URIs, and parse them.
      * [rootUri] is what the `urls.root` template variable resolves to.
      * Returns null when the list is empty or null.
      */
-    fun parseRedirectUris(
+    fun parseUris(
         ctx: ConfigParsingContext,
         configKey: String,
         uris: Map<String, String>?,
-        allowedRedirectUris: List<String>?,
+        unparsedUris: List<String>?,
         rootUri: URI
     ): List<String>? {
-        if (allowedRedirectUris.isNullOrEmpty()) return null
+        if (unparsedUris.isNullOrEmpty()) return null
 
         val templateContext = buildTemplateContext(uris, rootUri)
-        return allowedRedirectUris.mapIndexedNotNull { index, uri ->
-            val itemKey = "$configKey[$index]"
-            ctx.parse {
-                val resolved = templateResolver.resolve(uri, templateContext, itemKey)
-                UriBuilder.of(resolved).build() // validate it's a parseable URI
-                if (UriBuilder.of(resolved).build().scheme.isNullOrBlank()) {
-                    throw configExceptionOf(itemKey, "config.invalid_url")
-                }
-                resolved
-            }
+        return unparsedUris.mapIndexedNotNull { index, uri ->
+            ctx.parse { resolveAbsoluteUri(uri, templateContext, "$configKey[$index]") }
         }.takeIf { !ctx.hasErrors }
+    }
+
+    /**
+     * Resolve template variables in the absolute URL [unparsedUri], such as the return URI, and parse it.
+     * [rootUri] is what the `urls.root` template variable resolves to.
+     * Returns null when [unparsedUri] is null or invalid.
+     */
+    fun parseUri(
+        ctx: ConfigParsingContext,
+        configKey: String,
+        uris: Map<String, String>?,
+        unparsedUri: String?,
+        rootUri: URI
+    ): String? {
+        if (unparsedUri == null) return null
+        return ctx.parse { resolveAbsoluteUri(unparsedUri, buildTemplateContext(uris, rootUri), configKey) }
+    }
+
+    private fun resolveAbsoluteUri(uri: String, templateContext: Map<String, String>, configKey: String): String {
+        val resolved = templateResolver.resolve(uri, templateContext, configKey)
+        if (UriBuilder.of(resolved).build().scheme.isNullOrBlank()) {
+            throw configExceptionOf(configKey, "config.invalid_url")
+        }
+        return resolved
     }
 
     /**

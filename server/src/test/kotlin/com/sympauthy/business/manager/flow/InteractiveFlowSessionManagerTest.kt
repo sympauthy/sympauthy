@@ -7,6 +7,7 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -78,7 +79,10 @@ class InteractiveFlowSessionManagerTest {
         initiatingPurpose: InteractiveFlowPurpose = purposes.first(),
         completedPurposes: List<InteractiveFlowPurpose> = emptyList(),
         userId: UUID? = UUID.randomUUID(),
-        redirectType: InteractiveFlowRedirectType? = InteractiveFlowRedirectType.AUTHORIZATION_CODE,
+        handBack: InteractiveFlowHandBack? = InteractiveFlowHandBack(
+            uri = URI.create("https://client.example.com/callback"),
+            type = InteractiveFlowRedirectType.AUTHORIZATION_CODE
+        ),
     ) = OnGoingInteractiveFlowSession(
         id = id,
         purposes = purposes,
@@ -87,13 +91,11 @@ class InteractiveFlowSessionManagerTest {
         flowId = "flow-id",
         expirationDate = LocalDateTime.now().plusHours(1),
         startedBy = null,
+        handBack = handBack,
         sessionDate = LocalDateTime.now(),
         version = version,
         userId = userId,
         completedPurposes = completedPurposes,
-        successRedirectUri = URI.create("https://client.example.com/callback"),
-        redirectType = redirectType,
-        cancelRedirectUri = URI.create("https://client.example.com/callback"),
     )
 
     @Test
@@ -372,8 +374,7 @@ class InteractiveFlowSessionManagerTest {
             listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, InteractiveFlowPurpose.MFA_CHALLENGE),
             result.completedPurposes
         )
-        assertEquals(URI.create("https://client.example.com/callback"), result.successRedirectUri)
-        assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, result.redirectType)
+        assertEquals(session.handBack, result.handBack)
     }
 
     @Test
@@ -397,8 +398,7 @@ class InteractiveFlowSessionManagerTest {
 
         assertEquals(session.id, result.id)
         assertEquals(userId, result.userId)
-        assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, result.redirectType)
-        assertEquals(URI.create("https://client.example.com/callback"), result.cancelRedirectUri)
+        assertEquals(session.handBack, result.handBack)
     }
 
     @Test
@@ -413,29 +413,14 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
-    fun `markAsCancelled - Throws a recoverable error for a PLAIN session with no cancel target`() = runTest {
-        val session = OnGoingInteractiveFlowSession(
-            id = UUID.randomUUID(),
-            purposes = listOf(InteractiveFlowPurpose.MFA_ENROLLMENT),
-            initiatingPurpose = InteractiveFlowPurpose.MFA_ENROLLMENT,
-            initiatingClientId = null,
-            flowId = "flow-id",
-            expirationDate = LocalDateTime.now().plusHours(1),
-            startedBy = null,
-            sessionDate = LocalDateTime.now(),
-            version = STARTING_VERSION,
-            userId = UUID.randomUUID(),
-            successRedirectUri = URI.create("https://client.example.com/enrolled"),
-            redirectType = InteractiveFlowRedirectType.PLAIN,
-            cancelRedirectUri = null,
-        )
+    fun `markAsCompleted - Refuses a session with nowhere to hand the end-user back to before writing`() = runTest {
+        val session = ongoingSession(userId = UUID.randomUUID(), handBack = null)
 
         val exception = assertThrows<BusinessException> {
-            interactiveFlowSessionManager.markAsCancelled(session)
+            interactiveFlowSessionManager.markAsCompleted(session)
         }
-        assertEquals("auth.interactive_flow_session.cancel.no_cancel_target", exception.detailsId)
-        assertTrue(exception.recoverable)
-        coVerify(exactly = 0) { sessionRepository.updateCancelDate(any(), any(), any()) }
+        assertEquals("auth.interactive_flow_session.complete.missing_redirect", exception.detailsId)
+        coVerify(exactly = 0) { sessionRepository.updateCompleteDate(any(), any(), any()) }
     }
 
     @Test

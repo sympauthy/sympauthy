@@ -1098,6 +1098,82 @@ because the code it branches on is `invalid_client` either way.
 
 ---
 
+### Where does a flow a client started return the person to?
+
+**Decision:** To `clients.<id>.return-uri`, or to another URL a start request names as `return_uri`
+where the client lists it under `clients.<id>.allowed-return-uris`. Both are accepted on a client
+template too, and a client's value replaces its template's whole. A client declaring neither cannot
+start such a flow. `allowed-redirect-uris` lists only where an authorization's codes may go, and
+neither list is read for the other. The person returns there whether the flow completed or not.
+
+**Options considered:**
+
+- **One list for every destination**, as `allowed-redirect-uris` was.
+- **A destination per purpose** — `mfa-enrollment-return-uri`, and one more per flow.
+- **One `redirect-uris` root with `authorization` and `return` under it.**
+- **`default-return-uri`** beside the allowed list.
+- **A single list whose first entry is the default.**
+- **A separate destination for a person who leaves** — `cancel-uri`, and `cancel_uri` on the
+  request.
+
+**Rationale:**
+
+One list cannot tell a page that receives a code from one that must never receive one, and a page
+not built to exchange a code leaves it in its URL. Splitting the list is the point of the change.
+
+A key per purpose is one more every client has to consider each time a purpose is added, where one
+page branching on `sympauthy_flow` covers it. A nested root would make a template override a second
+rule to learn — a client writing `redirect-uris.return` could replace its template's `authorization`
+list without anything saying so — would call account pages redirect URIs, which is the confusion the
+split removes, and would be the only three-level structure on a client.
+
+`default-return-uri` reads like `default-scopes`, whose default is refused unless also listed in
+`allowed-scopes`, so an operator would write the default twice. A first entry standing for the
+default would let a reordered list change behaviour without saying so.
+
+A destination for a person who leaves is a second key for one page to serve, and
+`sympauthy_flow_error` already tells that page which outcome it was. One destination keeps the
+smallest configuration supporting an account screen to one key, and a client that only signs people
+in to none.
+
+---
+
+### What does a return destination receive?
+
+**Decision:** `sympauthy_flow`, the value the purpose that started the session is published under;
+`sympauthy_flow_error`, the code the error page publishes for the same failure, where the flow did
+not complete; and `sympauthy_return_state`, the `return_state` the start request carried, unchanged.
+An authorization's redirect carries none of them.
+
+**Options considered:**
+
+- **Nothing**, leaving the client to read the account to learn what happened.
+- **OAuth2's `error` and `state`.**
+- **`state` for the client's own value**, as the request field.
+- **`nonce` for the client's own value.**
+- **One prefix for every parameter** — `sympauthy_return_flow`, `sympauthy_return_error`.
+- **`sympauthy_flow_error` on an authorization's redirect too.**
+
+**Rationale:**
+
+With nothing to read, a page could not say what happened without an API call, and the forgeability
+of a parameter is answered by `return_state`: a client that sent a value it can check tells a real
+return from a link anybody could have written.
+
+A return destination is the client's own page, and it may already use `error` and `state` for its
+own purposes. The start response already uses `state` for the signed state that drives the flow, so
+the request field naming it too would give one name two meanings on one endpoint. An OpenID Connect
+`nonce` comes back inside a signed token and is read as single-use; this value comes back in a URL
+and is checked by nobody but the client, so the name would promise a guarantee this server does not
+give.
+
+`sympauthy_flow` and `sympauthy_flow_error` describe the flow, while `sympauthy_return_state` is the
+client's own value coming back, and the prefix marks that difference. An authorization's redirect is
+the protocol's answer, parsed by client libraries that do not know this server, and
+`error_description` is where any detail would go.
+
+---
+
 ## Claims
 
 ### Is an administrator held to an invitation's audience?
@@ -2231,6 +2307,37 @@ as a file.
 **No, by an `ETag`.** Browsers do not use `Content-Digest` to decide what to download again. The
 paths never change either, so a long `max-age` would keep showing the old logo for days: every
 answer carries `no-cache`, and a browser pays a `304` to learn nothing changed.
+
+## Leaving a flow
+
+### How does a person leave a flow?
+
+**Decision:** Through `cancel_url`, which every step answering a `GET` carries and which leads to
+`GET /api/v1/flow/cancel`. That ends a session still running as cancelled and redirects the browser
+where the session hands the person back; a session that has already ended keeps its outcome. It
+replaces `POST /api/v1/flow/cancel`, which answered with a `redirect_url`. An authorization that has
+already completed offers no way out.
+
+**Options considered:**
+
+- **A `POST` answered with a `redirect_url`**, as the other flow operations answer.
+- **A `GET` link, answered with a redirect.**
+- **Both**, keeping the `POST` beside the link.
+- **A way out of an authorization that has already completed.**
+
+**Rationale:**
+
+A plain link works from every page — the error page included — without the page sending a request
+first, which a `POST` requires of a page that may have nothing else to do. The risk of ending a
+session on a `GET` is a request the person did not mean: the link appears only on a page they are
+looking at, never in a mail, and a browser does not prefetch a plain link unless the page asks it
+to. The state it carries is already in every URL a flow response holds, and already outlives the
+flow.
+
+Two ways out would be two paths to keep in agreement. An authorization that has completed handed its
+code to the client, and OAuth2 defines no second answer that would not contradict it.
+
+---
 
 ## What a session's purposes say
 

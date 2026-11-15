@@ -723,7 +723,7 @@ class InteractiveFlowSessionCollectionManagerTest {
         expirationDate = expirationDate,
         userId = userId,
         signedUp = signedUp,
-        successRedirectUri = completeDate?.let { "https://client.example.com/callback" },
+        redirectUri = (redirectType ?: completeDate)?.let { "https://client.example.com/callback" },
         redirectType = redirectType ?: completeDate?.let { "AUTHORIZATION_CODE" },
         completeDate = completeDate,
         cancelDate = cancelDate,

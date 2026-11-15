@@ -4,6 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
@@ -74,7 +75,7 @@ class InteractiveFlowSessionMapperTest {
             id = id,
             userId = userId,
             completeDate = completeDate,
-            successRedirectUri = "https://client.example.com/callback",
+            redirectUri = "https://client.example.com/callback",
             redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE.name,
         )
 
@@ -85,8 +86,13 @@ class InteractiveFlowSessionMapperTest {
         assertEquals(id, session.id)
         assertEquals(userId, session.userId)
         assertEquals(completeDate, session.completeDate)
-        assertEquals(URI.create("https://client.example.com/callback"), session.successRedirectUri)
-        assertEquals(InteractiveFlowRedirectType.AUTHORIZATION_CODE, session.redirectType)
+        assertEquals(
+            InteractiveFlowHandBack(
+                uri = URI.create("https://client.example.com/callback"),
+                type = InteractiveFlowRedirectType.AUTHORIZATION_CODE
+            ),
+            session.handBack
+        )
     }
 
     @Test
@@ -97,8 +103,9 @@ class InteractiveFlowSessionMapperTest {
         val entity = entity(
             id = id,
             userId = userId,
+            redirectUri = "https://client.example.com/account",
             redirectType = InteractiveFlowRedirectType.PLAIN.name,
-            cancelRedirectUri = "https://client.example.com/cancelled",
+            returnState = "xyz",
             cancelDate = cancelDate,
         )
 
@@ -109,8 +116,14 @@ class InteractiveFlowSessionMapperTest {
         assertEquals(id, session.id)
         assertEquals(userId, session.userId)
         assertEquals(cancelDate, session.cancelDate)
-        assertEquals(InteractiveFlowRedirectType.PLAIN, session.redirectType)
-        assertEquals(URI.create("https://client.example.com/cancelled"), session.cancelRedirectUri)
+        assertEquals(
+            InteractiveFlowHandBack(
+                uri = URI.create("https://client.example.com/account"),
+                type = InteractiveFlowRedirectType.PLAIN,
+                returnState = "xyz"
+            ),
+            session.handBack
+        )
     }
 
     @Test
@@ -201,7 +214,7 @@ class InteractiveFlowSessionMapperTest {
 
     @Test
     fun `toInteractiveFlowSession - throws when redirectType is unknown`() {
-        val entity = entity(redirectType = "UNKNOWN")
+        val entity = entity(redirectUri = "https://client.test/callback", redirectType = "UNKNOWN")
 
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSession(entity)
@@ -212,13 +225,31 @@ class InteractiveFlowSessionMapperTest {
 
     @Test
     fun `toInteractiveFlowSession - throws when a redirect uri is malformed`() {
-        val entity = entity(successRedirectUri = "https://client.test/a b")
+        val entity = entity(redirectUri = "https://client.test/a b", redirectType = "PLAIN")
 
         val exception = assertThrows<BusinessException> {
             mapper.toInteractiveFlowSession(entity)
         }
         assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
         assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - throws when a redirect uri has no type`() {
+        val entity = entity(redirectUri = "https://client.test/callback")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSession(entity)
+        }
+        assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+        assertEquals("redirectType", exception.values["property"])
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - Hands back nowhere a session holding no redirect`() {
+        val entity = entity(errorDate = LocalDateTime.now(), errorDetailsId = "client.redirect_uri.not_allowed")
+
+        assertNull(mapper.toInteractiveFlowSession(entity).handBack)
     }
 
     @Test
@@ -305,7 +336,7 @@ class InteractiveFlowSessionMapperTest {
             userId = UUID.randomUUID(),
             completeDate = LocalDateTime.now().minusMinutes(30),
             expirationDate = LocalDateTime.now().minusMinutes(1),
-            successRedirectUri = "https://client.example.com/callback",
+            redirectUri = "https://client.example.com/callback",
             redirectType = InteractiveFlowRedirectType.AUTHORIZATION_CODE.name,
         )
 
@@ -346,9 +377,9 @@ class InteractiveFlowSessionMapperTest {
         version: Long = 0,
         userId: UUID? = null,
         mfaPassedDate: LocalDateTime? = null,
-        successRedirectUri: String? = null,
+        redirectUri: String? = null,
         redirectType: String? = null,
-        cancelRedirectUri: String? = null,
+        returnState: String? = null,
         completeDate: LocalDateTime? = null,
         cancelDate: LocalDateTime? = null,
         errorDate: LocalDateTime? = null,
@@ -367,9 +398,9 @@ class InteractiveFlowSessionMapperTest {
             expirationDate = expirationDate,
             userId = userId,
             mfaPassedDate = mfaPassedDate,
-            successRedirectUri = successRedirectUri,
+            redirectUri = redirectUri,
             redirectType = redirectType,
-            cancelRedirectUri = cancelRedirectUri,
+            returnState = returnState,
             completeDate = completeDate,
             cancelDate = cancelDate,
             errorDate = errorDate,

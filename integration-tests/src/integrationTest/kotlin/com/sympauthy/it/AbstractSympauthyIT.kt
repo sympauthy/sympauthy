@@ -127,19 +127,15 @@ abstract class AbstractSympauthyIT {
 
     // --- On-demand MFA-enrollment support ----------------------------------------------------------
 
-    /** The `return_uri` a standalone MFA-enrollment flow redirects the end-user to on success. */
+    /** The `return-uri` a standalone MFA-enrollment flow returns the end-user to, however it ends. */
     protected fun mfaEnrollmentReturnUri(registry: InteractiveFlowRegistry): String =
-        "${registry.frontendUrl()}/mfa-return"
-
-    /** The `cancel_uri` a standalone MFA-enrollment flow redirects the end-user to on cancellation. */
-    protected fun mfaEnrollmentCancelUri(registry: InteractiveFlowRegistry): String =
-        "${registry.frontendUrl()}/mfa-cancel"
+        "${registry.frontendUrl()}/account"
 
     /**
      * The full server configuration for the on-demand MFA-enrollment client API: password auth, a
      * confidential client that owns [registry]'s flow and is allowed both the `authorization_code` grant
      * (to obtain an end-user access token) and the `client_credentials` grant carrying `users:mfa:write`
-     * (to call the enrollment endpoint), with the return/cancel URIs registered as redirect URIs.
+     * (to call the enrollment endpoint), returning the end-user to [mfaEnrollmentReturnUri].
      *
      * `features.grant-unhandled-scopes` lets the `client_credentials` grant actually hand out
      * `users:mfa:write` (there is no dedicated scope-granting rule), and `templates.clients.default` points
@@ -160,11 +156,8 @@ abstract class AbstractSympauthyIT {
                     "allowed-grant-types" to listOf("authorization_code", "client_credentials"),
                     "allowed-scopes" to listOf("openid", "users:mfa:write"),
                     "default-scopes" to listOf("openid"),
-                    "allowed-redirect-uris" to listOf(
-                        registry.redirectUri(),
-                        mfaEnrollmentReturnUri(registry),
-                        mfaEnrollmentCancelUri(registry),
-                    ),
+                    "allowed-redirect-uris" to listOf(registry.redirectUri()),
+                    "return-uri" to mfaEnrollmentReturnUri(registry),
                 ),
             ),
             "mfa" to mapOf("required" to false, "totp" to mapOf("enabled" to true)),

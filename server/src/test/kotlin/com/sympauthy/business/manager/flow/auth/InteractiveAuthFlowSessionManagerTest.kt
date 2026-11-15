@@ -246,6 +246,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 allowedGrantTypes = null,
                 authorizationFlow = templateFlow,
                 allowedRedirectUris = null,
+                returnUri = null,
+                allowedReturnUris = null,
                 allowedScopes = null,
                 defaultScopes = null,
                 authorizationWebhook = null
@@ -289,6 +291,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 allowedGrantTypes = null,
                 authorizationFlow = nonInteractiveFlow,
                 allowedRedirectUris = null,
+                returnUri = null,
+                allowedReturnUris = null,
                 allowedScopes = null,
                 defaultScopes = null,
                 authorizationWebhook = null
@@ -316,6 +320,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 allowedGrantTypes = null,
                 authorizationFlow = null,
                 allowedRedirectUris = null,
+                returnUri = null,
+                allowedReturnUris = null,
                 allowedScopes = null,
                 defaultScopes = null,
                 authorizationWebhook = null
@@ -353,7 +359,7 @@ class InteractiveAuthFlowSessionManagerTest {
     ) {
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns scopes
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns redirectUri
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns redirectUri
     }
 
     @Test
@@ -496,7 +502,7 @@ class InteractiveAuthFlowSessionManagerTest {
                 any()
             )
         } throws businessExceptionOf(detailsId = "scope.unsupported")
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI(
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns URI(
             "https://example.com/callback"
         )
         val errorSlot = slot<BusinessException?>()
@@ -585,7 +591,7 @@ class InteractiveAuthFlowSessionManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } throws businessExceptionOf(
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
             detailsId = "client.redirect_uri.missing"
         )
         val errorSlot = slot<BusinessException?>()
@@ -635,7 +641,7 @@ class InteractiveAuthFlowSessionManagerTest {
             coEvery { clientManager.parseRequestedClient(any()) } returns client
             coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
             every {
-                clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any())
+                clientRedirectUriManager.parseRequestedRedirectUri(client, any())
             } throws businessExceptionOf(detailsId = "client.redirect_uri.missing")
             val errorSlot = slot<BusinessException?>()
             coEvery {
@@ -711,7 +717,7 @@ class InteractiveAuthFlowSessionManagerTest {
             )
         )
 
-        verify(exactly = 0) { clientRedirectUriManager.parseRequestedRedirectUri(any(), any(), any()) }
+        verify(exactly = 0) { clientRedirectUriManager.parseRequestedRedirectUri(any(), any()) }
     }
 
     @Test
@@ -723,7 +729,7 @@ class InteractiveAuthFlowSessionManagerTest {
         setupDefaultFlow()
         coEvery { clientManager.parseRequestedClient(any()) } returns client
         coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } returns URI(
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns URI(
             "https://example.com/callback"
         )
         val errorSlot = slot<BusinessException?>()
@@ -864,7 +870,7 @@ class InteractiveAuthFlowSessionManagerTest {
                 any()
             )
         } throws businessExceptionOf(detailsId = "scope.unsupported")
-        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any(), any()) } throws businessExceptionOf(
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
             detailsId = "client.redirect_uri.missing"
         )
         val errorSlot = slot<BusinessException?>()

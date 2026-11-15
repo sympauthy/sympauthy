@@ -6,6 +6,7 @@ import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionLinkProviderMapper
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.ConfirmActionType
+import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -50,7 +51,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
         sessionId: UUID,
         userId: UUID,
         returnUri: URI,
-        cancelUri: URI?,
+        returnState: String?,
         initiatingClientId: String?,
         flow: AuthorizationFlow,
     ): OnGoingInteractiveFlowSession {
@@ -66,9 +67,7 @@ class InteractiveFlowSessionLinkProviderManagerTest {
                 initiatingPurpose = InteractiveFlowPurpose.LINK_PROVIDER,
                 initiatingClientId = initiatingClientId,
                 flow = flow,
-                successRedirectUri = returnUri,
-                redirectType = InteractiveFlowRedirectType.PLAIN,
-                cancelRedirectUri = cancelUri,
+                handBack = InteractiveFlowHandBack(returnUri, InteractiveFlowRedirectType.PLAIN, returnState),
             )
         } returns newSession
         coJustRun { userManager.checkPromoted(any<UUID>()) }
@@ -88,17 +87,16 @@ class InteractiveFlowSessionLinkProviderManagerTest {
             val userId = UUID.randomUUID()
             val sessionId = UUID.randomUUID()
             val returnUri = URI.create("https://client.example.com/linked")
-            val cancelUri = URI.create("https://client.example.com/cancelled")
             val flow = mockk<AuthorizationFlow>()
-            val withUser = stubStart(sessionId, userId, returnUri, cancelUri, "client-id", flow)
+            val withUser = stubStart(sessionId, userId, returnUri, "xyz", "client-id", flow)
 
             val result = manager.startLinkProviderSession(
                 user = userOf(userId),
                 providerId = "target-provider",
                 returnUri = returnUri,
+                returnState = "xyz",
                 flow = flow,
                 initiatingClientId = "client-id",
-                cancelUri = cancelUri,
             )
 
             assertSame(withUser, result)
@@ -124,9 +122,9 @@ class InteractiveFlowSessionLinkProviderManagerTest {
             user = userOf(userId),
             providerId = "target-provider",
             returnUri = returnUri,
+            returnState = null,
             flow = flow,
             initiatingClientId = null,
-            cancelUri = null,
         )
 
         coVerify { confirmManager.setConfirm(any(), ConfirmActionType.LINK_PROVIDER, null) }

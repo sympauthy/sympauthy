@@ -9,6 +9,7 @@ import com.sympauthy.api.resource.client.ClientProviderLinkResource
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.util.RETURN_URL_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
@@ -50,7 +51,7 @@ import jakarta.inject.Inject
  * It starts an [com.sympauthy.business.model.flow.InteractiveFlowPurpose.LINK_PROVIDER] session for that
  * end-user (gated by a confirmation and — because linking a provider mints a durable login credential — a
  * forced re-authentication) and hands the caller the initial signed `state` + the page URL to drive the
- * browser to. Once the link completes, the end-user is redirected back to the caller-provided `return_uri`.
+ * browser to. However the link ends, the end-user is redirected back to the client's return URI.
  */
 @Secured(CLIENT_USERS_PROVIDERS_WRITE)
 @Controller(ClientProviderLinkController.CLIENT_PROVIDER_LINK_ENDPOINT)
@@ -70,7 +71,8 @@ class ClientProviderLinkController(
     @Operation(
         description = "Start linking a provider to the user `access_token` was issued for. Send the end-user's " +
             "browser to `redirect_url`: the end-user confirms the link, signs in again, signs in with the " +
-            "provider, and is sent back to `return_uri`.",
+            "provider, and is sent back to `return_uri`. " +
+            RETURN_URL_DESCRIPTION,
         tags = ["client"],
         responses = [
             ApiResponse(
@@ -125,25 +127,17 @@ class ClientProviderLinkController(
         // unknown-client cases, an absent named resource is a 404 (the provider id is a path variable).
         providerManager.listEnabledProviders().find { it.id == providerId }.orNotFound()
 
-        // Validate the return URI (and the optional cancel URI) against the calling client's registered
-        // redirect URIs to avoid open redirects. recoverable = true: a bad URI is a bad request from the
-        // calling client (400), not a server error.
-        val returnUri = clientRedirectUriManager.parseRequestedRedirectUri(
-            client,
-            resource.returnUri,
-            recoverable = true
-        )
-        val cancelUri = resource.cancelUri
-            ?.let { clientRedirectUriManager.parseRequestedRedirectUri(client, it, recoverable = true) }
+        // Checked against the return URIs the client declared, so the browser is never sent anywhere else.
+        val returnUri = clientRedirectUriManager.parseRequestedReturnUri(client, resource.returnUri)
 
         val flow = interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         val session = linkProviderManager.startLinkProviderSession(
             user = user,
             providerId = providerId,
             returnUri = returnUri,
+            returnState = resource.returnState,
             flow = flow,
-            initiatingClientId = client.id,
-            cancelUri = cancelUri
+            initiatingClientId = client.id
         )
         interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observedRequest)
 

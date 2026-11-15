@@ -39,10 +39,13 @@ class ConfirmControllerTest {
     lateinit var clientMapper: ClientReferenceResourceMapper
 
     @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
+    @MockK
     lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
 
     private val controller by lazy {
-        ConfirmController(confirmManager, clientMapper, interactiveAuthFlowSessionControllerUtil)
+        ConfirmController(confirmManager, clientMapper, stepUriMapper, interactiveAuthFlowSessionControllerUtil)
     }
 
     private val session = mockk<OnGoingInteractiveFlowSession>()
@@ -57,7 +60,9 @@ class ConfirmControllerTest {
                 every { clientId } returns "client-x"
             }
             val client = ClientReferenceResource(id = "client-x", displayName = "Billing portal")
+            val cancelUri = URI.create("https://auth.example.com/api/v1/flow/cancel?state=encoded-state")
             coEvery { clientMapper.toResourceOrNull("client-x") } returns client
+            coEvery { stepUriMapper.getCancelUriOrNull(session) } returns cancelUri
             every { session.purposes } returns
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
@@ -76,6 +81,7 @@ class ConfirmControllerTest {
 
             assertEquals("enroll_mfa", result.action)
             assertEquals(client, result.client)
+            assertEquals(cancelUri.toString(), result.cancelUrl)
             assertFalse(result.requiresReauthentication)
             assertNull(result.redirectUrl)
         }
@@ -88,6 +94,7 @@ class ConfirmControllerTest {
             every { clientId } returns null
         }
         coEvery { clientMapper.toResourceOrNull(null) } returns null
+        coEvery { stepUriMapper.getCancelUriOrNull(session) } returns null
         every { session.purposes } returns listOf(
             InteractiveFlowPurpose.CONFIRM,
             InteractiveFlowPurpose.REAUTHENTICATION,

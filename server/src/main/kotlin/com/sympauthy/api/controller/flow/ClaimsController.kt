@@ -45,6 +45,7 @@ class ClaimsController(
     @Inject private val providerClaimsManager: ProviderClaimsManager,
     @Inject private val claimsMapper: ClaimsResourceMapper,
     @Inject private val clientMapper: ClientReferenceResourceMapper,
+    @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val collectedClaimUpdateMapper: CollectedClaimUpdateMapper,
     @Inject private val interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil,
 ) {
@@ -89,6 +90,7 @@ class ClaimsController(
                         collectedClaims = collectedClaims,
                         providerUserInfoList = providerUserInfoList,
                         client = clientMapper.toResourceOrNull(session),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString(),
                         locale = locale
                     )
                 }
