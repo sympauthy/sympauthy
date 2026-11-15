@@ -34,6 +34,14 @@ data class SignInFlowResource(
     @get:JsonProperty("sign_up_redirect_url")
     val signUpRedirectUrl: String? = null,
     @get:Schema(
+        name = "reset_password_redirect_url",
+        description = "URL of the step where an end-user who forgot their password asks to reset it. Absent " +
+            "when the flow configures no reset steps, when this server sends no mail, when signing in with a " +
+            "password is disabled, when the end-user is re-authenticating, or when `redirect_url` is present."
+    )
+    @get:JsonProperty("reset_password_redirect_url")
+    val resetPasswordRedirectUrl: String? = null,
+    @get:Schema(
         description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present."
     )
     @get:JsonProperty("client")

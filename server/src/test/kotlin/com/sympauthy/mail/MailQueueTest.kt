@@ -10,6 +10,8 @@ import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.RemoteCallMonitor.Companion.REMOTE_CALL_DURATION
 import com.sympauthy.monitoring.telemetry.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.MailMetrics
+import com.sympauthy.monitoring.telemetry.MailMetrics.Companion.MAIL_SENDS
 import com.sympauthy.monitoring.telemetry.attributes
 import io.micronaut.email.EmailException
 import io.mockk.coEvery
@@ -64,7 +66,8 @@ class MailQueueTest {
         mailBuilderFactory = mailBuilderFactory,
         mailQueueRepository = mailQueueRepository,
         jobLeaseManager = jobLeaseManager,
-        remoteCallMonitor = RemoteCallMonitor(conditionMonitor, metrics.openTelemetry)
+        remoteCallMonitor = RemoteCallMonitor(conditionMonitor, metrics.openTelemetry),
+        mailMetrics = MailMetrics(metrics.openTelemetry)
     )
 
     private fun sendingFirstFails(failure: Throwable) {
@@ -74,9 +77,22 @@ class MailQueueTest {
         coEvery { mailSender.send(any()) } throws failure
     }
 
-    private fun recordedSend(outcome: String, errorType: String) = metrics.count(
+    private fun recordedSend(outcome: String, errorType: String? = null) = metrics.count(
         REMOTE_CALL_DURATION,
-        attributes("condition" to "mail", "operation" to "send", "outcome" to outcome, "error.type" to errorType)
+        if (errorType == null) {
+            attributes("condition" to "mail", "operation" to "send", "outcome" to outcome)
+        } else {
+            attributes("condition" to "mail", "operation" to "send", "outcome" to outcome, "error.type" to errorType)
+        }
+    )
+
+    private fun countedSend(mail: String, outcome: String, errorType: String? = null) = metrics.value(
+        MAIL_SENDS,
+        if (errorType == null) {
+            attributes("mail" to mail, "outcome" to outcome)
+        } else {
+            attributes("mail" to mail, "outcome" to outcome, "error.type" to errorType)
+        }
     )
 
     private fun holdingTheLease() {
@@ -149,6 +165,21 @@ class MailQueueTest {
         coVerify(exactly = 2) { mailSender.send(any()) }
         coVerify(exactly = 1) { mailQueueRepository.deleteById(first.id!!) }
         coVerify(exactly = 1) { mailQueueRepository.deleteById(second.id!!) }
+        assertEquals(2, countedSend("claim_validation", "success"))
+    }
+
+    @Test
+    fun `replayUnsentMails - Counts no send of a template this build draws no mail from`() = runTest {
+        val unknown = mail("first@example.com", template = "mails/retired_mail")
+        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
+        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(unknown)
+        coEvery { mailQueueRepository.deleteById(any()) } returns 1
+        coEvery { mailSender.send(any()) } returns Unit
+
+        queue().replayUnsentMails()
+
+        assertFalse(metrics.isRecorded(MAIL_SENDS))
+        assertEquals(1, recordedSend("success"))
     }
 
     @Test
@@ -170,6 +201,7 @@ class MailQueueTest {
 
         assertTrue(conditionMonitor.isDegraded(Condition.Mail))
         assertEquals(1, recordedSend("error", "connection"))
+        assertEquals(1, countedSend("claim_validation", "error", "connection"))
         coVerify(exactly = 1) { mailQueueRepository.deleteById(first.id!!) }
     }
 
@@ -191,6 +223,7 @@ class MailQueueTest {
         queue().replayUnsentMails()
 
         assertEquals(1, recordedSend("refused", SendFailedException::class.java.name))
+        assertEquals(1, countedSend("claim_validation", "refused", SendFailedException::class.java.name))
         // The refusal started the quiet period, which a failure would have reset.
         conditionMonitor.endQuietPeriods(Instant.now().plus(ConditionMonitor.QUIET_PERIOD))
         assertFalse(conditionMonitor.isDegraded(Condition.Mail))
@@ -204,6 +237,7 @@ class MailQueueTest {
 
         assertFalse(conditionMonitor.isDegraded(Condition.Mail))
         assertFalse(metrics.isRecorded(REMOTE_CALL_DURATION))
+        assertFalse(metrics.isRecorded(MAIL_SENDS), "a mail that never reached the mail server is no send")
     }
 
     @Test
@@ -215,8 +249,8 @@ class MailQueueTest {
         assertFalse(conditionMonitor.isDegraded(Condition.Mail))
     }
 
-    private fun mail(receiver: String) = MailQueueEntity(
-        template = "validation-code",
+    private fun mail(receiver: String, template: String = Mail.CLAIM_VALIDATION.templatePath) = MailQueueEntity(
+        template = template,
         locale = "en",
         receiver = receiver,
         subjectKey = "subject",

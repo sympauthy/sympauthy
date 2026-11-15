@@ -51,7 +51,7 @@ data class AdminGrantSummaryResource(
     val revokedAt: LocalDateTime?,
     @get:Schema(
         description = GRANT_REVOKED_BY_PROPERTY_DESCRIPTION,
-        allowableValues = ["client", "admin", "consent_revoked", "authorization_code_replayed"]
+        allowableValues = ["client", "admin", "consent_revoked", "authorization_code_replayed", "password_reset"]
     )
     @get:JsonProperty("revoked_by")
     val revokedBy: String?,

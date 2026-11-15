@@ -439,6 +439,36 @@ class GrantRepositoryTest {
             assertNotNull(grants.findById(namedByCode))
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updateRevokedAtByPasswordIdIn - Revokes the live grants the passwords opened`(database: Database) =
+        withFixture(database) {
+            val grants = repository<GrantRepository>()
+            val userId = newUser()
+            val replaced = UUID.randomUUID()
+            val otherReplaced = UUID.randomUUID()
+            val revoked = saveLiveGrant(userId, passwordId = replaced)
+            val otherRevoked = saveLiveGrant(userId, passwordId = otherReplaced)
+            val otherPassword = saveLiveGrant(userId, passwordId = UUID.randomUUID())
+            val provider = saveLiveGrant(userId)
+            val revokedEarlier = newGrant(
+                userId, passwordId = replaced, revokedAt = earlierRevokedAt, revokedBy = "CLIENT"
+            ).also { newToken(it, expirationDate = liveUntil) }
+            val lapsed = newGrant(userId, passwordId = replaced)
+                .also { newToken(it, expirationDate = revokedAt.minusMinutes(1)) }
+
+            val count = grants.updateRevokedAtByPasswordIdIn(
+                listOf(replaced, otherReplaced), revokedAt, "PASSWORD_RESET", null
+            )
+
+            assertEquals(2, count)
+            assertEquals("PASSWORD_RESET", grants.findById(revoked)?.revokedBy)
+            assertEquals(revokedAt, grants.findById(otherRevoked)?.revokedAt)
+            assertNull(grants.findById(otherPassword)!!.revokedAt)
+            assertNull(grants.findById(provider)!!.revokedAt)
+            grants.assertLeftAsTheyWere(revokedEarlier, lapsed)
+        }
+
     /** Asserts that [revokedEarlier] still carries the revocation it was saved with, and [lapsed] none. */
     private suspend fun GrantRepository.assertLeftAsTheyWere(revokedEarlier: UUID, lapsed: UUID) {
         val storedRevokedEarlier = findById(revokedEarlier)!!
@@ -455,14 +485,16 @@ class GrantRepositoryTest {
         audienceId: String = this@GrantRepositoryTest.audienceId,
         grantType: String = "authorization_code",
         sessionId: UUID? = UUID.randomUUID(),
-        actorGrantId: UUID? = null
+        actorGrantId: UUID? = null,
+        passwordId: UUID? = null
     ): UUID = newGrant(
         userId,
         clientId = clientId,
         audienceId = audienceId,
         grantType = grantType,
         sessionId = sessionId,
-        actorGrantId = actorGrantId
+        actorGrantId = actorGrantId,
+        passwordId = passwordId
     ).also { newToken(it, expirationDate = liveUntil) }
 
     /** Saves a grant revoked before [revokedAt], whose token would otherwise still be live. */

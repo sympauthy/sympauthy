@@ -14,9 +14,9 @@ authorization](oauth2-authorization.md), and whom a client may act as is
 **Every token is issued under a grant, and is live only while its grant is.** A grant is opened by
 an authorization an interactive flow completes, a `client_credentials` request or a token exchange,
 and records what every token under it has in common: the person if there is one, the client, the
-audience, the scopes and how each set was obtained, when the person authenticated, and the claims
-the authorization requested. A token records only what is its own — its type, the grant type it was
-issued by, its expiry and the key it is bound to.
+audience, the scopes and how each set was obtained, when the person authenticated and the password
+they proved where they proved one, and the claims the authorization requested. A token records only
+what is its own — its type, the grant type it was issued by, its expiry and the key it is bound to.
 
 **An authorization opens its grant before it hands out its code, and the code names it.** The grant
 is written as the interactive flow session completes, just before the code and in the same
@@ -57,10 +57,10 @@ FAQ](design-faq.md#does-a-grant-outlive-its-client) argues the alternatives.
 ## How a revocation reaches a grant
 
 **Every revocation revokes grants, never a single token.** An administrator revoking the grants a
-request names, a consent revoked, an authorization code replayed and a client's call to the
-revocation endpoint each name the grants they reach, and every token under them stops working at
-once. A revocation almost always means everything an authorization was issued, and that is one row
-however often its client refreshed.
+request names, a consent revoked, an authorization code replayed, a password reset and a client's
+call to the revocation endpoint each name the grants they reach, and every token under them stops
+working at once. A revocation almost always means everything an authorization was issued, and that
+is one row however often its client refreshed.
 
 **The revocation endpoint revokes the grant of whichever token it is given**, a refresh token or an
 access token. RFC 7009 §2.1 lets a server revoke the refresh token when it is presented an access
@@ -100,6 +100,15 @@ tokens, the claims they carry, the consent or the rule they rest on — is the o
 client of the new one would answer for an audience it is no longer part of. A grant resting on a
 consent would also escape it: tokens issued for the new audience would stand under a grant that
 revoking the consent could not reach.
+
+**Replacing a password revokes every grant it opened, and no other.** A person resets their
+password because they believe someone else knows it, and a refresh token opened with it left alive
+would keep that someone signed in. The password a sign-in checked, the one an account was created
+with at sign-up and the one a reset chose are each what the grant they open records, so a reset
+reaches exactly what the old password stood behind: the grant it opens itself is under the new one,
+and a grant a provider's sign-in opened is not reached, since the provider's credential did not
+leak. A person wanting everything withdrawn revokes their consent. [The design
+FAQ](design-faq.md#does-a-password-reset-revoke-every-grant-of-the-account) weighs revoking more.
 
 **A code still to be exchanged is reached with its grant.** A revocation finds the grant of a code
 as surely as the grant of a token, so a person signed out, or a consent revoked, between the sign-in

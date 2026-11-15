@@ -463,6 +463,32 @@ class GrantManagerTest {
     }
 
     @Test
+    fun `revokeGrantsByPasswords - Revokes what the passwords opened, holding the lock over the account`() = runTest {
+        val userId = UUID.randomUUID()
+        val passwordIds = listOf(UUID.randomUUID(), UUID.randomUUID())
+        val revokedAt = LocalDateTime.now()
+        coEvery {
+            grantRepository.updateRevokedAtByPasswordIdIn(passwordIds, revokedAt, "PASSWORD_RESET", null)
+        } returns 2
+
+        val count = grantManager().revokeGrantsByPasswords(userId, passwordIds, revokedAt)
+
+        assertEquals(2, count)
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(userId).stripe)
+            grantRepository.updateRevokedAtByPasswordIdIn(passwordIds, revokedAt, "PASSWORD_RESET", null)
+        }
+        verify { tokenMetrics.recordRevocations("password_reset", null, 2) }
+    }
+
+    @Test
+    fun `revokeGrantsByPasswords - Revokes nothing for an account that held no password`() = runTest {
+        assertEquals(0, grantManager().revokeGrantsByPasswords(UUID.randomUUID(), emptyList(), LocalDateTime.now()))
+
+        coVerify(exactly = 0) { grantRepository.updateRevokedAtByPasswordIdIn(any(), any(), any(), any()) }
+    }
+
+    @Test
     fun `findByIdOrNull - Returns null where there is no grant`() = runTest {
         val id = UUID.randomUUID()
         coEvery { grantRepository.findById(id) } returns null

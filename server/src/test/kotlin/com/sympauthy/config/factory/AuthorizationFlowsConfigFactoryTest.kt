@@ -3,6 +3,7 @@ package com.sympauthy.config.factory
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.config.ConfigParser
+import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledAuthorizationFlowsConfig
 import com.sympauthy.config.model.DisabledUrlsConfig
 import com.sympauthy.config.model.EnabledAuthorizationFlowsConfig
@@ -83,5 +84,53 @@ class AuthorizationFlowsConfigFactoryTest {
         val result = factory.provideAuthorizationFlows(emptyList())
 
         assertInstanceOf(DisabledAuthorizationFlowsConfig::class.java, result)
+    }
+
+    @Test
+    fun `provideAuthorizationFlows - Offer the reset pages a flow names all of`() {
+        val factory = factory(EnabledUrlsConfig(root = URI.create("https://auth.example.com")))
+        val properties = webFlowProperties(id = "custom", root = "https://pages.example.com").apply {
+            resetPassword = "/reset"
+            resetPasswordValidate = "/reset/validate"
+            resetPasswordChoose = "/reset/choose"
+        }
+
+        val result = factory.provideAuthorizationFlows(listOf(properties))
+
+        val flow = (result as EnabledAuthorizationFlowsConfig).flows.last() as InteractiveFlow
+        val pages = flow.resetPassword!!
+        assertEquals(URI.create("https://pages.example.com/reset"), pages.resetPasswordUri)
+        assertEquals(URI.create("https://pages.example.com/reset/validate"), pages.validateUri)
+        assertEquals(URI.create("https://pages.example.com/reset/choose"), pages.chooseUri)
+    }
+
+    @Test
+    fun `provideAuthorizationFlows - Offer no reset on a flow naming none of its pages`() {
+        val factory = factory(EnabledUrlsConfig(root = URI.create("https://auth.example.com")))
+
+        val result = factory.provideAuthorizationFlows(
+            listOf(webFlowProperties(id = "custom", root = "https://pages.example.com"))
+        )
+
+        val flows = (result as EnabledAuthorizationFlowsConfig).flows
+        assertTrue(flows.all { (it as InteractiveFlow).resetPassword == null })
+    }
+
+    @Test
+    fun `provideAuthorizationFlows - Refuse a flow naming some of its reset pages, naming each one missing`() {
+        val factory = factory(EnabledUrlsConfig(root = URI.create("https://auth.example.com")))
+        val properties = webFlowProperties(id = "custom", root = "https://pages.example.com").apply {
+            resetPassword = "/reset"
+        }
+
+        val result = factory.provideAuthorizationFlows(listOf(properties))
+
+        val errors = assertInstanceOf(DisabledAuthorizationFlowsConfig::class.java, result).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertEquals(
+            listOf("flows.custom.reset-password-validate", "flows.custom.reset-password-choose"),
+            errors.map { it.key }
+        )
+        assertTrue(errors.all { it.messageId == "config.flow.reset_password.missing" })
     }
 }

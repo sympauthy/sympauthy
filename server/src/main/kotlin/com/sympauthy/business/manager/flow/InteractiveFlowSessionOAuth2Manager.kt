@@ -161,7 +161,8 @@ open class InteractiveFlowSessionOAuth2Manager(
     /**
      * Record on this [session]'s OAuth2 record that the end-user has just proven a credential of the
      * account the authorization is for — a password checked, a third-party provider's callback resolved
-     * to that account, or the account created at sign-up.
+     * to that account, the account created at sign-up, or a code proving a password reset — and that the
+     * credential was the password identified by [passwordId], or none where [passwordId] is null.
      *
      * The date it writes is what every token issued out of this authorization states as `auth_time`, so
      * **call it only where a credential has verified *and* resolved this session's user**, which is the
@@ -171,8 +172,8 @@ open class InteractiveFlowSessionOAuth2Manager(
      * a session whose user is fixed as somebody else must not be stamped by one proving a different
      * account.
      *
-     * Writing it twice overwrites, which is what a flow proving a credential a second time is owed: the
-     * later proof is the one a token answers for.
+     * Writing it twice overwrites both, which is what a flow proving a credential a second time is owed:
+     * the later proof is the one a token answers for, and the grant is tied to the password it proved.
      *
      * Throws an internal [BusinessException] where the [session] serves no authorization, as every
      * reader of this record does — a purpose issuing no token has no authentication time to state — and
@@ -180,17 +181,38 @@ open class InteractiveFlowSessionOAuth2Manager(
      * credential was proven at does: a lost stamp here ships an authorization whose every token states
      * no `auth_time`, which a resource server reads as a token issued before the claim existed.
      */
-    suspend fun setAuthenticationDate(session: OnGoingInteractiveFlowSession) {
+    suspend fun setAuthenticationDate(session: OnGoingInteractiveFlowSession, passwordId: UUID?) {
+        checkAuthorization(session)
+        val updated = oauth2Repository.updateAuthenticationDateAndPasswordId(
+            sessionId = session.id,
+            authenticationDate = LocalDateTime.now(),
+            passwordId = passwordId
+        )
+        checkUpdated(session, updated)
+    }
+
+    /**
+     * Record that the credential proven at the authorization's authentication date was the password identified by
+     * [passwordId], for a credential that only became a password once it was proven: a reset's new password is
+     * written as the session completes, after the code that proved the account set the date.
+     *
+     * Throws as [setAuthenticationDate] does, and for the same reasons.
+     */
+    suspend fun setPasswordId(session: OnGoingInteractiveFlowSession, passwordId: UUID) {
+        checkAuthorization(session)
+        checkUpdated(session, oauth2Repository.updatePasswordId(sessionId = session.id, passwordId = passwordId))
+    }
+
+    private fun checkAuthorization(session: OnGoingInteractiveFlowSession) {
         if (session.initiatingPurpose != InteractiveFlowPurpose.OAUTH2_AUTHORIZE) {
             throw internalBusinessExceptionOf(
                 "auth.interactive_flow_session.oauth2.wrong_type",
                 "type" to session.initiatingPurpose.name
             )
         }
-        val updated = oauth2Repository.updateAuthenticationDate(
-            sessionId = session.id,
-            authenticationDate = LocalDateTime.now()
-        )
+    }
+
+    private fun checkUpdated(session: OnGoingInteractiveFlowSession, updated: Int) {
         if (updated == 0) {
             throw internalBusinessExceptionOf(
                 "auth.interactive_flow_session.oauth2.missing",

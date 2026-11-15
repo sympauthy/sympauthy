@@ -5,6 +5,7 @@ import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
 import com.sympauthy.business.model.flow.AuthorizationFlowType
 import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.ResetPasswordPages
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAuthorizationFlow
@@ -108,6 +109,8 @@ class AuthorizationFlowsConfigValidator {
             )
         }
 
+        val resetPassword = validateResetPasswordPages(subCtx, parsed, flowRootUri)
+
         ctx.merge(subCtx)
         if (subCtx.hasErrors || signInUri == null || collectClaimsUri == null ||
             validateClaimsUri == null || errorUri == null
@@ -126,7 +129,45 @@ class AuthorizationFlowsConfigValidator {
             mfaSelectionForEnrollmentUri = mfaSelectionForEnrollmentUri,
             mfaSelectionForChallengeUri = mfaSelectionForChallengeUri,
             mfaTotpEnrollUri = mfaTotpEnrollUri,
-            mfaTotpChallengeUri = mfaTotpChallengeUri
+            mfaTotpChallengeUri = mfaTotpChallengeUri,
+            resetPassword = resetPassword
+        )
+    }
+
+    /**
+     * Build the reset pages [parsed] names, or null where it names none of them. A flow naming some of them and
+     * not all is refused, naming the keys it is missing: its sign-in page would offer a reset leading to a page
+     * the flow does not have.
+     */
+    private fun validateResetPasswordPages(
+        ctx: ConfigParsingContext,
+        parsed: ParsedAuthorizationFlow,
+        flowRootUri: URI
+    ): ResetPasswordPages? {
+        val configKeyPrefix = "$AUTHORIZATION_FLOWS_KEY.${parsed.id}"
+        val pages = mapOf(
+            "$configKeyPrefix.reset-password" to resolveUri(flowRootUri, parsed.resetPasswordUri),
+            "$configKeyPrefix.reset-password-validate" to resolveUri(flowRootUri, parsed.resetPasswordValidateUri),
+            "$configKeyPrefix.reset-password-choose" to resolveUri(flowRootUri, parsed.resetPasswordChooseUri)
+        )
+        val (namedKeys, missingKeys) = pages.keys.partition { pages[it] != null }
+        if (namedKeys.isEmpty()) return null
+        if (missingKeys.isNotEmpty()) {
+            missingKeys.forEach { key ->
+                ctx.addError(
+                    configExceptionOf(
+                        key, "config.flow.reset_password.missing",
+                        "namedKeys" to namedKeys.joinToString()
+                    )
+                )
+            }
+            return null
+        }
+        val (resetPasswordUri, validateUri, chooseUri) = pages.values.map { it!! }
+        return ResetPasswordPages(
+            resetPasswordUri = resetPasswordUri,
+            validateUri = validateUri,
+            chooseUri = chooseUri
         )
     }
 

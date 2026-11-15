@@ -9,6 +9,7 @@ import com.sympauthy.data.repository.MailQueueRepository
 import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.telemetry.MailMetrics
 import com.sympauthy.monitoring.telemetry.Outcome
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
@@ -33,7 +34,8 @@ import javax.net.ssl.SSLException
  * On successful send, the database record is deleted. On failure, the record is discarded from the database.
  *
  * A mail server that cannot be reached is reported to the mail sender's condition; any other mail that
- * fails to send is a WARN about that mail.
+ * fails to send is a WARN about that mail. Every mail handed to the mail server is counted by which [Mail] it
+ * is and how the send ended, beside the call reported to the condition.
  *
  * On startup, unsent mails that have not expired are replayed; expired records are discarded.
  * Mails with no expiration date are always replayed.
@@ -61,7 +63,8 @@ class MailQueue(
     @Inject private val mailBuilderFactory: TemplatedMailBuilderFactory,
     @Inject private val mailQueueRepository: MailQueueRepository,
     @Inject private val jobLeaseManager: JobLeaseManager,
-    @Inject private val remoteCallMonitor: RemoteCallMonitor
+    @Inject private val remoteCallMonitor: RemoteCallMonitor,
+    @Inject private val mailMetrics: MailMetrics
 ) : ApplicationEventListener<ServiceReadyEvent> {
 
     private val logger = loggerForClass()
@@ -113,7 +116,8 @@ class MailQueue(
     }
 
     /**
-     * Persist the mail to the database and enqueue it for immediate async sending.
+     * Persist the [mail] to the database and enqueue it for immediate async sending, to [receiver], drawn in
+     * [locale] with [parameters].
      * Returns immediately — the mail is sent in the background.
      *
      * If the queue is not [enabled], this method is a no-op.
@@ -123,10 +127,9 @@ class MailQueue(
      * means anything. A null [maxAge] never expires, and is replayed on every startup until it is sent.
      */
     suspend fun send(
-        template: String,
+        mail: Mail,
         locale: Locale,
         receiver: String,
-        subjectKey: String,
         parameters: Map<String, String>,
         maxAge: Duration? = null
     ) {
@@ -134,10 +137,10 @@ class MailQueue(
 
         val now = LocalDateTime.now()
         val entity = MailQueueEntity(
-            template = template,
+            template = mail.templatePath,
             locale = locale.toLanguageTag(),
             receiver = receiver,
-            subjectKey = subjectKey,
+            subjectKey = mail.subjectKey,
             parameters = parameters,
             creationDate = now,
             expirationDate = maxAge?.let { now.plus(it) }
@@ -183,7 +186,7 @@ class MailQueue(
                     localizedSubject(mail.subjectKey)
                 }
             logger.trace { "Sending mail template=${mail.template} to=${mail.receiver}." }
-            send(builder)
+            send(mail, builder)
         } catch (e: Exception) {
             if (!e.isMailServerFailure()) {
                 logger.warn(e) {
@@ -196,20 +199,26 @@ class MailQueue(
     }
 
     /**
-     * Hand the mail [builder] built to the mail server, and report the call to the mail sender's condition, as
-     * [mailOutcomeOrNull] judges what it threw.
+     * Hand the [mail] [builder] built to the mail server, report the call to the mail sender's condition and
+     * count the send, as [mailOutcomeOrNull] judges what it threw.
+     *
+     * A row a previous build queued under a template this one draws no [Mail] from is reported to the condition
+     * and not counted: the set a send is counted under is the one this build ships.
      */
-    private suspend fun send(builder: TemplatedMailBuilder) {
+    private suspend fun send(mail: QueuedMail, builder: TemplatedMailBuilder) {
         val start = System.nanoTime()
+        val sent = Mail.ofTemplatePathOrNull(mail.template)
         try {
             mailSender!!.send(builder.builder)
         } catch (e: Exception) {
             e.mailOutcomeOrNull()?.let { outcome ->
                 remoteCallMonitor.reportCall(Condition.Mail, SEND_OPERATION, System.nanoTime() - start, outcome, e)
+                sent?.let { mailMetrics.recordSend(it.metricName, outcome) }
             }
             throw e
         }
         remoteCallMonitor.reportCall(Condition.Mail, SEND_OPERATION, System.nanoTime() - start, Outcome.Success)
+        sent?.let { mailMetrics.recordSend(it.metricName, Outcome.Success) }
     }
 
     /**

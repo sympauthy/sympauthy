@@ -26,6 +26,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordResetManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager
@@ -60,6 +61,7 @@ import java.util.Locale
 class SignInController(
     @Inject private val claimManager: ClaimManager,
     @Inject private val passwordFlowManager: InteractiveAuthFlowSessionPasswordManager,
+    @Inject private val passwordResetManager: InteractiveAuthFlowSessionPasswordResetManager,
     @Inject private val passwordManager: PasswordManager,
     @Inject private val providerManager: ProviderManager,
     @Inject private val providerClaimsManager: ProviderClaimsManager,
@@ -178,6 +180,10 @@ class SignInController(
             stepUriMapper.getSignUpRedirectUri(session, flow)?.toString()
         } else null
 
+        val resetPasswordRedirectUrl = if (reauthUser == null && passwordResetManager.isOffered(flow)) {
+            stepUriMapper.getResetPasswordRedirectUriOrNull(session, flow)?.toString()
+        } else null
+
         // A re-authenticating account with no offerable method (no password set, its providers disabled or
         // unlinked) would otherwise be served an empty sign-in page with no way to prove ownership — fail the
         // flow with a clear error instead of stranding the end-user on a dead-end step.
@@ -192,6 +198,7 @@ class SignInController(
             password = password,
             providers = providers,
             signUpRedirectUrl = signUpRedirectUrl,
+            resetPasswordRedirectUrl = resetPasswordRedirectUrl,
             client = clientMapper.toResourceOrNull(session),
             cancelUrl = stepUriMapper.getCancelUriOrNull(session, state)?.toString()
         )

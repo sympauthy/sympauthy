@@ -257,6 +257,67 @@ make no such claim.
 carries the state through their address bar; it is short-lived, bound to one session, and useless
 once that session ends.
 
+## A forgotten password
+
+**A person who forgets their password resets it from the sign-in step, and comes out signed in.**
+They type the identifier they sign in with, then the code mailed to the account's proven address,
+then a new password, and the authorization they came from carries on to its code as after a
+password sign-in. The client sees nothing new. The reset is the `PASSWORD_RESET` gate, put in front
+of the authorization when the person asks for it, since a choice a person makes is neither the
+session nor the configuration — see [the interactive
+flow](interactive-flow.md#what-this-document-does-not-settle). A flow offers it when it names its
+three reset pages and this server can send mail, and its sign-in step then carries the link to the
+first. [The design FAQ](design-faq.md#is-a-password-reset-a-flow-of-its-own) holds the shapes that
+lost.
+
+**Every identifier is answered alike.** Whatever was typed, the person reaches the code page, and a
+code typed for an identifier no code went to is refused as a wrong one is, under
+`flow.password.reset.invalid_code`; how soon another may be asked for counts from the request,
+whatever it sent. What differs is only what reaches an inbox:
+
+| The identifier typed is | What is sent |
+| --- | --- |
+| an enabled account whose email address is proven and which holds a password | a code, to that address |
+| an enabled account whose email address is proven and which holds no password | a notice there, naming the providers it signs in with |
+| an email address no account uses | a notice to that address, saying none does |
+| anything else | nothing |
+
+**The page says nothing about which accounts exist, and the address typed learns what the page does
+not.** A person who mistyped, or signed up with another address, is told at once and only through
+the inbox they typed. That opens no door already shut: a sign-up with email validation sends a code
+to any address anyone types. [The design
+FAQ](design-faq.md#what-does-a-reset-answer-for-an-identifier-no-account-holds) weighs the answers
+that lost.
+
+**A code goes only to an address the account has proven, by email, and is typed in the flow.** An
+unproven address may be a typo, and a code sent there hands the account to whoever owns it. A code
+rather than a link keeps the proof in the browser holding the flow's signed state. It is a
+validation code, so `advanced.validation-code` sets its length, its lifetime and how soon another
+may be asked for.
+
+**A reset replaces a password, and gives none to an account that has none.** An account created
+through a provider is told it signs in there: a password minted for it would be a durable
+credential, which is what linking a provider is gated behind re-authentication for. A disabled
+account is sent nothing, as a password sign-in refuses one.
+
+**The code proves the account as a password does.** It establishes the session's user, marks the
+place the request came from as one a credential was proven at, and is the moment
+[`auth_time`](#when-the-person-authenticated) states. A second factor the account is enrolled in
+still follows: the code proves the person reads the inbox, and skipping the factor would make the
+inbox enough for both.
+
+**What a reset changes is applied as the session completes, and not before.** The new password
+replaces every one the account holds, expired or not, the grants those opened are
+[revoked](grants.md#how-a-revocation-reaches-a-grant), and once that has committed the account's
+proven address is told its password changed — the one way a person learns of a reset they did not
+make. A session abandoned or failed after the code, a second factor not passed, leaves the account
+as it was, and sends nothing.
+
+**`InteractiveAuthFlowSessionPasswordResetManager` decides what each identifier is sent, and
+`PasswordResetInteractiveFlowPurposeHandler` applies the reset.** The new password waits, hashed, on
+the session's own reset record until then, and the mails go through `PasswordResetMessageSender`,
+which the `mail` package implements.
+
 ## Tokens
 
 **An access token is validated on every request**, as a signature over this server's own keys, with
@@ -418,7 +479,8 @@ FAQ](design-faq.md#does-a-token-state-auth_time-only-when-a-client-asked-for-it)
 minimum the specification would have allowed.
 
 **It is the moment the credential verified, and nothing else.** A password checked, a third-party
-provider's callback resolved to the account, or the account created at sign-up: the authorization
+provider's callback resolved to the account, the account created at sign-up, or a code proving [a
+password reset](#a-forgotten-password): the authorization
 records that moment, the grant its code opens copies it, and every token under that grant states
 it. It is not the moment the code was exchanged and it is not `iat`, which is why it is recorded
 where the authorization is recorded rather than computed when a token is minted; [the design
@@ -571,6 +633,12 @@ access token, and on a `GET` it travels as a query parameter rather than under a
 scheme, so neither [challenge](#a-refused-token-is-challenged) applies to it. RFC 9110 §15.5.2 asks
 one of every `401` all the same. Answering it is the flow's decision — a `State` challenge naming the
 scheme a `POST` already presents it under, or a status other than `401` — and it has not been taken.
+
+**It does not change a password a person still knows, and no administrator resets one.** A password
+changes only through [a reset](#a-forgotten-password), which proves the account through its inbox
+rather than through the password it replaces. A signed-in person changing theirs would be a flow
+gated by re-authentication, and an administrator starting a reset a surface of its own; neither is
+built.
 
 **It does not change the identifier an account signs in with.** An account takes its identifier
 claims at sign-up and keeps them. No surface writes one afterwards — not the client claim endpoint

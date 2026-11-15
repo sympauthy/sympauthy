@@ -117,6 +117,7 @@ counts each kind of event an operator watches with a metric of its own.
 | `sympauthy.password.hash.duration`, `.active` | the CPU sign-ins cost, and the size of an attack |
 | `sympauthy.condition.degraded` | what `/health` reports, as a number an alert can watch |
 | `sympauthy.remote_call.duration` | a slow or failing provider, authorization webhook or mail server |
+| `sympauthy.mail.sends` | which mails go out, and a sweep of addresses through the password reset |
 | `sympauthy.job.run.duration`, `sympauthy.job.deletions` | a cleanup job that fails or never runs; how fast its tables grow |
 | `sympauthy.lock.wait.duration` | contention on the lock a change to one account takes |
 | `netty.eventexecutor.tasks.pending` | a Netty event loop falling behind, on the server's side or the database's |
@@ -136,7 +137,18 @@ it is collected, under `stalled_purpose`, the first purpose it had not finished.
 **A password sign-in's refusals stay one code.** An unknown identifier and a wrong password are
 answered alike so that a response does not say which accounts exist, and the metric keeps to the
 codes. A sign-up is an attempt under `kind` `sign_up`, a provider's callback included when it
-created the account.
+created the account. A code typed to reset a password is one under `kind` `reset`, a code typed for
+an identifier no account holds among the refusals, so a rising refusal rate is a code being
+guessed; asking for a code is not one, and neither is a new password the rules refuse.
+
+**A mail is counted by which mail it is, beside the call carrying it.** The call is the dependency's
+— whether the mail server answers, and how fast — and `sympauthy.remote_call.duration` answers it
+under `condition` as it answers a provider's. The mail is this server's own event: `mail` says
+which one went out, the notices of the password reset each under a value of their own, so that a
+burst of notices to addresses no account uses shows rather than folding into the codes. The mail
+kinds are `Mail`'s values; a mail that never reached the mail server, discarded at startup or never
+built, is no send. [The design
+FAQ](design-faq.md#is-a-mail-sent-counted-on-the-call-carrying-it) holds the shape that lost.
 
 **A use case is counted by its manager, never by a controller**, so that it is counted whichever
 caller ran it; the token endpoint's work past the HTTP layer is `TokenRequestManager`'s for that

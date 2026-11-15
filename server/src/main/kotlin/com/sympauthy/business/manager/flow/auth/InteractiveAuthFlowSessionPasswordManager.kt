@@ -129,12 +129,11 @@ open class InteractiveAuthFlowSessionPasswordManager(
                 )
             }
 
-            if (!passwordManager.arePasswordMatching(user, password)) {
-                throw recoverableBusinessExceptionOf(
+            val passwordId = passwordManager.findMatchingPasswordIdOrNull(user, password)
+                ?: throw recoverableBusinessExceptionOf(
                     detailsId = "flow.password.sign_in.invalid",
                     descriptionId = "description.flow.password.sign_in.invalid"
                 )
-            }
 
             // Bind the authenticated user to the session — but NEVER switch an already-fixed session user:
             // - no user yet -> normal sign-in ESTABLISHES identity.
@@ -151,7 +150,7 @@ open class InteractiveAuthFlowSessionPasswordManager(
                     val authenticated = sessionManager.setAuthenticatedUserId(session, user.id)
                     // Stamped once the session's user is this person's, which is the condition the
                     // authentication date is written under.
-                    oauth2Manager.setAuthenticationDate(authenticated)
+                    oauth2Manager.setAuthenticationDate(authenticated, passwordId)
                     authenticated
                 }
 
@@ -220,24 +219,25 @@ open class InteractiveAuthFlowSessionPasswordManager(
         password: String,
         observedRequest: ObservedRequest
     ): InteractiveFlowSession {
-        val updatedSession = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
+        val (updatedSession, passwordId) = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
         userSecurityContextManager.markProven(updatedSession.id, observedRequest)
         // Creating the account is proving a credential of it: the password written above is the one this
         // person will sign in with, so the authorization carries this moment rather than none at all.
-        oauth2Manager.setAuthenticationDate(updatedSession)
+        oauth2Manager.setAuthenticationDate(updatedSession, passwordId)
         return updatedSession
     }
 
     /**
      * Create the account [unfilteredUpdates] and [password] describe, provisional for the [session], and bind
-     * it to the session. One transaction: an account is written whole or not at all.
+     * it to the session, then return the session and the identifier of the password written. One transaction:
+     * an account is written whole or not at all.
      */
     @Transactional
     internal open suspend fun createAccountWithClaimsAndPassword(
         session: OnGoingInteractiveFlowSession,
         unfilteredUpdates: List<CollectedClaimUpdate>,
         password: String
-    ): OnGoingInteractiveFlowSession {
+    ): Pair<OnGoingInteractiveFlowSession, UUID> {
         val oauth2 = oauth2Manager.fetchOAuth2(session)
         interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = true)
 
@@ -255,14 +255,14 @@ open class InteractiveAuthFlowSessionPasswordManager(
             user = user,
             updates = claimUpdates
         )
-        passwordManager.createPassword(user, password)
+        val passwordId = passwordManager.createPassword(user, password)
 
         // The invitation's claims land on the provisional account now; the invitation itself is only spent
         // when the session completes.
         oauth2.invitationId?.let { invitationManager.applyInvitationClaims(invitationManager.findById(it), user) }
 
         // Update the session with the id of the user so they can retrieve their access token.
-        return sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true)
+        return sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true) to passwordId
     }
 
     /**

@@ -4,6 +4,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
+import com.sympauthy.data.repository.InteractiveFlowSessionPasswordResetRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
@@ -43,6 +44,9 @@ class InteractiveFlowSessionCleanerTest {
 
     @MockK
     lateinit var reauthenticationRepository: InteractiveFlowSessionReauthenticationRepository
+
+    @MockK
+    lateinit var passwordResetRepository: InteractiveFlowSessionPasswordResetRepository
 
     @MockK
     lateinit var linkProviderRepository: InteractiveFlowSessionLinkProviderRepository
@@ -132,6 +136,7 @@ class InteractiveFlowSessionCleanerTest {
         { providerRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { confirmRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { reauthenticationRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
+        { passwordResetRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { linkProviderRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
         { securityContextRepository.deleteBySessionIdIn(listOf(expiredSessionId)) },
     )
@@ -155,6 +160,7 @@ class InteractiveFlowSessionCleanerTest {
         coEvery { providerRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { confirmRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { reauthenticationRepository.deleteBySessionIdIn(idList) } returns 0
+        coEvery { passwordResetRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { linkProviderRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { securityContextRepository.deleteBySessionIdIn(idList) } returns 0
         coEvery { sessionRepository.deleteByIds(idList) } returns ids.size

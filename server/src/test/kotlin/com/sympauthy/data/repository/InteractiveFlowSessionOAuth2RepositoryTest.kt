@@ -113,7 +113,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateAuthenticationDate - Writes the moment the credential was proven`(database: Database) =
+    fun `updateAuthenticationDateAndPasswordId - Writes the moment and the password proven`(database: Database) =
         withFixture(database) {
             val records = repository<InteractiveFlowSessionOAuth2Repository>()
             val session = newSession()
@@ -121,11 +121,30 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             saveRecord(session.id!!)
             saveRecord(other.id!!)
             val authenticationDate = BASE_DATE.plusMinutes(3)
+            val passwordId = UUID.randomUUID()
 
-            records.updateAuthenticationDate(session.id!!, authenticationDate)
+            records.updateAuthenticationDateAndPasswordId(session.id!!, authenticationDate, passwordId)
 
             assertEquals(authenticationDate, records.findById(session.id!!)!!.authenticationDate)
+            assertEquals(passwordId, records.findById(session.id!!)!!.passwordId)
             assertNull(records.findById(other.id!!)!!.authenticationDate)
+            assertNull(records.findById(other.id!!)!!.passwordId)
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `updatePasswordId - Writes the password over the one proven before`(database: Database) =
+        withFixture(database) {
+            val records = repository<InteractiveFlowSessionOAuth2Repository>()
+            val session = newSession()
+            saveRecord(session.id!!)
+            records.updateAuthenticationDateAndPasswordId(session.id!!, BASE_DATE, null)
+            val passwordId = UUID.randomUUID()
+
+            assertEquals(1, records.updatePasswordId(session.id!!, passwordId))
+
+            assertEquals(passwordId, records.findById(session.id!!)!!.passwordId)
+            assertEquals(BASE_DATE, records.findById(session.id!!)!!.authenticationDate)
         }
 
     @ParameterizedTest

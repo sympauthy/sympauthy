@@ -62,5 +62,22 @@ enum class InteractiveFlowPurpose {
      * [CONFIRM] gate): linking a provider mints a durable login credential, so the browser must prove it
      * genuinely owns the account before the link commits.
      */
-    LINK_PROVIDER
+    LINK_PROVIDER,
+
+    /**
+     * A gate the end-user adds in front of [OAUTH2_AUTHORIZE] from the sign-in step, to reset a password they
+     * forgot rather than sign in with it. Prepended when the end-user asks for it, which is a choice of theirs
+     * rather than something the session or the configuration implies.
+     *
+     * The end-user types an identifier, then the code sent to the proven email address of the account holding
+     * it, then a new password. The code establishes [InteractiveFlowSession.userId] as a password sign-in does,
+     * so the authorization then continues as after one, a second factor included. The new password replaces the
+     * account's others, and the grants they opened are revoked, only once the session completes. A session
+     * whose user is established otherwise, by a sign-in before any code was proven, leaves it resolved with
+     * nothing to apply.
+     *
+     * Its progress is the session's attached password reset record ([InteractiveFlowSessionPasswordReset]); it
+     * owns no hand-off and is never a session's [InteractiveFlowSession.initiatingPurpose].
+     */
+    PASSWORD_RESET
 }

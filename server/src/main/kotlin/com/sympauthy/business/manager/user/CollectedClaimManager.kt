@@ -14,6 +14,7 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import io.micronaut.transaction.annotation.Transactional
@@ -74,6 +75,19 @@ open class CollectedClaimManager(
             userId = userId,
             claims = claimManager.listEnabledClaims().filter { it.belongsToAudience(audienceId) }
         )
+    }
+
+    /**
+     * Return the email address collected from the user identified by [userId] where this server, or a provider it
+     * trusts, has proven it, or null where none is collected or the one collected is not proven.
+     */
+    suspend fun findVerifiedEmailOrNull(userId: UUID): String? {
+        val emailClaim = claimManager.findByIdOrNull(OpenIdConnectClaimId.EMAIL) ?: return null
+        return findByUserIdAndClaims(userId, listOf(emailClaim))
+            .firstOrNull { it.verified == true }
+            ?.value
+            ?.toString()
+            ?.takeIf(String::isNotBlank)
     }
 
     /**

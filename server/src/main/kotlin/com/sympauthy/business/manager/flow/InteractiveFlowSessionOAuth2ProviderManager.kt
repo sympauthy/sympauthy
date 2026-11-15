@@ -266,7 +266,7 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         // The callback resolving to the account is the moment the credential was proven, and this branch
         // is the one an authorization reaches — the two above it confirm or link against a fixed user and
         // belong to purposes that issue no token.
-        oauth2Manager.setAuthenticationDate(updatedSession)
+        oauth2Manager.setAuthenticationDate(updatedSession, passwordId = null)
         return updatedSession
     }
 

@@ -40,6 +40,7 @@ class InteractiveFlowSessionOAuth2Mapper {
             invitationId = entity.invitationId,
             requestError = requestError(entity.requestError),
             authenticationDate = entity.authenticationDate,
+            passwordId = entity.passwordId,
             consentedScopes = entity.consentedScopes?.toList(),
             consentedAt = entity.consentedAt,
             consentedBy = consentedBy(entity.consentedBy),

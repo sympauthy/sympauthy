@@ -111,6 +111,10 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     private val ownerId = UUID.randomUUID()
 
     private val userId = UUID.randomUUID()
+
+    /** The password [password] matches, which the authorization records as the one proven. */
+    private val passwordId = UUID.randomUUID()
+
     private val user = User(
         id = userId,
         status = UserStatus.ENABLED,
@@ -125,7 +129,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
     private fun stubSuccessfulCredential() {
         every { manager.signInEnabled } returns true
         coEvery { manager.findByAnyIdentifierClaimValue(login) } returns user
-        coEvery { passwordManager.arePasswordMatching(user, password) } returns true
+        coEvery { passwordManager.findMatchingPasswordIdOrNull(user, password) } returns passwordId
     }
 
     @Test
@@ -220,14 +224,14 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         }
         val updated = mockk<OnGoingInteractiveFlowSession>()
         stubSuccessfulCredential()
-        coEvery { oauth2Manager.setAuthenticationDate(updated) } returns Unit
+        coEvery { oauth2Manager.setAuthenticationDate(updated, passwordId) } returns Unit
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
 
         val result = manager.signInWithPassword(session, login, password, observedRequestOf())
 
         assertSame(updated, result)
         coVerify { sessionManager.setAuthenticatedUserId(session, userId, any()) }
-        coVerify { oauth2Manager.setAuthenticationDate(updated) }
+        coVerify { oauth2Manager.setAuthenticationDate(updated, passwordId) }
         coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
         // The user is not yet known on a normal sign-in, so the engine is never walked to detect the purpose.
         coVerify(exactly = 0) { engine.currentPurposeOrNull(any()) }
@@ -258,7 +262,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         val session = mockk<OnGoingInteractiveFlowSession>()
         every { manager.signInEnabled } returns true
         coEvery { manager.findByAnyIdentifierClaimValue(login) } returns user
-        coEvery { passwordManager.arePasswordMatching(user, password) } returns false
+        coEvery { passwordManager.findMatchingPasswordIdOrNull(user, password) } returns null
 
         assertThrows<BusinessException> {
             manager.signInWithPassword(session, login, password, observedRequestOf())
@@ -419,7 +423,7 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         }
         val updated = mockk<OnGoingInteractiveFlowSession>()
         stubSuccessfulCredential()
-        coEvery { oauth2Manager.setAuthenticationDate(updated) } returns Unit
+        coEvery { oauth2Manager.setAuthenticationDate(updated, passwordId) } returns Unit
         coEvery { sessionManager.setAuthenticatedUserId(session, userId, any()) } returns updated
 
         manager.signInWithPassword(session, login, password, observedRequestOf())
@@ -441,6 +445,6 @@ class InteractiveAuthFlowSessionPasswordManagerTest {
         coVerify { userSecurityContextManager.markProven(sessionId, any()) }
         // A re-authentication gate runs on a session serving a purpose that issues no token, so there is
         // no authorization to stamp and reaching for its record would fail.
-        coVerify(exactly = 0) { oauth2Manager.setAuthenticationDate(any()) }
+        coVerify(exactly = 0) { oauth2Manager.setAuthenticationDate(any(), any()) }
     }
 }

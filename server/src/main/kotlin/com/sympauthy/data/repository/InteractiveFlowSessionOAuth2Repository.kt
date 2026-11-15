@@ -12,16 +12,26 @@ interface InteractiveFlowSessionOAuth2Repository :
     suspend fun findBySessionId(sessionId: UUID): InteractiveFlowSessionOAuth2Entity?
 
     /**
-     * Write the moment a credential of the session's account was proven, and answer how many rows that
-     * moved — zero where the session has no OAuth2 record.
+     * Write the moment a credential of the session's account was proven, and the password it was where it
+     * was one, and answer how many rows that moved — zero where the session has no OAuth2 record.
      *
      * It answers a count where its two scope-writing neighbours answer nothing, because nothing reads
      * the record back after it: a lost write there surfaces on the next `fetchOAuth2`, and a lost write
      * here would ship an authorization whose tokens silently state no `auth_time` at all.
      */
-    suspend fun updateAuthenticationDate(
+    suspend fun updateAuthenticationDateAndPasswordId(
         @Id sessionId: UUID,
-        authenticationDate: LocalDateTime
+        authenticationDate: LocalDateTime,
+        passwordId: UUID?
+    ): Int
+
+    /**
+     * Write the password a credential proven earlier in the session turned out to be, and answer how many
+     * rows that moved, for the reason [updateAuthenticationDateAndPasswordId] answers one.
+     */
+    suspend fun updatePasswordId(
+        @Id sessionId: UUID,
+        passwordId: UUID
     ): Int
 
     suspend fun updateConsentedScopes(

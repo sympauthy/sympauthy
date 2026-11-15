@@ -21,7 +21,10 @@ data class ParsedAuthorizationFlow(
     val mfaSelectionForEnrollmentUri: URI?,
     val mfaSelectionForChallengeUri: URI?,
     val mfaTotpEnrollUri: URI?,
-    val mfaTotpChallengeUri: URI?
+    val mfaTotpChallengeUri: URI?,
+    val resetPasswordUri: URI?,
+    val resetPasswordValidateUri: URI?,
+    val resetPasswordChooseUri: URI?
 )
 
 @Singleton
@@ -121,6 +124,30 @@ class AuthorizationFlowsConfigParser(
                 )
             }
         }
+        val resetPasswordUri = properties.resetPassword?.let {
+            ctx.parse {
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.reset-password",
+                    AuthorizationFlowConfigurationProperties::resetPassword
+                )
+            }
+        }
+        val resetPasswordValidateUri = properties.resetPasswordValidate?.let {
+            ctx.parse {
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.reset-password-validate",
+                    AuthorizationFlowConfigurationProperties::resetPasswordValidate
+                )
+            }
+        }
+        val resetPasswordChooseUri = properties.resetPasswordChoose?.let {
+            ctx.parse {
+                parser.getUriOrThrow(
+                    properties, "$configKeyPrefix.reset-password-choose",
+                    AuthorizationFlowConfigurationProperties::resetPasswordChoose
+                )
+            }
+        }
         return ParsedAuthorizationFlow(
             id = properties.id,
             type = type,
@@ -134,7 +161,10 @@ class AuthorizationFlowsConfigParser(
             mfaSelectionForEnrollmentUri = mfaSelectionForEnrollmentUri,
             mfaSelectionForChallengeUri = mfaSelectionForChallengeUri,
             mfaTotpEnrollUri = mfaTotpEnrollUri,
-            mfaTotpChallengeUri = mfaTotpChallengeUri
+            mfaTotpChallengeUri = mfaTotpChallengeUri,
+            resetPasswordUri = resetPasswordUri,
+            resetPasswordValidateUri = resetPasswordValidateUri,
+            resetPasswordChooseUri = resetPasswordChooseUri
         )
     }
 }

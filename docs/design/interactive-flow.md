@@ -26,8 +26,10 @@ challenging for a second factor is a follow-up. Those are illustrations of the c
 set — the roles are what a new purpose has to be classified into, and the classification decides
 where in the order it goes and whether it may complete the session.
 
-A session's purposes are **ordered**, gates first and the initiating purpose last, and the list is
-**appendable** while the session runs.
+A session's purposes are **ordered**, gates first and the initiating purpose last, and the list
+**grows** while the session runs: a follow-up is inserted after the purpose that needs it, and a
+gate a person asks for — resetting a forgotten password from the sign-in step — before the purpose
+it stands in front of.
 
 ## The session
 
@@ -142,7 +144,8 @@ handler, whether it still needs a step:
    purpose the gate was protecting.
 3. When every purpose has resolved, the engine has each handler prepare its terminal effect, in
    order, then moves the session to completed and applies them all — or fails it on the first
-   that refuses, without applying any.
+   that refuses, without applying any. Once that has committed, it runs what each effect left for
+   after the commit.
 
 It returns an `InteractiveFlowStepResult`: the session as it now stands, and the step to send the
 person to.
@@ -174,6 +177,14 @@ has to ask outside the database to decide its effect, it asks while the effect i
 what it hands the engine is the writes alone. The decision travels to those writes in memory rather
 than through the session: two requests completing one session each decide, and only the one that
 commits applies what it decided.
+
+**What a rollback could not take back waits for the commit.** A mail queued inside the transaction
+is on its way before the transaction has decided anything, and a completion that then rolls back —
+the request that lost the version check, a sign-up whose identifier was taken — would have told a
+person about a change that did not happen. So an effect hands the engine a second part, run only
+once the completion has committed, and only by the request that committed it. The flow has
+succeeded by then: a failure there is logged rather than answered to the person, and nothing
+retries it.
 
 ## The handlers
 
@@ -392,7 +403,8 @@ person left; a trail of each departure belongs to an audit log nothing writes ye
 
 **It does not model steps that branch on client-supplied data.** Every predicate is a function of
 the session and the configuration. A step that needed the client to say which of two paths to take
-would be a purpose, not a step.
+would be a purpose, not a step — and a path the person chooses is one too: the password reset is a
+gate the person's request adds, rather than a branch of the sign-in step.
 
 ---
 

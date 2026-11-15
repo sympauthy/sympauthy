@@ -77,9 +77,22 @@ class MailKitTest {
     }
 
     private val code = mapOf("code" to "123456")
-    private val resetLink = mapOf("resetUrl" to "$root/reset?token=abc")
+    private val providers = mapOf("providers" to "Google or Discord")
+    private val changedAt = mapOf("changedAt" to "15 November 2026 at 09:56 UTC")
 
-    private val everyMail = listOf("validation_code" to code, "reset_password" to code, "reset_password" to resetLink)
+    private val everyMail = listOf(
+        Mail.CLAIM_VALIDATION.template to code,
+        Mail.PASSWORD_RESET_CODE.template to code,
+        Mail.PASSWORD_RESET_NO_ACCOUNT.template to emptyMap(),
+        Mail.PASSWORD_RESET_NO_PASSWORD.template to providers,
+        Mail.PASSWORD_RESET_NO_PASSWORD.template to mapOf("providers" to ""),
+        Mail.PASSWORD_CHANGED.template to changedAt
+    )
+
+    @Test
+    fun `Every mail this server sends is among the mails rendered here`() {
+        assertEquals(Mail.entries.map(Mail::template).toSet(), everyMail.map { it.first }.toSet())
+    }
 
     @Test
     fun `Every mail renders under every brand a deployment may configure`() {
@@ -104,10 +117,25 @@ class MailKitTest {
     }
 
     @Test
-    fun `A mail carries the link it was given, on its button and written out`() {
-        val html = render("reset_password", resetLink).html
+    fun `A mail telling an account it has no password names the providers it was given`() {
+        val html = render(Mail.PASSWORD_RESET_NO_PASSWORD.template, providers).html
 
-        assertEquals(3, html.split("href=\"$root/reset?token=abc\"").size - 1)
+        assertTrue("Google or Discord" in html)
+        assertTrue("class=\"sa-bg-primary-subtle\"" in html, "the way back in stands out in a notice")
+    }
+
+    @Test
+    fun `A mail telling an account with no provider it has no password points to none`() {
+        val html = render(Mail.PASSWORD_RESET_NO_PASSWORD.template, mapOf("providers" to "")).html
+
+        assertTrue("class=\"sa-bg-primary-subtle\"" !in html)
+    }
+
+    @Test
+    fun `A mail saying the password changed carries when it was given`() {
+        val html = render(Mail.PASSWORD_CHANGED.template, changedAt).html
+
+        assertTrue("15 November 2026 at 09:56 UTC" in html)
     }
 
     @Test

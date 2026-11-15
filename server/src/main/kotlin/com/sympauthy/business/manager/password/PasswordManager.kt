@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.password
 
 import com.sympauthy.business.manager.RandomGenerator
+import com.sympauthy.business.model.password.HashedPassword
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import java.time.LocalDateTime.now
+import java.util.*
 
 @Singleton
 class PasswordManager(
@@ -30,24 +32,50 @@ class PasswordManager(
     }
 
     /**
-     * Create a new [password] for the [user].
+     * Create a new [password] for the [user], and return the identifier of the row holding it.
      */
-    suspend fun createPassword(user: User, password: String) {
+    suspend fun createPassword(user: User, password: String): UUID = savePassword(user, hashPassword(password))
+
+    /**
+     * Hash [password] under a salt of its own, as it would be stored, without storing it.
+     *
+     * The password is held to the rules [validatePassword] applies, and its failure is thrown.
+     */
+    suspend fun hashPassword(password: String): HashedPassword {
         val hashConfig = uncheckedAdvancedConfig.orThrow().hashConfig
         validatePassword(password)
 
         val salt = randomGenerator.generate(hashConfig.saltLengthInBytes)
         val hashedPassword = hashGenerator.hash(password, salt, PasswordHashGenerator.CREATE)
+        return HashedPassword(salt = salt, hash = hashedPassword)
+    }
 
+    /**
+     * Make [newPassword] the only password the committed [user] signs in with, and return what was replaced: the
+     * identifier of the row now holding [newPassword], and those of the passwords it replaced, which are deleted
+     * whether they had expired or not.
+     */
+    suspend fun replacePasswords(user: User, newPassword: HashedPassword): PasswordReplacement {
+        val replacedIds = passwordRepository.findByUserId(user.id).mapNotNull(PasswordEntity::id)
+        if (replacedIds.isNotEmpty()) {
+            passwordRepository.deleteByIdIn(replacedIds)
+        }
+        return PasswordReplacement(
+            passwordId = savePassword(user, newPassword),
+            replacedPasswordIds = replacedIds
+        )
+    }
+
+    private suspend fun savePassword(user: User, password: HashedPassword): UUID {
         val entity = PasswordEntity(
             userId = user.id,
-            salt = salt,
-            hashedPassword = hashedPassword,
+            salt = password.salt,
+            hashedPassword = password.hash,
             creationDate = now(),
             expirationDate = null,
             sessionId = user.sessionId
         )
-        passwordRepository.save(entity)
+        return passwordRepository.save(entity).id!!
     }
 
     /**
@@ -58,7 +86,7 @@ class PasswordManager(
 
     /**
      * Return true if the [user] has any non-expired password stored — i.e. a password
-     * credential that [arePasswordMatching] could match against. Used to offer the password method only when
+     * credential that [findMatchingPasswordIdOrNull] could match against. Used to offer the password method only when
      * the account actually has one (e.g. during re-authentication).
      */
     suspend fun hasPassword(user: User): Boolean {
@@ -66,14 +94,17 @@ class PasswordManager(
     }
 
     /**
-     * Return true if [password] matched against any non-expired one we have stored for the [user].
+     * Return the identifier of the non-expired password stored for the [user] that [password] matches, or null
+     * where it matches none.
      */
-    suspend fun arePasswordMatching(user: User, password: String): Boolean = coroutineScope {
-        passwordRepository.findByUserId(user.id)
-            .filter { it.isUsable() }
-            .map { async { isPasswordMatching(it, password) } }
+    suspend fun findMatchingPasswordIdOrNull(user: User, password: String): UUID? = coroutineScope {
+        val usable = passwordRepository.findByUserId(user.id).filter { it.isUsable() }
+        usable.map { async { isPasswordMatching(it, password) } }
             .let { awaitAll(*it.toTypedArray()) }
-            .any { it }
+            .zip(usable)
+            .firstOrNull { (matching, _) -> matching }
+            ?.second
+            ?.id
     }
 
     /**
@@ -86,4 +117,13 @@ class PasswordManager(
         val hashPassword = hashGenerator.hash(password, entity.salt, PasswordHashGenerator.VERIFY)
         return hashPassword.contentEquals(entity.hashedPassword)
     }
+
+    /**
+     * What [replacePasswords] replaced: the identifier of the password now stored, [passwordId], and those of
+     * the passwords it took the place of, [replacedPasswordIds].
+     */
+    class PasswordReplacement(
+        val passwordId: UUID,
+        val replacedPasswordIds: List<UUID>
+    )
 }

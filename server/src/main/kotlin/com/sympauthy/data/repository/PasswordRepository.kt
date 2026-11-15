@@ -21,4 +21,9 @@ interface PasswordRepository : CoroutineCrudRepository<PasswordEntity, UUID> {
      * were. Provisionality is re-asserted here rather than trusted from the read that selected them.
      */
     suspend fun deleteByUserIdInAndSessionIdIsNotNull(userId: List<UUID>): Int
+
+    /**
+     * Delete every password among [ids], and answer how many there were.
+     */
+    suspend fun deleteByIdIn(ids: List<UUID>): Int
 }

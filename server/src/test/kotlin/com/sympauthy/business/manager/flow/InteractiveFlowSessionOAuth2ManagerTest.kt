@@ -50,11 +50,14 @@ class InteractiveFlowSessionOAuth2ManagerTest {
             every { id } returns sessionId
             every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
         }
+        val passwordId = UUID.randomUUID()
         val written = slot<LocalDateTime>()
-        coEvery { oauth2Repository.updateAuthenticationDate(sessionId, capture(written)) } returns 1
+        coEvery {
+            oauth2Repository.updateAuthenticationDateAndPasswordId(sessionId, capture(written), passwordId)
+        } returns 1
 
         val before = LocalDateTime.now()
-        manager.setAuthenticationDate(session)
+        manager.setAuthenticationDate(session, passwordId)
 
         assertTrue(written.isCaptured)
         assertFalse(written.captured.isBefore(before.minus(TOLERANCE)))
@@ -68,9 +71,9 @@ class InteractiveFlowSessionOAuth2ManagerTest {
             every { id } returns sessionId
             every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
         }
-        coEvery { oauth2Repository.updateAuthenticationDate(sessionId, any()) } returns 0
+        coEvery { oauth2Repository.updateAuthenticationDateAndPasswordId(sessionId, any(), null) } returns 0
 
-        val exception = assertThrows<BusinessException> { manager.setAuthenticationDate(session) }
+        val exception = assertThrows<BusinessException> { manager.setAuthenticationDate(session, null) }
 
         assertEquals("auth.interactive_flow_session.oauth2.missing", exception.detailsId)
     }
@@ -83,10 +86,39 @@ class InteractiveFlowSessionOAuth2ManagerTest {
             every { initiatingPurpose } returns InteractiveFlowPurpose.LINK_PROVIDER
         }
 
-        val exception = assertThrows<BusinessException> { manager.setAuthenticationDate(session) }
+        val exception = assertThrows<BusinessException> { manager.setAuthenticationDate(session, null) }
 
         assertEquals("auth.interactive_flow_session.oauth2.wrong_type", exception.detailsId)
-        coVerify(exactly = 0) { oauth2Repository.updateAuthenticationDate(any(), any()) }
+        coVerify(exactly = 0) { oauth2Repository.updateAuthenticationDateAndPasswordId(any(), any(), any()) }
+    }
+
+    @Test
+    fun `setPasswordId - Write the password the proven credential turned out to be`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val passwordId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { id } returns sessionId
+            every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+        }
+        coEvery { oauth2Repository.updatePasswordId(sessionId, passwordId) } returns 1
+
+        manager.setPasswordId(session, passwordId)
+
+        coVerify { oauth2Repository.updatePasswordId(sessionId, passwordId) }
+    }
+
+    @Test
+    fun `setPasswordId - Refuse a write that moved no row`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<OnGoingInteractiveFlowSession> {
+            every { id } returns sessionId
+            every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+        }
+        coEvery { oauth2Repository.updatePasswordId(sessionId, any()) } returns 0
+
+        val exception = assertThrows<BusinessException> { manager.setPasswordId(session, UUID.randomUUID()) }
+
+        assertEquals("auth.interactive_flow_session.oauth2.missing", exception.detailsId)
     }
 
     private companion object {

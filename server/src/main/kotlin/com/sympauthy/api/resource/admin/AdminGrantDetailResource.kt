@@ -41,7 +41,8 @@ internal const val GRANT_REVOKED_AT_PROPERTY_DESCRIPTION =
 internal const val GRANT_REVOKED_BY_PROPERTY_DESCRIPTION =
         "What revoked the grant: `client` is its client, through the revocation endpoint; `admin` an " +
         "administrator; `consent_revoked` the consent it rests on being revoked; `authorization_code_replayed` " +
-        "its authorization code being presented again. Absent unless it is `revoked`."
+        "its authorization code being presented again; `password_reset` the password it was opened with being " +
+        "replaced by a reset. Absent unless it is `revoked`."
 
 internal const val GRANT_GRANTED_SCOPES_PROPERTY_DESCRIPTION =
         "Scopes granted to the end-user by the scope granting rules."
@@ -103,7 +104,7 @@ data class AdminGrantDetailResource(
     val revokedAt: LocalDateTime?,
     @get:Schema(
         description = GRANT_REVOKED_BY_PROPERTY_DESCRIPTION,
-        allowableValues = ["client", "admin", "consent_revoked", "authorization_code_replayed"]
+        allowableValues = ["client", "admin", "consent_revoked", "authorization_code_replayed", "password_reset"]
     )
     @get:JsonProperty("revoked_by")
     val revokedBy: String?,

@@ -69,6 +69,17 @@ sealed interface InteractiveFlowStep {
     data class ValidateClaims(val media: ValidationCodeMedia?) : InteractiveFlowStep
 
     /**
+     * The end-user must enter the code sent to reset the password of whichever account holds the identifier
+     * they typed. The step is the same whether or not an account does, and whether or not a code went to it.
+     */
+    data object ResetPasswordValidate : InteractiveFlowStep
+
+    /**
+     * The end-user, whose account a reset code proved, must choose its new password.
+     */
+    data object ResetPasswordChoose : InteractiveFlowStep
+
+    /**
      * The flow has failed; the end-user must be presented with the error.
      */
     data object Error : InteractiveFlowStep

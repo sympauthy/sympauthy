@@ -54,6 +54,15 @@ class GrantEntity(
      */
     val authenticationDate: LocalDateTime? = null,
     /**
+     * Identifier of the password whose proof opened this grant: the one a sign-in checked, the one an account
+     * was created with at sign-up, or the one a reset chose. Null where no password was proven, a provider's
+     * sign-in among them.
+     *
+     * Replacing that password revokes the grant, which is what the column is read for. There is no foreign
+     * key: the password is deleted when it is replaced, long before most grants end.
+     */
+    val passwordId: UUID? = null,
+    /**
      * The claim ids the `claims` request parameter of the authorization behind this grant named for the id
      * token, and the ones it named for `/userinfo`. Empty on a grant no such request is behind, and where
      * the request named nothing.

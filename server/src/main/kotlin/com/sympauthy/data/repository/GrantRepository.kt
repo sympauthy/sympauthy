@@ -144,6 +144,25 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID>, Coroutin
     ): Int
 
     /**
+     * Revoke every grant opened by proving one of the passwords identified by [passwordIds]. Returns the
+     * number of grants revoked.
+     */
+    @Query(
+        """
+        UPDATE grants
+        SET revoked_at = :revokedAt, revoked_by = :revokedBy, revoked_by_id = :revokedById
+        WHERE password_id IN (:passwordIds)
+          $LIVE_AT_REVOKED_AT
+        """
+    )
+    suspend fun updateRevokedAtByPasswordIdIn(
+        passwordIds: List<UUID>,
+        revokedAt: LocalDateTime,
+        revokedBy: String,
+        revokedById: UUID?
+    ): Int
+
+    /**
      * The identifiers of the clients the stored grants were opened for, each once.
      */
     @Query("SELECT DISTINCT client_id FROM grants")
