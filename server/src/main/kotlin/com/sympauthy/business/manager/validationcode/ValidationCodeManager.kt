@@ -69,19 +69,25 @@ open class ValidationCodeManager(
     }
 
     /**
-     * Return the latest [ValidationCode] generated during the [session] and sent using the provided
-     * [media].
+     * Return the latest [ValidationCode] generated during the [session], sent using the provided [media] for one of
+     * the provided [reasons].
+     *
+     * A session sends codes through one media for more than one purpose, and to more than one account: a reset
+     * sends its own to whichever account it was asked for. A code sent for another reason says nothing of whether
+     * one was sent for these.
      */
     internal suspend fun findLatestCodeSentByMediaDuringSession(
         session: InteractiveFlowSession,
         media: ValidationCodeMedia,
+        reasons: List<ValidationCodeReason>,
         includesExpired: Boolean = false
     ): ValidationCode? {
         return findCodeSentByMediaDuringSession(
             session = session,
             media = media,
             includesExpired = includesExpired
-        ).maxByOrNull(ValidationCode::creationDate)
+        ).filter { code -> code.reasons.any(reasons::contains) }
+            .maxByOrNull(ValidationCode::creationDate)
     }
 
     /**

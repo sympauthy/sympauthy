@@ -19,7 +19,9 @@ data class AdminInteractiveFlowSessionDebugInformationResource(
                 "- `mfa_enrollment`: `enrolled_methods`, `mfa_passed_at`.\n" +
                 "- `mfa_challenge`: `mfa_passed_at`, `challengeable_methods`.\n" +
                 "- `reauthentication`: `primary_credential_proven_at`.\n" +
-                "- `link_provider`: `target_provider_id`, `authorizing_provider_id`."
+                "- `link_provider`: `target_provider_id`, `authorizing_provider_id`.\n" +
+                "- `password_reset`: `code_sent_to_user_id`, `requested_at`, `code_proven_at`, " +
+                "`password_chosen_at`."
     )
     @get:JsonProperty("code")
     val code: String,

@@ -21,6 +21,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus.EXPIRED
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus.FAILED
 import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus.ONGOING
 import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.ResetPasswordPages
 import com.sympauthy.business.model.flow.status
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
@@ -92,6 +93,8 @@ class InteractiveFlowStepUriMapper(
                 "providerId" to step.providerId
             )
         )
+        InteractiveFlowStep.ResetPasswordValidate -> appendState(session, getResetPasswordPages(flow).validateUri)
+        InteractiveFlowStep.ResetPasswordChoose -> appendState(session, getResetPasswordPages(flow).chooseUri)
         InteractiveFlowStep.CollectClaims -> appendState(session, flow.collectClaimsUri)
         is InteractiveFlowStep.ValidateClaims -> appendState(session, buildValidateClaimsUri(flow, step.media))
         InteractiveFlowStep.Error, InteractiveFlowStep.AlreadyCompleted -> appendState(session, flow.errorUri)
@@ -215,6 +218,16 @@ class InteractiveFlowStepUriMapper(
      */
     suspend fun getSignUpRedirectUri(session: InteractiveFlowSession, flow: InteractiveFlow): URI? =
         flow.signUpUri?.let { appendState(session, it) }
+
+    /**
+     * Return the [URI] of the flow's page where the end-user asks to reset their password, or null if the flow
+     * names no reset pages.
+     */
+    suspend fun getResetPasswordRedirectUriOrNull(session: InteractiveFlowSession, flow: InteractiveFlow): URI? =
+        flow.resetPassword?.let { appendState(session, it.resetPasswordUri) }
+
+    private fun getResetPasswordPages(flow: InteractiveFlow): ResetPasswordPages =
+        flow.resetPassword ?: throw internalBusinessExceptionOf("flow.password.reset.disabled")
 
     /**
      * Return the [URI] where the end-user must be redirected when there is an error during the flow.

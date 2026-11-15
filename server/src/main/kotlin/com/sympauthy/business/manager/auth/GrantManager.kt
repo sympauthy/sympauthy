@@ -221,6 +221,7 @@ open class GrantManager(
             consentedBy = oauth2.consentedBy?.name,
             clientScopes = emptyList(),
             authenticationDate = oauth2.authenticationDate,
+            passwordId = oauth2.passwordId,
             requestedClaims = oauth2.requestedClaims,
             sessionId = session.id,
             sessionStartedBy = session.startedBy,
@@ -256,6 +257,7 @@ open class GrantManager(
         consentedBy = null,
         clientScopes = clientScopes,
         authenticationDate = null,
+        passwordId = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
         sessionStartedBy = null,
@@ -292,6 +294,7 @@ open class GrantManager(
         consentedBy = null,
         clientScopes = emptyList(),
         authenticationDate = null,
+        passwordId = null,
         requestedClaims = RequestedClaims.NONE,
         sessionId = null,
         sessionStartedBy = null,
@@ -321,6 +324,7 @@ open class GrantManager(
         consentedBy: String?,
         clientScopes: List<String>,
         authenticationDate: LocalDateTime?,
+        passwordId: UUID?,
         requestedClaims: RequestedClaims,
         sessionId: UUID?,
         sessionStartedBy: SpanReference?,
@@ -343,6 +347,7 @@ open class GrantManager(
             consentedBy = consentedBy,
             clientScopes = clientScopes.toTypedArray(),
             authenticationDate = authenticationDate,
+            passwordId = passwordId,
             requestedIdTokenClaims = requestedClaims.idTokenClaimIds.toTypedArray(),
             requestedUserinfoClaims = requestedClaims.userInfoClaimIds.toTypedArray(),
             sessionId = sessionId,
@@ -428,6 +433,31 @@ open class GrantManager(
             clientIds = criteria.clientIds,
             audienceIds = criteria.audienceIds
         )
+
+    /**
+     * Revoke every grant of [userId] opened by proving one of the passwords identified by [passwordIds] that is
+     * still live, recording it as revoked by [GrantRevokedBy.PASSWORD_RESET] at [revokedAt], and return how many
+     * there were.
+     *
+     * A grant opened through a provider, or by proving another password, is not reached: what replacing a
+     * password withdraws is what that password stood behind.
+     */
+    @Transactional
+    open suspend fun revokeGrantsByPasswords(
+        userId: UUID,
+        passwordIds: List<UUID>,
+        revokedAt: LocalDateTime
+    ): Int {
+        if (passwordIds.isEmpty()) return 0
+        return lockManager.withLock(listOf(LockKey.User(userId))) {
+            grantRepository.updateRevokedAtByPasswordIdIn(
+                passwordIds = passwordIds,
+                revokedAt = revokedAt,
+                revokedBy = GrantRevokedBy.PASSWORD_RESET.name,
+                revokedById = null
+            )
+        }.also { tokenMetrics.recordRevocations(GrantRevokedBy.PASSWORD_RESET.metricName, null, it) }
+    }
 
     /**
      * Revoke every grant of [userId] opened for the audience identified by [audienceId] that is still live,

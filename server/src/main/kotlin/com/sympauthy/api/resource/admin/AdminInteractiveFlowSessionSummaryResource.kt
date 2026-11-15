@@ -32,7 +32,8 @@ data class AdminInteractiveFlowSessionSummaryResource(
         description = "Purpose the end-user is at. Absent when the session completed, failed or was " +
                 "cancelled, when every purpose is completed, and when it cannot be determined.",
         allowableValues = [
-            "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider"
+            "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider",
+            "password_reset"
         ]
     )
     @get:JsonProperty("current_purpose")

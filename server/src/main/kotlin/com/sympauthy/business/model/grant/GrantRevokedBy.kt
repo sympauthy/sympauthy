@@ -14,5 +14,10 @@ enum class GrantRevokedBy {
      * The grant was revoked because the authorization code issued under it was presented again after it had
      * been exchanged, RFC 6749 §4.1.2.
      */
-    AUTHORIZATION_CODE_REPLAYED
+    AUTHORIZATION_CODE_REPLAYED,
+
+    /**
+     * The grant was opened by proving a password the person has since replaced through a password reset.
+     */
+    PASSWORD_RESET
 }

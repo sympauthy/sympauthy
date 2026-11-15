@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.flow.auth
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.ClientManager
 import com.sympauthy.business.manager.auth.GrantManager
@@ -11,6 +12,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -55,6 +57,7 @@ import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
 import java.util.*
@@ -106,6 +109,9 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
 
     @MockK
     lateinit var userManager: UserManager
+
+    @MockK
+    lateinit var passwordManager: PasswordManager
 
     private val testAudience = Audience(id = "test-audience", tokenAudience = "test-audience")
 
@@ -318,6 +324,68 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandlerTest {
             consentManager.saveConsent(testUser, testAudience, "client-id", any())
             grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
             authorizationCodeManager.generateCode(oauth2AfterGranted, grant)
+        }
+    }
+
+    @Test
+    fun `prepareTerminalEffect - Refuses the authorization where the password it proved was replaced since`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val passwordId = UUID.randomUUID()
+            val grantedScopeObjects = listOf(mockk<EnabledScope>())
+            val session = createOnGoingSession(userId = userId)
+            val oauth2AfterGranted = oauth2Of(clientId = "client-id", grantedScopes = listOf("read"))
+                .copy(passwordId = passwordId)
+
+            coEvery { userManager.findById(userId) } returns testUser
+            val oauth2 = stubAudienceClaims(session, userId, emptyList())
+            coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
+                grantedScopeObjects
+            )
+            coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
+            coEvery { passwordManager.isPasswordStored(testUser, passwordId) } returns false
+
+            val effect = assertInstanceOf(
+                PreparedTerminalEffect.Apply::class.java,
+                handler.prepareTerminalEffect(session)
+            )
+            val exception = assertThrows<BusinessException> { effect.apply() }
+
+            assertEquals("flow.authorization_flow.complete.password_replaced", exception.detailsId)
+            assertFalse(exception.recoverable)
+            coVerify(exactly = 0) { consentManager.saveConsent(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { grantManager.createAuthorizationCodeGrant(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `prepareTerminalEffect - Opens the grant where the password it proved is still stored`() = runTest {
+        val userId = UUID.randomUUID()
+        val passwordId = UUID.randomUUID()
+        val grantedScopeObjects = listOf(mockk<EnabledScope>())
+        val session = createOnGoingSession(userId = userId)
+        val oauth2AfterGranted = oauth2Of(clientId = "client-id", grantedScopes = listOf("read"))
+            .copy(passwordId = passwordId)
+
+        coEvery { userManager.findById(userId) } returns testUser
+        val oauth2 = stubAudienceClaims(session, userId, emptyList())
+        coEvery { scopeGrantingManager.grantScopes(session, oauth2, emptyList()) } returns grantScopesResultOf(
+            grantedScopeObjects
+        )
+        coEvery { oauth2Manager.setGrantedScopes(session, grantedScopeObjects, any()) } returns oauth2AfterGranted
+        coEvery { passwordManager.isPasswordStored(testUser, passwordId) } returns true
+        coEvery { consentManager.saveConsent(testUser, testAudience, "client-id", any()) } returns mockk()
+        val grant = mockk<Grant>()
+        coEvery {
+            grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
+        } returns grant
+        coEvery { authorizationCodeManager.generateCode(oauth2AfterGranted, grant) } returns mockk()
+
+        val effect = assertInstanceOf(PreparedTerminalEffect.Apply::class.java, handler.prepareTerminalEffect(session))
+        effect.apply()
+
+        coVerifyOrder {
+            passwordManager.isPasswordStored(testUser, passwordId)
+            grantManager.createAuthorizationCodeGrant(session, oauth2AfterGranted, userId, testAudience.id)
         }
     }
 

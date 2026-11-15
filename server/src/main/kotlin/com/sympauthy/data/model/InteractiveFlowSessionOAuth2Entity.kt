@@ -56,6 +56,12 @@ class InteractiveFlowSessionOAuth2Entity(
      * the same session and does not move it.
      */
     val authenticationDate: LocalDateTime? = null,
+    /**
+     * Identifier of the password proven at [authenticationDate], which the grant this authorization opens
+     * records. Null where the credential proven was not a password, and until a reset's new password is
+     * written as the flow completes.
+     */
+    val passwordId: UUID? = null,
 
     val consentedScopes: Array<String>? = null,
     val consentedAt: LocalDateTime? = null,

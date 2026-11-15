@@ -107,6 +107,13 @@ data class InteractiveFlowSessionOAuth2(
     val authenticationDate: LocalDateTime? = null,
 
     /**
+     * Identifier of the password proven at [authenticationDate], which the grant this authorization opens records
+     * so that replacing the password revokes it. Null where the credential proven was not a password, and until a
+     * reset's new password is written as the session completes.
+     */
+    val passwordId: UUID? = null,
+
+    /**
      * Consentable scopes that the user consented to during the authorization process.
      */
     val consentedScopes: List<String>? = null,

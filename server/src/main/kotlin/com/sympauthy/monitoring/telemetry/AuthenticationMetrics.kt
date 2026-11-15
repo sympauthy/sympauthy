@@ -20,7 +20,9 @@ class AuthenticationMetrics(
     private val meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE)
 
     private val attempts = meter.counterBuilder(AUTHENTICATION_ATTEMPTS)
-        .setDescription("Attempts to sign in, to sign up and to pass a second factor, and how each ended.")
+        .setDescription(
+            "Attempts to sign in, to sign up, to reset a password and to pass a second factor, and how each ended."
+        )
         .setUnit("{attempt}")
         .build()
 
@@ -131,6 +133,9 @@ class AuthenticationMetrics(
 
         /** Enrolling a second factor, proven by its first code. */
         const val ENROLLMENT = "enrollment"
+
+        /** Resetting a forgotten password, proven by a code sent to the account's address. */
+        const val RESET = "reset"
 
         private val METHOD = AttributeKey.stringKey("method")
         private val PROVIDER_ID = AttributeKey.stringKey("provider_id")

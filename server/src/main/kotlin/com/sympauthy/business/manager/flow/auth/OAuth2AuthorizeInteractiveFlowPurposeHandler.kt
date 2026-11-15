@@ -13,6 +13,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
@@ -26,6 +27,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
+import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
@@ -59,6 +61,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
     @Inject private val uncheckedMfaConfig: MfaConfig,
     @Inject private val totpManager: TotpManager,
     @Inject private val userManager: UserManager,
+    @Inject private val passwordManager: PasswordManager,
     @Inject private val uncheckedFeaturesConfig: FeaturesConfig,
 ) : InteractiveFlowPurposeHandler {
 
@@ -296,6 +299,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      *
      * The person's last authentication moves last, to the moment their credential was proven, which is the
      * `auth_time` of the tokens the code leads to.
+     *
+     * Throws the non-recoverable `flow.authorization_flow.complete.password_replaced` where the password the session
+     * proved has been replaced since, by a reset in another session: the grant would record a password the reset
+     * already revoked every grant of, and stand beside the new one unrevoked.
      */
     internal suspend fun recordAuthorization(
         session: OnGoingInteractiveFlowSession,
@@ -311,6 +318,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
             grantedScopes = grantScopesResult.grantedScopes,
             grantedBy = grantScopesResult.grantedBy
         )
+        oauth2.passwordId?.let { checkPasswordStillStored(user, it) }
         consentManager.saveConsent(
             user = user,
             audience = audience,
@@ -321,5 +329,14 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
         val grant = grantManager.createAuthorizationCodeGrant(session, oauth2, userId, audience.id)
         authorizationCodeManager.generateCode(oauth2, grant)
         oauth2.authenticationDate?.let { userManager.markAuthenticated(userId, it) }
+    }
+
+    private suspend fun checkPasswordStillStored(user: User, passwordId: UUID) {
+        if (!passwordManager.isPasswordStored(user, passwordId)) {
+            throw businessExceptionOf(
+                detailsId = "flow.authorization_flow.complete.password_replaced",
+                descriptionId = "description.flow.authorization_flow.complete.password_replaced"
+            )
+        }
     }
 }

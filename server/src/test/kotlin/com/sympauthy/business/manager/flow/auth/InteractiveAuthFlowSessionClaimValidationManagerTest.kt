@@ -193,6 +193,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
+                reasons = listOf(EMAIL_CLAIM, PHONE_NUMBER_CLAIM),
                 includesExpired = true,
             )
         } returns null
@@ -244,6 +245,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
+                reasons = listOf(EMAIL_CLAIM, PHONE_NUMBER_CLAIM),
                 includesExpired = true,
             )
         } returns existingValidationCode
@@ -309,6 +311,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
+                reasons = listOf(EMAIL_CLAIM, PHONE_NUMBER_CLAIM),
                 includesExpired = true,
             )
         } returns expiredCode
@@ -354,6 +357,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
+                reasons = listOf(EMAIL_CLAIM, PHONE_NUMBER_CLAIM),
                 includesExpired = true,
             )
         } returns null
@@ -379,6 +383,7 @@ class InteractiveAuthFlowSessionClaimValidationManagerTest {
             validationCodeManager.findLatestCodeSentByMediaDuringSession(
                 session = session,
                 media = media,
+                reasons = listOf(EMAIL_CLAIM, PHONE_NUMBER_CLAIM),
                 includesExpired = true,
             )
         } returns existingCode

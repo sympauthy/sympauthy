@@ -13,7 +13,8 @@ data class AdminInteractiveFlowSessionPurposeProgressResource(
     @get:Schema(
         description = "The purpose.",
         allowableValues = [
-            "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider"
+            "confirm", "oauth2_authorize", "mfa_enrollment", "mfa_challenge", "reauthentication", "link_provider",
+            "password_reset"
         ]
     )
     @get:JsonProperty("purpose")

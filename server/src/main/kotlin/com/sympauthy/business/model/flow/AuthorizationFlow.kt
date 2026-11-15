@@ -98,8 +98,31 @@ class InteractiveFlow(
      * Null if MFA via TOTP is not configured for this flow.
      */
     val mfaTotpChallengeUri: URI? = null,
+    /**
+     * The pages a password is reset through, or null where the flow names none of them. A flow names all of
+     * them or none, so the pages are one value.
+     */
+    val resetPassword: ResetPasswordPages? = null,
 ) : AuthorizationFlow(
     id = id
+)
+
+/**
+ * The pages of an [InteractiveFlow] a password is reset through, reached from the sign-in page.
+ */
+class ResetPasswordPages(
+    /**
+     * [URI] of the page where the end-user types the identifier of the account whose password they forgot.
+     */
+    val resetPasswordUri: URI,
+    /**
+     * [URI] of the page where the end-user types the code sent to the account's proven email address.
+     */
+    val validateUri: URI,
+    /**
+     * [URI] of the page where the end-user chooses the new password.
+     */
+    val chooseUri: URI
 )
 
 enum class AuthorizationFlowType {

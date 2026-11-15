@@ -14,6 +14,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics.SessionEnding.COMPLETED
 import io.mockk.coEvery
@@ -47,7 +48,8 @@ class InteractiveFlowEngineTest {
         sessionManager,
         provisionalAccountManager,
         userSecurityContextManager,
-        CustomSpanTracer(OpenTelemetry.noop())
+        CustomSpanTracer(OpenTelemetry.noop()),
+        mockk<ConditionMonitor>(relaxed = true)
     )
 
     @Test
@@ -417,7 +419,51 @@ class InteractiveFlowEngineTest {
             sessionManager.markAsCompleted(afterSecond)
             oauth2Effect.apply()
             mfaEffect.apply()
+            oauth2Effect.afterCommit()
+            mfaEffect.afterCommit()
         }
+    }
+
+    @Test
+    fun `advance - Completes the session even when a terminal effect fails after the commit`() = runTest {
+        val session = onGoingSession(
+            listOf(InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        )
+        val afterFirst = onGoingSession(
+            listOf(InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        )
+        val afterSecond = onGoingSession(
+            listOf(InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        )
+        val completed = completedSession()
+        val resetHandler = mockk<InteractiveFlowPurposeHandler>()
+        val oauth2Handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.PASSWORD_RESET) } returns resetHandler
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns oauth2Handler
+        coEvery { resetHandler.nextStepOrNull(session) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(session, InteractiveFlowPurpose.PASSWORD_RESET)
+        } returns afterFirst
+        coEvery { resetHandler.followUpPurposes(afterFirst) } returns emptyList()
+        coEvery { oauth2Handler.nextStepOrNull(afterFirst) } returns null
+        coEvery {
+            sessionManager.markPurposeAsCompleted(afterFirst, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
+        } returns afterSecond
+        coEvery { oauth2Handler.followUpPurposes(afterSecond) } returns emptyList()
+        val resetEffect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+        val oauth2Effect = mockk<PreparedTerminalEffect.Apply>(relaxed = true)
+        coEvery { resetEffect.afterCommit() } throws IllegalStateException("mail queue unreachable")
+        coEvery { resetHandler.prepareTerminalEffect(afterSecond) } returns resetEffect
+        coEvery { oauth2Handler.prepareTerminalEffect(afterSecond) } returns oauth2Effect
+        coEvery { sessionManager.markAsCompleted(afterSecond) } returns completed
+        justRun { sessionManager.recordEnded(completed, any(), COMPLETED, null) }
+
+        val result = engine.advance(session)
+
+        assertSame(completed, result.session)
+        assertEquals(InteractiveFlowStep.Complete, result.step)
+        coVerify(exactly = 1) { oauth2Effect.afterCommit() }
+        coVerify(exactly = 1) { userSecurityContextManager.fold(completed) }
     }
 
     @Test
@@ -583,6 +629,7 @@ class InteractiveFlowEngineTest {
         val failure = assertInstanceOf(BusinessException::class.java, refusal)
         assertEquals(CONCURRENT_MODIFICATION_DETAILS_ID, failure.detailsId)
         coVerify(exactly = 0) { effect.apply() }
+        coVerify(exactly = 0) { effect.afterCommit() }
     }
 
     @Test

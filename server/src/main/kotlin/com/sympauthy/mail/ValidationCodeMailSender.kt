@@ -3,7 +3,6 @@ package com.sympauthy.mail
 import com.sympauthy.business.manager.validationcode.ValidationCodeMediaSender
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
-import com.sympauthy.business.model.code.ValidationCodeReason.RESET_PASSWORD
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.FeaturesConfig
@@ -43,21 +42,12 @@ class ValidationCodeMailSender(
             "${this::class.simpleName} requires a ${media.claim} claim as parameter."
         }
 
-        // One code serves every reason of its media: a code that also resets the password says so.
-        val mail = if (RESET_PASSWORD in validationCode.reasons) RESET_PASSWORD_MAIL else VALIDATION_CODE_MAIL
-
         mailQueue.send(
-            template = "mails/$mail",
+            mail = Mail.CLAIM_VALIDATION,
             locale = Locale.US,
             receiver = email,
-            subjectKey = "mail.$mail.subject",
             parameters = mapOf("code" to validationCode.code),
             maxAge = Duration.between(LocalDateTime.now(), validationCode.expirationDate)
         )
-    }
-
-    private companion object {
-        const val VALIDATION_CODE_MAIL = "validation_code"
-        const val RESET_PASSWORD_MAIL = "reset_password"
     }
 }

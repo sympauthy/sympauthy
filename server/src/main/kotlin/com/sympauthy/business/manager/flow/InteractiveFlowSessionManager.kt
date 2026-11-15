@@ -226,6 +226,30 @@ open class InteractiveFlowSessionManager(
     }
 
     /**
+     * Insert [purpose] into the ordered purpose list of the [session] immediately before [beforePurpose],
+     * persist it, and return the updated session. Falls back to prepending it when [beforePurpose] is not
+     * present.
+     *
+     * The case for it is a gate a step adds at the end-user's request, which must run before the purpose it
+     * stands in front of rather than after whatever the session already carries.
+     */
+    suspend fun insertPurposeBefore(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose,
+        beforePurpose: InteractiveFlowPurpose
+    ): OnGoingInteractiveFlowSession {
+        val insertAt = session.purposes.indexOf(beforePurpose).coerceAtLeast(0)
+        val purposes = session.purposes.toMutableList().apply { add(insertAt, purpose) }.toList()
+        val updated = sessionRepository.updatePurposes(
+            id = session.id,
+            purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return session.copy(purposes = purposes, version = session.version + 1)
+    }
+
+    /**
      * Set and save the error if it is non-recoverable to prevent further usage of the [session].
      * Do nothing if the [error] is recoverable.
      */

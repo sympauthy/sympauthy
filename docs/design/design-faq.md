@@ -1862,6 +1862,123 @@ condition.
 Keeping the condition out of readiness altogether would mean owning a copy of a framework class for
 a difference no probe reading the status code can see: a degraded readiness still answers `200`.
 
+---
+
+## Password reset
+
+### Is a password reset a flow of its own?
+
+**Decision:** No. It is a gate, `PASSWORD_RESET`, put in front of the authorization the person is
+already in when they ask for it from the sign-in step, and the authorization carries on signed in
+once it is through.
+
+**Options considered:**
+
+- **A flow of its own, ending on a "sign in again" page.**
+- **A link in the mail**, opening the page that chooses the new password.
+- **A gate inside the authorization, proven by a code typed in the flow.**
+
+**Rationale:**
+
+A flow of its own drops the person out of the client they came from, and needs an entry point that
+starts a flow for no client, which the engine deliberately does not have. A link opened on another
+device arrives without the flow's signed state, so it would need a second credential carried in a
+URL; a code typed in the flow keeps the proof in the browser that holds the state, and reuses the
+validation codes there are. Inside the authorization, the code is one more way of proving a
+credential, and everything after it — claims, a second factor, the code handed back — is what a
+password sign-in already leads to.
+
+### What does a reset answer for an identifier no account holds?
+
+**Decision:** The page answers every identifier alike, and an email address no account uses is
+told so by mail.
+
+**Options considered:**
+
+- **The same answer for every identifier, and nothing more** — Keycloak's, Authentik's and
+  Cognito's.
+- **A code sent to any address, and the absence of an account said once it is typed** — Logto's
+  and Azure AD B2C's.
+- **"No such account" on the page** — Google's, Microsoft's and GitHub's.
+- **The notice behind a switch, off by default** — Ory Kratos's.
+- **The same answer for every identifier, and a notice to the address typed.**
+
+**Rationale:**
+
+The same answer and nothing more is safe, and leaves a person who mistyped waiting for a code that
+never comes. Sending a code to any address and saying there is no account once it is typed makes the
+same disclosure as the notice, a step later. Saying it on the page would make official on a second
+page the leak sign-up has on its first, rather than close it. Behind a switch, off by default, the
+notice leaves the trap where it is, and it opens no abuse a sign-up with email validation does not
+already: that sends a code to any address anyone types. Told through the inbox typed, only whoever
+reads it learns anything.
+
+### Does a reset give an account created through a provider its first password?
+
+**Decision:** No. Its proven address is told that it signs in through its providers, and no code is
+sent.
+
+**Options considered:**
+
+- **A first password, set through the reset** — Logto's, and SuperTokens' with account linking.
+- **A notice naming the providers.**
+
+**Rationale:**
+
+A reset replaces a credential an account already has. Minting one gives the account a durable way in
+on the strength of its inbox alone, which is what linking a provider is gated behind
+re-authentication for.
+
+### Does a password reset revoke every grant of the account?
+
+**Decision:** No. A grant records the password whose proof opened it, and replacing that password
+revokes the grants it opened and no other.
+
+**Options considered:**
+
+- **Every grant of the account, but the one the reset opens.**
+- **The grants the replaced passwords opened.**
+
+**Rationale:**
+
+A person resets because they believe the password leaked, and what it leaked is what it stood
+behind. Revoking every grant signs the person out of the ones a provider's sign-in opened, which the
+leaked password never reached; a person who wants everything withdrawn revokes their consent. Tying
+the grant to its password costs a column, and gives an administrator marking a password compromised
+the same reach later.
+
+### Does a reset skip the second factor?
+
+**Decision:** No. An account enrolled in one is challenged for it after the code, as after a
+password sign-in.
+
+**Rationale:**
+
+The code proves the person reads the account's inbox, not that they hold its second factor.
+Skipping the challenge would make the inbox enough for both factors.
+
+### When is the mail saying a password changed sent?
+
+**Decision:** Once the completion has committed, by the request that committed it, from the part of
+the terminal effect the engine runs after the commit.
+
+**Options considered:**
+
+- **Queued inside the completion transaction, beside the writes it reports.**
+- **Its queue row written inside the transaction, and handed to the sender after the commit.**
+- **The whole of it after the commit.**
+
+**Rationale:**
+
+Inside the transaction, the queue hands the mail to its sender at once, so a completion that rolls
+back — the request that lost the version check — still tells the person their password changed. A
+row written with the completion and dispatched after it would survive the process dying between the
+commit and the queue, which the chosen option does not; it costs every mail sender a second call,
+one to queue and one to dispatch, for a window of one round trip. The mail is the last thing the
+reset does, and a person who never gets it still has the password they chose.
+
+---
+
 ## Telemetry
 
 ### Why the OpenTelemetry SDK rather than Micrometer?
@@ -2097,6 +2214,26 @@ A condition is not always a dependency reached by a call: the console's queue is
 and degrades by dropping lines. Under one name, the queue reads as a dependency that is called and
 never is, and the calls read as covering every condition when they cover only the remote ones. Both
 key on `condition`, so a failing call and the condition it degraded are still read under one name.
+
+### Is a mail sent counted on the call carrying it?
+
+**Decision:** No. `sympauthy.mail.sends` counts each mail handed to the mail server, keyed by
+`mail`, beside `sympauthy.remote_call.duration`, which times the call under `condition` as it does
+every remote call.
+
+**Options considered:**
+
+- **`mail` on `sympauthy.remote_call.duration`**, which keeps to the standard as it stood.
+- **A counter of its own, beside the call's.**
+- **Fewer `mail` values**: claim validation, the reset, and its confirmation.
+
+**Rationale:**
+
+On the call's histogram, one of its dependencies would carry an attribute the others have not — the
+sign of two events sharing one metric — and an operator looking for mail would look under a call.
+The call says whether the dependency answers; the send says which person was sent what, which is
+this server's own event. Folding the notices into the code they stand beside would hide the burst of
+notices to addresses no account uses that a sweep through the reset makes.
 
 ### Is a query traced as a span, or read from the database's statistics?
 

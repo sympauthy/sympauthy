@@ -346,7 +346,7 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         val updatedSession = mockk<OnGoingInteractiveFlowSession> { every { id } returns UUID.randomUUID() }
         coEvery { sessionManager.setAuthenticatedUserId(session, createdId, signedUp = true) } returns updatedSession
         coJustRun { userSecurityContextManager.markProven(any(), any()) }
-        coJustRun { oauth2Manager.setAuthenticationDate(updatedSession) }
+        coJustRun { oauth2Manager.setAuthenticationDate(updatedSession, passwordId = null) }
 
         manager.signInOrSignUpUsingProvider(
             session, provider.id, redirectUri, authorizeCode = "code", observedRequest = observedRequestOf()

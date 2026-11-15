@@ -105,6 +105,11 @@ watches; these are the rules those settled, and
 it in seconds, with bucket boundaries chosen for its scale: the SDK's defaults are sized for
 milliseconds.
 
+**A business event a remote call carries is counted by a counter of its own, beside the call's.**
+The call's histogram times it and says whether the dependency answered; the counter says what this
+server did, under attributes the other calls reported to that condition do not have. A mail sent is
+the case: `sympauthy.mail.sends` beside the mail server's call.
+
 **How an event ended is `outcome` and `error.type`.** `outcome` is `success`, `refused` where the
 caller caused it, or `error` where the server or a dependency failed; take both from
 `Throwable.toOutcome()` where a failure was thrown. `error.type` is the error code the caller was

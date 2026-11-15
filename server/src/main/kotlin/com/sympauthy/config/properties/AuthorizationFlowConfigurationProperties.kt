@@ -34,6 +34,15 @@ class AuthorizationFlowConfigurationProperties(
     /** Where a TOTP challenge is answered. Required only where MFA is enabled. */
     var mfaTotpChallenge: String? = null
 
+    /** Where a person asks to reset a forgotten password. Named with the two below, or not at all. */
+    var resetPassword: String? = null
+
+    /** Where a person enters the code a reset sent. */
+    var resetPasswordValidate: String? = null
+
+    /** Where a person chooses the new password a reset sets. */
+    var resetPasswordChoose: String? = null
+
     companion object {
         const val AUTHORIZATION_FLOWS_KEY = "flows"
     }

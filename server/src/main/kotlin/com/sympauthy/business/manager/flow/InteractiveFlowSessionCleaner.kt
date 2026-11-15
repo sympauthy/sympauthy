@@ -5,6 +5,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
+import com.sympauthy.data.repository.InteractiveFlowSessionPasswordResetRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionProviderRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
@@ -39,6 +40,7 @@ open class InteractiveFlowSessionCleaner(
     @Inject private val providerRepository: InteractiveFlowSessionProviderRepository,
     @Inject private val confirmRepository: InteractiveFlowSessionConfirmRepository,
     @Inject private val reauthenticationRepository: InteractiveFlowSessionReauthenticationRepository,
+    @Inject private val passwordResetRepository: InteractiveFlowSessionPasswordResetRepository,
     @Inject private val linkProviderRepository: InteractiveFlowSessionLinkProviderRepository,
     @Inject private val securityContextRepository: InteractiveFlowSessionSecurityContextRepository,
     @Inject private val validationCodeRepository: ValidationCodeRepository,
@@ -71,6 +73,9 @@ open class InteractiveFlowSessionCleaner(
         val deferredReauthenticationCount = async {
             reauthenticationRepository.deleteBySessionIdIn(expiredSessionIds)
         }
+        val deferredPasswordResetCount = async {
+            passwordResetRepository.deleteBySessionIdIn(expiredSessionIds)
+        }
         val deferredLinkProviderCount = async {
             linkProviderRepository.deleteBySessionIdIn(expiredSessionIds)
         }
@@ -86,6 +91,7 @@ open class InteractiveFlowSessionCleaner(
         deferredProviderCount.await()
         deferredConfirmCount.await()
         deferredReauthenticationCount.await()
+        deferredPasswordResetCount.await()
         deferredLinkProviderCount.await()
         deferredSecurityContextCount.await()
 

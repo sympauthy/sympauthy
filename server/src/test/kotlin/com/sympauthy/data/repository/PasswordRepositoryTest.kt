@@ -79,6 +79,20 @@ class PasswordRepositoryTest {
             assertEquals(otherSession.id, passwords.findById(untouched)?.sessionId)
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `deleteByIdIn - Deletes the passwords named and counts them`(database: Database) = withFixture(database) {
+        val passwords = repository<PasswordRepository>()
+        val userId = newUser()
+        val replaced = savePassword(userId)
+        val expired = savePassword(userId, expirationDate = BASE_DATE)
+        val kept = savePassword(userId)
+
+        assertEquals(2, passwords.deleteByIdIn(listOf(replaced, expired)))
+
+        assertEquals(listOf(kept), passwords.findByUserId(userId).map { it.id })
+    }
+
     private suspend fun RepositoryFixture.savePassword(
         userId: UUID,
         expirationDate: LocalDateTime? = null,
