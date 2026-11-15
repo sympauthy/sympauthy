@@ -95,6 +95,10 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * again, for another identifier or the same one, the reset starts over: a code sent before proves only the
      * account it was sent to, and only while that account is the one asked for.
      *
+     * Asking again is held to the delay [resendCode] is, or a script asking in a loop would send a mail to any
+     * address at the rate it asks. Asked too soon, nothing is sent: the same identifier keeps the reset as it was,
+     * and another is recorded with no code sent, so that a resend once the delay has passed goes to it.
+     *
      * Throws the recoverable `flow.password.reset.missing_login` where [login] is blank, and the internal
      * `flow.password.reset.disabled` where [flow] offers no reset. A session whose user is already established
      * is answered unchanged: asking for a code no longer applies there.
@@ -127,6 +131,13 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
                 beforePurpose = session.initiatingPurpose
             )
         }
+        val previous = passwordResetManager.fetchPasswordResetOrNull(gated)
+        if (previous != null && !canResend(gated, previous)) {
+            if (previous.login != login) {
+                passwordResetManager.savePasswordReset(gated, login, userId = null, previous.requestedDate)
+            }
+            return gated
+        }
         val mail = prepareResetMail(gated, login)
         passwordResetManager.savePasswordReset(gated, login, mail.userId)
         sendResetMail(mail)
@@ -143,7 +154,8 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * have expired.
      *
      * Throws the internal `flow.password.reset.disabled` where [flow] offers no reset. Nothing is asked for again
-     * where [session] has no reset, or one whose code has proven the account already.
+     * where [session] has no reset, one whose code has proven the account already, or one whose user is
+     * established otherwise: the reset is resolved there, and a code would prove nothing.
      *
      * The mail goes last and outside any transaction, for the reason [requestCode] gives.
      */
@@ -153,7 +165,12 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
     ): ResendResult {
         checkOffered(flow)
         val passwordReset = passwordResetManager.fetchPasswordResetOrNull(session)
-        if (passwordReset == null || passwordReset.codeProvenDate != null || !canResend(session, passwordReset)) {
+        if (
+            passwordReset == null ||
+            passwordReset.codeProvenDate != null ||
+            session.userId != null ||
+            !canResend(session, passwordReset)
+        ) {
             return ResendResult(resent = false, passwordReset = passwordReset)
         }
         val mail = prepareResetMail(session, passwordReset.login)
@@ -293,12 +310,16 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
         val folded = collectedClaimManager.getIdentifierFoldedValuesOf(login)
         val user = userManager.findByAnyIdentifierClaimValue(folded)
         if (user == null) {
-            return if (OpenIdConnectClaimId.EMAIL in folded) ResetMail.NoAccount(login) else ResetMail.None
+            // To the address as an account would hold it, not as it was typed.
+            return collectedClaimManager.getIdentifierCleanedValueOrNull(OpenIdConnectClaimId.EMAIL, login)
+                ?.let(ResetMail::NoAccount)
+                ?: ResetMail.None
         }
         if (user.status != UserStatus.ENABLED) return ResetMail.None
         // An address nobody proved may be a typo, and a code sent there hands the account to its owner.
         val address = collectedClaimManager.findVerifiedEmailOrNull(user.id) ?: return ResetMail.None
-        if (!passwordManager.hasPassword(user)) {
+        // An expired password is still one to replace, and the account it locks out the one a reset is for.
+        if (!passwordManager.hasPassword(user, includesExpired = true)) {
             return ResetMail.NoPassword(address, listLinkedProviderNames(user))
         }
         val code = validationCodeGenerator.generateValidationCode(

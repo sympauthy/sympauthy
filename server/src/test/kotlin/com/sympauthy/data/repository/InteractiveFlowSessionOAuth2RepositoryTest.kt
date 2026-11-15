@@ -113,7 +113,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `updateAuthenticationDateAndPasswordId - Writes the moment and the password proven`(database: Database) =
+    fun `updateAuthenticationDate - Writes the moment and the password proven`(database: Database) =
         withFixture(database) {
             val records = repository<InteractiveFlowSessionOAuth2Repository>()
             val session = newSession()
@@ -123,7 +123,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             val authenticationDate = BASE_DATE.plusMinutes(3)
             val passwordId = UUID.randomUUID()
 
-            records.updateAuthenticationDateAndPasswordId(session.id!!, authenticationDate, passwordId)
+            records.updateAuthenticationDate(session.id!!, authenticationDate, passwordId)
 
             assertEquals(authenticationDate, records.findById(session.id!!)!!.authenticationDate)
             assertEquals(passwordId, records.findById(session.id!!)!!.passwordId)
@@ -138,7 +138,7 @@ class InteractiveFlowSessionOAuth2RepositoryTest {
             val records = repository<InteractiveFlowSessionOAuth2Repository>()
             val session = newSession()
             saveRecord(session.id!!)
-            records.updateAuthenticationDateAndPasswordId(session.id!!, BASE_DATE, null)
+            records.updateAuthenticationDate(session.id!!, BASE_DATE, null)
             val passwordId = UUID.randomUUID()
 
             assertEquals(1, records.updatePasswordId(session.id!!, passwordId))

@@ -53,7 +53,7 @@ class InteractiveFlowSessionOAuth2ManagerTest {
         val passwordId = UUID.randomUUID()
         val written = slot<LocalDateTime>()
         coEvery {
-            oauth2Repository.updateAuthenticationDateAndPasswordId(sessionId, capture(written), passwordId)
+            oauth2Repository.updateAuthenticationDate(sessionId, capture(written), passwordId)
         } returns 1
 
         val before = LocalDateTime.now()
@@ -71,7 +71,7 @@ class InteractiveFlowSessionOAuth2ManagerTest {
             every { id } returns sessionId
             every { initiatingPurpose } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
         }
-        coEvery { oauth2Repository.updateAuthenticationDateAndPasswordId(sessionId, any(), null) } returns 0
+        coEvery { oauth2Repository.updateAuthenticationDate(sessionId, any(), null) } returns 0
 
         val exception = assertThrows<BusinessException> { manager.setAuthenticationDate(session, null) }
 
@@ -89,7 +89,7 @@ class InteractiveFlowSessionOAuth2ManagerTest {
         val exception = assertThrows<BusinessException> { manager.setAuthenticationDate(session, null) }
 
         assertEquals("auth.interactive_flow_session.oauth2.wrong_type", exception.detailsId)
-        coVerify(exactly = 0) { oauth2Repository.updateAuthenticationDateAndPasswordId(any(), any(), any()) }
+        coVerify(exactly = 0) { oauth2Repository.updateAuthenticationDate(any(), any(), any()) }
     }
 
     @Test

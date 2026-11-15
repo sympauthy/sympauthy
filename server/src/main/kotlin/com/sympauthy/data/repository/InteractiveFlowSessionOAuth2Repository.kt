@@ -19,7 +19,7 @@ interface InteractiveFlowSessionOAuth2Repository :
      * the record back after it: a lost write there surfaces on the next `fetchOAuth2`, and a lost write
      * here would ship an authorization whose tokens silently state no `auth_time` at all.
      */
-    suspend fun updateAuthenticationDateAndPasswordId(
+    suspend fun updateAuthenticationDate(
         @Id sessionId: UUID,
         authenticationDate: LocalDateTime,
         passwordId: UUID?
@@ -27,7 +27,7 @@ interface InteractiveFlowSessionOAuth2Repository :
 
     /**
      * Write the password a credential proven earlier in the session turned out to be, and answer how many
-     * rows that moved, for the reason [updateAuthenticationDateAndPasswordId] answers one.
+     * rows that moved, for the reason [updateAuthenticationDate] answers one.
      */
     suspend fun updatePasswordId(
         @Id sessionId: UUID,

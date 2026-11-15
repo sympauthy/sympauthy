@@ -37,31 +37,27 @@ class InteractiveFlowSessionPasswordResetManager(
      * Record that the end-user asked, in [session], to reset the password of whichever account holds [login],
      * a code having gone to the account identified by [userId] where it is not null, and return the record.
      *
+     * [requestedDate] is when the last code or notice was asked for, which the resend delay runs from: now, unless
+     * nothing was sent for this request.
+     *
      * A reset asked for again replaces the one before it whole, a code it had proven included: the end-user
      * typed another identifier, and what they proved of the first proves nothing of it.
      */
     suspend fun savePasswordReset(
         session: OnGoingInteractiveFlowSession,
         login: String,
-        userId: UUID?
+        userId: UUID?,
+        requestedDate: LocalDateTime = LocalDateTime.now()
     ): InteractiveFlowSessionPasswordReset {
         val entity = InteractiveFlowSessionPasswordResetEntity(
             sessionId = session.id,
             login = login,
             userId = userId,
-            requestedDate = LocalDateTime.now()
+            requestedDate = requestedDate
         )
         save(session, entity)
         return passwordResetMapper.toInteractiveFlowSessionPasswordReset(entity)
     }
-
-    /**
-     * Record that the end-user asked for another code for the reset [passwordReset] holds, and return the record.
-     */
-    suspend fun markRequested(
-        session: OnGoingInteractiveFlowSession,
-        passwordReset: InteractiveFlowSessionPasswordReset
-    ): InteractiveFlowSessionPasswordReset = update(session, passwordReset.copy(requestedDate = LocalDateTime.now()))
 
     /**
      * Record that a code proved the account [passwordReset] names, and return the record.

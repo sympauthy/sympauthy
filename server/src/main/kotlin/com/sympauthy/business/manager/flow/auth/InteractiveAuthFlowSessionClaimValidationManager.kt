@@ -153,6 +153,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringSession(
             session = session,
             media = media,
+            reasons = validationCodeReasons,
             includesExpired = true
         )
         return if (existingCode == null) {
@@ -188,6 +189,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         val existingCode = validationCodeManager.findLatestCodeSentByMediaDuringSession(
             session = session,
             media = media,
+            reasons = validationCodeReasons,
             includesExpired = true,
         )
         if (existingCode == null || !validationCodeManager.canBeRefreshed(existingCode)) {

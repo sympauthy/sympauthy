@@ -110,6 +110,12 @@ and a grant a provider's sign-in opened is not reached, since the provider's cre
 leak. A person wanting everything withdrawn revokes their consent. [The design
 FAQ](design-faq.md#does-a-password-reset-revoke-every-grant-of-the-account) weighs revoking more.
 
+**A sign-in still in progress when its password is replaced opens no grant.** It proved the old
+password before the reset, so no grant of it existed to revoke, and one opened afterwards would
+stand beside the new password unrevoked. The authorization's completion reads the password again
+under the account's lock, the lock the replacement takes, and fails the flow with
+`flow.authorization_flow.complete.password_replaced` where it is gone.
+
 **A code still to be exchanged is reached with its grant.** A revocation finds the grant of a code
 as surely as the grant of a token, so a person signed out, or a consent revoked, between the sign-in
 and the exchange takes the code out of service too: its exchange is refused with `invalid_grant` and

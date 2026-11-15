@@ -186,13 +186,18 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
         coEvery { userManager.findByAnyIdentifierClaimValue(folded) } returns found
     }
 
-    private fun expectGateAndRecord(sentTo: UUID?) {
+    private fun expectGate() {
         coEvery {
             sessionManager.insertPurposeBefore(
                 session, InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE
             )
         } returns gated
-        coEvery { passwordResetManager.savePasswordReset(gated, login, sentTo) } returns reset(sentTo)
+    }
+
+    private fun expectGateAndRecord(sentTo: UUID?) {
+        expectGate()
+        coEvery { passwordResetManager.fetchPasswordResetOrNull(gated) } returns null
+        coEvery { passwordResetManager.savePasswordReset(gated, login, sentTo, any()) } returns reset(sentTo)
     }
 
     @Test
@@ -224,7 +229,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
     fun `requestCode - Sends a code to the proven address of an account holding a password`() = runTest {
         loginResolvesTo(user)
         coEvery { collectedClaimManager.findVerifiedEmailOrNull(userId) } returns address
-        coEvery { passwordManager.hasPassword(user) } returns true
+        coEvery { passwordManager.hasPassword(user, includesExpired = true) } returns true
         val sent = code("482913")
         coEvery {
             validationCodeGenerator.generateValidationCode(
@@ -239,7 +244,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
             validationCodeGenerator.generateValidationCode(
                 user, gated, ValidationCodeMedia.EMAIL, listOf(ValidationCodeReason.RESET_PASSWORD)
             )
-            passwordResetManager.savePasswordReset(gated, login, userId)
+            passwordResetManager.savePasswordReset(gated, login, userId, any())
             messageSender.sendCode(address, sent)
         }
     }
@@ -248,14 +253,15 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
     fun `requestCode - Sends nothing where the reset could not be recorded`() = runTest {
         loginResolvesTo(user)
         coEvery { collectedClaimManager.findVerifiedEmailOrNull(userId) } returns address
-        coEvery { passwordManager.hasPassword(user) } returns true
+        coEvery { passwordManager.hasPassword(user, includesExpired = true) } returns true
         coEvery { validationCodeGenerator.generateValidationCode(any(), any(), any(), any()) } returns code("482913")
         coEvery {
             sessionManager.insertPurposeBefore(
                 session, InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE
             )
         } returns gated
-        coEvery { passwordResetManager.savePasswordReset(gated, login, userId) } throws IllegalStateException()
+        coEvery { passwordResetManager.fetchPasswordResetOrNull(gated) } returns null
+        coEvery { passwordResetManager.savePasswordReset(gated, login, userId, any()) } throws IllegalStateException()
 
         assertThrows<IllegalStateException> { manager.requestCode(session, flow, login) }
 
@@ -263,32 +269,34 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
     }
 
     @Test
-    fun `requestCode - Tells an email address no account uses, and records no account`() = runTest {
+    fun `requestCode - Tells an email address no account uses, as an account would hold it`() = runTest {
         loginResolvesTo(null)
+        every { collectedClaimManager.getIdentifierCleanedValueOrNull("email", login) } returns "cleaned@example.com"
         expectGateAndRecord(sentTo = null)
 
         manager.requestCode(session, flow, login)
 
-        coVerify { messageSender.sendNoAccount(login) }
-        coVerify { passwordResetManager.savePasswordReset(gated, login, null) }
+        coVerify { messageSender.sendNoAccount("cleaned@example.com") }
+        coVerify { passwordResetManager.savePasswordReset(gated, login, null, any()) }
     }
 
     @Test
     fun `requestCode - Sends nothing for a username no account holds`() = runTest {
         loginResolvesTo(null, folded = mapOf("preferred_username" to login))
+        every { collectedClaimManager.getIdentifierCleanedValueOrNull("email", login) } returns null
         expectGateAndRecord(sentTo = null)
 
         manager.requestCode(session, flow, login)
 
         coVerify(exactly = 0) { messageSender.sendNoAccount(any()) }
-        coVerify { passwordResetManager.savePasswordReset(gated, login, null) }
+        coVerify { passwordResetManager.savePasswordReset(gated, login, null, any()) }
     }
 
     @Test
     fun `requestCode - Tells an account with no password which providers it signs in with`() = runTest {
         loginResolvesTo(user)
         coEvery { collectedClaimManager.findVerifiedEmailOrNull(userId) } returns address
-        coEvery { passwordManager.hasPassword(user) } returns false
+        coEvery { passwordManager.hasPassword(user, includesExpired = true) } returns false
         coEvery { providerClaimsManager.findByUserId(userId) } returns listOf(
             mockk<ProviderUserInfo> { every { providerId } returns "google" }
         )
@@ -332,12 +340,43 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
         every { session.purposes } returns
             listOf(InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
         loginResolvesTo(null)
-        coEvery { passwordResetManager.savePasswordReset(session, login, null) } returns reset(null)
+        every { collectedClaimManager.getIdentifierCleanedValueOrNull("email", login) } returns null
+        coEvery { passwordResetManager.fetchPasswordResetOrNull(session) } returns null
+        coEvery { passwordResetManager.savePasswordReset(session, login, null, any()) } returns reset(null)
 
         assertSame(session, manager.requestCode(session, flow, login))
 
         coVerify(exactly = 0) { sessionManager.insertPurposeBefore(any(), any(), any()) }
     }
+
+    @Test
+    fun `requestCode - Sends nothing, and keeps the reset, where the same identifier is asked again too soon`() =
+        runTest {
+            expectGate()
+            coEvery { passwordResetManager.fetchPasswordResetOrNull(gated) } returns reset()
+
+            assertSame(gated, manager.requestCode(session, flow, login))
+
+            coVerify(exactly = 0) { passwordResetManager.savePasswordReset(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { validationCodeGenerator.generateValidationCode(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { messageSender.sendCode(any(), any()) }
+        }
+
+    @Test
+    fun `requestCode - Sends nothing to another identifier asked too soon, and records it for the resend`() =
+        runTest {
+            val requestedDate = LocalDateTime.now().minusSeconds(10)
+            expectGate()
+            coEvery { passwordResetManager.fetchPasswordResetOrNull(gated) } returns
+                reset(requestedDate = requestedDate).copy(login = "earlier@example.com")
+            coEvery { passwordResetManager.savePasswordReset(gated, login, null, requestedDate) } returns reset(null)
+
+            manager.requestCode(session, flow, login)
+
+            coVerify(exactly = 1) { passwordResetManager.savePasswordReset(gated, login, null, requestedDate) }
+            coVerify(exactly = 0) { messageSender.sendNoAccount(any()) }
+            coVerify(exactly = 0) { collectedClaimManager.getIdentifierFoldedValuesOf(any()) }
+        }
 
     @Test
     fun `requestCode - Refuses a blank login`() = runTest {
@@ -363,7 +402,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
         assertSame(session, manager.requestCode(session, flow, login))
 
-        coVerify(exactly = 0) { passwordResetManager.savePasswordReset(any(), any(), any()) }
+        coVerify(exactly = 0) { passwordResetManager.savePasswordReset(any(), any(), any(), any()) }
     }
 
     @Test
@@ -462,7 +501,19 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
         val result = manager.resendCode(session, flow)
 
         assertFalse(result.resent)
-        coVerify(exactly = 0) { passwordResetManager.savePasswordReset(any(), any(), any()) }
+        coVerify(exactly = 0) { passwordResetManager.savePasswordReset(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `resendCode - Asks for nothing once the session signed in otherwise`() = runTest {
+        every { session.userId } returns userId
+        coEvery { passwordResetManager.fetchPasswordResetOrNull(session) } returns
+            reset(requestedDate = LocalDateTime.now().minusMinutes(2))
+
+        val result = manager.resendCode(session, flow)
+
+        assertFalse(result.resent)
+        coVerify(exactly = 0) { passwordResetManager.savePasswordReset(any(), any(), any(), any()) }
     }
 
     @Test
@@ -470,13 +521,14 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
         coEvery { passwordResetManager.fetchPasswordResetOrNull(session) } returns
             reset(userId = null, requestedDate = LocalDateTime.now().minusMinutes(2))
         loginResolvesTo(null)
-        coEvery { passwordResetManager.savePasswordReset(session, login, null) } returns reset(userId = null)
+        every { collectedClaimManager.getIdentifierCleanedValueOrNull("email", login) } returns login
+        coEvery { passwordResetManager.savePasswordReset(session, login, null, any()) } returns reset(userId = null)
 
         val result = manager.resendCode(session, flow)
 
         assertTrue(result.resent)
         coVerifyOrder {
-            passwordResetManager.savePasswordReset(session, login, null)
+            passwordResetManager.savePasswordReset(session, login, null, any())
             messageSender.sendNoAccount(login)
         }
     }

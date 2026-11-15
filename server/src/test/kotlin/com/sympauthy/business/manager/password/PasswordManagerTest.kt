@@ -1,19 +1,26 @@
 package com.sympauthy.business.manager.password
 
 import com.sympauthy.business.manager.RandomGenerator
+import com.sympauthy.business.manager.lock.HeldStripes
+import com.sympauthy.business.manager.lock.LockKey
+import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.password.HashedPassword
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.PasswordEntity
+import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.data.repository.PasswordRepository
+import com.sympauthy.monitoring.telemetry.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -40,6 +47,11 @@ class PasswordManagerTest {
 
     @MockK
     lateinit var uncheckedAdvancedConfig: AdvancedConfig
+
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
+    @SpyK
+    var lockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
 
     @InjectMockKs
     lateinit var manager: PasswordManager
@@ -118,8 +130,32 @@ class PasswordManagerTest {
         assertEquals(newId, replacement.passwordId)
         assertEquals(listOf(replaced.id, expired.id), replacement.replacedPasswordIds)
         coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(user.id).stripe)
+            passwordRepository.findByUserId(user.id)
             passwordRepository.deleteByIdIn(any())
             passwordRepository.save(match { it.hashedPassword.contentEquals(byteArrayOf(4)) && it.userId == user.id })
         }
+    }
+
+    @Test
+    fun `isPasswordStored - Reads the passwords under the account lock`() = runTest {
+        val kept = stored(UUID.randomUUID(), hash = 1)
+        coEvery { passwordRepository.findByUserId(user.id) } returns listOf(kept)
+
+        assertTrue(manager.isPasswordStored(user, kept.id!!))
+        assertFalse(manager.isPasswordStored(user, UUID.randomUUID()))
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(user.id).stripe)
+            passwordRepository.findByUserId(user.id)
+        }
+    }
+
+    @Test
+    fun `hasPassword - Counts an expired password only where asked to`() = runTest {
+        coEvery { passwordRepository.findByUserId(user.id) } returns
+            listOf(stored(UUID.randomUUID(), hash = 1, expirationDate = now().minusDays(1)))
+
+        assertFalse(manager.hasPassword(user))
+        assertTrue(manager.hasPassword(user, includesExpired = true))
     }
 }

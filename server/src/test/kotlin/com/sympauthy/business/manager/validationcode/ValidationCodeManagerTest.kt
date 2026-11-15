@@ -6,6 +6,7 @@ import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
 import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
+import com.sympauthy.business.model.code.ValidationCodeReason.RESET_PASSWORD
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.CollectedClaim
@@ -279,6 +280,37 @@ class ValidationCodeManagerTest {
 
         assertEquals(1, result.size)
         assertSame(validCode, result.getOrNull(0))
+    }
+
+    @Test
+    fun `findLatestCodeSentByMediaDuringSession - Passes over a later code sent for another reason`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<InteractiveFlowSession> {
+            every { id } returns sessionId
+        }
+        val claimCodeEntity = mockk<ValidationCodeEntity>()
+        val claimCode = mockk<ValidationCode> {
+            every { reasons } returns listOf(EMAIL_CLAIM)
+            every { creationDate } returns LocalDateTime.now().minusMinutes(2)
+        }
+        val resetCodeEntity = mockk<ValidationCodeEntity>()
+        val resetCode = mockk<ValidationCode> {
+            every { reasons } returns listOf(RESET_PASSWORD)
+        }
+        coEvery { validationCodeRepository.findBySessionIdAndMedia(sessionId, EMAIL.name) } returns listOf(
+            claimCodeEntity, resetCodeEntity
+        )
+        every { validationCodeMapper.toValidationCode(claimCodeEntity) } returns claimCode
+        every { validationCodeMapper.toValidationCode(resetCodeEntity) } returns resetCode
+
+        val result = manager.findLatestCodeSentByMediaDuringSession(
+            session = session,
+            media = EMAIL,
+            reasons = listOf(EMAIL_CLAIM),
+            includesExpired = true
+        )
+
+        assertSame(claimCode, result)
     }
 
     @Test

@@ -273,7 +273,10 @@ lost.
 **Every identifier is answered alike.** Whatever was typed, the person reaches the code page, and a
 code typed for an identifier no code went to is refused as a wrong one is, under
 `flow.password.reset.invalid_code`; how soon another may be asked for counts from the request,
-whatever it sent. What differs is only what reaches an inbox:
+whatever it sent. The same wait holds an identifier typed again on the first page, or a script
+asking in a loop would mail any address at the rate it asks: asked too soon, nothing is sent, and
+an identifier other than the last is kept for the resend. What differs is only what reaches an
+inbox:
 
 | The identifier typed is | What is sent |
 | --- | --- |
@@ -311,7 +314,8 @@ replaces every one the account holds, expired or not, the grants those opened ar
 [revoked](grants.md#how-a-revocation-reaches-a-grant), and once that has committed the account's
 proven address is told its password changed — the one way a person learns of a reset they did not
 make. A session abandoned or failed after the code, a second factor not passed, leaves the account
-as it was, and sends nothing.
+as it was, and sends nothing. The replacement is serialised on the account, so two resets
+completing at once leave one password rather than both.
 
 **`InteractiveAuthFlowSessionPasswordResetManager` decides what each identifier is sent, and
 `PasswordResetInteractiveFlowPurposeHandler` applies the reset.** The new password waits, hashed, on

@@ -246,6 +246,15 @@ open class CollectedClaimManager(
     }
 
     /**
+     * [value] cleaned as the identifier claim identified by [claimId] stores it, or null where that claim is not an
+     * identifier claim, or could hold no such value.
+     */
+    fun getIdentifierCleanedValueOrNull(claimId: String, value: Any): String? {
+        val claim = claimManager.listIdentifierClaims().firstOrNull { it.id == claimId } ?: return null
+        return claimValueValidator.cleanValueForClaimOrNull(claim, value)?.toString()
+    }
+
+    /**
      * The folded value each configured identifier claim compares [value] under, by the claim comparing it.
      * A claim that could hold no such value at all is absent rather than present with nothing.
      *

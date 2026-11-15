@@ -183,7 +183,7 @@ open class InteractiveFlowSessionOAuth2Manager(
      */
     suspend fun setAuthenticationDate(session: OnGoingInteractiveFlowSession, passwordId: UUID?) {
         checkAuthorization(session)
-        val updated = oauth2Repository.updateAuthenticationDateAndPasswordId(
+        val updated = oauth2Repository.updateAuthenticationDate(
             sessionId = session.id,
             authenticationDate = LocalDateTime.now(),
             passwordId = passwordId
