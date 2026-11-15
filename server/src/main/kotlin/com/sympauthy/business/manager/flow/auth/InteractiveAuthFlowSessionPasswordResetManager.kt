@@ -214,8 +214,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * one no account holds, or one whose account may not be reset — so that the code page answers no more than
      * the page before it. Throws the internal `flow.password.reset.disabled` where [flow] offers no reset.
      */
-    @Transactional
-    open suspend fun validateCode(
+    suspend fun validateCode(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow,
         code: String?,
@@ -235,14 +234,30 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
             descriptionId = "description.flow.password.reset.invalid_code"
         )
 
-        // Stamped before the flow advances, as a password sign-in stamps it: completing the flow folds it.
+        // Stamped before the flow advances, as a password sign-in stamps it: completing the flow folds it. Outside
+        // the transaction below, since the stamp fails quietly and a failed statement aborts a transaction on
+        // PostgreSQL.
         userSecurityContextManager.markProven(session.id, observedRequest)
+        signInProvenAccount(session, passwordReset, user)
+    }
+
+    /**
+     * Sign the account [user] that a code proved into [session], dating the authentication now, and record the code
+     * of [passwordReset] proven, all or none: a session signed in with no code recorded proven would resolve the
+     * reset with no new password, and carry on signed in by the code alone.
+     */
+    @Transactional
+    internal open suspend fun signInProvenAccount(
+        session: OnGoingInteractiveFlowSession,
+        passwordReset: InteractiveFlowSessionPasswordReset,
+        user: User
+    ): OnGoingInteractiveFlowSession {
         val authenticated = sessionManager.setAuthenticatedUserId(session, user.id)
         oauth2Manager.setAuthenticationDate(authenticated, passwordId = null)
         passwordResetManager.markCodeProven(authenticated, passwordReset)
         // A code proves the account once: one typed again would prove nothing a second session could use.
         validationCodeManager.revokeValidationCodes(findResetCodes(session, user.id))
-        authenticated
+        return authenticated
     }
 
     /**
