@@ -104,6 +104,7 @@ class ClientProviderLinkControllerTest {
             every {
                 clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/linked")
             } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
                 linkProviderManager.startLinkProviderSession(

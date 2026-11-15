@@ -249,7 +249,7 @@ class AdminUserProviderController(
             user = user,
             providerId = providerId,
             returnUri = returnUri,
-            returnState = resource.returnState,
+            returnState = clientRedirectUriManager.parseRequestedReturnState(resource.returnState),
             flow = flow,
             initiatingClientId = null
         )

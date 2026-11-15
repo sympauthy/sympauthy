@@ -113,6 +113,7 @@ class ClientMfaEnrollmentControllerTest {
             every {
                 clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/done")
             } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             coEvery {
                 mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, null, flow, "client-id")
@@ -157,6 +158,7 @@ class ClientMfaEnrollmentControllerTest {
         coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
         coEvery { userManager.findByIdOrNull(userId) } returns user
         every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState("xyz") } returns "xyz"
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the return state is threaded through.
         coEvery {

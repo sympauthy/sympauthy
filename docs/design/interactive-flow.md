@@ -114,8 +114,11 @@ FAQ](design-faq.md#what-does-a-return-destination-receive) holds the names that 
 **Every page of every flow lets the person leave it.** Each step answering a `GET` carries a
 `cancel_url` leading to `GET /api/v1/flow/cancel`, which ends a session still running as cancelled —
 its admin page and the flow metric say so — and redirects the person where the session hands them
-back. A session that has already ended keeps its outcome, and the person is only sent away; a state
-that resolves to no session is sent to the error page, which answers its refusal.
+back. A session that has already ended keeps its outcome, and the person is only sent away, told
+what ended it: one that completed or was cancelled before its expiration passed is never answered as
+expired, though the flow sends it to the error page as it does every expired session. A session the
+link cannot end is shown the step it stands on and never advanced, and a state that resolves to no
+session is sent to the error page, which answers its refusal.
 
 **It ends a session on a `GET` and answers with a redirect, departing from two rules
 deliberately.** [The API standard](../standards/api-standard.md#routes) has an action that is not a

@@ -7,6 +7,7 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -131,6 +132,23 @@ class ClientRedirectUriManagerTest {
             manager.parseRequestedRedirectUri(client, "https://example.com/account")
         }
         assertEquals("client.redirect_uri.not_allowed", exception.detailsId)
+    }
+
+    @Test
+    fun `parseRequestedReturnState - Answers null for a blank value and the value otherwise`() {
+        assertNull(manager.parseRequestedReturnState(null))
+        assertNull(manager.parseRequestedReturnState(" "))
+        assertEquals("xyz", manager.parseRequestedReturnState("xyz"))
+        assertEquals("a".repeat(512), manager.parseRequestedReturnState("a".repeat(512)))
+    }
+
+    @Test
+    fun `parseRequestedReturnState - Refuses a value longer than the limit`() {
+        val exception = assertThrows<BusinessException> {
+            manager.parseRequestedReturnState("a".repeat(513))
+        }
+        assertEquals("client.return_state.too_long", exception.detailsId)
+        assertTrue(exception.recoverable)
     }
 
     @Test

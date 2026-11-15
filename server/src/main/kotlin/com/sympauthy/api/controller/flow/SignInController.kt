@@ -103,7 +103,7 @@ class SignInController(
             observedRequest = observedRequest,
             run = { session, flow ->
                 if (signInApplies(session, flow)) {
-                    buildSignInConfiguration(session, flow, locale)
+                    buildSignInConfiguration(session, flow, locale, authentication.stateOrNull)
                 } else {
                     null
                 }
@@ -138,7 +138,8 @@ class SignInController(
     private suspend fun buildSignInConfiguration(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow,
-        locale: Locale
+        locale: Locale,
+        state: String?
     ): SignInFlowResource {
         val urlsConfig = uncheckedUrlsConfig.orThrow()
         // When re-authenticating, the session user is already fixed (see signInApplies) and only the methods
@@ -192,7 +193,7 @@ class SignInController(
             providers = providers,
             signUpRedirectUrl = signUpRedirectUrl,
             client = clientMapper.toResourceOrNull(session),
-            cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString()
+            cancelUrl = stepUriMapper.getCancelUriOrNull(session, state)?.toString()
         )
     }
 

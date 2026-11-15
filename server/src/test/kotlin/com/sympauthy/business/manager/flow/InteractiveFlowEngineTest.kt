@@ -460,6 +460,33 @@ class InteractiveFlowEngineTest {
     }
 
     @Test
+    fun `currentStepOrNull - Returns the step the first unresolved purpose asks for, completing nothing`() =
+        runTest {
+            val session = onGoingSession(
+                listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.REAUTHENTICATION)
+            )
+            val confirmHandler = mockk<InteractiveFlowPurposeHandler>()
+            val reauthHandler = mockk<InteractiveFlowPurposeHandler>()
+            every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.CONFIRM) } returns confirmHandler
+            every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.REAUTHENTICATION) } returns reauthHandler
+            coEvery { confirmHandler.nextStepOrNull(session) } returns null
+            coEvery { reauthHandler.nextStepOrNull(session) } returns InteractiveFlowStep.SignIn
+
+            assertEquals(InteractiveFlowStep.SignIn, engine.currentStepOrNull(session))
+            coVerify(exactly = 0) { sessionManager.markPurposeAsCompleted(any(), any()) }
+        }
+
+    @Test
+    fun `currentStepOrNull - Returns null when every purpose has resolved`() = runTest {
+        val session = onGoingSession(listOf(InteractiveFlowPurpose.OAUTH2_AUTHORIZE))
+        val handler = mockk<InteractiveFlowPurposeHandler>()
+        every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.OAUTH2_AUTHORIZE) } returns handler
+        coEvery { handler.nextStepOrNull(session) } returns null
+
+        assertNull(engine.currentStepOrNull(session))
+    }
+
+    @Test
     fun `advance - Promotes what the session signed up between preparing the terminal effects and applying them`() =
         runTest {
             val userId = UUID.randomUUID()

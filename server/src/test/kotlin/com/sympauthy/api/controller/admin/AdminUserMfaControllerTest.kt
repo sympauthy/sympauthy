@@ -241,6 +241,7 @@ class AdminUserMfaControllerTest {
             every {
                 clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/done")
             } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
             coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
             // Admin-initiated: the initiating client id must be null (rendered as "an administrator"). Keying
             // the stub on null means the test only reaches the assertion when the controller passes null.
@@ -278,6 +279,7 @@ class AdminUserMfaControllerTest {
         coEvery { userManager.findByIdOrNull(userId) } returns user
         coEvery { clientManager.findClientByIdOrNull("client-id") } returns client
         every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState("xyz") } returns "xyz"
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // The stub only matches (and thus drives the redirect) when the return state is threaded through.
         coEvery {

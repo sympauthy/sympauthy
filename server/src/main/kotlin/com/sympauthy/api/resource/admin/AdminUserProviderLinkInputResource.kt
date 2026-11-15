@@ -26,7 +26,8 @@ data class AdminUserProviderLinkInputResource(
     @get:Schema(
         description = "Value this server sends back unchanged as `sympauthy_return_state` when it sends the " +
                 "end-user's browser to the return URL, so the client can tell that return from one it did not " +
-                "ask for. When absent, the browser is sent back without one."
+                "ask for. At most 512 characters. " +
+                "When absent, the browser is sent back without one."
     )
     @get:JsonProperty("return_state")
     val returnState: String? = null

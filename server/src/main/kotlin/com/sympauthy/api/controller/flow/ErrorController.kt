@@ -62,7 +62,9 @@ class ErrorController(
                     exception = failure,
                     locale = request.locale.orDefault(),
                     client = session?.let { clientMapper.toResourceOrNull(it) },
-                    cancelUrl = session?.let { stepUriMapper.getCancelUriOrNull(it) }?.toString()
+                    cancelUrl = session
+                        ?.let { stepUriMapper.getCancelUriOrNull(it, authentication.stateOrNull) }
+                        ?.toString()
                 )
             },
             mapRedirectUriToResource = flowErrorResourceMapper::toResource

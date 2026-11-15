@@ -6,6 +6,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import jakarta.inject.Singleton
@@ -37,6 +38,7 @@ class InteractiveFlowSessionOAuth2Mapper {
             codeChallenge = codeChallenge,
             codeChallengeMethod = codeChallengeMethod,
             invitationId = entity.invitationId,
+            requestError = requestError(entity.requestError),
             authenticationDate = entity.authenticationDate,
             consentedScopes = entity.consentedScopes?.toList(),
             consentedAt = entity.consentedAt,
@@ -84,6 +86,16 @@ class InteractiveFlowSessionOAuth2Mapper {
             } catch (e: IllegalArgumentException) {
                 throw invalidBusinessException("consentedBy", e)
             }
+        }
+    }
+
+    /**
+     * The error the `error` token [requestError] names, or null where the request was accepted.
+     */
+    private fun requestError(requestError: String?): OAuth2ErrorCode? {
+        return requestError?.let { token ->
+            OAuth2ErrorCode.entries.firstOrNull { it.errorCode == token }
+                ?: throw invalidBusinessException("requestError")
         }
     }
 

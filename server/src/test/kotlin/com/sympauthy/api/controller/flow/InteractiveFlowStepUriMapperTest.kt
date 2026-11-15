@@ -14,13 +14,11 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowRedirectType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
 import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.ACCESS_DENIED
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_SCOPE
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNAUTHORIZED_CLIENT
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import io.mockk.coEvery
@@ -215,7 +213,7 @@ class InteractiveFlowStepUriMapperTest {
         val session = mockk<CancelledInteractiveFlowSession> {
             every { handBack } returns authorizationCodeHandBack
         }
-        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns oauth2
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
 
         val result = mapper.toRedirectUri(session, mockk(), InteractiveFlowStep.Cancel)
 
@@ -246,6 +244,7 @@ class InteractiveFlowStepUriMapperTest {
                 every { handBack } returns plainHandBack
                 every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
                 every { errorDetailsId } returns "auth.interactive_flow_session.validate.expired"
+                every { statusAtExpiry } returns InteractiveFlowSessionStatus.EXPIRED
             }
 
             val result = mapper.getLeaveUriOrNull(session)
@@ -270,16 +269,72 @@ class InteractiveFlowStepUriMapperTest {
     }
 
     @Test
-    fun `getLeaveUriOrNull - Answers a failed authorization with the error its failure maps to`() = runTest {
+    fun `getLeaveUriOrNull - Answers a refused authorization request with the error recorded for it`() = runTest {
         val session = mockk<FailedInteractiveFlowSession> {
             every { handBack } returns authorizationCodeHandBack
-            every { errorDetailsId } returns "scope.parse_requested.not_allowed"
+            every { statusAtExpiry } returns null
         }
-        coEvery { oauth2Manager.fetchOAuth2OrNull(session) } returns null
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2.copy(requestError = INVALID_SCOPE)
 
         val result = mapper.getLeaveUriOrNull(session)
 
-        assertEquals("https://www.example.com?error=invalid_scope", result.toString())
+        assertEquals("https://www.example.com?error=invalid_scope&state=clientState", result.toString())
+    }
+
+    @Test
+    fun `getLeaveUriOrNull - Answers access_denied for an authorization failing once the flow ran`() = runTest {
+        val session = mockk<FailedInteractiveFlowSession> {
+            every { handBack } returns authorizationCodeHandBack
+            every { statusAtExpiry } returns null
+        }
+        coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2
+
+        val result = mapper.getLeaveUriOrNull(session)
+
+        assertEquals("https://www.example.com?error=access_denied&state=clientState", result.toString())
+    }
+
+    @Test
+    fun `getLeaveUriOrNull - Answers an expired authorization that was still running with access_denied`() =
+        runTest {
+            val session = mockk<FailedInteractiveFlowSession> {
+                every { handBack } returns authorizationCodeHandBack
+                every { statusAtExpiry } returns InteractiveFlowSessionStatus.EXPIRED
+            }
+            coEvery { oauth2Manager.fetchOAuth2(session) } returns oauth2.copy(requestError = INVALID_SCOPE)
+
+            val result = mapper.getLeaveUriOrNull(session)
+
+            assertEquals("https://www.example.com?error=access_denied&state=clientState", result.toString())
+        }
+
+    @Test
+    fun `getLeaveUriOrNull - Answers a session that ended before it expired by how it ended`() = runTest {
+        val completedAuthorization = mockk<FailedInteractiveFlowSession> {
+            every { handBack } returns authorizationCodeHandBack
+            every { statusAtExpiry } returns InteractiveFlowSessionStatus.COMPLETED
+        }
+        val completedEnrollment = mockk<FailedInteractiveFlowSession> {
+            every { handBack } returns plainHandBack.copy(returnState = null)
+            every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+            every { statusAtExpiry } returns InteractiveFlowSessionStatus.COMPLETED
+        }
+        val cancelledEnrollment = mockk<FailedInteractiveFlowSession> {
+            every { handBack } returns plainHandBack.copy(returnState = null)
+            every { initiatingPurpose } returns InteractiveFlowPurpose.MFA_ENROLLMENT
+            every { statusAtExpiry } returns InteractiveFlowSessionStatus.CANCELLED
+        }
+
+        assertNull(mapper.getLeaveUriOrNull(completedAuthorization))
+        assertEquals(
+            "https://client.example.com/account?sympauthy_flow=mfa_enrollment",
+            mapper.getLeaveUriOrNull(completedEnrollment).toString()
+        )
+        assertEquals(
+            "https://client.example.com/account?sympauthy_flow=mfa_enrollment" +
+                "&sympauthy_flow_error=auth.interactive_flow_session.cancelled",
+            mapper.getLeaveUriOrNull(cancelledEnrollment).toString()
+        )
     }
 
     @Test
@@ -297,21 +352,24 @@ class InteractiveFlowStepUriMapperTest {
         }
 
     @Test
-    fun `getAuthorizationErrorCode - Names what the client got wrong, and access_denied for anything else`() {
-        assertEquals(INVALID_SCOPE, mapper.getAuthorizationErrorCode("scope.audience_mismatch"))
-        assertEquals(UNAUTHORIZED_CLIENT, mapper.getAuthorizationErrorCode("authorize.unauthorized_grant_type"))
-        assertEquals(INVALID_REQUEST, mapper.getAuthorizationErrorCode("authorize.pkce.missing_code_challenge"))
-        assertEquals(INVALID_REQUEST, mapper.getAuthorizationErrorCode("claim.parse_requested.invalid"))
-        assertEquals(INVALID_REQUEST, mapper.getAuthorizationErrorCode("invitation.expired"))
-        assertEquals(ACCESS_DENIED, mapper.getAuthorizationErrorCode("auth.interactive_flow_session.validate.expired"))
+    fun `getCancelUriOrNull - Links to the cancel endpoint with the state the request carried`() = runTest {
+        val session = mockk<FailedInteractiveFlowSession> {
+            every { handBack } returns authorizationCodeHandBack
+            every { statusAtExpiry } returns null
+        }
+
+        val result = urlsMapper().getCancelUriOrNull(session, "incomingState")
+
+        assertEquals("https://auth.example.com/api/v1/flow/cancel?state=incomingState", result.toString())
+        coVerify(exactly = 0) { sessionManager.encodeState(any()) }
     }
 
     @Test
-    fun `getCancelUriOrNull - Links to the cancel endpoint with the state`() = runTest {
-        val session = mockk<FailedInteractiveFlowSession> { every { handBack } returns authorizationCodeHandBack }
+    fun `getCancelUriOrNull - Signs a state where the request carried none`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession> { every { handBack } returns plainHandBack }
         coEvery { sessionManager.encodeState(session) } returns "encodedState"
 
-        val result = urlsMapper().getCancelUriOrNull(session)
+        val result = urlsMapper().getCancelUriOrNull(session, null)
 
         assertEquals("https://auth.example.com/api/v1/flow/cancel?state=encodedState", result.toString())
     }
@@ -322,21 +380,16 @@ class InteractiveFlowStepUriMapperTest {
             val completedAuthorization = mockk<CompletedInteractiveFlowSession> {
                 every { handBack } returns authorizationCodeHandBack
             }
+            val expiredCompletedAuthorization = mockk<FailedInteractiveFlowSession> {
+                every { handBack } returns authorizationCodeHandBack
+                every { statusAtExpiry } returns InteractiveFlowSessionStatus.COMPLETED
+            }
             val refusedAuthorization = mockk<FailedInteractiveFlowSession> { every { handBack } returns null }
 
-            assertNull(urlsMapper().getCancelUriOrNull(completedAuthorization))
-            assertNull(urlsMapper().getCancelUriOrNull(refusedAuthorization))
+            assertNull(urlsMapper().getCancelUriOrNull(completedAuthorization, "state"))
+            assertNull(urlsMapper().getCancelUriOrNull(expiredCompletedAuthorization, "state"))
+            assertNull(urlsMapper().getCancelUriOrNull(refusedAuthorization, "state"))
         }
-
-    @Test
-    fun `getCancelUriOrNull - Offers a way out of a completed PLAIN session`() = runTest {
-        val session = mockk<CompletedInteractiveFlowSession> { every { handBack } returns plainHandBack }
-        coEvery { sessionManager.encodeState(session) } returns "encodedState"
-
-        val result = urlsMapper().getCancelUriOrNull(session)
-
-        assertEquals("https://auth.example.com/api/v1/flow/cancel?state=encodedState", result.toString())
-    }
 
     @Test
     fun `toRedirectUri - Cancel throws when the session is not cancelled`() = runTest {

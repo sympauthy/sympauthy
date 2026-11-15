@@ -424,6 +424,17 @@ class InteractiveFlowSessionManagerTest {
     }
 
     @Test
+    fun `markAsCancelled - Refuses a session with nowhere to hand the end-user back to before writing`() = runTest {
+        val session = ongoingSession(userId = UUID.randomUUID(), handBack = null)
+
+        val exception = assertThrows<BusinessException> {
+            interactiveFlowSessionManager.markAsCancelled(session)
+        }
+        assertEquals("auth.interactive_flow_session.cancel.missing_redirect", exception.detailsId)
+        coVerify(exactly = 0) { sessionRepository.updateCancelDate(any(), any(), any()) }
+    }
+
+    @Test
     fun `markAsFailedIfNotRecoverable - Leaves a recoverable error ongoing without persisting`() = runTest {
         val session = ongoingSession()
         val recoverable = recoverableBusinessExceptionOf("some.detail", "some.description")

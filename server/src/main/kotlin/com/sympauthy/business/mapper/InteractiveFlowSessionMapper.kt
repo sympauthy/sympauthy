@@ -18,6 +18,7 @@ import java.util.UUID
  *   session has expired.
  * - [CancelledInteractiveFlowSession] if the [InteractiveFlowSessionEntity.cancelDate] is not null.
  * - [CompletedInteractiveFlowSession] if the [InteractiveFlowSessionEntity.completeDate] is not null.
+ *   A completed and a cancelled session are refused without the hand-back they return the end-user through.
  * - [OnGoingInteractiveFlowSession] otherwise.
  *
  * If the content of the [InteractiveFlowSessionEntity] is not valid, according to the status of the
@@ -55,7 +56,7 @@ class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
-            handBack = handBack(entity),
+            handBack = handBack(entity) ?: throw invalidBusinessException("redirectUri"),
             sessionDate = entity.sessionDate,
             userId = entity.userId ?: throw invalidBusinessException("userId"),
             signedUp = entity.signedUp,
@@ -74,7 +75,7 @@ class InteractiveFlowSessionMapper {
             flowId = entity.flowId,
             expirationDate = entity.expirationDate,
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
-            handBack = handBack(entity),
+            handBack = handBack(entity) ?: throw invalidBusinessException("redirectUri"),
             userId = entity.userId,
             cancelDate = entity.cancelDate ?: throw invalidBusinessException("cancelDate"),
         )
@@ -112,6 +113,7 @@ class InteractiveFlowSessionMapper {
             startedBy = SpanReference.ofOrNull(entity.startedByTraceId, entity.startedBySpanId),
             handBack = handBack(entity),
             errorDate = entity.expirationDate,
+            statusAtExpiry = toStatus(entity),
         )
     }
 

@@ -46,7 +46,8 @@ open class InteractiveFlowSessionOAuth2Manager(
      * Create a new OAuth2 [InteractiveFlowSession] for the end-user and save it in the database, together
      * with its attached [InteractiveFlowSessionOAuth2Entity] record, in a single transaction.
      *
-     * The session is saved even if the validation of some parameters failed (i.e. [error] is non-null).
+     * The session is saved even if the validation of some parameters failed (i.e. [error] is non-null), and
+     * [requestError] is then the error answering that refusal on the client's redirect URI.
      */
     @Transactional
     open suspend fun startOAuth2Session(
@@ -60,7 +61,8 @@ open class InteractiveFlowSessionOAuth2Manager(
         codeChallenge: String? = null,
         codeChallengeMethod: CodeChallengeMethod? = null,
         invitationId: UUID? = null,
-        error: BusinessException? = null
+        error: BusinessException? = null,
+        requestError: OAuth2ErrorCode? = null
     ): InteractiveFlowSession {
         val now = LocalDateTime.now()
         // The client redirect URI is where every ending goes: the code on completion, the OAuth2 error otherwise.
@@ -91,6 +93,7 @@ open class InteractiveFlowSessionOAuth2Manager(
             codeChallengeMethod = codeChallengeMethod?.value,
 
             invitationId = invitationId,
+            requestError = requestError?.errorCode,
 
             consentedScopes = consentableScopes?.map(Scope::scope)?.toTypedArray(),
             consentedAt = consentableScopes?.let { now },

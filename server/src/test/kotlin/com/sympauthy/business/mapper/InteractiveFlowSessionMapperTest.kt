@@ -176,6 +176,46 @@ class InteractiveFlowSessionMapperTest {
     }
 
     @Test
+    fun `toInteractiveFlowSession - throws when a Completed or Cancelled entity hands back nowhere`() {
+        val completed = entity(userId = UUID.randomUUID(), completeDate = LocalDateTime.now())
+        val cancelled = entity(cancelDate = LocalDateTime.now())
+
+        listOf(completed, cancelled).forEach { entity ->
+            val exception = assertThrows<BusinessException> {
+                mapper.toInteractiveFlowSession(entity)
+            }
+            assertEquals("mapper.interactive_flow_session.invalid_property", exception.detailsId)
+            assertEquals(mapOf("property" to "redirectUri"), exception.values)
+        }
+    }
+
+    @Test
+    fun `toInteractiveFlowSession - Records on an expired session what it had become`() {
+        val expired = LocalDateTime.now().minusMinutes(1)
+        val completed = entity(
+            userId = UUID.randomUUID(),
+            completeDate = LocalDateTime.now().minusMinutes(30),
+            expirationDate = expired
+        )
+        val running = entity(expirationDate = expired)
+        val failed = entity(
+            errorDate = LocalDateTime.now().minusMinutes(30),
+            errorDetailsId = "some.error",
+            expirationDate = expired
+        )
+
+        assertEquals(
+            InteractiveFlowSessionStatus.COMPLETED,
+            (mapper.toInteractiveFlowSession(completed) as FailedInteractiveFlowSession).statusAtExpiry
+        )
+        assertEquals(
+            InteractiveFlowSessionStatus.EXPIRED,
+            (mapper.toInteractiveFlowSession(running) as FailedInteractiveFlowSession).statusAtExpiry
+        )
+        assertNull((mapper.toInteractiveFlowSession(failed) as FailedInteractiveFlowSession).statusAtExpiry)
+    }
+
+    @Test
     fun `toInteractiveFlowSession - throws when Failed entity has no errorDetailsId`() {
         val entity = entity(
             id = UUID.randomUUID(),

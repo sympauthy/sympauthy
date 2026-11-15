@@ -62,6 +62,8 @@ clients:
       # Shipped so that the Authorize button of the documentation this server serves reaches the admin
       # scopes. Swagger UI takes no redirect URI from a build, and sends this one.
       - "${urls.root}/swagger-ui/oauth2-redirect.html"
+    # The console's home: an administrator who started a flow for a user from the console comes back to it.
+    return-uri: "${urls.root}/admin"
     allowed-scopes:
       - openid
       - profile

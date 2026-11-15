@@ -80,7 +80,8 @@ const val RETURN_URI_BAD_REQUEST_DESCRIPTION =
         "`clients.<id>.return-uri`.\n" +
         "- `client.return_uri.invalid`: `return_uri` cannot be read as a URL.\n" +
         "- `client.return_uri.not_allowed`: `return_uri` is neither the client's `clients.<id>.return-uri` nor " +
-        "one of its `clients.<id>.allowed-return-uris`."
+        "one of its `clients.<id>.allowed-return-uris`.\n" +
+        "- `client.return_state.too_long`: `return_state` is longer than 512 characters."
 
 /**
  * What an operation starting an interactive flow session a client returns from says of that return.

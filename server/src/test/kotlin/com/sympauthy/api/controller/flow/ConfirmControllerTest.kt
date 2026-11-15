@@ -62,7 +62,7 @@ class ConfirmControllerTest {
             val client = ClientReferenceResource(id = "client-x", displayName = "Billing portal")
             val cancelUri = URI.create("https://auth.example.com/api/v1/flow/cancel?state=encoded-state")
             coEvery { clientMapper.toResourceOrNull("client-x") } returns client
-            coEvery { stepUriMapper.getCancelUriOrNull(session) } returns cancelUri
+            coEvery { stepUriMapper.getCancelUriOrNull(session, "encoded-state") } returns cancelUri
             every { session.purposes } returns
                 listOf(InteractiveFlowPurpose.CONFIRM, InteractiveFlowPurpose.MFA_ENROLLMENT)
             coEvery { confirmManager.fetchConfirmOrNull(session) } returns confirm
@@ -94,7 +94,7 @@ class ConfirmControllerTest {
             every { clientId } returns null
         }
         coEvery { clientMapper.toResourceOrNull(null) } returns null
-        coEvery { stepUriMapper.getCancelUriOrNull(session) } returns null
+        coEvery { stepUriMapper.getCancelUriOrNull(session, "encoded-state") } returns null
         every { session.purposes } returns listOf(
             InteractiveFlowPurpose.CONFIRM,
             InteractiveFlowPurpose.REAUTHENTICATION,

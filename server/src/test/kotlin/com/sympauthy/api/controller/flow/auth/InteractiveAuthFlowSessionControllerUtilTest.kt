@@ -372,7 +372,7 @@ class InteractiveAuthFlowSessionControllerUtilTest {
     }
 
     @Test
-    fun `fetchSessionThenLeave - Cancels nothing where the running session has nowhere to send the end-user`() =
+    fun `fetchSessionThenLeave - Shows the step a running session with nowhere to go stands on, advancing nothing`() =
         runTest {
             val session = ongoing(UUID.randomUUID())
             val flow = mockk<InteractiveFlow>()
@@ -383,12 +383,13 @@ class InteractiveAuthFlowSessionControllerUtilTest {
                 SuccessVerifyEncodedStateResult(session)
             coEvery { stepUriMapper.getLeaveUriOrNull(session) } returns null
             coEvery { interactiveAuthFlowSessionManager.findById("flow-id") } returns flow
-            coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, InteractiveFlowStep.SignIn)
+            coEvery { engine.currentStepOrNull(session) } returns InteractiveFlowStep.SignIn
             coEvery { stepUriMapper.toRedirectUri(session, flow, InteractiveFlowStep.SignIn) } returns stepUri
 
             assertEquals(stepUri, util.fetchSessionThenLeave("encoded-state", observed))
 
             coVerify(exactly = 0) { sessionManager.markAsCancelled(any()) }
+            coVerify(exactly = 0) { engine.advance(any()) }
         }
 
     @Test

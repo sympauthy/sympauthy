@@ -63,7 +63,7 @@ class ErrorControllerTest {
         }
         val cancelUri = URI.create("https://auth.example.com/api/v1/flow/cancel?state=encoded-state")
         coEvery { clientMapper.toResourceOrNull(session) } returns client
-        coEvery { stepUriMapper.getCancelUriOrNull(session) } returns cancelUri
+        coEvery { stepUriMapper.getCancelUriOrNull(session, "encoded-state") } returns cancelUri
         every { flowErrorResourceMapper.toResource(failure, Locale.FRANCE, client, cancelUri.toString()) } returns
             FlowErrorResource(errorCode = "flow.web.invalid_flow", client = client, cancelUrl = cancelUri.toString())
 

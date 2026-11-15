@@ -90,7 +90,7 @@ class ClaimsController(
                         collectedClaims = collectedClaims,
                         providerUserInfoList = providerUserInfoList,
                         client = clientMapper.toResourceOrNull(session),
-                        cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString(),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session, authentication.stateOrNull)?.toString(),
                         locale = locale
                     )
                 }

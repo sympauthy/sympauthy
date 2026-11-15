@@ -61,6 +61,28 @@ enum class OAuth2ErrorCode(
     ),
 
     /**
+     * The authorization request carries a `request` parameter, and this server reads no request object.
+     *
+     * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#AuthError">OpenID Connect Core §3.1.2.6</a>
+     */
+    REQUEST_NOT_SUPPORTED(
+        BAD_REQUEST,
+        "request_not_supported",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authorization request carries a `request_uri` parameter, and this server reads no request object.
+     *
+     * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#AuthError">OpenID Connect Core §3.1.2.6</a>
+     */
+    REQUEST_URI_NOT_SUPPORTED(
+        BAD_REQUEST,
+        "request_uri_not_supported",
+        "description.oauth2.invalid"
+    ),
+
+    /**
      * The provided authorization grant (e.g., authorization code, resource owner credentials)
      * or refresh token is invalid, expired, revoked, does not match the redirection URI used in
      * the authorization request, or was issued to another client.

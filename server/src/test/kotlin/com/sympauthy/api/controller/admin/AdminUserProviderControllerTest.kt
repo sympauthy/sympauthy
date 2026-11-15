@@ -219,6 +219,7 @@ class AdminUserProviderControllerTest {
         every {
             clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/linked")
         } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
         coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
         // Admin-initiated: initiatingClientId must be null (confirmation shows "an administrator").
         coEvery {

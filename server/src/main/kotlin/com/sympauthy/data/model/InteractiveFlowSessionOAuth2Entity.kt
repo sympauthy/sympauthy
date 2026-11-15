@@ -41,6 +41,12 @@ class InteractiveFlowSessionOAuth2Entity(
     val invitationId: UUID? = null,
 
     /**
+     * The `error` token of [com.sympauthy.business.model.oauth2.OAuth2ErrorCode] answering the refusal of the
+     * authorize request this record holds, or null where the request was accepted.
+     */
+    val requestError: String? = null,
+
+    /**
      * When the end-user proved a credential of the account this authorization is for: a password checked,
      * a third-party provider's callback resolved to the account, or the account created at sign-up. Null
      * until one has been proven.

@@ -3,6 +3,7 @@ package com.sympauthy.business.model.flow
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import java.time.LocalDateTime
 import java.util.*
@@ -79,6 +80,15 @@ data class InteractiveFlowSessionOAuth2(
      * Null if the authorization was not initiated via an invitation.
      */
     val invitationId: UUID? = null,
+
+    /**
+     * The error answering the refusal of the client's request itself, decided where the authorize endpoint
+     * refused one of its parameters, or null where it accepted them. A session failing once the end-user was
+     * going through the flow leaves it null: why it failed is not the client's to correct.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1">Error response</a>
+     */
+    val requestError: OAuth2ErrorCode? = null,
 
     /**
      * When the end-user proved a credential of the account this authorization is for: a password checked,

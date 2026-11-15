@@ -262,7 +262,7 @@ class AdminUserMfaController(
         val session = mfaEnrollmentManager.startMfaEnrollmentSession(
             user = user,
             returnUri = returnUri,
-            returnState = resource.returnState,
+            returnState = clientRedirectUriManager.parseRequestedReturnState(resource.returnState),
             flow = flow,
             initiatingClientId = null
         )

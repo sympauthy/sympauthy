@@ -36,6 +36,8 @@ class AdminClientResourceMapper {
             allowedScopes = client.allowedScopes?.map(::toScope),
             defaultScopes = client.defaultScopes?.map(::toScope) ?: emptyList(),
             allowedRedirectUris = client.allowedRedirectUris,
+            returnUri = client.returnUri,
+            allowedReturnUris = client.allowedReturnUris,
             authorizationWebhook = toWebhookResource(client.authorizationWebhook),
         )
     }

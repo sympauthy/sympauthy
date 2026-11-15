@@ -278,12 +278,15 @@ open class InteractiveFlowSessionManager(
      * Mark the [session] as cancelled by the end-user, persist the cancellation date, and return the resulting
      * [CancelledInteractiveFlowSession].
      *
-     * It does not check where the end-user goes next: a session with no [InteractiveFlowSession.handBack] has
-     * nowhere to send them, and the caller leaves such a session running rather than cancelling it.
+     * Throws the internal `auth.interactive_flow_session.cancel.missing_redirect` before writing anything where
+     * [session] has no [InteractiveFlowSession.handBack]: a cancelled session hands the end-user back, and such
+     * a session has nowhere to.
      */
     suspend fun markAsCancelled(
         session: OnGoingInteractiveFlowSession
     ): CancelledInteractiveFlowSession {
+        val handBack = session.handBack
+            ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.cancel.missing_redirect")
         val cancelDate = LocalDateTime.now()
         val updated = sessionRepository.updateCancelDate(
             id = session.id,
@@ -300,7 +303,7 @@ open class InteractiveFlowSessionManager(
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             startedBy = session.startedBy,
-            handBack = session.handBack,
+            handBack = handBack,
             userId = session.userId,
             cancelDate = cancelDate,
         )
@@ -371,9 +374,8 @@ open class InteractiveFlowSessionManager(
         val userId = session.userId ?: throw businessExceptionOf(
             "auth.interactive_flow_session.complete.missing_user"
         )
-        if (session.handBack == null) {
-            throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect")
-        }
+        val handBack = session.handBack
+            ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect")
         val completeDate = LocalDateTime.now()
         val updated = sessionRepository.updateCompleteDate(
             id = session.id,
@@ -389,7 +391,7 @@ open class InteractiveFlowSessionManager(
             flowId = session.flowId,
             expirationDate = session.expirationDate,
             startedBy = session.startedBy,
-            handBack = session.handBack,
+            handBack = handBack,
             sessionDate = session.sessionDate,
             userId = userId,
             signedUp = session.signedUp,

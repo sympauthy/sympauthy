@@ -73,16 +73,17 @@ sealed class InteractiveFlowSession(
      * The span of the request that started the session, which every later request acting on it links to. Null
      * where that request was not traced, and set once when the session is created.
      */
-    val startedBy: SpanReference?,
-
+    val startedBy: SpanReference?
+) : Expirable {
     /**
      * Where and how the end-user is handed back to whoever started the session, whatever way it ends. Set once
      * when the session is created, and null where the start request named nowhere this server may send the
      * end-user back to — an authorization request from an unknown client, or naming a redirect URI the client
-     * does not declare — so such a session is left only through its error page.
+     * does not declare — so such a session is left only through its error page. A completed and a cancelled
+     * session always carry one.
      */
-    val handBack: InteractiveFlowHandBack?
-) : Expirable
+    abstract val handBack: InteractiveFlowHandBack?
+}
 
 /**
  * Represents an interactive flow session that is ongoing.
@@ -95,7 +96,7 @@ class OnGoingInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
-    handBack: InteractiveFlowHandBack?,
+    override val handBack: InteractiveFlowHandBack?,
 
     /**
      * When the user initiated the session.
@@ -146,8 +147,7 @@ class OnGoingInteractiveFlowSession(
     initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate,
-    startedBy = startedBy,
-    handBack = handBack
+    startedBy = startedBy
 ) {
     /**
      * True if the end-user has successfully completed the MFA step for this session.
@@ -193,7 +193,7 @@ class CompletedInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
-    handBack: InteractiveFlowHandBack?,
+    override val handBack: InteractiveFlowHandBack,
 
     /**
      * When the user initiated the session.
@@ -233,8 +233,7 @@ class CompletedInteractiveFlowSession(
     initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate,
-    startedBy = startedBy,
-    handBack = handBack
+    startedBy = startedBy
 )
 
 /**
@@ -248,7 +247,7 @@ class FailedInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
-    handBack: InteractiveFlowHandBack?,
+    override val handBack: InteractiveFlowHandBack?,
 
     /**
      * Identifier of the message detailing, in a technical way, the error which caused this session to fail.
@@ -271,6 +270,14 @@ class FailedInteractiveFlowSession(
      * When the interactive flow failed.
      */
     val errorDate: LocalDateTime,
+
+    /**
+     * What the session had become when its expiration passed, where this failure is that expiry rather than one
+     * recorded on the session: [InteractiveFlowSessionStatus.COMPLETED] or [InteractiveFlowSessionStatus.CANCELLED]
+     * where it had already ended, [InteractiveFlowSessionStatus.EXPIRED] where it was still running. Null for a
+     * recorded failure.
+     */
+    val statusAtExpiry: InteractiveFlowSessionStatus? = null,
 ) : InteractiveFlowSession(
     id = id,
     purposes = purposes,
@@ -278,8 +285,7 @@ class FailedInteractiveFlowSession(
     initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate,
-    startedBy = startedBy,
-    handBack = handBack
+    startedBy = startedBy
 )
 
 /**
@@ -357,7 +363,7 @@ class CancelledInteractiveFlowSession(
     flowId: String?,
     expirationDate: LocalDateTime,
     startedBy: SpanReference?,
-    handBack: InteractiveFlowHandBack?,
+    override val handBack: InteractiveFlowHandBack,
 
     /**
      * The identifier of the user that had been authenticated when the session was cancelled.
@@ -376,8 +382,7 @@ class CancelledInteractiveFlowSession(
     initiatingClientId = initiatingClientId,
     flowId = flowId,
     expirationDate = expirationDate,
-    startedBy = startedBy,
-    handBack = handBack
+    startedBy = startedBy
 )
 
 /**
@@ -395,6 +400,18 @@ val InteractiveFlowSession.userIdOrNull: UUID?
         is CompletedInteractiveFlowSession -> userId
         is CancelledInteractiveFlowSession -> userId
         is FailedInteractiveFlowSession -> null
+    }
+
+/**
+ * What became of this session, as [InteractiveFlowSessionStatus] reads it: an expiry ends only a session that was
+ * still running, so one that had completed or been cancelled before its expiration passed answers that ending.
+ */
+val InteractiveFlowSession.status: InteractiveFlowSessionStatus
+    get() = when (this) {
+        is OnGoingInteractiveFlowSession -> InteractiveFlowSessionStatus.ONGOING
+        is CompletedInteractiveFlowSession -> InteractiveFlowSessionStatus.COMPLETED
+        is CancelledInteractiveFlowSession -> InteractiveFlowSessionStatus.CANCELLED
+        is FailedInteractiveFlowSession -> statusAtExpiry ?: InteractiveFlowSessionStatus.FAILED
     }
 
 /**

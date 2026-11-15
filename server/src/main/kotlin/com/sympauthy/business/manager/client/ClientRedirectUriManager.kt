@@ -107,6 +107,28 @@ class ClientRedirectUriManager {
     }
 
     /**
+     * Returns [uncheckedReturnState], the value a client asks to have sent back with the end-user on returning
+     * to it, or null where it is null or blank.
+     *
+     * Throws a recoverable [BusinessException] `client.return_state.too_long` where it is longer than
+     * [RETURN_STATE_MAX_LENGTH] characters.
+     *
+     * The value is carried in the query of the redirect returning the end-user, and an address too long for the
+     * client's own server or proxy to accept would strand the end-user on the way back.
+     */
+    fun parseRequestedReturnState(uncheckedReturnState: String?): String? {
+        val returnState = uncheckedReturnState?.takeIf { it.isNotBlank() } ?: return null
+        if (returnState.length > RETURN_STATE_MAX_LENGTH) {
+            throw recoverableBusinessExceptionOf(
+                "client.return_state.too_long",
+                "description.client.return_state.too_long",
+                "maxLength" to RETURN_STATE_MAX_LENGTH.toString()
+            )
+        }
+        return returnState
+    }
+
+    /**
      * Check if [requestedUri] matches any of the [allowedUris] using exact string matching
      * per OAuth 2.1 (section 7.5.3), with loopback port flexibility per RFC 8252.
      *
@@ -140,5 +162,12 @@ class ClientRedirectUriManager {
                     parsedAllowed.query == parsedRequested.query &&
                     parsedAllowed.fragment == parsedRequested.fragment
         }
+    }
+
+    companion object {
+        /**
+         * Number of characters a `return_state` may hold.
+         */
+        const val RETURN_STATE_MAX_LENGTH = 512
     }
 }

@@ -460,7 +460,14 @@ class InteractiveAuthFlowSessionControllerUtil(
         } catch (_: BusinessException) {
             interactiveAuthFlowSessionManager.getDefaultInteractiveFlow()
         }
-        return redirectToCurrentStep(leftSession, flow)
+        // A link that cannot leave changes nothing: a running session is shown the step it stands on, and never
+        // advanced into its completion.
+        return when (leftSession) {
+            is OnGoingInteractiveFlowSession -> engine.currentStepOrNull(leftSession)
+                ?.let { stepUriMapper.toRedirectUri(leftSession, flow, it) }
+                ?: stepUriMapper.getErrorUri(leftSession, flow)
+            else -> redirectToCurrentStep(leftSession, flow)
+        }
     }
 
     /**

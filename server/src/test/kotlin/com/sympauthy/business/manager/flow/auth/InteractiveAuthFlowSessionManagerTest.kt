@@ -11,11 +11,13 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.NonInteractiveAuthorizationFlow
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.UncheckedAuthorizationRequest
 import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.ClientTemplate
@@ -379,7 +381,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -420,7 +423,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -464,7 +468,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 
@@ -506,6 +511,7 @@ class InteractiveAuthFlowSessionManagerTest {
             "https://example.com/callback"
         )
         val errorSlot = slot<BusinessException?>()
+        val requestErrorSlot = slot<OAuth2ErrorCode?>()
         coEvery {
             oauth2Manager.startOAuth2Session(
                 client = any(),
@@ -517,7 +523,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = captureNullable(requestErrorSlot)
             )
         } returns mockk()
 
@@ -539,7 +546,60 @@ class InteractiveAuthFlowSessionManagerTest {
         )
 
         assertEquals("scope.unsupported", errorSlot.captured?.detailsId)
+        assertEquals(OAuth2ErrorCode.INVALID_SCOPE, requestErrorSlot.captured)
     }
+
+    @Test
+    @Suppress("MaxLineLength")
+    fun `startAuthorizationWith - Keeps the redirect URI of a client not allowed the grant to answer unauthorized_client`() =
+        runTest {
+            val client = mockk<Client> {
+                every { authorizationFlow } returns null
+                every { supportsGrantType(GrantType.AUTHORIZATION_CODE) } returns false
+            }
+            val redirectUri = URI("https://example.com/callback")
+            setupDefaultFlow()
+            coEvery { clientManager.parseRequestedClient(any()) } returns client
+            coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
+            every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns redirectUri
+            val errorSlot = slot<BusinessException?>()
+            val requestErrorSlot = slot<OAuth2ErrorCode?>()
+            coEvery {
+                oauth2Manager.startOAuth2Session(
+                    client = client,
+                    clientState = any(),
+                    clientNonce = any(),
+                    flow = any(),
+                    scopes = any(),
+                    redirectUri = redirectUri,
+                    codeChallenge = any(),
+                    codeChallengeMethod = any(),
+                    invitationId = any(),
+                    error = captureNullable(errorSlot),
+                    requestError = captureNullable(requestErrorSlot)
+                )
+            } returns mockk()
+
+            manager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = "https://example.com/callback",
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = "challenge",
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+
+            assertEquals("authorize.unauthorized_grant_type", errorSlot.captured?.detailsId)
+            assertEquals(OAuth2ErrorCode.UNAUTHORIZED_CLIENT, requestErrorSlot.captured)
+        }
 
     @Test
     fun `startAuthorizationWith - Skips scope validation when client is null`() = runTest {
@@ -558,7 +618,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 
@@ -606,7 +667,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -644,6 +706,7 @@ class InteractiveAuthFlowSessionManagerTest {
                 clientRedirectUriManager.parseRequestedRedirectUri(client, any())
             } throws businessExceptionOf(detailsId = "client.redirect_uri.missing")
             val errorSlot = slot<BusinessException?>()
+            val requestErrorSlot = slot<OAuth2ErrorCode?>()
             coEvery {
                 oauth2Manager.startOAuth2Session(
                     client = any(),
@@ -655,7 +718,8 @@ class InteractiveAuthFlowSessionManagerTest {
                     codeChallenge = any(),
                     codeChallengeMethod = any(),
                     invitationId = any(),
-                    error = captureNullable(errorSlot)
+                    error = captureNullable(errorSlot),
+                    requestError = captureNullable(requestErrorSlot)
                 )
             } returns mockk()
 
@@ -677,6 +741,7 @@ class InteractiveAuthFlowSessionManagerTest {
             )
 
             assertEquals("authorize.request_uri.unsupported", errorSlot.captured?.detailsId)
+            assertEquals(OAuth2ErrorCode.REQUEST_URI_NOT_SUPPORTED, requestErrorSlot.captured)
         }
 
     @Test
@@ -696,7 +761,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 
@@ -744,7 +810,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -789,7 +856,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = captureNullable(challengeSlot),
                 codeChallengeMethod = captureNullable(methodSlot),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 
@@ -832,7 +900,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -885,7 +954,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -930,7 +1000,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 
@@ -978,7 +1049,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 
@@ -1026,7 +1098,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = captureNullable(errorSlot)
+                error = captureNullable(errorSlot),
+                requestError = any()
             )
         } returns mockk()
 
@@ -1070,7 +1143,8 @@ class InteractiveAuthFlowSessionManagerTest {
                 codeChallenge = any(),
                 codeChallengeMethod = any(),
                 invitationId = any(),
-                error = any()
+                error = any(),
+                requestError = any()
             )
         } returns mockk()
 

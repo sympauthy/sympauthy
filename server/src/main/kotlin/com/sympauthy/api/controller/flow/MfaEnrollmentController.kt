@@ -81,7 +81,7 @@ class MfaEnrollmentController(
                             )
                         },
                         client = clientMapper.toResourceOrNull(session),
-                        cancelUrl = stepUriMapper.getCancelUriOrNull(session)?.toString(),
+                        cancelUrl = stepUriMapper.getCancelUriOrNull(session, authentication.stateOrNull)?.toString(),
                         skipRedirectUrl = if (result.skippable) {
                             stepUriMapper.getMfaSkipUri(session, MFA_ENROLLMENT_SKIP_ENDPOINT).toString()
                         } else null
