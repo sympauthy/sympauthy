@@ -295,9 +295,9 @@ sent for them to match, and otherwise the persons of the page it publishes alone
 
 **`GrantCleaner` is the collecting job**, run by `CleanFinishedGrantCron` under a
 [lease](../standards/locking-standard.md#the-lease) like every job one instance is enough for. It
-deletes a grant only in the transaction deleting its tokens and its code, and a token or a code only
-some minutes after it expired, so a refresh that found its token unexpired a moment before, or an
-exchange its code, still finds the grant to write under.
+deletes a grant only once none of its tokens and none of its codes is left, and a token or a code
+only some minutes after it expired, so a refresh that found its token unexpired a moment before, or
+an exchange its code, still finds the grant to write under.
 
 **A grant keeps the interactive flow session it came from.** The session is collected long before
 most grants end, so the reference is left dangling by design: it is what the unique index keys a

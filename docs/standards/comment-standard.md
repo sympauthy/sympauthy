@@ -15,8 +15,8 @@ instead. It applies to Kotlin, to SQL and to YAML alike, and it keeps the densit
 files.
 
 **A comment carries what the reader cannot get from the code, from the framework's own
-documentation, or from these documents.** An annotation that maps an entity to a table, marks a
-method transactional or secures a route is documented where it is defined.
+documentation, or from these documents.** What an annotation does — mapping an entity to a table,
+marking a method transactional, securing a route — is documented where the annotation is defined.
 
 **A declaration that follows a convention is left uncommented.** The convention is what makes the
 silence legible; a comment says that something here was worth stopping for.
@@ -54,6 +54,19 @@ the function is its own to say, at the call site, where a reader is already stan
 | true of the whole class | the type's KDoc |
 | a decision a later reader would re-litigate | `docs/` |
 | about this one declaration | the function's KDoc, a blank line below the contract |
+
+**A transactional method's KDoc says why it needs its transaction.** Name the statements it holds
+together and what would go wrong between or after them without it — a write committed when the next
+one failed, a row changed between two reads. That is what tells the next change whether a statement
+may move out of the method, and a setting beyond the default, an isolation level or `readOnly`, is
+justified in the same paragraph.
+
+```kotlin
+ * The grant and whether it is live are read from one snapshot, so a revocation committing between
+ * the two reads cannot have the grant read as neither live nor revoked.
+ */
+@Transactional(readOnly = true, isolation = TransactionDefinition.Isolation.REPEATABLE_READ)
+```
 
 **A comment carries its reason in full, and names no issue for it.** A tracker entry is argued over,
 edited and closed by people who are not reading this file, so a number standing in for the reason

@@ -129,8 +129,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * [ConsentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow], so the code goes to the value the
      * flow collected.
      */
-    @Transactional
-    open suspend fun getOrSendValidationCode(
+    suspend fun getOrSendValidationCode(
         session: OnGoingInteractiveFlowSession,
         user: User,
         media: ValidationCodeMedia
@@ -179,6 +178,10 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * value cleared between the send and the resend reaches
      * [ValidationCodeMediaSender][com.sympauthy.business.manager.validationcode.ValidationCodeMediaSender]
      * with no address on it.
+     *
+     * A refreshed code that no sender can carry, refused with `validationcode.missing_sender`, is taken back with
+     * the request, so the previous code stays the latest one rather than a new code nobody received holding off
+     * the next resend until its resend date.
      */
     @Transactional
     open suspend fun resendValidationCode(
@@ -225,8 +228,7 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
         )
     }
 
-    @Transactional
-    open suspend fun validateClaimsByCode(
+    suspend fun validateClaimsByCode(
         session: OnGoingInteractiveFlowSession,
         user: User,
         media: ValidationCodeMedia,

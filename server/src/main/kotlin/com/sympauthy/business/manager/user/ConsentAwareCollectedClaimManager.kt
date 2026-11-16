@@ -16,7 +16,6 @@ import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.business.model.user.claim.RequestedClaims
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -37,7 +36,7 @@ import java.util.*
  * one of them from one token builds the doors once and passes the same ones to each.
  */
 @Singleton
-open class ConsentAwareCollectedClaimManager(
+class ConsentAwareCollectedClaimManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val consentAwareClaimManager: ConsentAwareClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
@@ -239,8 +238,7 @@ open class ConsentAwareCollectedClaimManager(
      * this flow given the [consentedScopes]) are applied. Other updates are silently ignored — a flow may only
      * write what it was entitled to ask for.
      */
-    @Transactional
-    open suspend fun updateInFlow(
+    suspend fun updateInFlow(
         user: User,
         client: Client,
         updates: List<CollectedClaimUpdate>,
@@ -272,8 +270,7 @@ open class ConsentAwareCollectedClaimManager(
      * account would be none the wiser, since nothing in a claim write verifies the value it stores. The
      * surface says so rather than silently dropping it: see `ClientUserClaimController.updateUserClaims`.
      */
-    @Transactional
-    open suspend fun updateByClient(
+    suspend fun updateByClient(
         user: User,
         audience: Audience,
         updates: List<CollectedClaimUpdate>,
@@ -302,8 +299,7 @@ open class ConsentAwareCollectedClaimManager(
      * **An identifier claim is left out whatever the ACL says**, for the reason [updateByClient] gives:
      * nothing in a claim write proves the person controls the new value, or that the person is the one asking.
      */
-    @Transactional
-    open suspend fun updateByPerson(
+    suspend fun updateByPerson(
         user: User,
         audienceId: String,
         updates: List<CollectedClaimUpdate>,

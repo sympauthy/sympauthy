@@ -99,6 +99,10 @@ open class InteractiveFlowSessionLinkProviderManager(
      *
      * The [returnUri] must have been validated against the named client's return URIs by the caller before
      * reaching here.
+     *
+     * The session, its binding to [user], its confirm record and the provider it links are written
+     * together, so a failure saving either record leaves no session behind for [user] — one no state was
+     * ever handed out for, which the admin surface would list until it expired.
      */
     @Transactional
     open suspend fun startLinkProviderSession(

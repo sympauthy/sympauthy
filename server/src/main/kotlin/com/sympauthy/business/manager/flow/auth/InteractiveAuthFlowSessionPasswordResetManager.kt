@@ -243,8 +243,10 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
 
     /**
      * Sign the account [user] that a code proved into [session], dating the authentication now, and record the code
-     * of [passwordReset] proven, all or none: a session signed in with no code recorded proven would resolve the
-     * reset with no new password, and carry on signed in by the code alone.
+     * of [passwordReset] proven.
+     *
+     * The sign-in and the proven code are written all or none: a session signed in with no code recorded proven
+     * would resolve the reset with no new password, and carry on signed in by the code alone.
      */
     @Transactional
     internal open suspend fun signInProvenAccount(

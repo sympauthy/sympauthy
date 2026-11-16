@@ -101,6 +101,10 @@ open class ValidationCodeManager(
     /**
      * Queue the sending of [ValidationCode] of the provided [reasons].
      * If multiple reasons shares the same [ValidationCodeMedia], we will send only one code for those reasons.
+     *
+     * The codes, one per media, are stored in one commit, so a failure storing one leaves none of them. The flow
+     * reads a stored code as sent, and would otherwise hold the person to a code stored before the failure, which
+     * no mail carries, until they asked for another past its resend date.
      */
     @Transactional
     open suspend fun queueRequiredValidationCodes(

@@ -14,7 +14,6 @@ import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.util.min
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
@@ -29,7 +28,7 @@ import kotlin.math.pow
  * was already sent to the user when the users ask to send another code.
  */
 @Singleton
-open class ValidationCodeGenerator(
+class ValidationCodeGenerator(
     @Inject private val validationCodeRepository: ValidationCodeRepository,
     @Inject private val validationCodeMapper: ValidationCodeMapper,
     @Inject private val randomGenerator: RandomGenerator,
@@ -47,8 +46,7 @@ open class ValidationCodeGenerator(
     internal val validationCodeFormat: String
         get() = "%0${validationCodeLength}d"
 
-    @Transactional
-    open suspend fun generateValidationCode(
+    suspend fun generateValidationCode(
         user: User,
         session: InteractiveFlowSession,
         media: ValidationCodeMedia,

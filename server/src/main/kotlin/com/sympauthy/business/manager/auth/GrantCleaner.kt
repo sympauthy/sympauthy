@@ -5,7 +5,6 @@ import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.monitoring.telemetry.JobMetrics
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -33,7 +32,7 @@ import java.time.LocalDateTime
  * to write under.
  */
 @Singleton
-open class GrantCleaner(
+class GrantCleaner(
     @Inject private val tokenRepository: AuthenticationTokenRepository,
     @Inject private val authorizationCodeRepository: AuthorizationCodeRepository,
     @Inject private val grantRepository: GrantRepository,
@@ -43,8 +42,7 @@ open class GrantCleaner(
     /**
      * Delete what is finished, and record each kind of row deleted under [CLEAN_FINISHED_GRANTS].
      */
-    @Transactional
-    open suspend fun clean(): CleanResult {
+    suspend fun clean(): CleanResult {
         val cutoff = LocalDateTime.now().minus(EXPIRATION_GRACE)
         val expiredTokenCount = tokenRepository.deleteByExpirationDateLessThan(cutoff)
         val revokedTokenCount = tokenRepository.deleteUnderRevokedGrants()

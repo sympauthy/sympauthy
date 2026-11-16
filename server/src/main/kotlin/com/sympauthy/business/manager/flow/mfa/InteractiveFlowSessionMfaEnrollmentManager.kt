@@ -110,6 +110,10 @@ open class InteractiveFlowSessionMfaEnrollmentManager(
      *
      * The [returnUri] must have been validated against the named client's return URIs by the caller before
      * reaching here.
+     *
+     * The session, its binding to [user] and its confirm record are written together, so a failure saving
+     * the confirm record leaves no session behind for [user] — one no state was ever handed out for, which
+     * the admin surface would list until it expired.
      */
     @Transactional
     open suspend fun startMfaEnrollmentSession(
