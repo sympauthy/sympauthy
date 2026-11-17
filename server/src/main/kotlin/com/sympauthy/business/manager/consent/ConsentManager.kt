@@ -56,6 +56,10 @@ open class ConsentManager(
      * between the read and the write. The revocation still compares the consent's state rather than trusting
      * the read, as a backstop for a writer that forgot the lock: a consent it finds already revoked keeps that
      * revocation, and lends the new consent none of its scopes.
+     *
+     * The revocation of the active consent and the insert replacing it commit together, so an insert that fails
+     * — the PostgreSQL index catching a writer that forgot the lock — leaves the old consent in service rather
+     * than the account with no consent for the audience and the scopes it held gone.
      */
     @Transactional
     open suspend fun saveConsent(
@@ -190,7 +194,9 @@ open class ConsentManager(
      * [Consent.promptedByClientId] records and nothing more. An act-as grant rests on the act-as rules instead,
      * and is left in service.
      *
-     * Both are written under [lockConsentForUser].
+     * Both are written under [lockConsentForUser], and commit together, so a failure revoking the grants leaves
+     * the consent in service rather than revoked with its grants still live — which a second attempt could not
+     * repair, since it finds the consent already revoked and revokes no grant.
      *
      * A consent revoked since the caller read it is left as its first revocation recorded it, and its grants
      * to the revocation that took it out of service.

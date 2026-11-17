@@ -252,6 +252,12 @@ open class InteractiveFlowSessionManager(
     /**
      * Set and save the error if it is non-recoverable to prevent further usage of the [session].
      * Do nothing if the [error] is recoverable.
+     *
+     * The not-terminal guard and the error write are held together by the row lock the guard takes, so no other
+     * write to the session lands between them: without it, a request reading the version the guard bumped could
+     * complete the session in between, and have the unguarded error written over its completion. They are two
+     * statements because `error_values` is serialized to JSON only through the derived
+     * [InteractiveFlowSessionRepository.updateError], never as a raw query's parameter.
      */
     @Transactional
     open suspend fun markAsFailedIfNotRecoverable(
@@ -261,11 +267,6 @@ open class InteractiveFlowSessionManager(
         if (error.recoverable) return session
 
         val errorDate = LocalDateTime.now()
-        // Two-step terminal write: a not-terminal guard then the derived error write, kept atomic by this
-        // @Transactional so the row lock the guard takes serialises the two statements. It cannot be a
-        // single versioned statement — the error_values JSON column round-trips only through Micronaut's
-        // property-mapped serialization, not a raw-query parameter.
-        //
         // The guard bumps the version only while the session is still ongoing. This request has usually
         // advanced the version itself before failing, so a version compare-and-swap on the remembered
         // (now-stale) version would wrongly swallow the write and leave the session ongoing; guarding on

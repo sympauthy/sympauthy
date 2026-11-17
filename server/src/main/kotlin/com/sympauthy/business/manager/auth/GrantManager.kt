@@ -369,6 +369,10 @@ open class GrantManager(
      * A grant already revoked keeps who revoked it first and when, and one that lapsed is left as it lapsed;
      * either way nothing is written to it, and nothing to the grants opened from it that are in the same
      * state.
+     *
+     * Both updates are written holding the lock over the account of [grant]'s person, which is released only
+     * when they commit: a refresh or a code exchange under [grant] either has its tokens committed before the
+     * revocation judges whether the grant is live, or waits and reads what the revocation wrote.
      */
     @Transactional
     open suspend fun revokeGrant(grant: Grant, revokedBy: GrantRevokedBy, revokedById: UUID?) {
@@ -406,6 +410,11 @@ open class GrantManager(
      * It takes identifiers rather than the records they name, and resolves none of them: a client or an
      * audience the configuration no longer declares still has grants to revoke, which resolving it would
      * refuse, and an identifier no grant carries reaches nothing.
+     *
+     * The updates are written holding the lock over every account they reach, which is released only when the
+     * last of them commits: a refresh or a code exchange under one of those grants either has its tokens
+     * committed before the revocation judges which grants are live, or waits and reads what it wrote. The
+     * chunks commit together, so a failure part-way revokes none of the grants rather than some of them.
      */
     @Transactional
     open suspend fun revokeGrants(
@@ -441,6 +450,10 @@ open class GrantManager(
      *
      * A grant opened through a provider, or by proving another password, is not reached: what replacing a
      * password withdraws is what that password stood behind.
+     *
+     * The update is written holding the lock over the account of [userId], which is released only when it
+     * commits: a refresh or a code exchange under one of those grants either has its tokens committed before
+     * the update judges which grants are live, or waits and reads what the update wrote.
      */
     @Transactional
     open suspend fun revokeGrantsByPasswords(
@@ -465,6 +478,10 @@ open class GrantManager(
      *
      * An act-as grant rests on the act-as rules rather than on anything the person agreed to, so nothing a
      * person withdraws for an audience reaches one.
+     *
+     * The update is written holding the lock over the account of [userId], which is released only when it
+     * commits: a refresh or a code exchange under one of those grants either has its tokens committed before
+     * the update judges which grants are live, or waits and reads what the update wrote.
      */
     @Transactional
     open suspend fun revokeGrantsByUserAndAudience(

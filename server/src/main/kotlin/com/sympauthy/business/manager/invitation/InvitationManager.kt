@@ -20,7 +20,6 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InvitationEntity
 import com.sympauthy.data.repository.InvitationRepository
 import com.sympauthy.monitoring.loggerForClass
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.toList
@@ -35,7 +34,7 @@ import java.util.*
  * Raw tokens are returned only once at creation time and never stored in plaintext.
  */
 @Singleton
-open class InvitationManager(
+class InvitationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val claimValueValidator: ClaimValueValidator,
     @Inject private val collectedClaimManager: CollectedClaimManager,
@@ -64,8 +63,7 @@ open class InvitationManager(
      * is creating it — see [validateAndCleanClaims]. [expiresAt] is resolved by [resolveExpiresAt], which
      * refuses one that is not in the future.
      */
-    @Transactional
-    open suspend fun createInvitation(
+    suspend fun createInvitation(
         audience: Audience,
         claims: Map<String, String>?,
         note: String?,
@@ -297,8 +295,7 @@ open class InvitationManager(
      * the configuration gained after the token was issued. Neither leaves anybody to refuse — the creator is
      * long gone, and the invitee is mid-sign-up answering for a value they never chose.
      */
-    @Transactional
-    open suspend fun applyInvitationClaims(invitation: Invitation, user: User) {
+    suspend fun applyInvitationClaims(invitation: Invitation, user: User) {
         val claims = invitation.claims
         if (claims.isNullOrEmpty()) return
 
@@ -347,10 +344,9 @@ open class InvitationManager(
      * It is non-recoverable because there is no step left for the end-user to retry: every purpose has
      * resolved, and the session is completing.
      */
-    @Transactional
-    open suspend fun consumeInvitation(invitation: Invitation, user: User): Invitation {
+    suspend fun consumeInvitation(invitation: Invitation, user: User): Invitation {
         // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
-        // again inside this transaction rather than taken from a copy the caller may have read earlier.
+        // again here rather than taken from a copy the caller may have read earlier.
         userManager.checkPromoted(user.id)
         val consumed = invitationRepository.consumeIfPending(
             id = invitation.id,
@@ -370,11 +366,10 @@ open class InvitationManager(
      * Revoke the [invitation] and return it.
      *
      * Throws a non-recoverable [BusinessException] `invitation.cannot_revoke` when the invitation is no longer
-     * pending, expired included. The write checks that, not [invitation]: its caller read it before this
-     * transaction began, and a sign-up may have consumed it since.
+     * pending, expired included. The write checks that, not [invitation]: its caller read it earlier, and a
+     * sign-up may have consumed it since.
      */
-    @Transactional
-    open suspend fun revokeInvitation(invitation: Invitation): Invitation {
+    suspend fun revokeInvitation(invitation: Invitation): Invitation {
         val revoked = invitationRepository.revokeIfPending(id = invitation.id, revokedAt = LocalDateTime.now())
         val current = findById(invitation.id)
         if (revoked == 0) {

@@ -51,6 +51,10 @@ open class InteractiveFlowSessionCleaner(
     /**
      * Delete the expired sessions and what they hold, and record the sessions and validation codes deleted under
      * [CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS].
+     *
+     * The attached records and the sessions they belong to are deleted together, so a run failing partway — a
+     * session delete refused by a row written against it after its records went — leaves every session it read
+     * standing whole for the next run, rather than still in place with its records already gone.
      */
     @Transactional
     open suspend fun clean(): CleanResult = coroutineScope {

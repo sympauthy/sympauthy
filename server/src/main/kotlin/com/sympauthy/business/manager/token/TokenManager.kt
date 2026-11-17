@@ -16,7 +16,6 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.token.AuthenticationTokenType
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -26,7 +25,7 @@ import java.util.*
  * under. Issuing one is the use case of the grant it is issued for.
  */
 @Singleton
-open class TokenManager(
+class TokenManager(
     @Inject private val jwtManager: JwtManager,
     @Inject private val actorGrantValidator: ActorGrantValidator,
     @Inject private val grantManager: GrantManager,
@@ -37,8 +36,8 @@ open class TokenManager(
     /**
      * Return the [AuthenticationToken] identified by [id], with the grant it was issued under, null otherwise.
      *
-     * A grant is deleted only in the transaction deleting its tokens, so a grant missing behind a token read
-     * before that transaction committed is one collected since, and the token is answered as gone with it.
+     * A grant is deleted only once none of its tokens is left, so a grant missing behind a token read a moment
+     * before is one collected since, and the token is answered as gone with it.
      */
     suspend fun findById(id: UUID): AuthenticationToken? {
         val entity = tokenRepository.findById(id) ?: return null
@@ -59,8 +58,7 @@ open class TokenManager(
      * 7009 §2.1 lets a server do — and so is every grant a token exchange opened from one of its tokens. See
      * `docs/design/grants.md`.
      */
-    @Transactional
-    open suspend fun revokeTokenByEncodedToken(
+    suspend fun revokeTokenByEncodedToken(
         client: Client,
         encodedToken: String
     ) {

@@ -58,6 +58,10 @@ open class TokenExchangeManager(
      * The token is issued under a grant the exchange opens, which records the grant of the subject token:
      * revoking that grant revokes this one, and a token of this one is refused once that grant is no longer
      * live. It expires no later than the subject token does.
+     *
+     * The act-as grant and its token are written together. Committed alone, the grant is one no token and no
+     * code names yet, which the collecting job may delete as finished before the token is written under it, and
+     * a failure writing the token would leave a grant nothing was ever issued under.
      */
     @Transactional
     open suspend fun exchangeForActAsToken(

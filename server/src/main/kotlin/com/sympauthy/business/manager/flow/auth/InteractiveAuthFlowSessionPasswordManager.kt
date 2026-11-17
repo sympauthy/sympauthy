@@ -229,8 +229,11 @@ open class InteractiveAuthFlowSessionPasswordManager(
 
     /**
      * Create the account [unfilteredUpdates] and [password] describe, provisional for the [session], and bind
-     * it to the session, then return the session and the identifier of the password written. One transaction:
-     * an account is written whole or not at all.
+     * it to the session, then return the session and the identifier of the password written.
+     *
+     * The account, its identifier claims, its password, the claims an invitation brings and the session's binding
+     * to it commit together, so a binding refused because a second post moved the session first leaves behind no
+     * provisional account that the session does not name and only its expiry would collect.
      */
     @Transactional
     internal open suspend fun createAccountWithClaimsAndPassword(

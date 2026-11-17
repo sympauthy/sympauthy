@@ -209,6 +209,11 @@ open class UserSecurityContextManager(
      * it is what leaves the cleaner only the observations of flows that never finished. The places nothing
      * was proven at go with them: they are what a session knew about itself, and the session is over.
      *
+     * The place and the consumption of the session's rows commit together, so a delete that fails leaves
+     * nothing folded rather than a bumped count beside rows the next fold would count again. A transaction per
+     * attempt is also what the retry needs: on PostgreSQL the insert losing to another completion aborts the
+     * transaction it ran in, and only a fresh one can re-read and update.
+     *
      * **The sighting is dated when the credential was presented, not when the flow finished.** A flow with
      * an MFA step or a claim to collect completes minutes after the person was observed, and the retention
      * is measured from the sighting — so the proof's own stamp is the one that answers for it.

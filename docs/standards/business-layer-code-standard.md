@@ -68,7 +68,8 @@ fetches it and passes it in.
 **The manager is the use case, and it is the transaction boundary.** It is a singleton, its
 dependencies arrive through the constructor, and every method is `suspend`.
 
-**`@Transactional` belongs on the manager**, imported from Micronaut's own package.
+**`@Transactional` belongs on the manager**, imported from Micronaut's own package. Its method's
+KDoc says why it needs the transaction — see [the comment standard](comment-standard.md).
 
 **A class carrying a transactional method is `open`, and so is the method.** See
 [the general standard](general-code-standard.md#rules-that-compile-and-then-fail).

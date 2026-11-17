@@ -12,7 +12,6 @@ import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.repository.findCommittedClaimsMatching
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
@@ -20,7 +19,7 @@ import java.time.LocalDateTime.now
 import java.util.*
 
 @Singleton
-open class UserManager(
+class UserManager(
     @Inject private val collectedClaimRepository: CollectedClaimRepository,
     @Inject private val userRepository: UserRepository,
     @Inject private val userMapper: UserMapper,
@@ -293,8 +292,7 @@ open class UserManager(
      * request that writes it, so this is the single place a sign-up decides that the whole account is
      * provisional. See [com.sympauthy.data.model.SessionScoped].
      */
-    @Transactional
-    internal open suspend fun createUser(sessionId: UUID?): User {
+    internal suspend fun createUser(sessionId: UUID?): User {
         val entity = UserEntity(
             status = UserStatus.ENABLED.name,
             creationDate = now(),

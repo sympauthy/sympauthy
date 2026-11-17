@@ -48,6 +48,10 @@ open class InteractiveFlowSessionOAuth2Manager(
      *
      * The session is saved even if the validation of some parameters failed (i.e. [error] is non-null), and
      * [requestError] is then the error answering that refusal on the client's redirect URI.
+     *
+     * The session and its OAuth2 record are written together, so a failure saving the record leaves no session
+     * behind naming an initiating client that no record backs — one no state was ever handed out for, which the
+     * admin surface would list until it expired.
      */
     @Transactional
     open suspend fun startOAuth2Session(

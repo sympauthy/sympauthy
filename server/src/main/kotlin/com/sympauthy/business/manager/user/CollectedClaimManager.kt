@@ -148,10 +148,9 @@ open class CollectedClaimManager(
      *
      * Throws the `user.claims.identifier_taken` of [applyUpdates] under the same conditions.
      *
-     * For consent-restricted updates, use [ConsentAwareCollectedClaimManager.update] instead.
+     * For consent-restricted updates, use [ConsentAwareCollectedClaimManager] instead.
      */
-    @Transactional
-    open suspend fun update(
+    suspend fun update(
         user: User,
         updates: List<CollectedClaimUpdate>
     ): List<CollectedClaim> {
@@ -182,6 +181,11 @@ open class CollectedClaimManager(
      * the competitor it has to exclude is whichever of the promotion and another write commits first. The
      * keys name the value as `collected_claims` spells it, which is what both sides compare on. See
      * [LockKey.IdentifierValue] and `docs/standards/locking-standard.md`.
+     *
+     * The rows it deletes, updates and creates commit together, so a write refused halfway through leaves
+     * the [user]'s claims as they were rather than some of them changed. The same commit is what releases
+     * the lock: released any earlier, a competitor checking the same value would find it free and write it
+     * before the rows holding it were visible.
      */
     @Transactional
     open suspend fun applyUpdates(

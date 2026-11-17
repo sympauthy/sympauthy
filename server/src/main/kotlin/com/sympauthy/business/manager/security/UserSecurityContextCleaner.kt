@@ -72,6 +72,9 @@ open class UserSecurityContextCleaner(
     /**
      * Claim up to [BATCH_SIZE] expired rows and delete them, in one transaction, answering what it did.
      *
+     * The rows the claim locks stay locked until the delete commits, so a run on another instance skips them
+     * and takes the next batch instead of claiming the same rows and deleting none of them.
+     *
      * **The delete re-asserts the predicate the claim selected by.** The fold writes this table too, so a
      * place seen again between the claim and the delete has to survive it — an identifier alone names a
      * row whatever became of it.

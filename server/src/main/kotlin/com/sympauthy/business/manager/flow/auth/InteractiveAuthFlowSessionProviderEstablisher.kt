@@ -81,7 +81,10 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      *
      * The whole of it runs under the lock over the identity being linked, and re-reads that identity inside
      * it: the caller resolved it as unknown before this transaction began, and one of the other two writers
-     * of a committed link may have taken it since. See [LockKey.ProviderSubject].
+     * of a committed link may have taken it since. See [LockKey.ProviderSubject]. The lock is held until
+     * the account, its identifier claims and the link commit together, so a writer of the same subject
+     * waiting on it reads the link this one wrote, and a failure partway leaves no provisional account
+     * without the link it was created for.
      */
     @Transactional
     open suspend fun createOrAssociateUserWithProviderUserInfo(
@@ -136,8 +139,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * to be stable and not be affected by changes from the third party in the future.
      * Otherwise, an update from a provider may break our uniqueness and cause uncontrolled side effects.
      */
-    @Transactional
-    internal open suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
+    internal suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
         sessionId: UUID,
         identifierClaims: Map<String, Pair<EnabledClaim, Any>>,
         provider: EnabledProvider,
@@ -169,8 +171,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * question only merging asks; the one this branch asks is whether the values are free, which
      * [createUserWithIdentifierClaims] answers and which refuses strictly more.
      */
-    @Transactional
-    internal open suspend fun createUserWithProviderUserInfo(
+    internal suspend fun createUserWithProviderUserInfo(
         sessionId: UUID,
         identifierClaims: Map<String, Pair<EnabledClaim, Any>>,
         provider: EnabledProvider,

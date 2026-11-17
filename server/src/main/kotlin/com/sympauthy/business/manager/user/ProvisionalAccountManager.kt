@@ -164,6 +164,11 @@ open class ProvisionalAccountManager(
      * it locked turns out to have changed — so a promoted account is skipped rather than deleted out from
      * under the flow that finished it.
      *
+     * The five deletes commit together, holding every row they removed until then, so a promotion racing the
+     * sweep is ordered against it as a whole: whichever reaches the account's rows first, the other finds them
+     * as that one left them. Committed one by one, a promotion could land between two deletes and make real an
+     * account the sweep had already stripped of its password or its claims.
+     *
      * The accounts deleted are recorded under [CLEAN_ABANDONED_ACCOUNTS].
      */
     @Transactional

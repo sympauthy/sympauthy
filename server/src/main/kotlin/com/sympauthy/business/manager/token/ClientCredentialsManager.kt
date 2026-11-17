@@ -56,6 +56,10 @@ open class ClientCredentialsManager(
      * [clientScopes] granted to it, and issue the access token it is answered with.
      *
      * Passing [dpopJkt] binds the token to that JWK thumbprint, and leaving it null issues a bearer token.
+     *
+     * The grant and its token are written together. Committed alone, the grant is one no token and no code
+     * names yet, which the collecting job may delete as finished before the token is written under it, and a
+     * failure writing the token would leave a grant nothing was ever issued under.
      */
     @Transactional
     internal open suspend fun generateAccessToken(
