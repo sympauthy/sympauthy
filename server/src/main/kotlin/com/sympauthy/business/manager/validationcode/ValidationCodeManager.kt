@@ -156,7 +156,7 @@ open class ValidationCodeManager(
      * will not generate and send a new [ValidationCode]. The [RefreshResult] will contain the provided
      * [validationCode].
      */
-    open suspend fun refreshAndQueueValidationCode(
+    suspend fun refreshAndQueueValidationCode(
         user: User,
         session: OnGoingInteractiveFlowSession,
         collectedClaims: List<CollectedClaim>,

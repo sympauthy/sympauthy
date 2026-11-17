@@ -58,7 +58,7 @@ the function is its own to say, at the call site, where a reader is already stan
 **A transactional method's KDoc says why it needs its transaction.** Name the statements it holds
 together and what would go wrong between or after them without it — a write committed when the next
 one failed, a row changed between two reads. That is what tells the next change whether a statement
-may move out of the method, and a setting beyond the default, an isolation level or `readOnly`, is
+may move out of the method, and an isolation level or a propagation other than the default is
 justified in the same paragraph.
 
 ```kotlin

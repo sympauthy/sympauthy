@@ -19,7 +19,6 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 
@@ -27,7 +26,7 @@ import jakarta.inject.Singleton
  * Component in charge of validating the claim collected during an interactive auth flow.
  */
 @Singleton
-open class InteractiveAuthFlowSessionClaimValidationManager(
+class InteractiveAuthFlowSessionClaimValidationManager(
     @Inject private val claimManager: ClaimManager,
     @Inject private val collectedClaimManager: CollectedClaimManager,
     @Inject private val consentAwareCollectedClaimManager: ConsentAwareCollectedClaimManager,
@@ -178,13 +177,8 @@ open class InteractiveAuthFlowSessionClaimValidationManager(
      * value cleared between the send and the resend reaches
      * [ValidationCodeMediaSender][com.sympauthy.business.manager.validationcode.ValidationCodeMediaSender]
      * with no address on it.
-     *
-     * A refreshed code that no sender can carry, refused with `validationcode.missing_sender`, is taken back with
-     * the request, so the previous code stays the latest one rather than a new code nobody received holding off
-     * the next resend until its resend date.
      */
-    @Transactional
-    open suspend fun resendValidationCode(
+    suspend fun resendValidationCode(
         session: OnGoingInteractiveFlowSession,
         user: User,
         media: ValidationCodeMedia

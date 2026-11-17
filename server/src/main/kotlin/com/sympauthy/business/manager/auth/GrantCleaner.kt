@@ -41,16 +41,20 @@ class GrantCleaner(
 
     /**
      * Delete what is finished, and record each kind of row deleted under [CLEAN_FINISHED_GRANTS].
+     *
+     * Each delete commits on its own, so each is recorded as soon as it returns: a failure in a later one
+     * leaves the rows an earlier one deleted gone, and counted.
      */
     suspend fun clean(): CleanResult {
         val cutoff = LocalDateTime.now().minus(EXPIRATION_GRACE)
-        val expiredTokenCount = tokenRepository.deleteByExpirationDateLessThan(cutoff)
-        val revokedTokenCount = tokenRepository.deleteUnderRevokedGrants()
-        val authorizationCodeCount = authorizationCodeRepository.deleteByExpirationDateLessThan(cutoff)
-        val grantCount = grantRepository.deleteFinished()
         val job = CLEAN_FINISHED_GRANTS.leaseName
-        jobMetrics.recordDeletions(job, "token", (expiredTokenCount + revokedTokenCount).toLong())
+        val expiredTokenCount = tokenRepository.deleteByExpirationDateLessThan(cutoff)
+        jobMetrics.recordDeletions(job, "token", expiredTokenCount.toLong())
+        val revokedTokenCount = tokenRepository.deleteUnderRevokedGrants()
+        jobMetrics.recordDeletions(job, "token", revokedTokenCount.toLong())
+        val authorizationCodeCount = authorizationCodeRepository.deleteByExpirationDateLessThan(cutoff)
         jobMetrics.recordDeletions(job, "authorization_code", authorizationCodeCount.toLong())
+        val grantCount = grantRepository.deleteFinished()
         jobMetrics.recordDeletions(job, "grant", grantCount.toLong())
         return CleanResult(
             tokenCount = expiredTokenCount + revokedTokenCount,
