@@ -30,15 +30,19 @@ does with its own components is a standard per layer:
 | `business` | model | *none* | the domain concept |
 | `business` | mapper | `…Mapper` | entity ↔ model |
 | `business` | manager | `…Manager` | the use case, and the transaction around it |
+| `business` | collaborator | its role — `…Generator`, `…Cleaner`, `…Resolver` | one step of a use case a manager delegates to |
 | `api` | resource | `…Resource`, `…InputResource` | one surface's JSON contract |
 | `api` | mapper | `…ResourceMapper` | model → resource |
 | `api` | controller | `…Controller` | routing and status codes, and nothing else |
 | `api` | utility | `…Util` | a rule the controllers of a surface apply identically |
+| `api` | filter | `…Filter` | what every request under a path is answered with before it is routed |
+| `api` | error handler | `…ExceptionHandler` | a failure turned into a status and a body |
 | `config` | properties | `…ConfigurationProperties` | the raw YAML, all of it nullable |
 | `config` | parser | `…ConfigParser` | text into types |
 | `config` | validator | `…ConfigValidator` | whether those values are allowed |
 | `config` | factory | `…ConfigFactory` | assembling the validated model |
-| `config` | readiness | *none* | whether the configuration as a whole is usable |
+| `config` | readiness | *none* | whether the configuration as a whole is usable, and the keys it left unbound |
+| `cron` | job | `…Cron` | when a leased job runs, handing the work to a manager |
 
 **A feature is built from the rows above that it needs.** A component fitting none of them is a
 change to this table before it is a class.

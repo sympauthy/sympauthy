@@ -41,9 +41,10 @@ import tools.jackson.core.JacksonException
 import java.net.URISyntaxException
 
 /**
- * Routes every failure answering a request but an `OAuth2Exception`, which [OAuth2ExceptionHandler] answers
- * itself, through the [ExceptionNormalizer] and the
- * [ThrowableExceptionHandler], so each one reaches the caller in the body its surface answers with: the
+ * Routes every failure answering a request through the [ExceptionNormalizer] and the
+ * [ThrowableExceptionHandler] — but an `OAuth2Exception` and a `LocalizedException`, which
+ * [OAuth2ExceptionHandler] and [LocalizedExceptionHandler] answer as the types closest to them — so each
+ * one reaches the caller in the body its surface answers with: the
  * one RFC 6749 defines on the protocol endpoints that answer with it, and the ordinary one, with an
  * `error_code`, everywhere else.
  *

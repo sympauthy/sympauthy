@@ -96,9 +96,9 @@ to add.
 running different counts map one key to two rows and exclude nothing, so changing it means stopping
 the deployment.
 
-**A lock wait ends in a failure rather than in a stalled connection.** H2 gives up after two seconds
-by default and PostgreSQL waits forever, so a deployment sets `lock_timeout` and the standard
-assumes a critical section measured in milliseconds.
+**A critical section is measured in milliseconds.** H2 gives up a lock wait after two seconds by
+default and PostgreSQL waits for as long as the holder takes, so a lock held across anything slower
+stalls every request behind it.
 
 ## Claiming a batch
 

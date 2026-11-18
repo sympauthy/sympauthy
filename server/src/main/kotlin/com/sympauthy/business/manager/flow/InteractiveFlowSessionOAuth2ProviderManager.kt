@@ -198,9 +198,9 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             )
         }
 
-        // Those errors are marked unrecoverable because a proper provider should never end up in this case.
-        // Therefore, the user retrying the request should not change the result.
-        // We redirect the user to the error page so it can continue back to the application to retry.
+        // A callback carrying neither an error nor a code is refused as what the browser brought back rather
+        // than as the provider's failure. Retrying it changes nothing, so it is non-recoverable and the person is
+        // sent to the error page, to start again from the application.
         if (authorizeCode.isNullOrBlank()) {
             throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
         }

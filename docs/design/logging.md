@@ -79,9 +79,11 @@ everybody, at most once per quiet period.
 condition once it answers. A failed resolution at startup is otherwise a line nothing ever follows
 up.
 
-**The configuration is the one ERROR that is not a condition.** It is read once and never recovers
-while the server runs, and an invalid one already takes readiness down — a stronger answer than
-degraded, and the right one, because a restart with a corrected file is what fixes it.
+**The configuration is not a condition, and neither is an answer this server cannot use.** The
+configuration is read once and never recovers while the server runs, and an invalid one already
+takes readiness down — a stronger answer than degraded, and the right one, because a restart with a
+corrected file is what fixes it. A provider or an image host that answered with something unusable
+is the same case: [one ERROR, and a restart](#what-implements-it).
 
 ### What `/health` publishes
 

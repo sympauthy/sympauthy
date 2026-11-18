@@ -97,7 +97,7 @@ class ClaimCollectionManagerTest {
 
         val result = claimCollectionManager.listClaims(criteriaOf(), firstPage)
 
-        assertEquals(listOf(customClaim, requiredClaim, openIdClaim, disabledClaim), result.items)
+        assertEquals(listOf(customClaim, disabledClaim, requiredClaim, openIdClaim), result.items)
     }
 
     @Test
@@ -192,15 +192,12 @@ class ClaimCollectionManagerTest {
     }
 
     @Test
-    fun `listClaims - Order the claims this deployment serves first, then by identifier`() = runTest {
-        val disabledFirstByIdentifier = claim("a_disabled", enabled = false)
-        val enabledSecond = claim("b")
-        val enabledFirst = claim("a")
-        knownClaims(disabledFirstByIdentifier, enabledSecond, enabledFirst)
+    fun `listClaims - Order by identifier where the caller named no order`() = runTest {
+        knownClaims(claim("b"), claim("a_disabled", enabled = false), claim("a"))
 
         val result = claimCollectionManager.listClaims(criteriaOf(), firstPage)
 
-        assertEquals(listOf("a", "b", "a_disabled"), result.items.map { it.id })
+        assertEquals(listOf("a", "a_disabled", "b"), result.items.map { it.id })
     }
 
     @Test
