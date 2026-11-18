@@ -228,18 +228,10 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * [PreparedTerminalEffect.Fail] so the engine fails the session and the end-user is not allowed to continue
      * to the client.
      *
-     * The scopes are decided here, before the completion transaction, because the granting pipeline calls the
-     * client's authorization webhook where one is configured, and that transaction holds the promotion's locks.
-     * Deciding needs nothing the promotion makes real: the account keeps its id when it is promoted, and the
-     * claims it is read with are rows the account owns, which a read by user id sees before it is promoted. The
-     * decision is carried to the writes in memory rather than recorded on the session first, so a second request
-     * completing the same session cannot replace it with an answer of its own before this one commits.
-     *
-     * The claims handed to the granting pipeline are the ones this authorization's audience has, read that way
-     * rather than read whole and narrowed after: a rule deciding on a claim restricted to another audience
-     * publishes it, the granted scope being the decision leaving the server and the authorization webhook
-     * posting the value itself. Consent is not applied to them — what a rule may branch on and what the
-     * end-user agreed to disclose to the client are different questions.
+     * The scopes are decided here, before the completion transaction, and carried to the writes in memory, for
+     * the reasons `docs/design/oauth2-authorization.md` and `docs/design/interactive-flow.md` give. The claims
+     * handed to the granting pipeline are the ones this authorization's audience has, with no consent applied,
+     * as `docs/design/claims.md` has every configured rule see them.
      */
     override suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect {
         val featuresConfig = uncheckedFeaturesConfig.orThrow()
@@ -283,26 +275,21 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * Every row it writes attaches to the account, so it requires the account promoted, in the transaction
      * that commits the promotion.
      *
-     * A [com.sympauthy.business.model.oauth2.Consent] is persisted recording which scopes the user authorized
-     * for the client. If an active consent already exists for this user+client pair, it is revoked and replaced.
+     * A [com.sympauthy.business.model.oauth2.Consent] is saved for the [audience] with the scopes the user
+     * consented to, merged into the active one as [ConsentManager.saveConsent] does.
      *
      * The grant every token of this authorization will be issued under is opened here, once the scopes and the
-     * consent it records are decided, and the authorization code is generated after it, naming it. The session
-     * completes holding the one code its hand-off carries, and a completion that fails after this rolls both
-     * back with everything else.
+     * consent it records are decided, and the authorization code is generated after it, naming it.
      *
-     * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up. An
-     * invitation is spent on an account that comes to exist, so a flow that is abandoned leaves it pending
-     * and the invitee's link still works. It is also what settles two sign-ups holding one invitation: this
-     * runs inside the completion transaction, so the first flow to reach it takes it and the second is
-     * refused. See [com.sympauthy.data.model.SessionScoped].
+     * The invitation, if one brought the end-user here, is consumed here too rather than at sign-up, for the
+     * reason `docs/design/provisional-user.md` gives: of two sign-ups holding one invitation, the first to
+     * complete takes it and the second is refused.
      *
      * The person's last authentication moves last, to the moment their credential was proven, which is the
      * `auth_time` of the tokens the code leads to.
      *
      * Throws the non-recoverable `flow.authorization_flow.complete.password_replaced` where the password the session
-     * proved has been replaced since, by a reset in another session: the grant would record a password the reset
-     * already revoked every grant of, and stand beside the new one unrevoked.
+     * proved has been replaced since, by a reset in another session. See `docs/design/grants.md`.
      */
     internal suspend fun recordAuthorization(
         session: OnGoingInteractiveFlowSession,

@@ -130,10 +130,9 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * Associate the provider to the account the identifier claims it asserts resolve to, or create one
      * where they resolve to none.
      *
-     * [UserManager.findByIdentifierClaims] is the right read for resolving: matching every asserted value
-     * is what makes the answer one account rather than a choice between two, and merging into the wrong
-     * one attaches a stranger's provider to somebody's account. It is not the read that says whether the
-     * values are free, which is why creating goes through [createUserWithIdentifierClaims] below.
+     * [UserManager.findByIdentifierClaims] is the read for resolving, and not the one that says whether the
+     * values are free, which is why creating goes through [createUserWithIdentifierClaims] below. Which
+     * read answers which question is `docs/design/identifier-claims.md`.
      *
      * The identifier claim values are collected and copied as first-party data. We want this information
      * to be stable and not be affected by changes from the third party in the future.
@@ -204,10 +203,9 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * The account named is none: it does not exist yet, and the values it is about to claim are nobody's.
      *
      * **It takes no lock, deliberately.** What it creates is provisional, and the uniqueness of a
-     * provisional account's identifier is settled when it is promoted — under the key that promotion takes
-     * over these same values. Locking here would serialise sign-ups against each other, which is the thing
-     * the provisional row exists to avoid, and would put a second lock in a transaction already holding one
-     * over the provider subject. See `docs/design/provisional-user.md`.
+     * provisional account's identifier is settled when it is promoted, under the key that promotion takes
+     * over these same values; why a write to a provisional account takes none is
+     * `docs/design/provisional-user.md`.
      */
     private suspend fun createUserWithIdentifierClaims(
         sessionId: UUID,

@@ -9,9 +9,8 @@ import jakarta.inject.Singleton
  * The token endpoint's requests, the checks of the access tokens presented to this server, and the grants
  * revoked.
  *
- * A token request is recorded by the manager issuing its tokens, once its client has authenticated, so it always
- * carries `client_id`: an id a request sent for a client that does not exist, or that it failed to authenticate
- * as, is chosen by whoever sent it.
+ * A token request is recorded once its client has authenticated, so it always carries `client_id`. See
+ * `docs/standards/telemetry-standard.md`.
  */
 @Singleton
 class TokenMetrics(

@@ -13,8 +13,8 @@ data class EnabledAuthConfig(
     val interactiveFlow: InteractiveFlowConfig,
     val grant: GrantConfig,
     /**
-     * The claim IDs that identify an account, any one of which does so on its own: a value one of them
-     * holds belongs to a single account across all of them rather than within one claim.
+     * The claim IDs that identify an account, any one of which does so on its own
+     * (`docs/design/identifier-claims.md`).
      */
     val identifierClaims: List<String>,
     val userMergingEnabled: Boolean,

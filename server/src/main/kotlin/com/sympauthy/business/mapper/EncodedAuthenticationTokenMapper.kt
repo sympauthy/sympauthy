@@ -13,8 +13,7 @@ import jakarta.inject.Singleton
  * [EncodedAuthenticationToken] business model.
  *
  * If the row holds no identifier, or a type [AuthenticationTokenType] does not name, an internal
- * [BusinessException] "mapper.encoded_authentication_token.invalid_property" is thrown: a row this
- * server wrote and cannot read back is its own failure rather than the caller's.
+ * [BusinessException] "mapper.encoded_authentication_token.invalid_property" is thrown.
  */
 @Singleton
 class EncodedAuthenticationTokenMapper {

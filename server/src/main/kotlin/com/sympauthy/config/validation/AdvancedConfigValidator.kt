@@ -124,11 +124,8 @@ class AdvancedConfigValidator {
     }
 
     /**
-     * How long a place is kept, the default where the deployment wrote none, or null where it is not a
-     * lifetime.
-     *
-     * Zero or a negative retention would have the sweep delete every row as fast as the flows writing
-     * them commit, and say nothing about it — a feature silently doing the opposite of what it is for.
+     * How long a place is kept, the default where the deployment wrote none, or null where it is
+     * not a lifetime.
      */
     private fun validateKnownUserRetention(ctx: ConfigParsingContext, parsed: Duration?): Duration? {
         return validateLifetime(
@@ -150,11 +147,8 @@ class AdvancedConfigValidator {
     }
 
     /**
-     * The edges named, once each, and every header named for a field spelled as a header name.
-     *
-     * A qualifier written twice is refused rather than folded away: the later entry of a list whose
-     * entries override one another wins over the earlier, so a word repeated says the operator
-     * expected two different things from one name and only one of them can be what they meant.
+     * The edges named, once each, and every header named for a field spelled as a header name. A
+     * qualifier written twice is refused against the index of the repeat rather than folded away.
      */
     private fun validateSecurityContextGeoConfig(
         ctx: ConfigParsingContext,
@@ -202,11 +196,8 @@ class AdvancedConfigValidator {
     }
 
     /**
-     * Refuses [name] where it is not a header name any request could carry.
-     *
-     * A name holding a space or a colon matches no header ever sent, so the field it was written for
-     * is absent from every request and the deployment believes a proxy that is never read. RFC 9110
-     * section 5.1 calls a field name a token; this is that set.
+     * Refuses [name] where it is not a header name any request could carry. RFC 9110 section 5.1
+     * calls a field name a token, and [HEADER_NAME] is that set.
      */
     private fun validateHeaderName(ctx: ConfigParsingContext, key: String, name: String?) {
         if (name != null && !HEADER_NAME.matches(name)) {

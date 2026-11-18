@@ -16,8 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * mandatory whenever a challenge was recorded, and a missing verifier must yield `invalid_grant`.
  *
  * This drives a real sign-up (which sends a challenge) to obtain a genuine authorization code, then
- * exchanges it with **no** `code_verifier` and asserts a 400 `invalid_grant`, on each supported
- * database.
+ * exchanges it with **no** `code_verifier` and asserts a 400 `invalid_grant`.
  *
  * Source: [RFC 7636 §4.6 (Server verifies code_verifier)](https://datatracker.ietf.org/doc/html/rfc7636#section-4.6).
  */

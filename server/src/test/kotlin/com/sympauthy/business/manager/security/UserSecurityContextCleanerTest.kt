@@ -45,10 +45,6 @@ class UserSecurityContextCleanerTest {
         assertEquals(1, cleaner.clean())
     }
 
-    /**
-     * The cutoff is the retention subtracted from now rather than a column stamped when the row was
-     * written, which is what makes lowering the retention take effect on the next run.
-     */
     @Test
     fun `clean - Takes the cutoff from the retention and the clock`() = runTest {
         val cleaner = cleanerOf(Duration.ofDays(30))

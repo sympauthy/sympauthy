@@ -14,8 +14,9 @@ there is little left to reflect over.
 
 ### Kotlin [coroutines](https://kotlinlang.org/docs/coroutines-overview.html)
 
-The concurrency model throughout. Controllers, managers and repositories are all `suspend`, so no
-request occupies a thread while waiting on a database or on a third-party provider.
+The concurrency model throughout. Controllers, managers and repositories are `suspend`, or answer a
+`Flow` where they stream rows, so no request occupies a thread while waiting on a database or on a
+third-party provider.
 
 ## What ships
 
@@ -32,7 +33,8 @@ The base of the published Docker image. A compiled binary needs no runtime insta
 the base holds the two libraries the binary links against and neither a shell nor a package manager:
 there is nothing for a process that escapes the server to reach for, and nothing to patch that the
 server does not use. The image runs as a non-root user for the same reason, which is what a
-configuration file or a database file mounted into it has to be readable by.
+configuration file or a database file mounted into it has to be readable by, and an H2 database
+file writable by.
 
 ## Persistence
 
@@ -64,9 +66,9 @@ The primitives underneath: hashing, key generation, the algorithms the configura
 
 ### [EvalEx](https://github.com/ezylang/EvalEx)
 
-The expression language a deployment writes scope granting and act-as rules in. An expression
-evaluator rather than a plugin interface because these rules are configuration, and configuration
-should not need a build.
+The expression language a deployment writes its rules in — which scopes are granted, which client
+may act for a person, who reads and writes a claim. An expression evaluator rather than a plugin
+interface because these rules are configuration, and configuration should not need a build.
 
 ### [FreeMarker](https://freemarker.apache.org)
 
@@ -85,10 +87,10 @@ traces its own queries over [r2dbc-proxy](https://github.com/r2dbc/r2dbc-proxy);
 
 ## Testing
 
-### JUnit 5 and [MockK](https://mockk.io)
+### [JUnit](https://junit.org) and [MockK](https://mockk.io)
 
-Unit testing, with [Testcontainers](https://testcontainers.com) driving the container-based
-[integration tests](../standards/testing-standard.md).
+Unit testing, with [Testcontainers](https://testcontainers.com) starting the PostgreSQL a repository
+test runs against and the server the [integration tests](../standards/testing-standard.md) drive.
 
 ## The build
 

@@ -18,10 +18,6 @@ interface SecurityContextConfigurationProperties {
 
     /**
      * How long a place a known person signs in from is kept, measured from when it was last seen.
-     *
-     * There is no unknown-user twin. Nothing unidentified is stored in that table — an observation with
-     * no person yet is attached to the interactive flow session that made it, and is collected with it —
-     * so there is no second population to name a second number for.
      */
     @get:Nullable
     val knownUserRetention: String?

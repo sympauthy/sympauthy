@@ -35,10 +35,9 @@ class UserManager(
     /**
      * Find the committed end-user identified by [id]. Otherwise, return null.
      *
-     * An account an interactive flow session is still signing up is not one, and is invisible here: the ids
-     * this takes arrive from outside — a path parameter, a token exchange target — and none of those callers
-     * is entitled to an account this server has not finished creating. The flow that owns such an account
-     * reads it through [findByIdInSessionOrNull]. See [com.sympauthy.data.model.SessionScoped].
+     * An account an interactive flow session is still signing up is not one, and is invisible here. The flow
+     * that owns such an account reads it through [findByIdInSessionOrNull]. See
+     * [com.sympauthy.data.model.SessionScoped].
      */
     suspend fun findByIdOrNull(id: UUID?): User? {
         return id?.let { userRepository.findByIdAndSessionIdIsNull(it) }
@@ -49,8 +48,7 @@ class UserManager(
      * Find the end-user identified by [id] as the interactive flow session [sessionId] sees it: the account
      * that session is still signing up, or any committed account. Otherwise, return null.
      *
-     * The one reader entitled to a provisional account, since a session may only ever see the one it is
-     * creating itself.
+     * A provisional account is seen only by the session creating it.
      */
     suspend fun findByIdInSessionOrNull(id: UUID?, sessionId: UUID): User? {
         return id?.let { userRepository.findByIdVisibleInSession(it, sessionId) }
@@ -82,17 +80,13 @@ class UserManager(
      * Find a committed end-user whose collected claims match ALL entries in [claimValues].
      * Returns the first matching user, or null if none found.
      *
-     * This resolves an identifier to the one account holding it, which is a different question from whether
-     * a value is free: matching every entry is the point, and a caller enforcing uniqueness wants
-     * [findTakenIdentifierOrNull] instead.
+     * A caller enforcing uniqueness wants [findTakenIdentifierOrNull] instead —
+     * `docs/design/identifier-claims.md` is why those are different reads.
      *
-     * An account a session is still signing up never matches. Two sign-ups may therefore hold the same
-     * identifier at once; the collision is settled when the first of them promotes. See
-     * [com.sympauthy.data.model.SessionScoped].
+     * An account a session is still signing up never matches. See [com.sympauthy.data.model.SessionScoped].
      *
-     * The values are business ones, and are compared in the spelling `collected_claims` holds beside each
-     * of them rather than in the one it was given, so an account is resolved by its address however the
-     * provider capitalised it.
+     * The values are business ones, and are compared folded rather than in the spelling they were given, so
+     * an account is resolved by its address however the provider capitalised it.
      */
     suspend fun findByIdentifierClaims(claimValues: Map<String, Any>): User? {
         val foldedByClaimId = claimValues.mapNotNull { (claimId, value) ->
@@ -127,10 +121,8 @@ class UserManager(
      * The committed rows whose claim is one of [foldedByClaim] and whose folded value is the one offered
      * for that claim, the hash having only narrowed the search.
      *
-     * The re-check is the point: the column holds eight bytes of a digest, so a row it selected is a
-     * candidate that a birthday search can plant, and acting on one unchecked would merge a provider into
-     * a stranger's account. A row whose claim this deployment no longer declares cannot be checked and is
-     * therefore not one.
+     * Why the hash is never trusted alone is `docs/design/identifier-claims.md`'s. A row whose claim this
+     * deployment no longer declares cannot be checked and is therefore not one.
      */
     private suspend fun findCommittedClaimsFolding(
         foldedByClaim: Collection<Pair<String, String>>
@@ -160,8 +152,8 @@ class UserManager(
      * Throws the non-recoverable `user.not_promoted` of the [checkPromoted] overload below, and
      * `user.not_found` when no account carries that id at all.
      *
-     * This is the one read here that does not exclude the provisional rows, and it is why the two codes are
-     * separate: answering "no such account" for one that is merely unfinished would name the wrong failure,
+     * It reads the row whether or not it is provisional, which is why the two codes are separate:
+     * answering "no such account" for one that is merely unfinished would name the wrong failure,
      * and the caller that asks this question is asking precisely which of the two it is. The row goes through
      * [UserMapper] on the way, so a row this server can no longer read is refused here too, under the
      * mapper's own internal code.
@@ -182,12 +174,7 @@ class UserManager(
      * Throws a non-recoverable [BusinessException] `user.not_promoted` otherwise.
      *
      * This is a security control rather than an internal assertion, which is why it is a `400` naming the
-     * caller's mistake and not a `500`. An account being signed up is one whose owner still decides what it
-     * becomes: the session holding it can still abandon it, change the identifier it is claiming, or fail a
-     * validation the sign-up has not reached. A caller that acts on it — mints it a token, enrols it a second
-     * factor, attaches it a provider, records it a consent — hangs that on an account somebody else is still
-     * authoring, and whoever owns that session inherits it when they promote. The id being unguessable is not
-     * the defence; refusing to act on it is. See [com.sympauthy.data.model.SessionScoped].
+     * caller's mistake and not a `500` — see `docs/standards/business-layer-code-standard.md`.
      *
      * It reads the model rather than the row, so it costs nothing and cannot disagree with the account the
      * caller is about to act on.
@@ -206,41 +193,21 @@ class UserManager(
      * Return the first identifier claim in [valuesByClaimId] whose value a committed row already holds
      * under one of the identifier claims [claimIds], and the account holding it. Otherwise, return null.
      *
-     * **This is the uniqueness of an identifier.** No database constraint says it: an end-user signs in
-     * with any of the configured identifier claims, so a value belongs to one account across all of them
-     * rather than within one column. That is why the offered values are matched against every identifier
-     * claim in one query rather than claim by claim, and why a caller asking the question claim by claim —
-     * or asking for a row matching *all* of the values it offers — would be asking a different one: the
-     * account holding one of those values and not the others would answer nothing, and it owns the
-     * identity just the same.
-     *
-     * **What it protects is that a value resolves to one account.** Two accounts holding one value make a
-     * login resolve to either — including when neither is malformed on its own, which is the pair one
-     * account holding `email = a` and `preferred_username = b` makes with another holding `email = b` and
-     * `preferred_username = a`: typing `a` matches a row of each, and the owner of `a` is signed in
-     * against the other account. Ranging over the whole set rather than over each claim is what excludes
-     * that pair.
+     * **This is the uniqueness of an identifier**, matched against every identifier claim in one query
+     * rather than claim by claim. `docs/design/identifier-claims.md` is why it ranges over the whole set, and
+     * why neither resolving read answers it.
      *
      * **[userId] is the account the values are being made to belong to, and every row it already holds is
-     * exempt, under whichever identifier claim that row sits.** A value it holds resolves to it either
-     * way, so it takes nothing from anybody and there is no pair to exclude. Refusing its own row under a
-     * second claim would refuse an account in that state every later rewrite of its own identifier and
-     * every provider link, for an ambiguity it does not have. Only another account's row is a conflict,
+     * exempt, under whichever identifier claim that row sits.** Only another account's row is a conflict,
      * and a caller with no account yet passes null and nothing is exempt.
      *
      * **It answers what is committed *now***, which is only worth asking under a lock over those values:
      * the account it has to exclude may commit between the read and whatever the caller does about it. It
-     * answers what was taken and who has it, and raises nothing: what to say about a value being taken
-     * belongs where it was being claimed, and the same loss is recoverable at one moment and not at the
-     * next.
-     *
-     * An account a session is still signing up is invisible here, which is what lets two sign-ups hold one
-     * value at a time — neither blocks the other, and the question is asked again when the first of them
-     * promotes. See [com.sympauthy.data.model.SessionScoped] and `docs/design/provisional-user.md`.
+     * raises nothing, leaving what to say about a value being taken to where it was being claimed. An
+     * account a session is still signing up is invisible here — see `docs/design/provisional-user.md`.
      *
      * The values are folded ones — what [CollectedClaimManager.getFoldedValueOf] answers — and not the
-     * ones `collected_claims` publishes. Two spellings of one value are one identity, so a caller
-     * offering the published one would ask a question every difference of case answers wrongly.
+     * ones `collected_claims` publishes.
      */
     suspend fun findTakenIdentifierOrNull(
         userId: UUID?,
@@ -307,11 +274,8 @@ class UserManager(
  * An identifier value a caller offered that a committed account already holds: what was taken, and who
  * has it.
  *
- * Both halves are named in the technical message of the refusal the caller raises — the one an operator
- * reads, which a deployment prints only by turning `features.print-details-in-error` on. Neither belongs
- * in the `description.` beside it: that one is shown to whoever tripped the refusal, and telling them
- * which account owns a value turns every check into an oracle over it. See
- * `docs/standards/exception-code-standard.md`.
+ * Both halves are named in the technical message of the refusal the caller raises, and neither in the
+ * `description.` beside it, as `docs/standards/exception-code-standard.md` has it.
  */
 data class TakenIdentifier(
     /**

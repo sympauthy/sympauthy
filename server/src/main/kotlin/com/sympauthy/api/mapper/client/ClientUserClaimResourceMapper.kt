@@ -7,9 +7,6 @@ import java.util.*
 
 /**
  * Maps collected claims to [ClientUserClaimResource].
- *
- * Not a MapStruct mapper because the mapping involves aggregating a list of claims into a flat map,
- * which is better expressed as plain Kotlin.
  */
 @Singleton
 class ClientUserClaimResourceMapper {

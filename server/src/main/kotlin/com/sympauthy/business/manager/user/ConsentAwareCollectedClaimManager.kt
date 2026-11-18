@@ -88,10 +88,8 @@ class ConsentAwareCollectedClaimManager(
      * Return the list of [CollectedClaim] collected from the user identified by [userId] that a client may
      * read, per [findByUserIdAndReadableByClient], and that the deployment publishes in [place].
      *
-     * The two questions are asked in that order and neither substitutes for the other: the ACL decides
-     * whether this client may know the value at all, and [place] decides which of the values it may know
-     * are carried there. So this only ever narrows what the ACL permitted, and a claim the ACL refuses
-     * reaches [place] whatever its file says.
+     * The two questions are asked in that order, so this only ever narrows what the ACL permitted: a claim
+     * the ACL refuses reaches no [place], whatever its file says.
      *
      * It is the client's door of the ACL that is asked, for every [place] that answers a client: an id
      * token and an access token are issued to one, and an introspection response is answered to one.
@@ -126,11 +124,9 @@ class ConsentAwareCollectedClaimManager(
      * left out, and a claim restricted to none is answered whatever the audience. Consent is recorded per
      * audience, so [consentedScopes] are that audience's.
      *
-     * The flow collects a claim at one of two steps, and this answers for both. An identifier claim is
-     * collected by the sign-up, so it is answered whatever the ACL says — it is what the account signs in
-     * with, and a flow that could not see one would hold a person to a claim it cannot read. Every other
-     * claim is collected at the claims step, which is the flow's own door of the ACL: the audience's, and opened
-     * to this flow.
+     * The flow collects a claim at one of two steps, and this answers for both: an identifier claim, collected
+     * by the sign-up, whatever the ACL says, and every other claim through the flow's own door of the ACL — the
+     * audience's, and opened to this flow. `docs/design/claims.md` is why.
      *
      * No token is behind this: the person is on this server's own pages having just authenticated. A caller
      * reading through a client's door instead gets less than the flow offered, and a claim a deployment
@@ -188,31 +184,20 @@ class ConsentAwareCollectedClaimManager(
      * started and given the [consentedScopes]. There are two kinds of them, and each
      * arrives by a rule of its own.
      *
-     * **An identifier claim is held to whatever its file says.** It is what the account signs in with, so it
-     * is required of every account and is collected by the sign-up rather than by the claims step — a
-     * password sign-up refuses a value that arrives without one, and a provider sign-up refuses an account
-     * the provider asserts none for. Neither `required` nor the flow's own flag is asked of one, and the
-     * consent scope is not either: an account holding no value for a claim it is identified by holds a row no
-     * login matches, which is not something a client's consent decides.
+     * **An identifier claim is held to whatever its file says**: neither `required`, nor the flow's own door,
+     * nor the consented scopes are asked of one.
      *
      * **A required claim is one of two things at once**: it belongs to the audience of the [client], and the
-     * flow's door of it is open to this flow. Required claims that door shuts — on a scope the end-user did not
-     * consent to, say — are not considered, since the end-user has not agreed to provide them in this
-     * authorization flow;
-     * required claims restricted to another audience are not either, because they are not this audience's
-     * claims to ask for — an audience gets its own required set, and a person signing in to one is not held
-     * to another's.
+     * flow's door of it is open to this flow. A required claim that door shuts, or restricted to another
+     * audience, is not considered. `docs/design/claims.md` holds why of both.
      *
      * [collectedClaims] holds at least the claims the flow collects, per [findByUserIdAndCollectedInFlow].
      * A caller handing over a narrower list answers false for a claim it was never given, and the step this
      * gates is then served again however many times the person submits the value. It may hold more than this
      * answer turns on, which makes no claim look collected that is not.
      *
-     * **A claim is collected where it holds a value, not where it holds a row.** A blank submission is a
-     * value being cleared and writes a row holding null — see [CollectedClaimUpdate] — so a gate reading
-     * presence alone is satisfied by a person posting an empty field, which is the opposite of what
-     * `required` asks. An identifier claim cleared is a missing one for the same reason: it holds a row no
-     * login matches.
+     * **A claim is collected where it holds a value, not where it holds a row**: a blank submission writes a
+     * row holding null — see [CollectedClaimUpdate] — and an identifier claim cleared so is a missing one.
      */
     fun areAllIdentifierAndRequiredClaimsCollectedInFlow(
         collectedClaims: List<CollectedClaim>,
@@ -260,14 +245,11 @@ class ConsentAwareCollectedClaimManager(
      * Returns all claims of that audience readable by the client presenting it, which is not the same set:
      * a claim the client may write and may not read is applied and left out of the answer.
      *
-     * A claim restricted to another audience is neither written nor answered. The restriction is not a read
-     * rule that a write may step around: a client told nothing about a claim must not be able to set it
-     * either, or it decides what another audience reads.
+     * A claim restricted to another audience is neither written nor answered, as `docs/design/claims.md`
+     * has it.
      *
      * **An identifier claim is left out whatever the scopes**, which is the rule [updateInFlow] already gets
-     * from [ConsentAwareClaimManager.listClaimsCollectedInFlowWithScopes]. It is what an account signs in with,
-     * so a client that could rewrite it could move an account's sign-in to an address it controls — and the
-     * account would be none the wiser, since nothing in a claim write verifies the value it stores. The
+     * from [ConsentAwareClaimManager.listClaimsCollectedInFlowWithScopes]; `docs/design/claims.md` is why. The
      * surface says so rather than silently dropping it: see `ClientUserClaimController.updateUserClaims`.
      */
     suspend fun updateByClient(
@@ -285,7 +267,7 @@ class ConsentAwareCollectedClaimManager(
 
     /**
      * Update the claims collected for the [user] through their own access token, issued for the audience
-     * [audienceId] — the one the exchange named for an act-as token, rather than the acting client's own.
+     * [audienceId].
      *
      * Only claims of that audience and writable by the person through [doors] are applied. Updates
      * targeting any other claim are silently ignored.
@@ -296,8 +278,7 @@ class ConsentAwareCollectedClaimManager(
      * server's own pages having just authenticated, and a bearer token says nothing of the kind — see
      * [com.sympauthy.business.model.user.claim.ClaimAcl.writableByPerson].
      *
-     * **An identifier claim is left out whatever the ACL says**, for the reason [updateByClient] gives:
-     * nothing in a claim write proves the person controls the new value, or that the person is the one asking.
+     * **An identifier claim is left out whatever the ACL says**, as [updateByClient] leaves it out.
      */
     suspend fun updateByPerson(
         user: User,

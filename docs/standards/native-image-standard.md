@@ -26,7 +26,9 @@ server owns under its own directory and one a driver needs under the driver's.
 ## Configuration read at build time, not run time
 
 **Configuration a framework resolves by scanning the classpath is passed as a build argument.** The
-migration locations are declared that way, so a new migration folder is a build change.
+migration locations are, as `-Dflyway.locations` in `server/build.gradle.kts`, beside the
+`flyway.datasources.default.locations` the server reads in
+`server/src/main/resources/application.yml`. A new dialect's migration folder is added to both, each location ending in the driver's name.
 
 ## The native run is the source of truth
 

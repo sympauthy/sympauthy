@@ -9,10 +9,7 @@ import com.sympauthy.expression.ScopeIsGrantedFunction
  *
  * These claims are always enabled and read-only, and a deployment configures nothing about them: every
  * key `claims.<id>` accepts is refused where it is written. What they are is held here, and nowhere else.
- *
- * **What they share is where the value comes from, not who it is about.** All of them are produced by
- * this server at runtime rather than collected from a person, and [computedPerAccount] is where the two
- * kinds part: one is an attribute of the account and the other belongs to a single authorization.
+ * [computedPerAccount] is where they part. See `docs/design/claims.md`.
  */
 enum class GeneratedOpenIdConnectClaim(
     val id: String,
@@ -26,21 +23,14 @@ enum class GeneratedOpenIdConnectClaim(
     /**
      * Whether this claim has a value for an account, which
      * [GeneratedClaimsManager][com.sympauthy.business.manager.GeneratedClaimsManager] can compute from
-     * a user id alone.
-     *
-     * True for the claims that describe the account. False for one that describes a single
-     * authorization instead: there is no value to answer for a person in the abstract, so the surfaces
-     * that list what this server knows about somebody leave it out rather than answering null for
-     * everybody.
+     * a user id alone: true for the claims that describe the account, false for one that describes a
+     * single authorization, which the surfaces listing what is known about somebody leave out.
      */
     val computedPerAccount: Boolean = true,
     /**
-     * The places this claim already reaches, which no deployment decides.
-     *
-     * No place reads a generated claim out of the collected claims — the id token claims the subject
-     * itself and the `/userinfo` mapper computes both — so nothing filters on this. It is recorded
-     * because it is the truth about where the value goes, and the discovery document is answered off it
-     * like every other claim's.
+     * The places this claim already reaches, which no deployment decides. Nothing filters on it, since
+     * no place reads a generated claim out of the collected claims; the administration API and the
+     * discovery document are answered off it. See `docs/design/claims.md`.
      */
     val publishedIn: Set<ClaimPublicationPlace>
 ) {
@@ -68,21 +58,8 @@ enum class GeneratedOpenIdConnectClaim(
 
     /**
      * When the person proved a credential of their account, which the id token claims for itself out of
-     * the authorization rather than reading it off the account.
-     *
-     * It is the one entry that is not [computedPerAccount]: an account has no authentication time, only
-     * an authorization does, so the surfaces that answer what this server knows about a person leave it
-     * out. It is declared here all the same, because that is what keeps a deployment from declaring a
-     * claim of its own under the name and shadowing it in the id token.
-     *
-     * Nothing gates it on consent. Every id token issued for a person states it whatever they agreed
-     * to, which is what lets a resource server rely on it being there.
-     *
-     * **[publishedIn] states every place it reaches**, which is three of them: the id token where OpenID
-     * Connect Core §2 defines it, the access token where RFC 9068 §2.2.1 puts it, and the introspection
-     * response where RFC 9470 §6.2 does. Nothing filters on the set, since each of those three states the
-     * moment out of the authorization rather than reading it off a collected row; it is recorded so that
-     * the administration API reports where the value goes rather than a narrower set.
+     * the authorization rather than reading it off the account. Nothing gates it on consent. See
+     * `docs/design/security.md`.
      */
     AUTHENTICATION_TIME(
         id = OpenIdConnectClaimId.AUTH_TIME,
@@ -156,10 +133,7 @@ object OpenIdConnectClaimId {
      *
      * **A deployment may not declare a claim under this name**: it is a
      * [GeneratedOpenIdConnectClaim], so `ClaimsConfigValidator` refuses every key written under
-     * `claims.auth_time`. Every other id in this object names something this server may be told about a
-     * person and holds a row for; this one is a property of the authentication behind the token,
-     * computed per token and never collected — which is what
-     * [GeneratedOpenIdConnectClaim.computedPerAccount] being false says of it.
+     * `claims.auth_time`.
      */
     const val AUTH_TIME = "auth_time"
 

@@ -10,8 +10,7 @@ package com.sympauthy.business.model.oauth2
  * - `config`: read server configuration (clients, flows, etc.).
  * - `users`: manage end-users (read, write, delete).
  * - `consent`: manage consents.
- * - `grants`: read the grants tokens are issued under, and revoke them, one at a time or every one of a person's
- *   at once.
+ * - `grants`: read the grants tokens are issued under, and revoke them by grant, person, client or audience.
  * - `interactive-flow-sessions`: read the interactive flow sessions currently in flight.
  *
  * @see AdminScopeId for the string constants used in configuration and token claims.

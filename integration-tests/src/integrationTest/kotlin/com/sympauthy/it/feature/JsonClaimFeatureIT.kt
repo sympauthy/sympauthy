@@ -134,7 +134,6 @@ class JsonClaimFeatureIT : AbstractSympauthyIT() {
         value: Any,
         code: String,
     ) {
-        // The body is read inside the client's context, whose response buffer is released once it closes.
         val (status, body) = withApiClient(sympauthy, token = callerToken) { ctx ->
             try {
                 ctx.getBean(ClientApi::class.java)

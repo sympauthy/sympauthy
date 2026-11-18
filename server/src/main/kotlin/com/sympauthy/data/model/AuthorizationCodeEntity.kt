@@ -11,8 +11,7 @@ import java.util.*
 data class AuthorizationCodeEntity(
     /**
      * Identifier of the grant the authorization opened before handing out this code, which every token its
-     * exchange issues stands under, and the key that gives a grant one code only. A second exchange of the
-     * code revokes it.
+     * exchange issues stands under, and the key that gives a grant one code only.
      */
     @get:Id val grantId: UUID,
     val code: String,
@@ -33,7 +32,7 @@ data class AuthorizationCodeEntity(
     val creationDate: LocalDateTime,
     /**
      * Date and time after which the code can no longer be exchanged, `auth.authorization-code.expiration`
-     * after [creationDate]. A code is collected then, exchanged or not.
+     * after [creationDate].
      */
     val expirationDate: LocalDateTime,
     /**

@@ -6,17 +6,15 @@ import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.core.annotation.Nullable
 
 /**
- * Which proxies are believed about where the address a request came from is.
- *
- * Several may be named, and they may be detected instead, because every edge publishes its location
- * under a header of its own rather than at a position in one they share. `docs/design/security-context.md` says
- * what that buys and what it does not.
+ * Which proxies are believed about where the address a request came from is. Several may be named,
+ * or detected, and `docs/design/security-context.md` says why.
  */
 @ConfigurationProperties(SECURITY_CONTEXT_GEO_KEY)
 interface SecurityContextGeoConfigurationProperties {
 
     /**
-     * Whether every edge publishing a location is read, rather than the ones [providers] names.
+     * Whether every edge publishing a location is read, ahead of the ones [providers] names, rather
+     * than those alone.
      */
     @get:Nullable
     val autoDetect: String?
@@ -25,8 +23,7 @@ interface SecurityContextGeoConfigurationProperties {
      * The edges whose location headers are read, in the order they apply, each overriding the fields
      * the ones before it answered.
      *
-     * A word here is the name an edge is published under. An edge publishing no location is not one
-     * of them, so naming it is refused at startup rather than configured to no effect.
+     * A word here is the name an edge publishing a location is published under.
      */
     @get:Nullable
     val providers: List<String>?

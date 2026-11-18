@@ -18,8 +18,8 @@ import java.util.*
 
 /**
  * The invitation, which is the only row read by a byte array: [InvitationRepository.findByTokenLookupHash]
- * binds one as a parameter, and the column is spelled `bytea` under one dialect and `binary varying`
- * under the other.
+ * binds one as a parameter, against a column spelled `bytea` under PostgreSQL and `binary varying`
+ * under H2.
  */
 class InvitationRepositoryTest {
 

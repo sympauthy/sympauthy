@@ -6,16 +6,15 @@ import java.util.*
 /**
  * One place an [InteractiveFlowSession] was driven from, as the row attached to that session holds it.
  *
- * Keyed by [sessionId] like the five other attached records, but written and consumed by
+ * Keyed by [sessionId] like the other attached records, but written and consumed by
  * [com.sympauthy.business.manager.security.UserSecurityContextManager] rather than by a purpose: a row is
- * opened where the session is created and at every request that resolves it, bumped where that place was
- * already seen, and every one of them is deleted as the completing flow folds the proven one into that
- * person's own record. **A session holds one row per distinct place**, so a stalled sign-in — the session
- * an operator most wants to look at — has one, and a session driven from two places is a trail of two.
+ * opened where the session is created and at every request that resolves it while it is still running,
+ * bumped where that place was already seen, and every one of them is deleted as the completing flow folds
+ * the proven one into that person's own record. **A session holds one row per distinct place.** See
+ * `docs/design/security-context.md`.
  *
- * **[provenDate] is what a credential proof left behind, and it is the only thing the fold reads.** The
- * state a flow travels under carries no identity, so anybody holding it can have a place recorded against
- * that session; a row nothing proved says a request arrived and nothing more.
+ * **[provenDate] is what a credential proof left behind, and it is the only thing the fold reads**; a row
+ * nothing proved says a request arrived and nothing more.
  *
  * Writing is best-effort, so an absence proves nothing about what happened.
  *

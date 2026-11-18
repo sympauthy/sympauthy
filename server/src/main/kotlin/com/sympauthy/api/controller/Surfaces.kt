@@ -1,8 +1,8 @@
 package com.sympauthy.api.controller
 
 /*
- * The route prefix of each surface. A route on a surface is written from its constant, so a prefix is
- * spelled once. What each surface is, and how it is gated, is `docs/design/architecture.md#surfaces`.
+ * The route prefix of each surface. What each surface is, and how it is gated, is
+ * `docs/design/architecture.md`.
  */
 
 /** The OAuth 2.0 endpoints, named by their specifications. */

@@ -15,12 +15,7 @@ import io.opentelemetry.sdk.trace.export.SpanExporter
 
 /**
  * Reports the exports of every signal to [Condition.Collector], which recovers only once every signal whose
- * last export failed has exported again.
- *
- * One signal succeeding says nothing of another: a deployment may send each to an endpoint of its own, and
- * metrics are exported every few seconds while a span is exported only once a request is served. Were any
- * success to start the quiet period, the metrics would recover the condition in every lull in traffic while
- * every span export still failed.
+ * last export failed has exported again, for the reason `docs/design/telemetry.md` gives.
  */
 class CollectorReport(
     private val conditionMonitor: ConditionMonitor
@@ -32,8 +27,7 @@ class CollectorReport(
      * Run the [export] of [signal], and report its outcome once it completes: a success, or a failure that
      * [lost] what it counts. An export that throws is reported as a failure, and rethrown.
      *
-     * Every failure is the collector's, whatever it answered: the request is composed by this server alone, so
-     * a refusal says the collector, or what this server was configured to reach it with, is wrong.
+     * Every failure is the collector's, whatever it answered.
      */
     internal fun export(
         signal: Signal,
@@ -115,8 +109,7 @@ class CollectorReportingLogRecordExporter(
 /**
  * Exports metrics through [delegate], reporting each export to [CollectorReport].
  *
- * A failed export loses nothing worth counting: every metric is exported as its running total, so the next
- * export that succeeds carries what this one did not.
+ * A failed export counts nothing lost, for the reason `docs/design/telemetry.md` gives.
  *
  * The defaults the reader asks its exporter for are forwarded by hand: delegation leaves out a member Java
  * declares with a body, and the interface's would replace what a deployment configured the exporter with.

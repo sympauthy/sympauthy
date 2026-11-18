@@ -9,8 +9,7 @@ import io.mockk.mockk
 import java.net.InetSocketAddress
 
 /**
- * The proxy this server accepted the connection from, which is what a deployment naming no proxy
- * records for every request.
+ * The proxy this server accepted the connection from.
  */
 const val SOCKET_PEER = "198.51.100.1"
 
@@ -29,8 +28,7 @@ const val FORGED_IP = "192.0.2.66"
  * The headers of one request, built as the framework builds them so that a case about which header
  * is believed is not also a case about how a header is looked up.
  *
- * Repeating a name adds a second value under it, which is what a chain of proxies each appending to
- * `X-Forwarded-For` produces, and what a caller sending a header their proxy appends to produces.
+ * Repeating a name adds a second value under it.
  */
 fun headersOf(vararg values: Pair<String, String>) = SimpleHttpHeaders(ConversionService.SHARED)
     .also { headers -> values.forEach { (name, value) -> headers.add(name, value) } }

@@ -117,13 +117,9 @@ class ClientUserClaimController(
         val clientUser = clientUserManager.findUserForAudienceOrNull(audienceId, userId).orNotFound()
         val consent = consentManager.findActiveConsentByAudienceOrNull(userId, audienceId).orNotFound()
 
-        // Asked before the ACL below, because no answer the ACL could give would change this one: an
-        // identifier is what the account signs in with, nothing in a claim write verifies the value it
-        // stores, and a client able to set one could move an account's sign-in to an address it holds. A
-        // deployment whose ACL opens the client write over it is told that, rather than told the client may
-        // not write it.
-        // Nothing here changes an identifier either: proving the new value and the person asking is a flow,
-        // and `docs/design/security.md` records that the server does not serve one.
+        // Asked before the ACL below, which could not change the answer (`docs/design/claims.md`): a deployment
+        // whose ACL opens the client write over an identifier is told that, rather than told the client may not
+        // write it.
         val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
         val identifierClaim = body.keys.firstOrNull { it in identifierClaimIds }
         if (identifierClaim != null) {

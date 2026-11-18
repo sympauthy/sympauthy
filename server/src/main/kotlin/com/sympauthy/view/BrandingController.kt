@@ -55,8 +55,8 @@ class BrandingController(
     fun logoDark(request: HttpRequest<*>): HttpResponse<ByteArray> = answerImage(request, BrandImageName.LOGO_DARK)
 
     /**
-     * The logo a mail shows, as a PNG: a mail client does not draw an SVG. Not found where the deployment configured
-     * an SVG, so that its mails show its name rather than SympAuthy's logo.
+     * The logo a mail shows, as a PNG. Not found where [BrandManager.getMailImage] answers none: the deployment
+     * configured an SVG, or an image still being fetched.
      */
     @Get("/logo.png")
     fun mailLogo(request: HttpRequest<*>): HttpResponse<ByteArray> = answerMailImage(request, BrandImageName.LOGO)
@@ -69,8 +69,8 @@ class BrandingController(
     fun brand(request: HttpRequest<*>): HttpResponse<ByteArray> = answer(request, brandDocument)
 
     /**
-     * An `<img>` does not run an SVG's scripts, but opening its address directly does, on the origin the sign-in
-     * pages live on. The server does not try to clean an SVG: these keep whatever it holds from running.
+     * An image is answered with the headers that keep an SVG's scripts from running on the server's origin — see
+     * `docs/design/branding.md`.
      */
     private fun answerImage(request: HttpRequest<*>, name: BrandImageName): HttpResponse<ByteArray> =
         answer(request, brandManager.getImage(name)).withImageHeaders()

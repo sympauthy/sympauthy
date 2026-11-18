@@ -254,8 +254,14 @@ treating the state as proof of who the caller is would be trusting the single cr
 make no such claim.
 
 **The signature is what makes it safe to put in a URL.** A person navigating between flow pages
-carries the state through their address bar; it is short-lived, bound to one session, and useless
-once that session ends.
+carries the state through their address bar. It names one session and carries no expiry of its
+own, so what bounds it is that session: once it has ended, the state still verifies and is answered
+only as a session that is over.
+
+**The role is granted to whatever state a request presents, and the signature is verified where
+the session is resolved.** That is why [every flow handler resolves it through
+`InteractiveAuthFlowSessionControllerUtil`](interactive-flow.md#writing-a-step-endpoint): a handler
+reading the state any other way has verified nothing.
 
 ## A forgotten password
 
@@ -266,9 +272,9 @@ password sign-in. The client sees nothing new. The reset is the `PASSWORD_RESET`
 of the authorization when the person asks for it, since a choice a person makes is neither the
 session nor the configuration — see [the interactive
 flow](interactive-flow.md#what-this-document-does-not-settle). A flow offers it when it names its
-three reset pages and this server can send mail, and its sign-in step then carries the link to the
-first. [The design FAQ](design-faq.md#is-a-password-reset-a-flow-of-its-own) holds the shapes that
-lost.
+three reset pages, this server can send mail and a person may sign in with a password at all, and
+its sign-in step then carries the link to the first. [The design
+FAQ](design-faq.md#is-a-password-reset-a-flow-of-its-own) holds the shapes that lost.
 
 **Every identifier is answered alike.** Whatever was typed, the person reaches the code page, and a
 code typed for an identifier no code went to is refused as a wrong one is, under
@@ -324,8 +330,11 @@ which the `mail` package implements.
 
 ## Tokens
 
-**An access token is validated on every request**, as a signature over this server's own keys, with
-its issuer, audience and expiry checked. Nothing is trusted because it parsed.
+**An access token is validated on every request**, as a signature over this server's own access
+key and an expiry, then against the rows it was issued under: the token, its grant, and [the client
+and audience](#a-credential-becomes-an-authentication) that grant was opened for. The key is this
+server's alone, so a signature that verifies is the issuer checked, and the audience a token answers
+for is its grant's rather than a claim it carries. Nothing is trusted because it parsed.
 
 **A token may be bound to a key the client holds**, in which case it is presented under the `DPoP`
 scheme beside a proof signed by that key, and the proof is verified against the method and URI it
@@ -413,7 +422,8 @@ are accepted on that one and nowhere else.
 which scope the request requires, space-separated in a `scope` parameter. The framework's `403`
 names none: it is raised from a `@Secured` annotation, and what answers it is not told which rule of
 the route the token failed, so the operation's published `403` names the scope instead. A refusal
-this server decides itself knows the scope, and names it.
+this server decides itself names the scopes a client can obtain by re-authorizing, and challenges
+for no other — which ones a claim write names is [the claims'](claims.md#the-person).
 
 **One description of a challenge, and one rendering of it.** What a refusal asks of the client is
 decided where the refusal is decided, as a list of challenges — each an error and its parameters —
@@ -486,7 +496,11 @@ minimum the specification would have allowed.
 provider's callback resolved to the account, the account created at sign-up, or a code proving [a
 password reset](#a-forgotten-password): the authorization
 records that moment, the grant its code opens copies it, and every token under that grant states
-it. It is not the moment the code was exchanged and it is not `iat`, which is why it is recorded
+it. It is recorded only where the credential resolved the session's own user: a credential answers
+for whatever account matches it, and a session whose user is already fixed is not stamped by one
+proving another account. The same condition marks [the place a request came
+from](security-context.md#what-is-kept-and-for-how-long) as one a credential was proven at. It is
+not the moment the code was exchanged and it is not `iat`, which is why it is recorded
 where the authorization is recorded rather than computed when a token is minted; [the design
 FAQ](design-faq.md#is-iat-the-recency-a-resource-server-should-read) holds what reading `iat`
 instead would cost.

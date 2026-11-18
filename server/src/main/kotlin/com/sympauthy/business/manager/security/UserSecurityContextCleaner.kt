@@ -15,9 +15,8 @@ import java.time.LocalDateTime
 /**
  * Deletes the places nobody has signed in from for longer than the deployment keeps them.
  *
- * **The cutoff is computed at sweep time rather than stamped on each row**, which is what makes lowering
- * `advanced.security-context.known-user-retention` take effect on the next run instead of on each row's
- * next sighting — the rows an operator lowered it for being exactly the ones nobody is signing in from.
+ * **The cutoff is computed at sweep time rather than stamped on each row**; `docs/design/security-context.md`
+ * is why.
  *
  * **It claims a bounded batch rather than issuing one `DELETE`**, because the size of that statement is
  * whatever an operator's retention change makes it and `DELETE … LIMIT` is no part of PostgreSQL. The
@@ -94,8 +93,7 @@ open class UserSecurityContextCleaner(
      * What one batch took and what it removed, which differ by the rows somebody signed in from again
      * while the batch was in flight.
      *
-     * The loop keys on [claimed] rather than on [deleted]: a run that asked for a full batch and deleted
-     * fewer has not reached the end of the table.
+     * The loop keys on [claimed] rather than on [deleted], as `docs/standards/locking-standard.md` has it.
      */
     internal data class BatchResult(
         val claimed: Int,

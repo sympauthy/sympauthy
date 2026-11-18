@@ -11,10 +11,7 @@ import jakarta.annotation.PreDestroy
 
 /**
  * Publishes whether each condition [ConditionMonitor] has observed is degraded, under `condition`, which is
- * [Condition.metricName].
- *
- * `sympauthy.condition.degraded` is `1` exactly while `/health` lists the condition, whatever the condition is: a
- * dependency reached by a call or the console's own queue.
+ * [Condition.metricName], as `docs/design/telemetry.md` says.
  */
 @Context
 @Requires(property = TELEMETRY_ENABLED, notEquals = "false")

@@ -14,8 +14,8 @@ import java.net.URI
 /**
  * Base class for integration tests that exercise the flow API (`/api/v1/flow/`).
  *
- * Extend this class instead of `AbstractIntegrationTest` whenever a test needs to
- * interact with the authorization flow, because it provides:
+ * Extend this class whenever a test needs to interact with the authorization flow, because it
+ * provides:
  *
  * - A pre-configured [httpClient] bound to the root of the embedded server.
  * - [createFlowSession]: starts an authorization code flow with the test client (`default`), creating an

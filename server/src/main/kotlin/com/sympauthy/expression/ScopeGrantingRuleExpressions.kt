@@ -8,13 +8,6 @@ import java.util.Map.entry
 /**
  * The functions a scope granting rule expression may call, and the two things done with them:
  * refusing an expression when the configuration is read, and evaluating one while a request is served.
- *
- * The function set is declared here once and used for both. Declaring it twice is how a deployment
- * ends up with an expression that was accepted at startup and calls a function nothing provides.
- *
- * The two uses have separate entry points rather than one taking nullable values, because a
- * configuration built with nothing bound answers every call with null: usable for deciding whether an
- * expression is well formed, and silently wrong for deciding what a request may have.
  */
 object ScopeGrantingRuleExpressions {
 

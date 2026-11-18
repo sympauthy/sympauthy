@@ -4,11 +4,7 @@ import org.slf4j.LoggerFactory
 
 /**
  * The logger of this server, which takes every message as a lambda evaluated only once its level is known
- * to be enabled.
- *
- * It wraps SLF4J's rather than extending it so that the overloads taking a built string are not there to
- * be called: a string template handed to a logger is built on every call, whether anything writes it or
- * not.
+ * to be enabled, and offers no overload taking a built string. See `docs/design/logging.md`.
  */
 class Logger(
     @PublishedApi internal val delegate: org.slf4j.Logger
@@ -39,8 +35,8 @@ class Logger(
     }
 
     /**
-     * Write [message] at ERROR, which is written synchronously on the caller's thread: it says the server
-     * is not fully operational, and nothing else may.
+     * Write [message] at ERROR, which is written synchronously on the caller's thread. See
+     * `docs/standards/logging-standard.md` for what may be written at ERROR.
      */
     inline fun error(message: () -> String) {
         if (delegate.isErrorEnabled) delegate.error(message())

@@ -30,12 +30,9 @@ class ClaimTemplatesConfigValidator(
     /**
      * Record an error against every place a template opens to a request that no request can name.
      *
-     * It is the one publication rule a template can be held to on its own. A channel it names in both of
-     * its lists may be the right answer for a claim overriding one of them, and `discovery` with no
-     * carrier may be the right answer for a claim adding one, so both of those are the resolved claim's
-     * question — [com.sympauthy.config.validation.ClaimsConfigValidator] asks them there. A place no
-     * request can reach is different: nothing a claim writes afterwards can make the entry take effect,
-     * so it is refused where it is written.
+     * A channel it names in both of its lists, and `discovery` with no carrier, are the resolved
+     * claim's question, which [com.sympauthy.config.validation.ClaimsConfigValidator] asks;
+     * `docs/design/claims.md` says why this one is the template's.
      *
      * The error is recorded against [ctx] rather than the child, so the template still resolves. An
      * entry that cannot take effect does not stop the rest of the template answering for the claims that

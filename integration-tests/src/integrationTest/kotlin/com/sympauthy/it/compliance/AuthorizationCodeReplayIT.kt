@@ -20,8 +20,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * A confidential client signs a person up, exchanges the code and refreshes, then exchanges the code a
  * second time with the same credentials and the same verifier, and asserts the replay is refused and that
  * the access and refresh tokens of the first exchange and the access token of the refresh, active before
- * it, introspect as inactive after — every one of them is under the grant the code names — on each
- * supported database.
+ * it, introspect as inactive after — every one of them is under the grant the code names.
  *
  * The replay presents the verifier the flow generated, as the first exchange did: a replay with any other
  * is refused by PKCE before the server reads whether the code was exchanged, and revokes nothing.

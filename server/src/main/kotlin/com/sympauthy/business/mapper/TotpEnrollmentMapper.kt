@@ -10,7 +10,7 @@ import jakarta.inject.Singleton
  * Handle the mapping from the [TotpEnrollmentEntity] to the [TotpEnrollment] business model.
  *
  * If the row holds no identifier, an internal [BusinessException] "mapper.totp_enrollment.invalid_property"
- * is thrown: a row this server wrote and cannot read back is its own failure rather than the caller's.
+ * is thrown.
  */
 @Singleton
 class TotpEnrollmentMapper {

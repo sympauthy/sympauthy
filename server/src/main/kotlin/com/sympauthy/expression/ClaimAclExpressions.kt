@@ -40,9 +40,7 @@ data class ClaimAclExpressionTerms(
  * The conditions of an ACL expression that a different token could meet to open the door: the calls nothing
  * but `&&` and `||` stand above.
  *
- * A call under anything else is left out, whatever it is under. Under `!` meeting the condition shuts the
- * door, and under a comparison or a function of its own what meeting it does is the expression's to say; a
- * condition asked for there is neither one a scope unlocks nor one a refused client can be told to meet.
+ * A call under anything else is left out, whatever it is under, for the reason `docs/design/claims.md` gives.
  */
 data class ClaimAclOpeningTerms(
     val consentedScopes: Set<String>,
@@ -54,14 +52,9 @@ data class ClaimAclOpeningTerms(
  * The functions a claim's ACL expression may call, and the two things done with them: refusing an
  * expression when the configuration is read, and evaluating one at the door it is written on.
  *
- * The doors have two function sets rather than one, each declared once and read by both of its entry points.
- * The flow is the door with no token behind it — the person is on this server's own pages having just
- * authenticated — so it offers the consent and the client and nothing about a token: a function of the token
- * written there would answer false for every person forever, and is refused at startup as an unknown
- * function instead. The four doors a token comes through offer every function.
- *
- * The two uses have separate entry points rather than one taking nullable values, for
- * [the reason given beside the scope granting rules][ScopeGrantingRuleExpressions].
+ * The doors have two function sets: the flow, the door with no token behind it, offers the consent and the
+ * client and nothing about a token, and the four doors a token comes through offer every function. See
+ * `docs/design/claims.md`.
  */
 object ClaimAclExpressions {
 
@@ -127,8 +120,8 @@ object ClaimAclExpressions {
 
     private fun validate(expressionString: String, configuration: ExpressionConfiguration): ClaimAclExpressionTerms {
         evaluateRuleExpression(expressionString, configuration)
-        // Read off the tree rather than off an evaluation: `&&` and `||` stop at the first operand that
-        // decides them, so a call an evaluation never reaches would go unread.
+        // Read off the tree rather than off the evaluation above, as `docs/standards/expression-standard.md`
+        // says.
         val root = try {
             Expression(expressionString, configuration).abstractSyntaxTree
         } catch (e: ParseException) {
@@ -183,9 +176,8 @@ object ClaimAclExpressions {
     private val COMBINING_OPERATORS = setOf("&&", "||")
 
     /**
-     * The literal [call] was given. A scope is checked against the scopes this deployment declares and a
-     * duration read as every duration key is, both when the configuration is read, so neither may be an
-     * expression known only once it is evaluated.
+     * The literal [call] was given, refused where it was given anything else: what a literal names is checked
+     * when the configuration is read. See `docs/design/claims.md`.
      */
     private fun literalArgumentOf(expressionString: String, call: ASTNode): String {
         val argument = call.parameters.singleOrNull()?.token

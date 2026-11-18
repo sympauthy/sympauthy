@@ -43,8 +43,7 @@ class ClaimCollectionManager(
     suspend fun capabilities(): CollectionCapabilities = fields().capabilities
 
     /**
-     * Read the page [pageParams] names of every [Claim] [criteria] keep, the ones this deployment
-     * serves first where the caller named no order of their own.
+     * Read the page [pageParams] names of every [Claim] [criteria] keep.
      */
     suspend fun listClaims(
         criteria: CollectionCriteria,
@@ -77,6 +76,5 @@ class ClaimCollectionManager(
             sortable = true,
             read = Claim::audienceId
         )
-        defaultSort("-enabled")
     }
 }

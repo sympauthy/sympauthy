@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test
 /**
  * The spellings a claim value reaches a column in, and the key a row is found by.
  *
- * The hash is pinned to the values it answers today: a row is looked up by it and by nothing else, so
- * two versions disagreeing about it makes every account unreachable rather than merely slow.
+ * The hash is pinned to the values it answers today, for the reason
+ * `docs/design/identifier-claims.md` gives.
  */
 class ClaimValueMapperTest {
 
@@ -34,8 +34,6 @@ class ClaimValueMapperTest {
 
     @Test
     fun `toBusiness - Read a boolean claim written as a string as a Boolean`() {
-        // A boolean claim held its value as the string "true" until it became a Boolean, and which claim a
-        // row belongs to is configuration rather than a column, so those rows are read rather than migrated.
         assertEquals(true, mapper.toBusiness("\"true\"", BOOLEAN))
         assertEquals(false, mapper.toBusiness("\"false\"", BOOLEAN))
     }
@@ -97,8 +95,6 @@ class ClaimValueMapperTest {
 
     @Test
     fun `toFoldedValue - Answers one value for a number and the text of that number`() {
-        // `42` under an employee-number claim and `42` under a username one are one identity; the encoding
-        // `value` carries would make them two.
         assertEquals(mapper.toFoldedValue(42L), mapper.toFoldedValue("42"))
     }
 

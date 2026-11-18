@@ -3,8 +3,7 @@ package com.sympauthy.business.model.oauth2
 import java.net.URI
 
 /**
- * The values of an incoming HTTP request that a DPoP proof is bound to (RFC 9449). Carrying them as a value
- * object is what keeps the proof validation callable without an HTTP request.
+ * The values of an incoming HTTP request that a DPoP proof is bound to (RFC 9449).
  */
 data class DpopBoundRequest(
     /**

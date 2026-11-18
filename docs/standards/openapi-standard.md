@@ -122,9 +122,10 @@ carry is explained by name.
 **The allowed values are the ones this server emits**, spelled the way the mapper publishes them.
 A property mapped from an enum lists every value of that enum the mapper can reach.
 
-**A set mapped from an enum is held to it by a test**, one per surface in the package of its
-resources, reading the annotation off the getter. An annotation takes a constant and the published
-spelling is computed, so the values are written by hand and the test is what keeps them true.
+**A set mapped from an enum is held to it by a test** in the package of its surface's resources,
+reading the annotation off the getter. An annotation takes a constant and the published spelling is
+computed, so the values are written by hand and the test is what keeps them true — a value missing
+from one is a response the generated client cannot deserialize.
 
 **A list of a closed set declares the values on its items, with `@ArraySchema`.** Declared on the
 list itself, they constrain the whole array to equal one of them.

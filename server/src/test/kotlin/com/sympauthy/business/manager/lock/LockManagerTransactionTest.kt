@@ -19,18 +19,17 @@ import org.junit.jupiter.api.assertThrows
  * What [LockManager.withLock] does that only a real transaction can show, which is everything about it
  * that compiles either way.
  *
- * A lock released by the autocommit that took it is no lock, and a generic suspending method taking a
- * vararg and a block is an unusual enough shape to intercept that it is worth an assertion rather than
- * an assumption. The manager is resolved from a context rather than constructed, because the proxy is
- * the subject; a MockK double would prove the opposite of what is wanted here.
+ * A lock released by the autocommit that took it is no lock, and a generic suspending method taking
+ * a list and a block is an unusual enough shape to intercept that it is worth an assertion rather
+ * than an assumption. The manager is resolved from a context rather than constructed, because the
+ * proxy is the subject; a MockK double would prove the opposite of what is wanted here.
  *
  * The transaction is observed by what it undoes: a row written inside a failing block survives an
  * autocommit and does not survive a rollback. That the lock is then held for the length of that
  * transaction is [com.sympauthy.data.repository.ObjectLockRepositoryTest]'s.
  *
- * The second and the third case are the ones a double cannot reach at all: which calls share a
- * transaction is decided by the container, and the rule they hold is that the stripes a transaction took
- * outlive the block that took them.
+ * A case about a second lock is one a double cannot reach at all: which calls share a transaction
+ * is decided by the container.
  */
 class LockManagerTransactionTest {
 

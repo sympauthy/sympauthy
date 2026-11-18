@@ -3,26 +3,9 @@ package com.sympauthy.config
 import com.sympauthy.config.exception.ConfigurationException
 
 /**
- * Accumulates [ConfigurationException]s across parsing and validation phases.
- *
- * Replaces the raw `MutableList<ConfigurationException>` + try-catch pattern
- * used throughout config factories.
- *
- * Usage:
- * ```kotlin
- * val ctx = ConfigParsingContext()
- *
- * // Phase 1: Parse — wraps each call, catching ConfigurationException automatically.
- * val issuer = ctx.parse { parser.getStringOrThrow(properties, "auth.issuer", Props::issuer) }
- *
- * // Phase 2: Validate — add errors explicitly.
- * if (audienceId !in audiencesById) {
- *     ctx.addError(configExceptionOf("key", "config.audience.not_found", ...))
- * }
- *
- * // Phase 3: Assemble
- * return if (ctx.hasErrors) DisabledXxxConfig(ctx.errors) else EnabledXxxConfig(...)
- * ```
+ * Accumulates [ConfigurationException]s across parsing and validation phases: a factory creates
+ * one, and its parser and validator record into it, as
+ * `docs/standards/config-layer-code-standard.md` lays the factory out.
  */
 class ConfigParsingContext {
     private val _errors = mutableListOf<ConfigurationException>()

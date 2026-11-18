@@ -12,17 +12,9 @@ import java.net.URI
 import java.time.Duration
 
 /**
- * The parsing of configuration from Micronaut has a few loophole for our usage:
- * - it does not emit error message for invalid value.
- * - it is lazy. Error will be discovered when the config will be used.
- *
- * However, as the configuration is at the center of SympAuthy, we want:
- * - to report configuration issues as soon as the server starts to allow the user to fix and restart as fast as
- *   possible.
- * - we want explicit error message to help the user to fix errors.
- *
- * Therefor we must :
- * - deprive Micronaut of the parsing, all the configuration properties will only handle String, Array and Map.
+ * Converts the values a properties class binds into the types a parser needs, throwing an error
+ * naming the key where one is missing or does not convert. Why that conversion is not left to
+ * Micronaut is `docs/standards/config-layer-code-standard.md`.
  */
 @Singleton
 class ConfigParser {

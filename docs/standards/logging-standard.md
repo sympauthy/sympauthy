@@ -15,9 +15,9 @@ true.
 
 ## Levels
 
-**ERROR is written when the server stops being fully operational, and at no other time.** At
-runtime that is a condition changing state, and at startup the configuration's verdict; a failure
-anywhere else is reported to its condition or written at a lower level.
+**ERROR is written when the server stops being fully operational, and at no other time.**
+[Logging](../design/logging.md#when-the-server-is-not-fully-operational) holds which events those
+are; a failure anywhere else is reported to its condition or written at a lower level.
 
 **A dependency reached outside this process is reported to its condition, not to the logger.**
 Report its failures and its successes both: the first degrades it and writes the ERROR, the second
@@ -72,6 +72,10 @@ added beside it writes on the caller's thread for every line, which is the cost 
 remove. OpenTelemetry's has to read the trace from the caller's thread, and costs it the record it
 builds there — a throwable's stack trace rendered as text included — and one add to the SDK's own
 bounded queue.
+
+**A library line breaking one of these rules is silenced by its logger in `logback.xml`.** A
+rolled-back transaction the caller caused, or an export failure the collector's condition already
+states, is muted there rather than written once per occurrence.
 
 **The OpenTelemetry appender captures no code attribute.** Leave `captureCodeAttributes` off, for
 the reason a pattern carries no caller data.

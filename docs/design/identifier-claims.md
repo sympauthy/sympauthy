@@ -96,9 +96,11 @@ two values count as one value, how a row is found by one, and which of three rea
 every reader is answered with — somebody who capitalised their own name keeps that — and nothing
 rewrites it so that a comparison can be written.
 
-**The folded value is the cleaned value as plain text, lowercased.** Cleaning belongs to the claim's
-data type and is `ClaimValueValidator`'s — an `email` trimmed, a `phone_number` in E.164, a `number`
-read as a `Long` — and `ClaimValueMapper.toFoldedValue` folds what comes back.
+**The folded value is the cleaned value as plain text, lowercased.** Cleaning is
+`ClaimValueValidator`'s: every string is trimmed, and beyond that it belongs to the claim's data
+type — a `number` read as a `Long`, a `boolean` read out of its text, while a `phone_number` is
+refused unless it is already in E.164 rather than rewritten into it — and
+`ClaimValueMapper.toFoldedValue` folds what comes back.
 
 **Plain text and not the encoding a claim is exchanged in, so that one typed thing is one identity
 across types.** `value` holds JSON, which spells `42` under a `number` claim and `"42"` under a

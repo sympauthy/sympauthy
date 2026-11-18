@@ -96,9 +96,9 @@ to add.
 running different counts map one key to two rows and exclude nothing, so changing it means stopping
 the deployment.
 
-**A lock wait ends in a failure rather than in a stalled connection.** H2 gives up after two seconds
-by default and PostgreSQL waits forever, so a deployment sets `lock_timeout` and the standard
-assumes a critical section measured in milliseconds.
+**A critical section is measured in milliseconds.** H2 gives up a lock wait after two seconds by
+default and PostgreSQL waits for as long as the holder takes, so a lock held across anything slower
+stalls every request behind it.
 
 ## Claiming a batch
 
@@ -106,16 +106,11 @@ assumes a critical section measured in milliseconds.
 write:
 
 ```kotlin
-@Query(
-    """
-    SELECT * FROM mail_queue
-    WHERE expiration_date IS NULL OR expiration_date > :now
-    ORDER BY id
-    LIMIT :limit
-    FOR UPDATE SKIP LOCKED
-    """
-)
-suspend fun claimUnsent(now: LocalDateTime, limit: Int): List<MailQueueEntity>
+@Query("""
+    SELECT * FROM user_security_contexts WHERE last_seen_date < :cutoff
+    ORDER BY id LIMIT :limit FOR UPDATE SKIP LOCKED
+""")
+suspend fun claimExpired(cutoff: LocalDateTime, limit: Int): List<UserSecurityContextEntity>
 ```
 
 **A claim and the writes that follow are one transaction.** Outside one, the row lock is released by
@@ -135,6 +130,10 @@ order.
 
 **A statement writing a claimed row re-asserts the predicate the claim selected by.** An identifier
 names a row whatever became of it since it was read.
+
+**A run decides whether the table is exhausted by what it claimed, never by what it wrote.** A
+re-asserted predicate writes fewer rows than were claimed, and a full batch that wrote fewer has not
+reached the end of the table.
 
 ## The lease
 

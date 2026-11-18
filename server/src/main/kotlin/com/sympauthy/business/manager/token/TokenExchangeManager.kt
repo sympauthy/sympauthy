@@ -26,12 +26,9 @@ import jakarta.inject.Singleton
 import java.util.*
 
 /**
- * Handles OAuth 2.0 Token Exchange (RFC 8693) requests.
- *
- * Phase 1 — **act as a user by id**: a confidential client presents its own client-credentials access token as the
- * `subject_token` (to prove it is the actor) and names the target user via `requested_subject`. When authorized by the
- * configured `rules.act-as` rules, an identity-only access token is issued with the user as `sub` and the acting client
- * recorded in the `act` claim.
+ * Handles OAuth 2.0 Token Exchange (RFC 8693) requests: a confidential client acting as a person, named by
+ * id in `requested_subject`, by presenting its own client-credentials access token as the `subject_token`.
+ * What an act-as token is, and what may be exchanged for one, is `docs/design/security.md`'s.
  */
 @Singleton
 open class TokenExchangeManager(
@@ -114,9 +111,9 @@ open class TokenExchangeManager(
             is GrantOpenedForResult.OpenedForAnotherAudience -> throw openedFor.toOAuth2Exception()
             GrantOpenedForResult.Opened -> Unit
         }
-        // An act-as token already carries an actor. Exchanging it again would chain act-as tokens, which is not
-        // supported yet. Checked before the user check below because an act-as token is also bound to a user, so
-        // this surfaces the specific chaining error rather than the generic "not a client token" one.
+        // An act-as token already carries an actor, and is never exchanged for the next one. Checked before the
+        // user check below because an act-as token is also bound to a user, so this surfaces the specific
+        // chaining error rather than the generic "not a client token" one.
         if (token.grant.actorGrantId != null) {
             throw oauth2ExceptionOf(INVALID_GRANT, "token_exchange.subject_token_has_actor")
         }
@@ -149,9 +146,7 @@ open class TokenExchangeManager(
      * The audience the token is issued for, which is the one [actingClient] belongs to. Throws an
      * `OAuth2Exception` carrying `invalid_target` and `token_exchange.invalid_target` where the RFC 8693
      * [audience] parameter names anything else, matched against that audience's token audience and identifier.
-     *
-     * A client acts as a person in its own audience and nowhere else: an audience is the set of applications
-     * entitled to its claims, and a token issued for another one would hand them to a client outside it.
+     * Why no other audience is allowed is `docs/design/security.md`'s.
      */
     private fun resolveTargetAudience(
         actingClient: Client,

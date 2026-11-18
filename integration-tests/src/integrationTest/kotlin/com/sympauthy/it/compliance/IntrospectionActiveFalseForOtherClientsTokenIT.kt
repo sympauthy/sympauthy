@@ -19,8 +19,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * authenticated client is not the token's owner.
  *
  * This obtains a genuine access token for the public client `test-app`, then introspects it while
- * authenticated as a *different* confidential client and asserts an inactive, metadata-free response,
- * on each supported database.
+ * authenticated as a *different* confidential client and asserts an inactive, metadata-free
+ * response.
  *
  * Source: [RFC 7662 §2.2 (Introspection Response)](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2).
  */

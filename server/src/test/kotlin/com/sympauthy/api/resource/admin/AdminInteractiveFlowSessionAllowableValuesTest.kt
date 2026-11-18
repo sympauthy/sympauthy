@@ -14,11 +14,6 @@ import org.junit.jupiter.api.Test
 
 /**
  * Holds the sets the admin interactive-flow resources publish to the enums they are published from.
- *
- * The values reach the document as `allowableValues`, which is a literal: nothing about adding a value to one
- * of these enums makes a compiler ask for the string. The generated client turns each set into a closed enum
- * of its own, so a value missing from one of these lists is a session a client cannot deserialize and a
- * filter that refuses a value this server answers with.
  */
 class AdminInteractiveFlowSessionAllowableValuesTest {
 
@@ -36,10 +31,6 @@ class AdminInteractiveFlowSessionAllowableValuesTest {
         }
     }
 
-    /**
-     * A gate and a follow-up only ever run inside a session another purpose started, so they are left out of
-     * these lists. The purposes named here are the ones a session manager creates a session for.
-     */
     @Test
     fun `Every initiating purpose is published where the initiating purpose is published`() {
         listOf(

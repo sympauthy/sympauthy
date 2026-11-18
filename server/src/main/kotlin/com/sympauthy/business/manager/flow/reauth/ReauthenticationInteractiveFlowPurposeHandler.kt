@@ -25,7 +25,7 @@ import jakarta.inject.Singleton
  * re-authentication record. This handler reads that record to decide whether the sign-in step is
  * still needed, and once the flow completes, to move the person's last authentication to the moment it holds.
  *
- * When the account is MFA-enrolled, a fresh [InteractiveFlowPurpose.MFA_CHALLENGE] is appended as a follow-up
+ * When the account is MFA-enrolled, a fresh [InteractiveFlowPurpose.MFA_CHALLENGE] is inserted as a follow-up
  * (like [com.sympauthy.business.manager.flow.auth.OAuth2AuthorizeInteractiveFlowPurposeHandler] does) so
  * re-authentication is at least as strong as the account's own login.
  */
@@ -47,7 +47,7 @@ class ReauthenticationInteractiveFlowPurposeHandler(
 
     /**
      * How far the gate has got: the moment the account's primary credential was proven, and nothing else. The
-     * second factor this gate appends is a purpose of its own and describes itself.
+     * second factor this gate inserts is a purpose of its own and describes itself.
      */
     override suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation> {
         val reauthentication = reauthenticationManager.fetchReauthenticationOrNull(session)
@@ -61,8 +61,8 @@ class ReauthenticationInteractiveFlowPurposeHandler(
 
     /**
      * Once the primary credential is proven, require a fresh TOTP challenge when the account is MFA-enrolled, by
-     * appending [InteractiveFlowPurpose.MFA_CHALLENGE]. Empty when MFA is disabled, the account is not enrolled,
-     * or an MFA purpose is already present.
+     * declaring [InteractiveFlowPurpose.MFA_CHALLENGE] as a follow-up. Empty when MFA is disabled, the account is
+     * not enrolled, or an MFA purpose is already present.
      */
     override suspend fun followUpPurposes(session: OnGoingInteractiveFlowSession): List<InteractiveFlowPurpose> {
         val hasMfaPurpose = session.purposes.any {

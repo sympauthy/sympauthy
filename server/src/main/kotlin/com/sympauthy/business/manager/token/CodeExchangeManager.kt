@@ -100,8 +100,8 @@ open class CodeExchangeManager(
      * [GrantType.REFRESH_TOKEN] grant type. A grant that is no longer live, as [GrantManager.checkLive] says,
      * issues nothing and leaves the code unspent.
      *
-     * Answers null where a client already exchanged the code, having issued nothing and revoked its grant —
-     * the earlier exchange's tokens, and every refresh descended from them — as RFC 6749 §4.1.2 recommends.
+     * Answers null where a client already exchanged the code, having issued nothing and revoked its grant,
+     * under the replay rule of `docs/design/oauth2-authorization.md`.
      *
      * The replay is answered rather than thrown so that the revocation commits with the transaction. The
      * code is marked before anything is issued, and in the transaction issuing it: an exchange racing this

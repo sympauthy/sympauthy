@@ -458,8 +458,7 @@ class CollectedClaimManagerTest {
         val update = mockk<CollectedClaimUpdate>()
         val collectedClaim = mockk<CollectedClaim>()
 
-        // The identifier claims are left unstubbed: a provisional write does not even read them, so the
-        // sign-up path pays nothing for a check its promotion is going to run.
+        // The identifier claims are left unstubbed: a provisional write does not even read them.
         coEvery { manager.writeUpdates(user, listOf(update)) } returns listOf(collectedClaim)
 
         val result = manager.applyUpdates(user, listOf(update))

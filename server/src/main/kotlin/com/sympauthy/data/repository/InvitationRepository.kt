@@ -6,12 +6,6 @@ import io.micronaut.data.repository.kotlin.CoroutineCrudRepository
 import java.time.LocalDateTime
 import java.util.*
 
-/**
- * Repository for [InvitationEntity].
- *
- * A status a statement below writes or compares is spelled as the business layer writes it into the column:
- * the name of an `InvitationStatus`.
- */
 interface InvitationRepository : CoroutineCrudRepository<InvitationEntity, UUID> {
 
     suspend fun findByTokenLookupHash(tokenLookupHash: ByteArray): InvitationEntity?

@@ -301,8 +301,8 @@ open class InteractiveAuthFlowSessionPasswordManager(
      * does not exist yet, so nothing is exempt and the caller is named as none.
      *
      * The values come from [CollectedClaimManager.getIdentifierFoldedValuesIn], the one place that says
-     * which updates carry an identifier value and how `collected_claims` folds it — the spelling the rows
-     * compare on and the key locks under.
+     * which updates carry an identifier value and how it is folded — the spelling the rows compare on and
+     * the key locks under.
      */
     internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
         val claimIds = claims.map { it.claim.id }

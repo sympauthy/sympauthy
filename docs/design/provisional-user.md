@@ -15,11 +15,11 @@ whatever it signed up.
 
 **A row a sign-up writes carries the id of the session writing it, and does not count until the
 session completes.** Every table an account is made of carries a nullable `session_id`, and
-`SessionScoped` is the interface each of them implements — its KDoc is the authority on what the
-column means and on which entities carry it. On success the column is cleared — one transaction,
-every table — and on abandonment the rows are collected with the session. It is a long-running
-transaction emulated with a tombstone and compensating cleanup, which is what one does when a real
-transaction cannot span the work.
+`SessionScoped` is the interface each of them implements, so its implementations are the tables that
+carry it. On success the column is cleared
+— one transaction, every table — and on abandonment the rows are collected with the session. It is
+a long-running transaction emulated with a tombstone and compensating cleanup, which is what one
+does when a real transaction cannot span the work.
 
 **A row is provisional exactly when its user is.** Every row an account owns takes its session id
 from the account rather than from the session the request happens to be serving, so a committed
@@ -91,6 +91,13 @@ I/O](../standards/locking-standard.md). What an effect has to ask elsewhere, it 
 transaction opens: the OAuth2 effect decides its scopes there, the client's authorization webhook
 included.
 
+**The promotion names the account's own key beside its identities, so the rest of the transaction
+writes under it.** A consent or a grant written after it is written under `LockKey.User`, and [a
+transaction makes one lock call](../standards/locking-standard.md#the-named-lock), so the promotion
+takes that key with the identity keys rather than leaving it to a second call that would be refused.
+An account holding no identity — no identifier claim configured, no provider linked — has nothing to
+race over and takes no key, and the rest of the transaction then takes the account's key itself.
+
 **Deciding needs nothing the promotion makes real; writing does.** The account keeps its id when it
 is promoted, and its claims are rows it owns, which a read by that id sees while it is still
 provisional — so the decision can be taken first. The consent and the consumed invitation attach to
@@ -119,9 +126,10 @@ the sweep does not lean on it.
 
 **A table that references `users` is classified when it is added.** Collecting an abandoned account
 means deleting it, and a foreign key that delete breaks would abort the whole sweep — again every
-quarter of an hour, indefinitely. Each such table is either owned by the account and deleted with
-it, or named in the guard that skips an account something still refers to. That guard is the query
-the collection selects by, and it is where the rule is written.
+quarter of an hour, indefinitely. Each such table is owned by the account and deleted with it, named
+in the guard that skips an account something still refers to, or one never written against a
+provisional account at all — a row recorded only once a flow has completed, which promoted whatever
+it signed up first. The query the collection selects by is where each table's answer is written.
 
 ## What this document does not settle
 

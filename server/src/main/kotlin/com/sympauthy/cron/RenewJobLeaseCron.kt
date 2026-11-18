@@ -11,9 +11,9 @@ import kotlinx.coroutines.launch
 /**
  * Says every minute that this instance is still alive, by pushing back the leases it holds.
  *
- * It is the only job here that takes no lease of its own, and it is the reason the others need no
- * duration: a lease stands for as long as this keeps running and is free to be taken shortly after it
- * stops. See [JobLeaseManager.renewLeases].
+ * It takes no lease of its own, and it is the reason the leased jobs need no duration: a lease stands for
+ * as long as this keeps running and is free to be taken shortly after it stops. See
+ * [JobLeaseManager.renewLeases].
  *
  * Nothing is logged of a run that succeeds. A run that renews nothing is what an instance running no job
  * looks like, which is most minutes of most days. A run that fails is reported as a leased job's is.

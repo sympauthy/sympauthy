@@ -67,8 +67,7 @@ open class CollectedClaimManager(
      * identified by [userId] — those restricted to that audience and those restricted to none.
      *
      * Note: this one is restricted by audience, which the reads above are not. It is what a caller acting
-     * for one audience reads where consent does not apply to the question it is asking, a rule deciding a
-     * grant being the case.
+     * for one audience reads where consent does not apply to the question it is asking.
      */
     suspend fun findByUserIdAndAudience(userId: UUID, audienceId: String): List<CollectedClaim> {
         return findByUserIdAndClaims(
@@ -116,9 +115,8 @@ open class CollectedClaimManager(
      * The accounts [userIds] name, with their identifier claims, keyed by identifier.
      *
      * Two queries whatever the number of identifiers. [UserManager.listByIds] answers **committed accounts
-     * only**, because an account a flow is still signing up is one this server has not finished creating and no
-     * reader but that flow may have it (see [com.sympauthy.data.model.SessionScoped]); such an identifier is
-     * absent from the result, as one naming no account is.
+     * only** (see [com.sympauthy.data.model.SessionScoped]), so an identifier naming an account a flow is still
+     * signing up is absent from the result, as one naming no account is.
      */
     suspend fun listUsersWithIdentifierClaims(userIds: List<UUID>): Map<UUID, UserWithIdentifierClaims> {
         if (userIds.isEmpty()) return emptyMap()
@@ -163,24 +161,17 @@ open class CollectedClaimManager(
      *
      * Throws a non-recoverable [BusinessException] `user.claims.identifier_taken` when one of the
      * [applicableUpdates] would give a **committed** [user] an identifier value another committed account
-     * already holds. **Uniqueness on an identifier value is enforced here and nowhere below**: an account
-     * signing in with any of the configured identifier claims means a value has to be unique across all of
-     * them rather than within one column, so no constraint expresses it and a write that goes around this
-     * method is a write nothing refuses. Two accounts left holding one value make
-     * [com.sympauthy.data.repository.findAnyClaimMatching] match twice, and every later sign-in with that
-     * value fails for both of them.
+     * already holds. No constraint expresses that uniqueness, so a write to a committed account that goes
+     * around this method is one nothing below refuses; the rule is `docs/design/identifier-claims.md`'s.
      *
      * **A write to a provisional account is checked by nothing here, deliberately.** Its identifier is not
-     * one yet: two sign-ups may hold one value at a time, and the collision is settled under the same key by
-     * [ProvisionalAccountManager.promote]. Checking here would answer a question that account is not yet
-     * asking, and — since the promotion and the sign-up both already lock and check — would only add a
-     * second `withLock` to transactions that already hold one. See [com.sympauthy.data.model.SessionScoped]
-     * and `docs/design/provisional-user.md`.
+     * one yet, and the collision is settled under the same key by [ProvisionalAccountManager.promote] — see
+     * `docs/design/provisional-user.md`. Checking here would answer a question that account is not yet
+     * asking, and would add a second `withLock` to transactions that already hold one.
      *
      * **The check is serialised by the values being written**, held over the check and the writes both, and
      * the competitor it has to exclude is whichever of the promotion and another write commits first. The
-     * keys name the value as `collected_claims` spells it, which is what both sides compare on. See
-     * [LockKey.IdentifierValue] and `docs/standards/locking-standard.md`.
+     * keys name the folded value, which is what both sides compare on. See [LockKey.IdentifierValue].
      *
      * The rows it deletes, updates and creates commit together, so a write refused halfway through leaves
      * the [user]'s claims as they were rather than some of them changed. The same commit is what releases

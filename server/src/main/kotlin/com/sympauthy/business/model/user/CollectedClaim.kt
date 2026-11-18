@@ -50,13 +50,12 @@ data class CollectedClaim(
  * named after one of those is left out rather than written over it. It is the caller's to supply because
  * only the caller knows what it has already said; there is no default, so a new place has to answer for it.
  *
- * A claim holding no value contributes nothing, and neither does its companion: `foo_verified: true`
- * beside no `foo` is this server asserting it verified something it did not send. A value this server has
- * no wire form for contributes nothing either, and nothing is logged where it does not:
- * [CollectedClaimMapper][com.sympauthy.business.mapper.CollectedClaimMapper] refuses a row that does not
- * read back as its claim's type rather than handing one over, so a row reaching here always encodes. A
- * line written where it did not would be one per claim per token, which buries a log rather than reporting
- * anything.
+ * A claim holding no value contributes nothing, and neither does its companion; see
+ * `docs/design/claims.md`. A value this server has no wire form for contributes nothing either, and
+ * nothing is logged where it does not: [CollectedClaimMapper][com.sympauthy.business.mapper.CollectedClaimMapper]
+ * refuses a row that does not read back as its claim's type rather than handing one over, so a row
+ * reaching here always encodes. A line written where it did not would be one per claim per token, which
+ * buries a log rather than reporting anything.
  */
 fun List<CollectedClaim>.publishedMembers(reserved: Set<String>): Map<String, Any> {
     val members = mutableMapOf<String, Any>()
@@ -112,9 +111,8 @@ private val CollectedClaim.encodedValue: Any?
  * that type after all.
  *
  * What decides the wire form is the type a deployment declared, exhaustively, and never the type the
- * value happens to be carrying. The second is an artifact of how the value round-tripped through the
- * object mapper, and reading the wire form off it is how `number` came to be absent from every id token
- * ever issued.
+ * value happens to be carrying, which is an artifact of how the value round-tripped through the object
+ * mapper. See `docs/design/claims.md`.
  *
  * The narrowing that remains is a belt-and-braces check rather than a decision: every type here is the
  * class [ClaimDataType.typeClass] names and

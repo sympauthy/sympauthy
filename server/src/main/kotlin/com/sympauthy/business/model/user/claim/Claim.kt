@@ -3,15 +3,8 @@ package com.sympauthy.business.model.user.claim
 import com.sympauthy.util.PublishedUnderAnotherName
 
 /**
- * A claim configured on this authorization server.
- *
- * A claim has two shapes: an [EnabledClaim] this server serves, and a [DisabledClaim] the deployment
- * turned off. A disabled one is listed by the administration API and nothing else: it is unknown to
- * every exchange, so it can neither be collected, written, read, nor published anywhere.
- *
- * Claims can originate from the OpenID Connect specification ([ClaimOrigin.OPENID_CONNECT]) or be
- * custom claims defined by the operator ([ClaimOrigin.CUSTOM]). Access control is determined by the
- * [acl] and the [kind] rather than the claim origin.
+ * A claim configured on this authorization server: an [EnabledClaim] this server serves, or a
+ * [DisabledClaim] the deployment turned off. See `docs/design/claims.md`.
  *
  * Equality is based solely on the [id], so that claims can be compared and stored in sets regardless
  * of their type.
@@ -68,8 +61,7 @@ sealed class Claim(
      * Whose this claim's value is, or null where it is nobody's to write because this server computes
      * it — which is a [GeneratedClaim] and only one.
      *
-     * The [acl] is held to it at startup rather than at request time: a personal claim restricted to
-     * no audience grants no client write, and an application claim grants neither of the person's.
+     * The [acl] is held to it at startup rather than at request time; see `docs/design/claims.md`.
      */
     abstract val kind: ClaimKind?
 
@@ -91,11 +83,8 @@ sealed class Claim(
 
     /**
      * Return true if this claim is one the audience identified by [audienceId] has: either it is restricted to
-     * no audience, or it is restricted to that one.
-     *
-     * This is the whole of the [audienceId] restriction, and it is asked apart from the ACL rather than inside
-     * it: what an audience has is a different question from what a caller may read, and a claim may have to be
-     * tested for the first where no scope applies — the set of required claims a flow computes is one.
+     * no audience, or it is restricted to that one. This is the whole of the [audienceId] restriction, and
+     * it is asked apart from the ACL.
      */
     fun belongsToAudience(audienceId: String): Boolean =
         this.audienceId == null || this.audienceId == audienceId
@@ -123,11 +112,8 @@ sealed class Claim(
 }
 
 /**
- * A claim this authorization server serves.
- *
- * Everything a claim can take part in — a collection in the flow, a write through an API, a read, a
- * token — takes one of these rather than a [Claim], which is what keeps a claim the deployment turned
- * off out of an exchange without anything having to test for it.
+ * A claim this authorization server serves, and the only shape of one that a collection in the flow, a
+ * write through an API, a read or a token takes.
  *
  * The three subclasses are the three answers to whose its value is:
  * - [PersonalClaim]: the person's ([ClaimKind.PERSONAL]).
@@ -144,20 +130,14 @@ sealed class EnabledClaim(
     maxSize: Int?,
     audienceId: String?,
     /**
-     * The places this claim is published in.
-     *
-     * Publication is not permission: these narrow what [acl] already allows, and a claim naming no place
-     * is still read through the client, admin and user APIs, which the ACL alone gates.
+     * The places this claim is published in. They narrow what [acl] already allows and never grant;
+     * see `docs/design/claims.md`.
      */
     val publishedIn: Set<ClaimPublicationPlace>,
     /**
      * The places this claim is published in only when a client asks for it by name, through the `claims`
-     * request parameter of OpenID Connect Core §5.5.
-     *
-     * It is the deployment opening a door rather than the client forcing one: a channel named here carries
-     * the value for the requests that ask and for no others, and a request naming a claim no channel was
-     * opened for adds nothing. A channel named here and in [publishedIn] is refused at startup — always
-     * and on-request are two answers for one channel.
+     * request parameter of OpenID Connect Core §5.5. Never names a channel [publishedIn] names, which is
+     * refused at startup; see `docs/design/claims.md`.
      */
     val publishedInWhenRequested: Set<ClaimPublicationPlace>,
     acl: ClaimAcl
@@ -180,9 +160,7 @@ sealed class EnabledClaim(
      * opened that channel to a request and this request named the claim.
      *
      * This narrows and never grants, exactly as the one-argument [isPublishedIn] does, so a caller asks it
-     * beside the permission test rather than instead of one. The request is the last of the questions and
-     * the least of them: it cannot reach a claim the ACL refuses, one of another audience, or a channel
-     * [publishedInWhenRequested] does not name — see [RequestedClaims].
+     * beside the permission test rather than instead of one.
      */
     fun isPublishedIn(place: ClaimPublicationPlace, requestedClaims: RequestedClaims): Boolean =
         isPublishedIn(place) || (isPublishedInWhenRequested(place) && id in requestedClaims.namesIn(place))
@@ -220,7 +198,7 @@ class PersonalClaim(
  * A claim whose value is an application's, attached to the person: a credit score, a tier, a flag a
  * backend computes.
  *
- * Read and written through the client scopes its ACL names, and never typed by the person.
+ * Never the person's to write, through either door; see `docs/design/claims.md`.
  */
 class ApplicationClaim(
     id: String,
@@ -244,9 +222,8 @@ class ApplicationClaim(
 /**
  * A claim whose value this authorization server computes (e.g. `sub`, `updated_at`).
  *
- * It is of neither kind, required of nobody, restricted to no audience and opened to no request, and
- * none of that is a deployment's to decide: no key of `claims.<id>` is accepted for one, and it is never
- * turned off.
+ * It is of neither kind, required of nobody, restricted to no audience, opened to no request and never
+ * turned off. See `docs/design/claims.md`.
  */
 class GeneratedClaim(
     id: String,
@@ -272,13 +249,8 @@ class GeneratedClaim(
 }
 
 /**
- * A claim the deployment turned off, which this server lists and never serves.
- *
- * It carries no reason for being off: there is exactly one, that the deployment wrote `enabled: false`
- * against it, or left a claim the specification defines at the `enabled: false` it ships with.
- *
- * It is published nowhere either, whatever its file names: every place a claim is published in carries
- * or advertises a value, and a disabled claim has none to give.
+ * A claim the deployment turned off, which this server lists and never serves. It is published nowhere,
+ * whatever its file names. See `docs/design/claims.md`.
  *
  * Its [kind] is never null, because a [GeneratedClaim] is never turned off.
  */

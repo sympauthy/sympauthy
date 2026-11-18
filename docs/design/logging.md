@@ -34,8 +34,10 @@ is where somebody arriving later reads the state.
 | INFO | the server's lifecycle: startup, a recovery, a backlog replayed |
 | DEBUG | the decisions an operator turns on to investigate |
 
-**What a caller caused is not logged at all.** A wrong password, a refused grant, a stale `state`:
-the response says it, and a line for each would let anybody fill the log on demand.
+**What a caller caused is not logged.** A wrong password, a refused grant, a stale `state`: the
+response says it, and a line for each would let anybody fill the log on demand. A decision any
+caller can provoke is written at most at [the level the logging standard
+sets](../standards/logging-standard.md#levels) for one.
 
 ## When the server is not fully operational
 
@@ -45,7 +47,8 @@ provider, a client's authorization webhook — the console's own queue, whose dr
 server failing to say what it was asked to, and the collector its telemetry is exported to, whose
 refusing an export is the same failure on the other channel. So is the host of an image a
 deployment configured, though no request waits on it, because a sign-in page showing the wrong brand
-is the server not fully working. The declaration of the conditions is the authority on which exist; what the collector's condition counts is
+is the server not fully working. The declaration of the conditions is the authority on which exist;
+what the collector's condition counts is
 [telemetry](telemetry.md#when-the-collector-does-not-answer)'s.
 
 **The first failure degrades a condition, and writes the ERROR.** A failure while it is degraded
@@ -63,7 +66,8 @@ one per period.
 `5xx`, a database connection that cannot be obtained or is lost. A `4xx` caused by what was sent — a
 provider refusing a code somebody replayed — says nothing about the provider, and counting it would
 let anybody degrade the server with bad input. It is an answer all the same, and starts a degraded
-condition's quiet period as a success does.
+condition's quiet period as a success does. An image host's `408` and `429` are the exception
+[branding](branding.md#an-image-host-being-down-does-not-take-sign-ins-down) argues.
 
 **A `4xx` from a client's authorization webhook counts.** The request is composed by this server
 alone, from what it has already validated, so a refusal says the webhook or the secret it shares is
@@ -75,9 +79,11 @@ everybody, at most once per quiet period.
 condition once it answers. A failed resolution at startup is otherwise a line nothing ever follows
 up.
 
-**The configuration is the one ERROR that is not a condition.** It is read once and never recovers
-while the server runs, and an invalid one already takes readiness down — a stronger answer than
-degraded, and the right one, because a restart with a corrected file is what fixes it.
+**The configuration is not a condition, and neither is an answer this server cannot use.** The
+configuration is read once and never recovers while the server runs, and an invalid one already
+takes readiness down — a stronger answer than degraded, and the right one, because a restart with a
+corrected file is what fixes it. A provider or an image host that answered with something unusable
+is the same case: [one ERROR, and a restart](#what-implements-it).
 
 ### What `/health` publishes
 
@@ -173,17 +179,21 @@ exception. A call the managers make outside the process reaches its condition th
 says; `ConditionMonitor` holds the conditions alone.
 
 **A failure caught on its way to a WARN is handed to the monitor first.** It recognises the database
-failing in whatever surfaced it — a `500`, a security context that could not be recorded — reports it
-to the database's condition, and the WARN is not written. That is also how a connection lost
-mid-query is reported, since obtaining the connection had succeeded.
+failing in whatever surfaced it — a `500`, a security context that could not be recorded — reports
+it to the database's condition unless that is already degraded, and the WARN is not written. A
+condition already degraded is not reported to again, since whatever degraded it may have counted
+that very failure on its way up. That is also how a connection lost mid-query is reported, since
+obtaining the connection had succeeded.
 
 **A provider whose discovery could not be fetched is tried again every quiet period** until it
 resolves. Its condition counts every attempt that fails, and the provider is served from the attempt
 that does not. A provider that answers with something it cannot be resolved from is a configuration
-error rather than an outage: one ERROR, and it stays disabled until a restart.
+error rather than an outage: it answered, so its condition recovers, and it writes one ERROR and
+stays disabled until a restart.
 
 **An image whose host does not answer follows the same rules**: tried every quiet period until it
-resolves, and one ERROR where its host answers with something other than an image.
+resolves, and where its host answers with something other than an image, the condition recovers and
+the image stays unresolved until a restart, with one ERROR.
 [Branding](branding.md#an-image-host-being-down-does-not-take-sign-ins-down) says what is answered
 until then.
 

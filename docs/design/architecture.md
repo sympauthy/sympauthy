@@ -26,8 +26,9 @@ all of them. A request flows down through the three and back:
 
 - **`api`** — the HTTP boundary. `controller/` holds Micronaut controllers with `suspend` handlers,
   split by surface; `resource/` holds the DTOs that are each surface's public contract; `mapper/`
-  turns a business model into one; `filter/` and `errorhandler/` handle CORS and the translation of
-  a failure into a status and a body. What a class here looks like is [the `api` layer
+  turns a business model into one; `filter/` holds the CORS filters and the one reading where a
+  request came from, and `errorhandler/` the translation of a failure into a status and a body.
+  What a class here looks like is [the `api` layer
   standard](../standards/api-layer-code-standard.md); what it serializes to is [the API
   standard](../standards/api-standard.md).
 - **`business`** — the logic. `manager/` holds the use cases, `model/` the domain types managers
@@ -71,9 +72,10 @@ claim's ACL deciding what it reads and writes. [Security](security.md) is where 
 
 **The prefix is a security boundary, not only a routing convention.** It is what the gate of every
 route a controller declares is held to: such a route gated on anything its prefix does not admit
-fails the build, unless `SurfaceGateTest` lists it as a departure. A management endpoint such as
-`/health` is no controller's, and is gated by its own entry under `endpoints` instead. What each
-gate does and does not protect against is [security](security.md).
+fails the build, unless `SurfaceGateTest` lists it as a departure. So does a route on no surface
+that the test does not list with its gate, and a listing no controller declares any more. A
+management endpoint such as `/health` is no controller's, and is gated by its own entry under
+`endpoints` instead. What each gate does and does not protect against is [security](security.md).
 
 ### When a surface carries a version
 
@@ -149,9 +151,10 @@ depend.
 
 ## One schema, more than one database
 
-Every repository interface has an empty implementation per dialect, selected by a condition on the
-configured datasource; every migration exists once per dialect folder, under the same name.
-PostgreSQL is what a deployment runs; H2 is what a developer runs with nothing to install.
+Every repository interface has an empty implementation per dialect, and every migration a file in
+each dialect's folder. A condition on the configured datasource selects the implementation, and
+Flyway is given only the folder named for that datasource's driver. PostgreSQL is what a deployment
+runs; H2 is what a developer runs with nothing to install.
 
 The cost is real — a schema change is a file per dialect, and a raw query has to be expressible in
 each of them — and it is paid deliberately, so that trying SympAuthy out needs no database at all.
@@ -171,7 +174,7 @@ sympauthy/
 │   │   │   ├── controller/     admin/ client/ flow/ oauth2/ openid/ openapi/ user/
 │   │   │   ├── resource/       the DTOs, one package per surface
 │   │   │   ├── mapper/         business model → resource
-│   │   │   ├── filter/         CORS, one filter per surface
+│   │   │   ├── filter/         CORS, and where a request came from
 │   │   │   ├── errorhandler/   exception → status and localized body
 │   │   │   └── exception/      the HTTP and OAuth2 exceptions
 │   │   ├── business/

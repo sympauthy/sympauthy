@@ -10,13 +10,13 @@ import jakarta.inject.Singleton
 /**
  * The keys a deployment wrote, as its files spell them.
  *
- * A rule about a key rather than about a value reads them from here. What a properties class binds
- * cannot answer for one: a key written with no value under it binds to null, which is
- * indistinguishable from a key nobody wrote, and a key the operator hyphenated binds to the same
- * field as the one they spelt with an underscore.
+ * A rule about a key rather than about a value reads them from here
+ * (`docs/standards/config-layer-code-standard.md`), since a properties class binds a key written
+ * with no value under it to null, and a key the operator hyphenated to the same field as the one
+ * they spelt with an underscore.
  *
- * The environment's own two sources are left out. `System.env` and `System.properties` share a
- * namespace with the whole machine, and the surface this server describes is a YAML file.
+ * The environment's own two sources, `System.env` and `System.properties`, are left out, as that
+ * standard leaves a key set outside the file uncovered.
  */
 @Singleton
 class WrittenConfigurationKeys(

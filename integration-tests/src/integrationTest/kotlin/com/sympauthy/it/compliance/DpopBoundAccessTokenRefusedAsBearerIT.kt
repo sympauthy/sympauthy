@@ -20,7 +20,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * This signs a person up, exchanges the code beside a DPoP proof for a token bound to that proof's key,
  * then calls UserInfo with it twice: as `Authorization: DPoP` with a fresh proof, which is served, and
- * as `Authorization: Bearer` with none, which is refused — on each supported database.
+ * as `Authorization: Bearer` with none, which is refused.
  *
  * Source: [RFC 9449 §7.1 and §7.2](https://datatracker.ietf.org/doc/html/rfc9449#section-7), and
  * [sympauthy#529](https://github.com/sympauthy/sympauthy/issues/529).

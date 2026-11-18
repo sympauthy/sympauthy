@@ -53,6 +53,26 @@ that caused it and the discussion that settled it.
 works](../design/index.md) or [how the code is written](index.md) — with a one-line summary of what
 it covers.
 
+## Each fact and each rule is written once
+
+**A fact about how the server works is written once, in the design document of the part it
+belongs to.** Another design document or a standard that needs it links that section, and states
+none of it.
+
+**A rule a change is held to is written once, in the standard that owns its subject.** A design
+document or another standard that needs it links that standard, and states none of it.
+
+**A fact belongs to the part whose code decides it.** Where two parts meet, the document a reader
+would open to change the behaviour holds it, and the other links there.
+
+**A link names the subject, and its home states the value.** Write *the [audience an exchanged
+token carries](…)*, never *the acting client's own audience*, so the sentence stays true when the
+home changes.
+
+**A second copy is cut to a link in the commit that finds it.** Where the two disagree, settle
+which one is true before cutting either: a home the code has outgrown is rewritten, and code that
+breaks its home is a bug.
+
 ## Shape of a document
 
 **What a document deliberately leaves open is written down in a closing section.** Name the subject
@@ -81,6 +101,12 @@ one, the frontmatter that loads it, and what a standard states in place of code.
 **What a design document answers.** [The design documentation
 standard](docs-design-standard.md) holds it, along with what one argues and what it leaves to the
 code and to the FAQ.
+
+**What a comment repeats.** [The comment standard](comment-standard.md) holds it: a comment
+carries what these documents cannot, and points at the one that does.
+
+**The design FAQ's decision line.** An entry states what was decided, and nothing here says
+whether that line stays or becomes a link to the design document holding the decision now.
 
 **The indexes.** [The one at the top of `docs/`](../index.md) names the two halves and states the
 project's goals, and each half's own lists what is in it; nothing here shapes them beyond the

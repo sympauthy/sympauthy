@@ -11,12 +11,13 @@ user](provisional-user.md).
 
 ## What a request becomes
 
-**Every authorization request becomes a session, a refused one too.** The client, the redirect URI,
-the scopes, the PKCE challenge, `max_age`, the `claims` parameter and an invitation are each
-validated, and the first refusal is recorded on a session created already failed. The person is
-sent to the error page, which reads the refusal off that session like any other failure, and an
-operator finds it among the sessions with the rest. The OAuth2 record is written for it too, holding
-whatever was known, so the session carries the error that explains it.
+**Every authorization request becomes a session, a refused one too.** The client and whether it may
+use the authorization code grant, the flow it is configured with, a request object, the scopes, the
+redirect URI, the PKCE challenge, an invitation, `max_age` and the `claims` parameter are each
+checked, and the first refusal in that order is recorded on a session created already failed. The
+person is sent to the error page, which reads the refusal off that session like any other failure,
+and an operator finds it among the sessions with the rest. The OAuth2 record is written for it too,
+holding whatever was known, so the session carries the error that explains it.
 
 **A request object is refused, never read.** OpenID Connect Core §6 lets a client move any parameter
 of its request into a JWT, sent in `request` or behind `request_uri`, and requires a server that
@@ -39,9 +40,9 @@ the audience requires is asked for it; a claim that must be validated is validat
 `nextStepOrNull` is the authority on which steps there are and in what order.
 
 **A second factor follows them, where the deployment enables one**, as a purpose the authorization
-appends after itself: a challenge for an account already enrolled, an enrolment for one that signed
-up in this session or that the deployment requires to have one. It is the last thing the person
-passes, so no code exists for an authorization whose second factor has not.
+inserts right after itself: a challenge for an account already enrolled, an enrolment for one that
+signed up in this session or that the deployment requires to have one. It is the last thing the
+person passes, so no code exists for an authorization whose second factor has not.
 
 ## How the session ends
 
@@ -51,10 +52,11 @@ first, before [the completion transaction](interactive-flow.md#the-engine) opens
 pipeline asks the client's authorization webhook where one is configured and that transaction holds
 the promotion's locks. Inside it, the effect records the granted scopes and the consent for the
 client's audience, consumes the invitation where one brought the person here, opens the grant every
-token of the authorization will be issued under, and generates the authorization code last, naming
-that grant — so a session never completes without a code, and a code never outlives a completion
-that failed. Where no scope was granted and the deployment does not allow access to a client
-without one, the session fails before that transaction opens instead.
+token of the authorization will be issued under, and generates the authorization code naming that
+grant — so a session never completes without a code, and a code never outlives a completion that
+failed. It then moves the person's [last authentication](security.md#when-a-person-was-last-active)
+to the moment their credential was proven. Where no scope was granted and the deployment does not
+allow access to a client without one, the session fails before that transaction opens instead.
 
 **The code is handed out once.** It goes to the client's redirect, answered to the request that
 completed the session. A later request with the same state to a step that answers with where the
@@ -117,9 +119,10 @@ collected or not.
 ### How long a code is exchangeable
 
 **A code is exchangeable for a lifetime of its own, counted from when it was issued.**
-`auth.authorization-code.expiration` says how long, a minute unless a deployment says otherwise. A
-client exchanges a code as soon as the person is redirected back to it, so a minute covers a slow
-network and a retry, and leaves a code that leaked little time to be used. How fast the person got
+`auth.authorization-code.expiration` says how long, a minute unless a deployment says otherwise,
+where RFC 6749 §4.1.2 allows up to ten. A client exchanges a code as soon as the person is
+redirected back to it, so a minute covers a slow network and a retry, and leaves a code that leaked
+little time to be used. How fast the person got
 through the flow has no bearing on it: a code ending with its session would stay exchangeable for
 nearly the whole flow's time when they were quick, and for a moment when they were slow. [The design
 FAQ](design-faq.md#how-long-is-an-authorization-code-exchangeable) holds the lifetimes that lost.
@@ -148,10 +151,11 @@ out of the client that exchanged it. [The design
 FAQ](design-faq.md#does-any-presentation-of-a-spent-authorization-code-revoke-what-it-was-exchanged-for)
 argues the alternative.
 
-**A spent code is kept until its own lifetime ends, not deleted when it is exchanged.** A replay is
-recognised by the code it presents: a row deleted on exchange would make the second exchange read as
-a code nobody issued, refused like any unknown one and revoking nothing. Kept that long, a replay is
-recognised for as long as the code could have been exchanged at all.
+**A spent code is kept at least until its own lifetime ends, not deleted when it is exchanged.** A
+replay is recognised by the code it presents: a row deleted on exchange would make the second
+exchange read as a code nobody issued, refused like any unknown one and revoking nothing. Kept that
+long, a replay is recognised for as long as the code could have been exchanged at all; [the
+grants](grants.md#what-is-collected) hold what collects it afterwards.
 
 **A code presented after its lifetime is refused as expired, and revokes nothing**, exchanged or
 not. The revocation answers a code that reached somebody who exchanged it before the client did, and
@@ -162,7 +166,7 @@ retention that lost.
 ## What implements it
 
 **`OAuth2AuthorizeInteractiveFlowPurposeHandler` is the purpose**: the steps, the second factor it
-appends, the terminal effect, and that it hands off once — the member [the
+adds, the terminal effect, and that it hands off once — the member [the
 engine](interactive-flow.md#the-engine) asks of an initiating purpose.
 `InteractiveAuthFlowSessionManager.startAuthorizationWith` is where a request is validated and its
 session created, and `InteractiveFlowSessionOAuth2Manager` reads and writes the record.

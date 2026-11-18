@@ -13,16 +13,12 @@ import kotlinx.coroutines.launch
 
 /**
  * Collects the accounts an abandoned sign-up left half-created, on a schedule of its own rather than as a
- * step of [CleanExpiredInteractiveFlowSessionCron].
- *
- * The sweep keys on the session being gone rather than on the sessions one run expired, so it needs nothing
- * from the run that removed them and the two are free to overlap: a session expired in the same tick as this
- * one is collected on a later one, which is the lag that design was chosen to tolerate. See
+ * step of [CleanExpiredInteractiveFlowSessionCron], as `docs/design/provisional-user.md` argues: an account
+ * whose session expired in the same tick as this one is collected on a later run. See
  * [ProvisionalAccountManager.deleteAbandoned].
  *
- * The lease is what keeps a deployment of several instances from doing that work several times over. It is
- * not what keeps it correct: the sweep is written to be run twice, and [JobLeaseManager] says why it has to
- * be.
+ * The lease keeps a deployment of several instances from doing that work several times over; the sweep stays
+ * correct when it runs twice, as `docs/standards/locking-standard.md` requires of a leased job.
  */
 @Singleton
 class CleanAbandonedAccountCron(

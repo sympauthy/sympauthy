@@ -13,9 +13,8 @@ import java.util.*
  * Exports this process as an instance of its own, under a `service.instance.id` it draws when it starts, as
  * `docs/design/telemetry.md` says.
  *
- * Without it, every instance of a deployment exports one identical resource, and the collector merges their
- * series: a gauge reads as whichever instance exported last, and the running totals of two instances interleave
- * into one that appears to reset.
+ * Under one identical resource, the running totals of two instances would interleave into one that appears to
+ * reset.
  */
 @Singleton
 @Requires(property = TELEMETRY_ENABLED, notEquals = "false")

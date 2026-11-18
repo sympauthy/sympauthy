@@ -9,10 +9,6 @@ import com.ezylang.evalex.parser.ParseException
 /**
  * A rule expression that will not evaluate to a boolean, either because it does not parse or because
  * it returns something else.
- *
- * It carries two error codes because the same failure is reported to two audiences at two moments: to
- * an operator when their configuration is read, and as an internal failure when an expression that
- * passed that reading somehow fails later.
  */
 class InvalidRuleExpressionException(
     val expressionString: String,
@@ -47,9 +43,7 @@ class InvalidRuleExpressionException(
 /**
  * A configuration carrying none of the custom functions.
  *
- * Built again on every call, and it has to be: EvalEx registers a function by mutating the
- * configuration it is asked to add it to and handing that same instance back, so one kept between
- * calls would let each request rebind the functions every other request is evaluating against.
+ * Built again on every call, for the reason `docs/standards/expression-standard.md` gives.
  */
 internal fun defaultExpressionConfiguration(): ExpressionConfiguration =
     ExpressionConfiguration.defaultConfiguration()

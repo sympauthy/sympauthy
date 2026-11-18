@@ -88,9 +88,9 @@ as visible as the account the caller resolved through a reader that did filter. 
 is therefore never exempt, and neither is a read keyed by the row's own identifier.
 
 **A method writing a row that outlives the session, against a user, calls
-`UserManager.checkPromoted` first.** A token, a consent, a consumed invitation and a second factor
-all attach to an account, so each refuses one an interactive flow session is still signing up. The
-session's own rows are not this: they are gone when it is.
+`UserManager.checkPromoted` first.** A token, a consent, a consumed invitation, a provider link and
+a second factor all attach to an account, so each refuses one an interactive flow session is still
+signing up. The session's own rows are not this: they are gone when it is.
 
 **It is a defence, not an assertion.** The caller naming that account may be doing it on purpose —
 an account still being signed up is one whose owner decides what it becomes, so a credential hung on
@@ -184,7 +184,7 @@ under the lock the write holds.
 | --- | --- |
 | a flow step, once the session is bound | the refusal stays a business failure, so the flow decides between the step and the error page |
 | a protocol endpoint | the specification names the answer to a value that does not resolve |
-| a sign-in by identifier and password | an unknown identifier and a wrong password are one answer |
+| a sign-in by identifier and password | an unknown identifier, a disabled account and a wrong password are one answer |
 
 **A cycle between two managers is broken with field injection, and it is a smell.** The two usually
 share a concept that wants to be a third manager.

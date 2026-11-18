@@ -16,13 +16,8 @@ import org.reactivestreams.Publisher
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * CORS filter scoped to the flow API (`/api/v1/flow/`).
- *
- * ## Problem
- * Browsers enforce the Same-Origin Policy: a web page at `http://localhost:5173` cannot make API
- * calls to `http://localhost:8080` unless the server explicitly permits it via CORS headers.
- * The global Micronaut CORS filter is disabled (`micronaut.server.cors.enabled: false`) to avoid
- * allowing all origins by default. This filter replaces it with a restricted, flow-aware policy.
+ * CORS filter scoped to the flow API (`/api/v1/flow/`), allowing the origins of the pages a deployment
+ * configured.
  *
  * ## Allowed origins
  * At first use the filter collects the origin (`scheme://host:port`) from every URI declared across
@@ -42,10 +37,6 @@ import kotlin.jvm.optionals.getOrNull
  * - **Regular request, allowed origin** — proceeds through the chain normally, then
  *   `Access-Control-Allow-Origin` and `Vary: Origin` are appended to the response.
  * - **Regular request, unknown origin** — passed through unchanged; no CORS headers are added.
- *
- * ## Filter order
- * Runs at [ServerFilterPhase.FIRST].before(), i.e. before Micronaut Security, so that OPTIONS preflights
- * are handled before the security filter can reject unauthenticated requests.
  */
 @Filter("$FLOW_SURFACE/**")
 class FlowCorsFilter(

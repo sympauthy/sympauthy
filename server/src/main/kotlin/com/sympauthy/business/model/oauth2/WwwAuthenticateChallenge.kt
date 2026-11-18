@@ -30,8 +30,7 @@ sealed class WwwAuthenticateChallenge {
      * `insufficient_scope` naming them in its `scope`.
      *
      * A refusal that knows which scopes the token lacks challenges only the ones a client obtains by
-     * re-authorizing, which the person consents to. A scope only a rule grants is refused by name instead,
-     * since no authorization the client asks for can bring it.
+     * re-authorizing; see `docs/design/security.md`.
      */
     data class InsufficientScope(
         /**

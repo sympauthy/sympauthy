@@ -44,9 +44,8 @@ class UserScopeGrantingManager(
      *
      * Some methods may require access to the claims collected by the authorization flow during the authorization
      * process, it should be provided in the [audienceClaims] parameter. They are the claims of the audience
-     * [oauth2] is an authorization for, and the caller reads them that way: a method deciding on a claim
-     * restricted to another audience would publish it, a granted scope being the decision leaving the server
-     * and the authorization webhook posting the value itself.
+     * [oauth2] is an authorization for, read for that audience alone, as `docs/design/claims.md` has every
+     * configured rule see them.
      *
      * [oauth2] is the record the caller already fetched, so this loads nothing it was handed.
      */

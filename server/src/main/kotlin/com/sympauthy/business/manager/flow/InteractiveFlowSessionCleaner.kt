@@ -24,14 +24,11 @@ import kotlinx.coroutines.coroutineScope
  * dependencies.
  *
  * The authorization code a session completed with is not one of them: it outlives the session, and
- * [com.sympauthy.business.manager.auth.GrantCleaner] collects it once its own lifetime has ended.
+ * [com.sympauthy.business.manager.auth.GrantCleaner] collects it.
  *
- * Deleting a session is what marks an account it was signing up abandoned, but collecting that account is
- * not a step of this. [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned] keys
- * on the session being gone rather than on the sessions any one run expired, so it is a cleaner of its own
- * on a cron of its own — which is what has it read an absence this transaction has committed rather than one
- * only this transaction can see. Keeping the two apart is also what stops this transaction holding a
- * session's lock while it waits for an account's: a flow's completion takes the two in the opposite order.
+ * Neither is the account an expired session was signing up: deleting the session is what marks it
+ * abandoned, and [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned] collects it
+ * on a cron of its own, for the reasons `docs/design/provisional-user.md` gives.
  */
 @Singleton
 open class InteractiveFlowSessionCleaner(

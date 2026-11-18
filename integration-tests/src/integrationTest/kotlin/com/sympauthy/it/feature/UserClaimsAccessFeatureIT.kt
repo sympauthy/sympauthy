@@ -89,8 +89,7 @@ class UserClaimsAccessFeatureIT : AbstractSympauthyIT() {
 
     /**
      * Calls `PATCH /api/v1/user/claims` with [claim] expecting a rejection, and captures the HTTP status, the
-     * `WWW-Authenticate` header and the error body **inside** the client's context, whose response buffer is
-     * released once it closes.
+     * `WWW-Authenticate` header and the error body.
      */
     private fun writeRejection(
         sympauthy: SympauthyContainer,

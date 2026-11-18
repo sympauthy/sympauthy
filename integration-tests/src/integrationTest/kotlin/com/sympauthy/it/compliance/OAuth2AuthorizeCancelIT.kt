@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * This starts a real authorization request, captures the signed internal state from the `303` to the
  * sign-in page, follows the `cancel_url` the sign-in step offers, and asserts it redirects to the client
  * `redirect_uri` carrying `error=access_denied` with the client `state` echoed, **no `code`**, and none of
- * the parameters a return destination of this server's own receives, on each supported database.
+ * the parameters a return destination of this server's own receives.
  *
  * Source: [RFC 6749 §4.1.2.1 (Authorization Code Grant — Error Response)](
  * https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1).

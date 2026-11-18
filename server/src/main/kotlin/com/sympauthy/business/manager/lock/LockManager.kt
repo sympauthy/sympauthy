@@ -12,9 +12,7 @@ import kotlinx.coroutines.CancellationException
 /**
  * Takes the lock two transactions have to agree on before either of them may act on what it names.
  *
- * It is the mechanism for a rule no constraint can express: one spanning several tables, or one over a
- * value whose competitor has no row yet. Where a single column can hold the value uniquely, a unique
- * index says it better and this manager is the wrong tool.
+ * It is the mechanism `docs/standards/locking-standard.md` reserves for a rule no constraint can express.
  *
  * A lock is a row of `object_locks` held for the length of a transaction. Nothing releases it by hand
  * and nothing can forget to: the commit or the rollback does it.

@@ -28,8 +28,8 @@ fun mergeUri(base: URI, uri: URI): URI {
 
 /**
  * Whether the host of this URI is reserved for a machine or a local network, so that nothing on the internet can
- * reach it: a name of a single label, as `localhost` is, a name reserved for a local network, or a loopback, private,
- * shared or link-local address. A URI without a host is local too.
+ * reach it: a name of a single label, as `localhost` is, a name reserved for a local network, or a loopback,
+ * unspecified, private, shared or link-local address, IPv4 or IPv6. A URI without a host is local too.
  *
  * The host is judged as it is written and never resolved: a name may well resolve to a private address inside its own
  * network and to a public one outside it.

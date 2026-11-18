@@ -198,9 +198,9 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             )
         }
 
-        // Those errors are marked unrecoverable because a proper provider should never end up in this case.
-        // Therefore, the user retrying the request should not change the result.
-        // We redirect the user to the error page so it can continue back to the application to retry.
+        // A callback carrying neither an error nor a code is refused as what the browser brought back rather
+        // than as the provider's failure. Retrying it changes nothing, so it is non-recoverable and the person is
+        // sent to the error page, to start again from the application.
         if (authorizeCode.isNullOrBlank()) {
             throw businessExceptionOf("flow.web_oauth2_provider.missing_code")
         }
@@ -434,19 +434,15 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * subject check remains the primary defense.
      *
      * **Whatever subset the provider does assert is the subset checked**, rather than all of them or
-     * nothing. Each value stands on its own under the rule
-     * ([UserManager.findTakenIdentifierOrNull]): a committed account holding one of them already
-     * owns the identity this provider is asserting, whichever of the others it is silent about. Demanding
-     * every configured claim would leave the check dead in the ordinary deployment — `[email,
-     * phone_number]` against a provider that carries an address and no number.
+     * nothing, for the reason `docs/design/identifier-claims.md` gives.
      *
      * The values the check compares and the keys locking them come out of this one read, and null answers
      * for both: a key over a check that does not run excludes a promotion for nothing, and a check with no
-     * key over it is the one this answer exists to keep out. An asserted value is spelled by
-     * [CollectedClaimManager.getFoldedValueOf], which cleans it under the claim asserting it first,
-     * the check compares on the spelling a collected value was stored in — an address a provider
-     * capitalises is otherwise a conflict nothing sees. A value that claim could hold no such value of
-     * drops out with it: neither half of the pair can be formed, and no row it would have matched exists.
+     * key over it is the one this answer exists to keep out. An asserted value is folded by
+     * [CollectedClaimManager.getFoldedValueOf], which cleans it under the claim asserting it first, so the
+     * check compares it the way a collected value is compared — an address a provider capitalises is
+     * otherwise a conflict nothing sees. A value that claim could hold no such value of drops out with it:
+     * neither half of the pair can be formed, and no row it would have matched exists.
      */
     private fun getAssertedIdentifiersOrNull(rawUserInfo: RawProviderClaims): AssertedIdentifiers? {
         val valuesByClaimId = claimManager.listIdentifierClaims().mapNotNull { claim ->
@@ -462,8 +458,8 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
     }
 
     /**
-     * The identifier claim values a provider asserts, as `collected_claims` spells them — the one spelling
-     * the link needs them in: [UserManager.findTakenIdentifierOrNull] compares committed rows on it,
+     * The identifier claim values a provider asserts, folded as a collected value is compared — the one
+     * spelling the link needs them in: [UserManager.findTakenIdentifierOrNull] compares committed rows on it,
      * and [LockKey.IdentifierValue] names the same value the promotion racing this one locks under.
      *
      * [claimIds] is every identifier claim this deployment configured, not only the ones asserted: the

@@ -45,8 +45,7 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * The deployment's brand, as `/branding` answers it. `docs/design/branding.md` is the design this implements.
  *
- * A configuration that failed reads as one that configured nothing: it already takes readiness down, and the
- * sign-in pages are better served with SympAuthy's brand than with none.
+ * A configuration that failed reads as one that configured nothing.
  *
  * It is created with the context rather than by the first request, since an image host that does not answer is
  * a condition `/health` has to report from the start.
@@ -109,8 +108,7 @@ class BrandManager(
      * What is answered for [name]: the image the deployment configured once it has resolved, and until then
      * what would be answered if it were not configured.
      *
-     * Without a dark logo of its own a deployment's dark grounds show its logo, so that its logo does not turn into
-     * SympAuthy's when a page turns dark.
+     * Without a dark logo of its own a deployment's dark grounds show its logo.
      */
     fun getImage(name: BrandImageName): BrandAsset {
         val fallback = if (name == LOGO_DARK) resolvedImages[LOGO] else null

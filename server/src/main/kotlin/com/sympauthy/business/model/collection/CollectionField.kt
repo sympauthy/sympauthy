@@ -4,11 +4,7 @@ import com.sympauthy.util.wireName
 
 /**
  * One field of a collection: what a caller may filter, order or search on, and the whole of what the
- * collection publishes about it.
- *
- * A collection declares these rather than its query parameters. The parameters a caller writes, the
- * refusals a wrong one earns and the capability document are read off the set, so a collection adding a
- * field gets all three.
+ * collection publishes about it. See `docs/standards/collection-standard.md`.
  */
 data class CollectionField(
     /**

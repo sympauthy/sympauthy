@@ -17,8 +17,9 @@ import java.time.LocalDateTime
  *
  * Beyond the compare-and-swap semantics (affected-row count `1` vs `0`, version increment), this
  * exercises the array columns `purposes` and `completed_purposes` bound as parameters inside a raw
- * `@Query`, and `error_values` written through the derived [InteractiveFlowSessionRepository.updateError]
- * — a `json` column has to be, since a map bound into a raw query is stored as its `toString()`.
+ * `@Query`, and `error_values` written through the derived
+ * [InteractiveFlowSessionRepository.updateError], the way
+ * `docs/standards/data-layer-code-standard.md` has a `json` column written.
  */
 class InteractiveFlowSessionRepositoryTest {
 

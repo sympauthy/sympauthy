@@ -156,9 +156,9 @@ refuses a refresh the consent behind which was revoked. The identity it reissues
 live consent stands behind, which is not true of the id token still sitting in the client.
 
 **What is read again, and what is not.** The claim values are; the consented scopes that filter them
-are the set recorded with the grant, which each refresh copies forward. Consent here is a yes or a
-no — revoking is what a person does to it, and a revoked consent stops the refresh rather than
-narrowing what it issues. Filtering on `Consent.scopes` as it stands at each refresh would be a
+are the set recorded on the grant, which every refresh issues its tokens under. Consent here is a
+yes or a no — revoking is what a person does to it, and a revoked consent stops the refresh rather
+than narrowing what it issues. Filtering on `Consent.scopes` as it stands at each refresh would be a
 different decision from this one.
 
 Which grants are owed an id token at all is the question above, and it is not asked a second time
@@ -258,7 +258,7 @@ and by its second factor where one is enrolled.
 ### Is a refusal owing several challenges answered with one, or with all of them?
 
 **Decision:** With all of them, one challenge per error, repeated under the scheme the token came
-under, in a fixed order — the scope, the age, the binding.
+under — the binding under `DPoP` alone — in a fixed order: the scope, the age, the binding.
 [Security](security.md#a-refusal-carrying-several-challenges) holds the rule.
 
 **Options considered:**
@@ -1259,12 +1259,13 @@ rule so much as the specification answering first: every member of the `address`
 under OpenID Connect Core §5.1.1, so a component is rendered rather than published as its own type —
 and rendered rather than dropped, which is what a `postal_code` configured as a number used to be.
 
-**`/userinfo` is not held to this yet, and that is a limitation rather than a decision.**
-`UserInfoResource` is a fixed data class whose scalar fields are `String?`, so
-`UserInfoResourceMapper` reads each one with `value as? String` and a standard claim a deployment
-retyped — `gender` as a `number`, say — is published in the id token and silently absent there. What
-the rule would need is a resource able to carry a claim's own type, which is the same question as
-`/userinfo` publishing custom claims at all. The address and the two `_verified` companions are held
+**`/userinfo` is not held to this for a standard claim yet, and that is a limitation rather than a
+decision.** `UserInfoResource` declares each standard claim as a fixed property whose scalar fields
+are `String?`, so `UserInfoResourceMapper` reads each one with `value as? String` and a standard
+claim a deployment retyped — `gender` as a `number`, say — is published in the id token and silently
+absent there. A deployment's own claims are published beside those properties as the value they
+hold, so they are held to it already; what a retyped standard claim would need is a declared
+property able to carry the claim's own type. The address and the two `_verified` companions are held
 to it, because those it could express.
 
 ### Where does a deployment keep a document about a person this server does not model?
@@ -1421,12 +1422,12 @@ The projection is what to build when the index that remains is measured and foun
 
 ### Why is a key written on a generated claim refused rather than applied or ignored?
 
-**Decision:** `claims.sub` and `claims.updated_at` accept no key at all. `ClaimsConfigValidator`
-records one error per key a file wrote under either, whatever value it was written with and whether
-or not any property binds it — so `claims.sub.enabled: true` is refused although it is what `sub`
-already is, `claims.sub.template` is refused rather than resolved, and `claims.sub.enabled:` with
-nothing under it is refused too. `GeneratedOpenIdConnectClaim` is the whole of what a generated
-claim is, its ACL included.
+**Decision:** A generated claim — `claims.sub`, `claims.updated_at`, `claims.auth_time` — accepts no
+key at all. `ClaimsConfigValidator` records one error per key a file wrote under one, whatever value
+it was written with and whether or not any property binds it — so `claims.sub.enabled: true` is
+refused although it is what `sub` already is, `claims.sub.template` is refused rather than
+resolved, and `claims.sub.enabled:` with nothing under it is refused too.
+`GeneratedOpenIdConnectClaim` is the whole of what a generated claim is, its ACL included.
 
 **Options considered:**
 
@@ -1482,12 +1483,11 @@ reasoning refuses a value equal to the one the server would have used — compar
 the refusal depend on the value rather than on the key, and a rule that fires only sometimes is one
 nobody can predict from their own file.
 
-**What a deployment sees.** A deployment with no `claims.sub` or `claims.updated_at` section is
-unaffected, which is every file the server ships. One that wrote a key under either reports one
-error per key at startup and serves nothing until the keys are gone, where the previous release
-started and ignored them. A key reaching those sections from `System.env` or `System.properties` is
-not read here, the same surface [the key-binding rule](../standards/config-layer-code-standard.md)
-answers for.
+**What a deployment sees.** A deployment writing no section for a generated claim is unaffected,
+which is every file the server ships. One that wrote a key under one reports one error per key at
+startup and serves nothing until the keys are gone, where the previous release started and ignored
+them. A key reaching those sections from `System.env` or `System.properties` is not read here, the
+same surface [the key-binding rule](../standards/config-layer-code-standard.md) answers for.
 
 **What correcting one takes.** Deleting the key, and nothing else: none of them decided anything, so
 no behaviour follows the deletion. A `templates.claims` template carrying keys a generated claim
@@ -1501,7 +1501,7 @@ stable release, and the deployments it does reach are correctable by hand.
 channel there carries the value only for a request whose `claims` parameter named the claim. The
 request adds and never removes, it reaches the two OpenID channels and no other place, and a channel
 named in both lists is refused at startup. The parameter is stored as a claim id per channel on the
-flow session's OAuth2 row and copied onto every token row the grant produces.
+flow session's OAuth2 row and copied onto the grant the session opens.
 
 **Options considered:**
 
@@ -1546,7 +1546,7 @@ parse.
 Holding the request on the session alone is the cheapest and is wrong in a way that is hard to see:
 the code exchange honours it and every refresh afterwards does not, so a client's id token changes
 shape the first time its token is renewed. That is the bug a refresh already had once for the id
-token itself, and the fix is the same one — carry it on the token rows, where the consented scopes
+token itself, and the fix is the same one — carry it on the grant, where the consented scopes
 live.
 
 Implementing none of it leaves the discovery document telling a client it may not ask, which was
@@ -2192,10 +2192,11 @@ an attribute, and reverted.
 A manager is callable without an HTTP request, and a use case counted there is counted whichever
 caller runs it; a controller is routing and status codes, and a metric recorded in it is one more
 thing it does. What the manager never sees — a client that fails to authenticate, a refused DPoP
-proof, a grant type the server does not support, a malformed authorization request — is answered by
-the HTTP layer, and `http.server.request.duration` already counts it by route and status. What is
-lost is the grant type and the client on those refusals, and neither is known when the request is
-refused for not naming them.
+proof, a request naming no grant type or one the server does not support — is answered by the HTTP
+layer, and `http.server.request.duration` already counts it by route and status. What is lost is the
+grant type and the client on those refusals, and neither is known when the request is refused for
+not naming them. A malformed request for a grant type the client is allowed is not among them: the
+manager is what has it read, and records the refusal like any other.
 
 ### Are a condition and the calls reported to it one metric?
 
@@ -2367,9 +2368,9 @@ one search.
 
 A session is collected minutes after it ends, and a grant is refreshed for weeks, so a refresh
 reading the session would find it gone and link nowhere; reading it would also be a query on every
-token request for the sake of a trace. The grant already keeps the session's id for diagnosis, read
-by nothing, and the two ids beside it are the same kind of record. The copy is written once, in the
-transaction opening the grant, and never read for anything but the link.
+token request for the sake of a trace. The grant already keeps the session's id, which every token
+request under it is traced with, and the two ids beside it are the same kind of record. The copy is
+written once, in the transaction opening the grant, and never read for anything but the link.
 
 ## Branding
 

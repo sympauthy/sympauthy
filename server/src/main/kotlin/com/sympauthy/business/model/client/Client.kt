@@ -41,7 +41,8 @@ data class Client(
 
     /**
      * List of redirect URIs that are authorized to be used as a redirect_uri for the OAuth2 authorize endpoint.
-     * Compared using exact string matching per OAuth 2.1 (section 7.5.3).
+     * Compared using exact string matching per OAuth 2.1 (section 7.5.3), the port of a loopback address
+     * aside — see `docs/design/security.md`.
      * Empty if the client does not support the authorization code flow.
      *
      * > [OAuth 2.0 Security Best Current Practice](https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-25.html#name-redirect-uri-validation-att)

@@ -62,15 +62,9 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
  * Find the committed claims whose claim and [CollectedClaimEntity.foldedEqualityHash] are one of
  * [claimHashes], or nothing where it is empty.
  *
- * **These are candidates, not matches.** The hash answers equality under folding at the width of eight
- * bytes, which is what makes the index and the comparison cost the same whatever the value's length and
- * what makes a deliberate collision cheap. A caller acts on a row only after re-checking the folded value
- * itself. See `docs/design/identifier-claims.md`.
- *
- * A claim a session is still signing up is excluded, which is what lets two sign-ups hold one identifier
- * at once: neither blocks the other, and the collision is settled when the first of them promotes. It is
- * also why answering with one would hand a caller an account that does not exist yet. See
- * [com.sympauthy.data.model.SessionScoped].
+ * **These are candidates, not matches**: a caller acts on a row only after re-checking the folded value
+ * itself, as `docs/design/identifier-claims.md` says. A claim a session is still signing up is excluded,
+ * as for every lookup by identifier — see `docs/design/provisional-user.md`.
  */
 suspend fun CollectedClaimRepository.findCommittedClaimsMatching(
     claimHashes: Collection<Pair<String, Long>>

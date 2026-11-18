@@ -11,7 +11,7 @@ import java.time.LocalDateTime
  * Handle the mapping between the [CryptoKeysEntity] and the [CryptoKeys] business model.
  *
  * If the row holds no name, an internal [BusinessException] "mapper.crypto_keys.invalid_property" is
- * thrown: a row this server wrote and cannot read back is its own failure rather than the caller's.
+ * thrown.
  */
 @Singleton
 class CryptoKeysMapper : StoredPublicKeyMapper() {

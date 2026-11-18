@@ -21,8 +21,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * issuer, over an authorization the person gave for something else.
  *
  * A confidential client allowed one custom scope and not `openid` signs a user up, exchanges the
- * code, then presents its refresh token. Neither response may carry an `id_token`, on each supported
- * database. That the two answer alike is half the point: they disagreed until issue #453.
+ * code, then presents its refresh token. Neither response may carry an `id_token`. That the two
+ * answer alike is half the point: they disagreed until issue #453.
  *
  * Source: [OpenID Connect Core 1.0 §3.1.2.1 (Authentication Request)](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest)
  * and [RFC 6749 §5.1 (Successful Response)](https://datatracker.ietf.org/doc/html/rfc6749#section-5.1).

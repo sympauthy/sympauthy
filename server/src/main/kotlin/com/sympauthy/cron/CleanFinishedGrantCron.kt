@@ -18,9 +18,9 @@ import kotlinx.coroutines.launch
  * session it came from by as long as its client goes on refreshing, and so does the authorization code naming
  * it, for as long as its own lifetime runs.
  *
- * The lease keeps a deployment of several instances from sweeping several times over, and the sweep stays
- * correct when it runs twice anyway — it deletes what is committed-expired or committed-revoked, which is the
- * same set on every instance. [JobLeaseManager] carries why a leased job has to be one of those.
+ * The lease keeps a deployment of several instances from sweeping several times over; the sweep stays correct
+ * when it runs twice, as `docs/standards/locking-standard.md` requires of a leased job, because it deletes what
+ * is committed-expired or committed-revoked, which is the same set on every instance.
  */
 @Singleton
 class CleanFinishedGrantCron(

@@ -6,10 +6,8 @@ import io.micronaut.context.annotation.EachProperty
 import io.micronaut.context.annotation.Parameter
 
 /**
- * Configuration of a claim template that defines default values for claims.
- *
- * A claim names the one it takes through its `template` property, and no template is applied to a
- * claim naming none. The server ships `personal` and `application`, one per claim kind.
+ * Configuration of a claim template that defines default values for the claims naming it;
+ * `docs/design/claims.md` says how a claim takes one.
  */
 @EachProperty(TEMPLATES_CLAIMS_KEY)
 class ClaimTemplateConfigurationProperties(

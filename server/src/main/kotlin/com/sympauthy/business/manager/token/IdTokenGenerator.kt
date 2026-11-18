@@ -42,10 +42,9 @@ class IdTokenGenerator(
 
     /**
      * Generate a new id token under the [grant], recorded as issued by [grantType] — the grant type that opened
-     * the [grant], unless a refresh issues it — containing user info accessible according to the scopes the
-     * [grant] holds. Only claims the end-user has consented to share with the client are included, and of
-     * those only the ones the deployment publishes in the id token — always, or on request where the `claims`
-     * parameter of the authorization behind the [grant] named them.
+     * the [grant], unless a refresh issues it. It carries the claims the client's read door of them opens
+     * through [doors], and of those only the ones the deployment publishes in the id token — always, or on
+     * request where the `claims` parameter of the authorization behind the [grant] named them.
      *
      * [audience] is the audience the client belongs to, and a claim restricted to another one is left out.
      * It is not the token's own `aud`, which OpenID Connect fixes at the client id.
@@ -58,10 +57,7 @@ class IdTokenGenerator(
      *
      * The subject, the authentication time and the claims the request asked for are the [grant]'s, and only
      * the issue date, the expiry and the claim values are read again, which is what OpenID Connect Core §12.2
-     * requires of an id token issued for a refresh. Reading the authentication time again would be this
-     * server saying the person authenticated at the moment their client asked for a new token, and there is
-     * no request at a refresh to read the asked-for claims out of — a token that quietly lost one on its first
-     * renewal would change shape on a schedule nobody chose.
+     * requires of an id token issued for a refresh. Why a refresh reissues it so is `docs/design/security.md`'s.
      *
      * [nonce] is the one the authorization request carried, and a caller issuing for anything but that
      * request's code exchange passes null. §12.2 asks it of a refresh in as many words: a refreshed id token
@@ -69,8 +65,7 @@ class IdTokenGenerator(
      * authentication contained `nonce`". A nonce binds an id token to an authorization request, and no
      * authorization request was made there.
      *
-     * Returns null unless the [grant] names a user and carries `openid`: a `client_credentials` grant has no
-     * identity to assert, and one that never asked for OpenID Connect asked for none.
+     * Returns null unless the [grant] names a user and carries `openid`, as `docs/design/security.md` has it.
      */
     suspend fun generateIdToken(
         grant: Grant,
@@ -82,9 +77,8 @@ class IdTokenGenerator(
     ): EncodedAuthenticationToken? {
         // ID tokens are only for user authentication, not client credentials
         val userId = grant.userId ?: return null
-        // An id token answers a request for `openid`, and a grant that never asked for OpenID Connect is
-        // owed none. Every caller passes through here, so the authorization code and the refresh cannot
-        // answer the same grant differently.
+        // Checked here, which every caller passes through, so that the authorization code and the refresh
+        // cannot answer the same grant differently.
         if (!grant.grantedScopes.contains(BuiltInGrantableScopeId.OPENID)) {
             return null
         }
@@ -121,9 +115,8 @@ class IdTokenGenerator(
                 issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
                 expirationDate?.let { expirationTime(Date.from(it.toInstant(ZoneOffset.UTC))) }
                 nonce?.let { claim("nonce", it) }
-                // Claimed on every id token rather than only where a client asked with `max_age`, which is the
-                // minimum OpenID Connect Core §2 allows: a resource server checking recency needs it in every
-                // token, and nothing about a person is disclosed by it.
+                // Claimed on every id token, not only where a client asked with `max_age`; see
+                // `docs/design/security.md`.
                 grant.authenticationDate?.let {
                     claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
                 }

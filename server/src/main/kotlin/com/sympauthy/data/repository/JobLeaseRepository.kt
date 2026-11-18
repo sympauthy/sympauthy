@@ -9,29 +9,22 @@ import java.time.LocalDateTime
  * Repository for [JobLeaseEntity], the lease one instance takes over a scheduled job so that the others
  * skip that tick.
  *
- * Both statements are single updates that stand on their own. Neither belongs to the transaction of the
- * job it guards — a run is minutes of work and its own writes, and a lease held open across it would be
- * one transaction over all of them.
+ * Every statement is a single update that stands on its own, outside the transaction of the job it
+ * guards, as `docs/standards/locking-standard.md` requires of a lease.
  */
 interface JobLeaseRepository : CoroutineCrudRepository<JobLeaseEntity, String> {
 
     /**
-     * Answer what time the database thinks it is.
-     *
-     * It is read rather than written into the statements below because the arithmetic is not portable:
-     * every dialect spells `LOCALTIMESTAMP`, none of them spells adding a bound number of minutes to it
-     * the same way. So the clock comes back here and the duration is added in Kotlin, which costs one
-     * round trip every quarter of an hour and buys every instance comparing against one clock.
+     * Answer what time the database thinks it is: the clock every lease is timed by, read back so the
+     * duration is added in Kotlin, as `docs/standards/locking-standard.md` requires.
      */
     @Query("SELECT LOCALTIMESTAMP")
     suspend fun now(): LocalDateTime
 
     /**
      * Take the lease [name] until [expiresAt] on behalf of [holder], and answer 1 when this instance got
-     * it and 0 when another one holds it.
-     *
-     * [now] and [expiresAt] are read off [now] rather than off this instance's clock, so an instance
-     * running fast cannot hold a lease past its duration and one running slow cannot take a live one.
+     * it and 0 when another one holds it. [now] and [expiresAt] are read off [now], never off this
+     * instance's clock.
      *
      * One statement, so the answer does not depend on the isolation level: a second instance blocks on the
      * row, re-reads it as the winner left it, and matches nothing.
@@ -49,11 +42,8 @@ interface JobLeaseRepository : CoroutineCrudRepository<JobLeaseEntity, String> {
      * Push back to [expiresAt] every lease [holder] is still holding, and answer how many there were.
      *
      * One statement for all of them, because the caller is an instance rather than a job: what it has to
-     * say is that it is still alive, and every lease it holds hears the same thing.
-     *
-     * Guarded on the expiry as well as the holder. A lease of this holder's that has already passed its
-     * expiry may have been taken by another instance between the two statements, and pulling it back
-     * would take a job away from the instance now running it.
+     * say is that it is still alive, and every lease it holds hears the same thing. A lease already past
+     * its expiry is passed over, as `docs/standards/locking-standard.md` requires.
      */
     @Query(
         """
@@ -68,10 +58,8 @@ interface JobLeaseRepository : CoroutineCrudRepository<JobLeaseEntity, String> {
      * End [holder]'s lease on [name], leaving it free from now, and answer how many rows that was.
      *
      * It takes the clock itself rather than being handed one: there is nothing to add to it here, so the
-     * statement can name `LOCALTIMESTAMP` and spare the caller a read.
-     *
-     * Keyed on the holder as well as the name: an instance whose lease expired under it while its run was
-     * still going has already been replaced, and must not free the lease its successor is holding.
+     * statement can name `LOCALTIMESTAMP` and spare the caller a read. Keyed on the holder as well as the
+     * name, so a lease taken over by a successor is not freed.
      */
     @Query("UPDATE job_leases SET expiration_date = LOCALTIMESTAMP WHERE name = :name AND holder = :holder")
     suspend fun release(name: String, holder: String): Int

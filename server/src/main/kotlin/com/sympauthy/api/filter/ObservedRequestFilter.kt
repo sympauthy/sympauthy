@@ -12,12 +12,8 @@ import jakarta.inject.Singleton
 
 /**
  * Reads where every request came from, once, and leaves it on the request under [OBSERVED_REQUEST]
- * for whatever handles it.
- *
- * **It runs before Micronaut Security**, because an address that exists only once a caller has been
- * authenticated is no use to anything deciding whether to answer them at all. Throttling a credential
- * check is that: it has to decide, on the most exposed endpoint in this server, about a caller who has
- * presented nothing yet and may never.
+ * for whatever handles it. It runs before Micronaut Security, for the reason
+ * `docs/design/security-context.md` gives.
  *
  * **It is the only filter here not scoped to a surface**, and deliberately: a filter naming the paths
  * it covers is the routing table written a second time, and the second copy is the one that goes
@@ -27,8 +23,7 @@ import jakarta.inject.Singleton
  *
  * **It computes and stores nothing else.** A row per request would make a record of every asset and
  * every health probe, so which requests are worth one is decided by the handlers that know what a
- * request meant — and they take what is left here as an ordinary parameter, so no manager reaches back
- * for it.
+ * request meant.
  */
 @Singleton
 @ServerFilter(ServerFilter.MATCH_ALL_PATTERN)

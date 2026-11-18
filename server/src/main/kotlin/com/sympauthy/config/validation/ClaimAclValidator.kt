@@ -19,10 +19,10 @@ import java.time.Duration
 /**
  * Validates the expression each door of a parsed ACL is opened by, and builds final ACL models.
  *
- * An expression is refused with the codes every expression is refused with, naming the key it was written
- * under, and so is a function written on a door that cannot answer it: the flow's door offers the consent
- * and the client alone — see [ClaimAclExpressions]. What an accepted expression names is held to the
- * configuration beside it: the scopes to the ones this deployment declares, the durations to being positive.
+ * An expression is refused as `docs/standards/expression-standard.md` refuses one, naming the key
+ * it was written under, and the functions each door offers are [ClaimAclExpressions]'s. What an
+ * accepted expression names is held to the configuration beside it, as `docs/design/claims.md`
+ * states.
  */
 @Singleton
 class ClaimAclValidator {
@@ -45,8 +45,8 @@ class ClaimAclValidator {
      * Validate a full claim ACL and build the final [ClaimAcl]: each door the claim wrote, validated under
      * the claim's key, and the template's for each door it wrote nothing for.
      *
-     * A door written as the literal `"false"` is built shut, as one nothing opens is: it is how a claim
-     * shuts a door its template opens, and the kind of the claim reads the two alike.
+     * A door written as the literal `"false"` is built shut, as one nothing opens is, so the kind
+     * of the claim reads the two alike.
      */
     fun validateAcl(
         ctx: ConfigParsingContext,

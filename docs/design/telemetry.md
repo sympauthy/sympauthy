@@ -73,12 +73,12 @@ credential.
 ### How a record reaches the SDK
 
 **The appender is OpenTelemetry's, and `logback.xml` places it beside the console's queue, not
-behind it.** The tracing module installs the SDK into it once the application has started. The
-trace a record is stamped with is read from the thread that logged it, so a record handed to the queue's thread
-first would carry none. What it costs the caller is the record built there, with a logged
-throwable's stack trace rendered as text, and one add to the SDK's queue. The same file
-silences the SDK's own loggers, which write through `java.util.logging`, by setting the levels
-logback propagates to them.
+behind it.** The tracing module installs the SDK into it once the application has started. The trace
+a record is stamped with is read from the thread that logged it, so a record handed to the queue's
+thread first would carry none. What it costs the caller is the record built there, with a logged
+throwable's stack trace rendered as text, and one add to the SDK's queue. The same file silences the
+SDK's own loggers, which write through `java.util.logging`, by setting the levels logback propagates
+to them.
 
 **With telemetry off, the server detaches the appender at startup.** `logback.xml` is read before
 the flag can be, so the appender is always attached; with no SDK ever installed into it, it would
@@ -126,7 +126,7 @@ counts each kind of event an operator watches with a metric of its own.
 
 **Every metric says how its event ended the same way**: `outcome` is `success`, `refused` where the
 caller caused it, or `error` where the server or a dependency failed, and `error.type` is the error
-code the caller was answered with — see [the design
+code the caller was answered with, or the failure's class where it carried none — see [the design
 FAQ](design-faq.md#does-a-metric-count-its-failures-beside-its-successes-or-under-an-attribute).
 What an attribute may carry is [the telemetry standard](../standards/telemetry-standard.md)'s:
 never a value a request sent, and `client_id` only once the client has been found.
@@ -134,12 +134,13 @@ never a value a request sent, and `client_id` only once the client has been foun
 **A flow session ends `completed`, `failed` or `cancelled`; an expired one is counted apart**, once
 it is collected, under `stalled_purpose`, the first purpose it had not finished.
 
-**A password sign-in's refusals stay one code.** An unknown identifier and a wrong password are
-answered alike so that a response does not say which accounts exist, and the metric keeps to the
-codes. A sign-up is an attempt under `kind` `sign_up`, a provider's callback included when it
-created the account. A code typed to reset a password is one under `kind` `reset`, a code typed for
-an identifier no account holds among the refusals, so a rising refusal rate is a code being
-guessed; asking for a code is not one, and neither is a new password the rules refuse.
+**A password sign-in's refusals stay one code.** An unknown identifier, an account that is not
+enabled and a wrong password are answered alike so that a response does not say which accounts
+exist, and the metric keeps to the codes. A sign-up is an attempt under `kind` `sign_up`, a
+provider's callback included when it created the account. A code typed to reset a password is one
+under `kind` `reset`, a code typed for an identifier no account holds among the refusals, so a
+rising refusal rate is a code being guessed; asking for a code is not one, and neither is a new
+password the rules refuse.
 
 **A mail is counted by which mail it is, beside the call carrying it.** The call is the dependency's
 — whether the mail server answers, and how fast — and `sympauthy.remote_call.duration` answers it
@@ -147,7 +148,9 @@ under `condition` as it answers a provider's. The mail is this server's own even
 which one went out, the notices of the password reset each under a value of their own, so that a
 burst of notices to addresses no account uses shows rather than folding into the codes. The mail
 kinds are `Mail`'s values; a mail that never reached the mail server, discarded at startup or never
-built, is no send. [The design
+built, is no send. A row a previous build queued under a template this build draws no `Mail` from is
+sent and reported to the condition, and not counted, since a send is counted under the set this
+build ships. [The design
 FAQ](design-faq.md#is-a-mail-sent-counted-on-the-call-carrying-it) holds the shape that lost.
 
 **A use case is counted by its manager, never by a controller**, so that it is counted whichever
@@ -165,10 +168,11 @@ condition: a remote call is always a condition's, and a condition such as the co
 always reached by a call — see [the design
 FAQ](design-faq.md#are-a-condition-and-the-calls-reported-to-it-one-metric). `error` is exactly a
 call that degraded its condition, and `refused` an answer to what was sent, which recovers it as a
-success does; either is typed by `timeout`, `connection` or the status. The collector's exports
-report to its condition alone, since it recovers only once every signal has. A provider's id token
-is checked locally, and only the fetch of its key set is a call, `jwks`, which the JWT library makes
-outside the HTTP client the framework instruments.
+success does. `error` is typed by the status, `timeout` or `connection`; `refused` by the `4xx`, or
+by the error code of an answer that could not be used; either by the failure's class where none of
+these applies. The collector's exports report to its condition alone, since it recovers only once
+every signal has. A provider's id token is checked locally, and only the fetch of its key set is a
+call, `jwks`, which the JWT library makes outside the HTTP client the framework instruments.
 
 **The database is only a condition, and no metric times a query.** A query's span says how long it
 took, once traces are on; whether a histogram over every query earns its series is left open below.
@@ -286,7 +290,8 @@ FAQ](design-faq.md#is-a-query-traced-as-a-span-or-read-from-the-databases-statis
 `db.system.name` is `postgresql`, or `h2database` for H2; `db.namespace` is the database's name,
 and `server.address` and `server.port` its server's, which H2, running inside the server, has none
 of; `db.query.text` is the statement and `db.query.summary` the operation and the tables it names,
-which the span is named by. A statement bound to several rows at once carries their number as
+which the span is named by. A call carrying several statements has no summary, and its span is
+named by `db.system.name`. A statement bound to several rows at once carries their number as
 `db.operation.batch.size`. The database's user is not exported.
 
 **A query that did not finish says why.** One the database refused carries its SQL state as

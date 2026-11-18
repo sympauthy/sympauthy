@@ -3,12 +3,8 @@ package com.sympauthy.business.model.oauth2
 import com.sympauthy.business.model.user.isOpenIdConnectScope
 
 /**
- * Represents a scope that can be requested during an OAuth2/OpenID Connect flow.
- *
- * A scope has two shapes: an [EnabledScope] this server honours, and a [DisabledScope] the
- * deployment turned off. A disabled one is listed by the administration API and nothing else: it is
- * unknown to every protocol exchange, so it can neither be requested, consented to, granted, nor
- * put in a token.
+ * Represents a scope that can be requested during an OAuth2/OpenID Connect flow: an [EnabledScope] this
+ * server honours, or a [DisabledScope] the deployment turned off. See `docs/design/security.md`.
  *
  * Equality is based solely on the [scope] string identifier, so that scopes can be compared
  * and stored in sets regardless of their type.
@@ -32,11 +28,8 @@ sealed class Scope(
 }
 
 /**
- * A scope this authorization server serves.
- *
- * Everything a scope can take part in — a consent, a granting rule, a token — takes one of these
- * rather than a [Scope], which is what keeps a scope the deployment turned off out of an exchange
- * without anything having to test for it.
+ * A scope this authorization server serves, and the only shape of one that a consent, a granting rule or
+ * a token takes.
  *
  * The three subclasses are the three [ScopeType]:
  * - [ConsentableUserScope]: scopes that require user consent (e.g., `profile`, `email`).
@@ -48,11 +41,8 @@ sealed class EnabledScope(
     scope: String,
     type: ScopeType,
     /**
-     * The places this scope is published in, which is the discovery document or nothing at all.
-     *
-     * Publication is not permission here either: a scope is served whether or not it appears in that
-     * document, and [isPublishedIn] only ever answers whether a client that has not been told what to ask
-     * for could find the name.
+     * The places this scope is published in, which is the discovery document or nothing at all. A scope is
+     * served whether or not it appears there; see `docs/design/security.md`.
      */
     val publishedIn: Set<ScopePublicationPlace>,
     audienceId: String? = null
@@ -88,22 +78,15 @@ class GrantableUserScope(
 /**
  * A scope that is only usable in `client_credentials` flows.
  *
- * It is published nowhere, and no deployment decides that: a client scope is unusable outside
- * `client_credentials`, so advertising it to a client configuring an authorization would say nothing
- * true.
+ * It is published nowhere, and no deployment decides that; see `docs/design/security.md`.
  */
 class ClientScope(
     scope: String
 ) : EnabledScope(scope, ScopeType.CLIENT, publishedIn = emptySet())
 
 /**
- * A scope the deployment turned off, which this server lists and never serves.
- *
- * It carries no reason for being off: there is exactly one, that the deployment wrote
- * `enabled: false` against it.
- *
- * It is published nowhere either, and that is not a property it holds: the discovery document advertises
- * what a client may request, and a disabled scope is not something a client may request.
+ * A scope the deployment turned off, which this server lists and never serves. It carries no
+ * publication places, being published nowhere. See `docs/design/security.md`.
  */
 class DisabledScope(
     scope: String,

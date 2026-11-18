@@ -5,10 +5,7 @@ import org.testcontainers.containers.Network
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 
-/**
- * A database backing a [SympauthyContainer] for a single test run. Each scenario runs against every
- * [Database] via `@EnumSource`, so the same behaviour is exercised on both supported datasources.
- */
+/** A database backing a [SympauthyContainer] for a single test run. */
 enum class Database(private val fixtureFactory: () -> DatabaseFixture) {
 
     /** SympAuthy's default in-memory H2 datasource — nothing extra to start. */

@@ -89,8 +89,7 @@ private const val DATABASE_CALL_INSTRUMENTATION_SCOPE = "com.sympauthy.database"
  * the request it was made for. A connection being opened and a transaction beginning or ending are each a
  * [DatabaseRoundTrip] spanned alike, since no query covers them.
  *
- * A call made outside a request opens none: a scheduled job's sweep would otherwise be a trace of its own every
- * few seconds, the reason `/health` is excluded from tracing.
+ * A call made outside a request, or under a request span that is not recorded, opens none.
  */
 internal class DatabaseCallTracingListener(
     private val instrumenter: Instrumenter<DatabaseCall, Void>,
@@ -274,8 +273,7 @@ internal class DatabaseRoundTrip(
 /**
  * A query sent to [database], holding its [statements] only once every value in them has been replaced.
  *
- * The server binds its values, so what it sends holds none; a literal written into a statement is replaced too,
- * since nothing tells a value apart from what a person typed.
+ * A literal written into a statement is replaced too. See `docs/design/telemetry.md`.
  */
 internal class DatabaseQuery(
     override val database: QueriedDatabase,
@@ -286,7 +284,8 @@ internal class DatabaseQuery(
     val statements: List<SqlQuery> = rawStatements.map { analyzer.analyzeWithSummary(it, DIALECT) }
 
     /**
-     * The operation and the table a single statement names, which is what the span is named by.
+     * The operation and the tables the statement names where the call carries a single one, which is what the
+     * span is named by. Null where it carries several, or where the statement names none.
      */
     val summary: String? = statements.singleOrNull()?.querySummary
 

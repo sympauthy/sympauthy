@@ -19,9 +19,8 @@ class TemplatedMailBuilderFactory(
     /**
      * A builder for the mail [template], its model holding the [parameters] the mail was queued with, then what is
      * read when the mail is sent: the brand, the name it is signed under and, for a mail with an [expirationDate],
-     * the minutes left before it. Each is written over a queued parameter of the same name, since a mail sent after
-     * a restart is drawn in the brand the deployment has then, and a code queued twelve minutes ago has less left
-     * than it had.
+     * the minutes left before it. Each is written over a queued parameter of the same name, as
+     * `docs/design/branding.md` has them read when the mail is sent.
      */
     fun builder(
         template: String,

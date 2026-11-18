@@ -49,9 +49,8 @@ data class InteractiveFlowSessionOAuth2(
      * Sanitized the way [requestedScopes] is: names matching no enabled claim have already been filtered
      * out. [RequestedClaims.NONE] where the client sent no such parameter.
      *
-     * It is held here rather than on the [InteractiveFlowSession] for the reason [consentedScopes] is: it
-     * is part of what the authorization records, and it is copied onto every token the authorization
-     * produces so that a refresh honours it too.
+     * Part of what the authorization records, like [consentedScopes], and kept by the grant it opens; see
+     * `docs/design/claims.md`.
      */
     val requestedClaims: RequestedClaims = RequestedClaims.NONE,
 
@@ -92,17 +91,11 @@ data class InteractiveFlowSessionOAuth2(
 
     /**
      * When the end-user proved a credential of the account this authorization is for: a password checked,
-     * a third-party provider's callback resolved to the account, or the account created at sign-up. Null
-     * until one has been proven.
+     * a third-party provider's callback resolved to the account, the account created at sign-up, or a code
+     * proving a password reset. Null until one has been proven.
      *
-     * Every token this authorization produces states it as `auth_time`, and a refresh reissues it
-     * unchanged — so it is the moment the credential verified rather than the moment the code was
-     * exchanged or the token minted. A second factor is a purpose that follows in the same session and
-     * does not move it.
-     *
-     * It is held here rather than on the [InteractiveFlowSession] because it is part of what the
-     * authorization records, beside [consentedAt] and [grantedAt]: a session serving a purpose that issues
-     * no token has nothing to say it to.
+     * Every token under the grant this authorization opens states it as `auth_time`; see
+     * `docs/design/security.md`.
      */
     val authenticationDate: LocalDateTime? = null,
 

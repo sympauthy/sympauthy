@@ -18,12 +18,12 @@ import com.sympauthy.business.model.key.KeyAlgorithm.HMAC
 import com.sympauthy.business.model.key.KeyAlgorithm.RSA
 
 /**
- * Enumeration of all JWT signing algorithms supported by the project.
+ * Enumeration of all JWT signing algorithms supported by the project:
+ * - RS256: RSA PKCS#1 v1.5 with SHA-256
+ * - ES256: ECDSA with P-256 and SHA-256
+ * - PS256: RSASSA-PSS with SHA-256
  *
- * Includes the algorithms required and recommended by the OAuth 2.1 specification:
- * - RS256: RSA PKCS#1 v1.5 with SHA-256 (required by OpenID Connect Core)
- * - ES256: ECDSA with P-256 and SHA-256 (recommended by OAuth 2.1)
- * - PS256: RSASSA-PSS with SHA-256 (recommended replacement for RS256)
+ * Which of them signs an id token, and why RS256 is not the default, is `docs/design/security.md`'s.
  */
 enum class JwtAlgorithm(
     /**

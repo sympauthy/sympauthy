@@ -22,8 +22,7 @@ import java.util.UUID
  * - [OnGoingInteractiveFlowSession] otherwise.
  *
  * If the content of the [InteractiveFlowSessionEntity] is not valid, according to the status of the
- * session, an internal [BusinessException] "mapper.interactive_flow_session.invalid_property" is thrown:
- * a row this server wrote and cannot read back is its own failure rather than the caller's.
+ * session, an internal [BusinessException] "mapper.interactive_flow_session.invalid_property" is thrown.
  */
 @Singleton
 class InteractiveFlowSessionMapper {

@@ -4,8 +4,8 @@ package com.sympauthy.business.model.branding
  * A colour token of the design system, with the colour the deployment configured for its role written over its
  * default.
  *
- * [dark] is null for a token the dark theme does not carry: one with a single value, or a `nav-*` one, which the
- * sidebar shows whatever the theme, or a dark page would read SympAuthy's sidebar over the deployment's.
+ * [dark] is null for a token the dark theme does not carry: one with a single value, or a `nav-*` one. See
+ * `docs/design/branding.md`.
  */
 data class BrandColor(
     val name: String,

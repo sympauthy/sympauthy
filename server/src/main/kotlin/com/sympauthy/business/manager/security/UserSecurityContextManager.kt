@@ -50,10 +50,9 @@ open class UserSecurityContextManager(
     /**
      * Record that [sessionId] was driven from [observedRequest], having proven nothing.
      *
-     * **Call this wherever a request touches an interactive flow session** — where one is created, and
-     * where one is resolved from the state a request carried. Nothing about it is gated, because nothing
-     * it writes is read against a person: [fold] takes what [markProven] stamped and is blind to the
-     * rest by construction, so a row here is what a session knows about itself and is collected with it.
+     * **Call this where a request creates an interactive flow session, and where one still running is
+     * resolved from the state a request carried.** Nothing about it is gated: [fold] takes what [markProven]
+     * stamped and is blind to the rest, as `docs/design/security-context.md` has it.
      */
     suspend fun observe(sessionId: UUID, observedRequest: ObservedRequest) {
         record(sessionId, observedRequest)
@@ -63,12 +62,10 @@ open class UserSecurityContextManager(
      * Stamp the place [observedRequest] came from as one where the person behind [sessionId] proved who
      * they are.
      *
-     * **Call this only where a credential has verified *and* resolved this session's user.** The
-     * password check answers for whatever account matches the login, and a flow whose user is already
-     * fixed may reach a step where that answer changes nothing — so a call placed at the verification
-     * rather than at the resolution lets anybody holding the session's state, which `docs/design/security.md`
-     * says carries no identity and travels in a URL, write their own address into somebody else's
-     * record.
+     * **Call this only where a credential has verified *and* resolved this session's user**, the condition
+     * `docs/design/security.md` places on the authentication time too. A call placed at the verification
+     * rather than at the resolution lets anybody holding the session's state write their own address into
+     * somebody else's record.
      *
      * **It stamps rather than records.** The request making this call came through the helper every flow
      * handler goes through, which already recorded the place it came from — so one request is one row,
@@ -102,24 +99,15 @@ open class UserSecurityContextManager(
      * The one write every request makes: bump the place [observedRequest] names, or open it where this
      * session has room for another.
      *
-     * **A session at its bound rolls a place out rather than refusing the new one.** What a session is
-     * read for is where it is being driven from now — a stalled sign-in, a step posted from somewhere
-     * else — and the place least recently seen is the one that answers that worst, so it is the one that
-     * makes room. The bound therefore holds without the freshest sighting being the one it costs.
-     *
-     * **A place a credential was proven at is the last to go**, because it is the only one the fold ever
-     * reads and the only one nobody can write without a credential — [markProven] is gated where it can
-     * be. Every unproven place is rolled out before it, which is what stops whoever holds a session's
-     * state from evicting somebody's proof by presenting user agents.
+     * **A session at its bound rolls the place least recently seen out rather than refusing the new one,
+     * and a place a credential was proven at is the last to go.** `docs/design/security-context.md` is why.
      */
     private suspend fun record(sessionId: UUID, observedRequest: ObservedRequest) {
         val key = observedRequest.securityContextKey()
         val now = LocalDateTime.now()
         try {
             if (writePlace(sessionId, key, observedRequest, now) == 0) {
-                // A session presenting more than a handful of distinct places is either a person on a train
-                // or somebody enumerating. It is DEBUG at most all the same: whoever holds a session's state
-                // provokes it at will, by presenting user agents.
+                // DEBUG at most: whoever holds a session's state provokes it at will, by presenting user agents.
                 logger.debug {
                     "Session $sessionId has been driven from more than $MAX_OBSERVATIONS_PER_SESSION " +
                         "distinct places. The one least recently seen makes room for this one."

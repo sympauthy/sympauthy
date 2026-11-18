@@ -19,13 +19,9 @@ import com.sympauthy.util.wireName
  * The fields of one collection, each bound to the value it reads off a row.
  *
  * [capabilities] is what the collection publishes and what a caller's query string is resolved against;
- * the readers are what turns the criteria that come back into a page. One evaluator therefore
- * filters, searches and orders every collection that holds its rows in memory, and a collection that adds
- * a field gets all of it.
- *
- * A collection whose criteria reach the database declares the same fields and reads
- * [CollectionCriteria] itself, so it publishes a capability document without pretending its rows are
- * here.
+ * the readers are what turns the criteria that come back into a page, for a collection that holds its
+ * rows in memory. A collection whose criteria reach the database declares its [CollectionCapabilities]
+ * alone and reads [CollectionCriteria] itself. See `docs/standards/collection-standard.md`.
  */
 class CollectionFields<T> internal constructor(
     val capabilities: CollectionCapabilities,

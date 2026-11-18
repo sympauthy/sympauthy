@@ -23,15 +23,16 @@ enum class InteractiveFlowPurpose {
     OAUTH2_AUTHORIZE,
 
     /**
-     * The end-user must enroll a multi-factor authentication method (TOTP). Appended to another purpose
-     * (e.g. [OAUTH2_AUTHORIZE]) that requires MFA and whose user is not yet enrolled, or run standalone from
-     * a client-initiated enrollment.
+     * The end-user must enroll a multi-factor authentication method (TOTP). Inserted right after another
+     * purpose (e.g. [OAUTH2_AUTHORIZE]) that requires MFA and whose user is not yet enrolled, or run standalone
+     * from a client-initiated enrollment.
      */
     MFA_ENROLLMENT,
 
     /**
      * The end-user must pass a multi-factor authentication challenge (TOTP) with an already-enrolled method.
-     * Appended to another purpose (e.g. [OAUTH2_AUTHORIZE]) that requires MFA and whose user is enrolled.
+     * Inserted right after another purpose (e.g. [OAUTH2_AUTHORIZE]) that requires MFA and whose user is
+     * enrolled.
      */
     MFA_CHALLENGE,
 
@@ -43,7 +44,8 @@ enum class InteractiveFlowPurpose {
      * the authenticated credential must resolve to the pre-set [InteractiveFlowSession.userId] (fail on
      * mismatch); the session's user is never switched. Only the credentials the account already has are offered
      * (password if set, providers already linked to the user). When the account is MFA-enrolled, a fresh
-     * [MFA_CHALLENGE] is appended so re-authentication is at least as strong as the account's own login.
+     * [MFA_CHALLENGE] is inserted right after it so re-authentication is at least as strong as the account's
+     * own login.
      *
      * Prepended in front of a sensitive purpose by a consumer (e.g. provider-link); progress is tracked by the
      * session's attached re-authentication record ([InteractiveFlowSessionReauthentication]).

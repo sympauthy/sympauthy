@@ -33,7 +33,8 @@ so [the API standard](../standards/api-standard.md)'s route rules do not apply a
 OpenAPI document. `brand.json` carries no version, because a prefix on one of its paths would split
 a set that changes together; its body still follows the standard's JSON rules, and it answers every
 origin, since it holds nothing private and an allow-list would add a configuration step for every
-hosted flow.
+hosted flow. The rest of `/branding` is linked from a page rather than read by a script, and
+needs no CORS.
 
 **`brand.json` leaves `display_name` out where no display name is configured**, so an app reading it
 needs a name of its own to fall back on.
@@ -90,9 +91,11 @@ the server does not try to clean the SVG.
 
 **An image follows the rules of a provider's discovery.** A connection failure, a timeout, a `408`,
 a `429` or a `5xx` is an outage: the image's condition starts degraded, it is retried every quiet
-period, and it recovers once an attempt succeeds. Any other answer that is not an SVG or a PNG within
-the limit, any other `4xx` included, is one ERROR, and the image stays unresolved until a restart.
-Until it resolves, an image answers as if it were not configured.
+period, and it recovers once an attempt succeeds. Any other answer that is not an SVG or a PNG
+within the limit, an empty body or any other `4xx` included, is one ERROR: the host answered, so its
+condition recovers, and the image stays unresolved until a restart. Until it resolves, an image's
+page path answers as if it were not configured, and its [mail path](#mails-are-drawn-in-the-brand)
+answers nothing.
 
 **A `408` and a `429` are outages here and nowhere else.** Elsewhere a `4xx` answers what was sent,
 and is worth no retry. Here both say the host will not answer yet, and a rate limit met once at
@@ -117,21 +120,25 @@ assembled from, and a mail template only orders them; its strings are the mail b
 
 **A mail reads colours as values, not variables.** A mail client applies no stylesheet it fetches
 and reads no CSS variable, so `MailBrandResolver` resolves each of the stylesheet's colours to its
-value, an alias to the colour of the token it names, and the kit inlines each value. The dark roles
-the kit paints are repainted by a `prefers-color-scheme` rule where the client honours one, and left
-out under `dark-mode: "off"`. Status colours stay SympAuthy's, as on the pages.
+value, an alias to the colour of the token it names, and the kit inlines each value. A dark alias
+takes the dark colour of that token, or its light one where the dark theme does not carry it, as the
+variable does in the stylesheet. The dark roles the kit paints are repainted by a
+`prefers-color-scheme` rule where the client honours one, and left out under `dark-mode: "off"`.
+Status colours stay SympAuthy's, as on the pages.
 
 **A mail shows a PNG logo, or the name alone.** A mail client draws no SVG. `/branding/logo.png`
-and `/branding/logo-dark.png` answer the deployment's logo where it is a PNG, SympAuthy's PNG where
-it configured none, and nothing where it configured an SVG, so that its mails show its name rather
-than SympAuthy's mark. A mail links them by absolute address under `urls.root`, versioned by their
-content so that a client's image proxy does not keep the previous logo.
+and `/branding/logo-dark.png` answer the deployment's logo where it resolved to a PNG, SympAuthy's
+PNG where it configured none, and nothing where it configured an SVG or an image not resolved yet,
+so that its mails show its name rather than SympAuthy's mark. A mail links them by absolute address
+under `urls.root`, versioned by their content so that a client's image proxy does not keep the
+previous logo, and links none where no root URL is configured.
 
 **A root URL with a local host links no logo**: a name of a single label or one reserved for a local
-network, or a loopback, private, shared or link-local address. A mail is read through its provider,
-whose image proxy fetches the logo from the internet, so a link there draws a broken image where the
-name alone would do. The host is judged as it is written and never resolved, since a deployment's
-name may resolve to a private address inside its own network and to a public one outside it.
+network, or a loopback, unspecified, private, shared or link-local address, IPv4 or IPv6. A mail is
+read through its provider, whose image proxy fetches the logo from the internet, so a link there
+draws a broken image where the name alone would do. The host is judged as it is written and never
+resolved, since a deployment's name may resolve to a private address inside its own network and to
+a public one outside it.
 
 **A mail names the deployment in its subject, its header and its footer, and in a sentence that
 speaks of the deployment itself.** The subject is read in the inbox before the header is, and the

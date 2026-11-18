@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * real and a bogus token.
  *
  * This authenticates a confidential client and posts a garbage token to the revocation endpoint,
- * asserting a `200`, on each supported database.
+ * asserting a `200`.
  *
  * Source: [RFC 7009 §2.2 (Revocation Response)](https://datatracker.ietf.org/doc/html/rfc7009#section-2.2).
  */

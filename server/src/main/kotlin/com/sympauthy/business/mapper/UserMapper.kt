@@ -11,8 +11,7 @@ import jakarta.inject.Singleton
  * Handle the mapping from the [UserEntity] to the [User] business model.
  *
  * If the row holds no identifier, or a status [UserStatus] does not name, an internal [BusinessException]
- * "mapper.user.invalid_property" is thrown: a row this server wrote and cannot read back is its own
- * failure rather than the caller's.
+ * "mapper.user.invalid_property" is thrown.
  */
 @Singleton
 class UserMapper {

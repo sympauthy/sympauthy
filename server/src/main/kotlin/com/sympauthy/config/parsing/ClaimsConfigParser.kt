@@ -24,9 +24,8 @@ internal fun String.normalizeClaimId() = replace('-', '_')
 
 /**
  * Convert each of the [values] into the place it names, recording an error against the entry's own
- * index for every one that names none, so a file naming two unknown places reports both. [key] is the
- * property the entries were written under — a claim's or a template's, and either of the two lists a
- * claim names places in.
+ * index for every one that names none. [key] is the property the entries were written under — a
+ * claim's or a template's, and either of the two lists a claim names places in.
  *
  * Returns null where [values] is null — nothing written, which falls through to whatever a template offers.
  * An entry-less list is a claim naming no channel, which does not.
@@ -110,10 +109,9 @@ class ClaimsConfigParser(
             audienceId = null,
             allowedValues = null,
             maxSize = null,
-            // The channels the claim already reaches, which is a fact about this server rather than a
-            // decision a file takes: neither channel reads a generated claim out of the collected claims,
-            // so no `published-in` written here could move one. It is the truth rather than the withholding
-            // value because the discovery document reads it to say what a channel can supply.
+            // The places the claim already reaches, recorded rather than configured
+            // (`docs/design/claims.md`): no place reads a generated claim out of the collected
+            // claims, so no `published-in` written here could move one.
             publishedIn = generatedClaim.publishedIn,
             // No channel opens on request either, for the same reason: a client naming one of these in a
             // `claims` parameter is naming a value the channel computes rather than one it filters.
@@ -170,15 +168,13 @@ class ClaimsConfigParser(
             parser.getInt(properties, "$configKeyPrefix.max-size", ClaimConfigurationProperties::maxSize)
         } ?: template?.maxSize
 
-        // No channel, for a claim and for a template that names none: a value leaves this server where a
-        // deployment said so and nowhere else. The shipped `personal` template names both, so the claims
-        // the specification defines keep reaching both without every file having to say it again.
+        // No place, for a claim and a template naming none: `docs/design/claims.md` says why the
+        // default is silence.
         val publishedIn = parsePublishedIn(ctx, parser, properties.publishedIn, "$configKeyPrefix.published-in")
             ?: template?.publishedIn
             ?: emptySet()
 
-        // The same silence, and the same fall-through to a template: a claim saying nothing here is
-        // askable nowhere, which leaves `published-in` the whole of where its value goes.
+        // The same silence, and the same fall-through to a template.
         val publishedInWhenRequested = parsePublishedIn(
             ctx, parser, properties.publishedInWhenRequested, "$configKeyPrefix.published-in-when-requested"
         ) ?: template?.publishedInWhenRequested ?: emptySet()
@@ -207,9 +203,8 @@ class ClaimsConfigParser(
      * Who the claim's value belongs to: what the claim declares, else what its [template] offers, and null
      * where neither does — which is recorded as an error against `claims.<id>.kind` rather than answered.
      *
-     * Nothing chains past the one template a claim names, so a silence on both is the end of the file, and
-     * no value the server could pick there would be anything but a guess at whether a person is asked to
-     * type this claim. Both shipped templates declare one, so every claim naming either is answered.
+     * Nothing chains past the one template a claim names, and `docs/design/claims.md` says why the
+     * server picks no kind of its own.
      *
      * A kind the claim declares and this layer cannot read answers null without reading the template,
      * because a claim is then refused for the value it wrote rather than held to one its file does not
@@ -242,10 +237,10 @@ class ClaimsConfigParser(
      * against [key] for every entry that cannot be. Returns null when [values] is null, and otherwise the
      * entries that converted.
      *
-     * [values] may be the ones a claim declares or the ones it inherits from a template, and [key] names
-     * whichever of the two they are written under. A template carries no type of its own, so its entries can
-     * only be converted once a claim naming the template supplies one — which also means the same template
-     * can convert for one type and fail for another.
+     * [values] may be the ones a claim declares or the ones it inherits from a template, and [key]
+     * names whichever of the two they are written under. A template's entries are converted under
+     * the type of the claim naming it, so the same template can convert for one type and fail for
+     * another.
      */
     internal fun parseAllowedValues(
         ctx: ConfigParsingContext,
@@ -273,9 +268,8 @@ class ClaimsConfigParser(
      * The template [properties] names, or null where it names none or names one that does not exist —
      * which is recorded as an error against `claims.<id>.template`, listing what it could have named.
      *
-     * There is no template a claim falls back to. A claim naming none is read from its own keys alone,
-     * and the one key it cannot default that way is [ClaimKind]: nothing would say whose the value is,
-     * which is refused rather than guessed, so the templates are what a deployment names to say it.
+     * There is no template a claim falls back to (`docs/design/claims.md`): a claim naming none is
+     * read from its own keys alone.
      */
     private fun resolveTemplate(
         ctx: ConfigParsingContext,

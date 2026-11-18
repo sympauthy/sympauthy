@@ -14,7 +14,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * A client library reads `error` off every failure of these endpoints, so a refusal answered in this
  * server's own body tells it nothing. This posts JSON to each endpoint and sends it a `GET`, and expects
  * the `415` and the `405` those requests are due, each naming `invalid_request`, and the `405` with the
- * `Allow` header naming `POST`, on each supported database.
+ * `Allow` header naming `POST`.
  *
  * Source: [RFC 6749 §5.2 (Error Response)](https://datatracker.ietf.org/doc/html/rfc6749#section-5.2),
  * [RFC 7662 §2.3](https://datatracker.ietf.org/doc/html/rfc7662#section-2.3),

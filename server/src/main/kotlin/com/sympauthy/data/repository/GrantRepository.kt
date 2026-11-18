@@ -17,9 +17,8 @@ import java.util.*
  * expired or an authorization code not exchanged and not expired — a grant whose code is still to be
  * exchanged is one a client is about to be issued tokens under.
  *
- * A grant already revoked therefore keeps who revoked it first and when, and one that lapsed is left as it
- * lapsed rather than being recorded as revoked afterwards, so a revocation that counts answers how many
- * grants it took out of service. It is written once so that every revocation judges the same grants live.
+ * It is written once so that every revocation judges the same grants live. Why a revocation reaches only
+ * those is `docs/design/grants.md`.
  */
 private const val LIVE_AT_REVOKED_AT = """
           AND revoked_at IS NULL AND (expiration_date IS NULL OR expiration_date >= :revokedAt)
@@ -196,11 +195,8 @@ interface GrantRepository : CoroutineCrudRepository<GrantEntity, UUID>, Coroutin
 
     /**
      * Delete every grant no token is left under and no authorization code names, and answer how many there
-     * were.
-     *
-     * A code naming a grant is either still to be exchanged under it or, exchanged, what revokes it if it is
-     * presented again, so the grant is kept as long as the code is, revoked or not; the foreign key from
-     * `authorization_codes` refuses the delete otherwise.
+     * were. A grant is kept as long as a code names it, revoked or not, as `docs/design/grants.md` says; the
+     * foreign key from `authorization_codes` refuses the delete otherwise.
      */
     @Query(
         """

@@ -64,8 +64,7 @@ class OpenIdUserInfoController(
     ): UserInfoResource {
         val grant = authentication.userAuthentication.authenticationToken.grant
         val client = authentication.userAuthentication.client
-        // The person's own read rather than the client's: this endpoint is protected by a bearer token
-        // alone, with no client authentication, so consent is the whole of what it may go on.
+        // The person's own read rather than the client's, as `docs/design/claims.md` has `/userinfo` ask.
         val claims = consentAwareCollectedClaimManager.findByUserIdAndReadableByPerson(
             userId = authentication.userId,
             audienceId = client.audience.id,

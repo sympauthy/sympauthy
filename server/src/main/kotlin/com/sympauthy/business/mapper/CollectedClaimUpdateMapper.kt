@@ -12,9 +12,7 @@ import kotlin.jvm.optionals.getOrNull
  * Handle the mapping from a [CollectedClaimUpdate] to the [CollectedClaimEntity] it writes.
  *
  * **A verification is the value's and not the row's**, so both mappings write `verified` and
- * `verificationDate` as null: a write through this door records what somebody asserted, and nothing in
- * one sends a code to the value it stores. A row carried over a verification would claim this server
- * proved an address it never wrote to. See `docs/design/claims.md`.
+ * `verificationDate` as null. See `docs/design/claims.md`.
  */
 @Singleton
 class CollectedClaimUpdateMapper(

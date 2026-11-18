@@ -10,8 +10,7 @@ import jakarta.inject.Singleton
  * Handle the mapping from the [AuthorizationCodeEntity] to the [AuthorizationCode] business model.
  *
  * A code whose challenge method is not one this server knows throws an internal
- * "mapper.authorization_code.invalid_property": a row this server wrote and cannot read back is its own
- * failure rather than the caller's.
+ * "mapper.authorization_code.invalid_property".
  */
 @Singleton
 class AuthorizationCodeMapper {

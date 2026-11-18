@@ -13,15 +13,9 @@ import jakarta.inject.Singleton
 import org.reactivestreams.Publisher
 
 /**
- * Publishes the conditions this instance observes degraded, each by name with the moment it degraded.
- *
- * A degraded condition makes `/health` [DEGRADED], which is answered with a `200`, and never `DOWN`: an
- * external dependency fails for every instance at once, and pulling them all out of the load balancer would
- * make one broken dependency an outage. Readiness reports it too, the framework building readiness from every
- * indicator not marked for liveness, and answers the same `200`; liveness does not.
- *
- * The failure itself is never published. The details are visible anonymously, and an exception carries
- * hostnames, internal addresses and response bodies; it is in the ERROR line, for whoever reads the console.
+ * Publishes the conditions this instance observes degraded, each by name with the moment it degraded, and
+ * never the failure itself. A degraded condition makes `/health` [DEGRADED], never `DOWN`; why, and what
+ * readiness and liveness answer, is `docs/design/logging.md`.
  */
 @Singleton
 class ConditionsHealthIndicator(

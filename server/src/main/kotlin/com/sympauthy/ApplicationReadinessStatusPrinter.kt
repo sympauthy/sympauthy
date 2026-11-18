@@ -32,8 +32,6 @@ import kotlinx.coroutines.runBlocking
 /**
  * Print info messages in logs to inform the user about the state of the application and the content of its
  * configuration. Or print the error reported by the configurations if any has been detected.
- *
- * This one reports the verdict the other [ServiceReadyEvent] listeners obey, so it runs before them.
  */
 @Singleton
 class ApplicationReadinessStatusPrinter(
@@ -61,8 +59,8 @@ class ApplicationReadinessStatusPrinter(
     private val logger = loggerForClass()
 
     /**
-     * Runs before every other [ServiceReadyEvent] listener, so that the verdict on the configuration is in
-     * the log above the work that obeyed it.
+     * Runs before every other [ServiceReadyEvent] listener, as `docs/standards/config-layer-code-standard.md`
+     * orders the listener reporting the verdict.
      *
      * Declared through the interface rather than `@Order`: the publisher sorts the listener *instances*
      * with `OrderUtil.COMPARATOR_ZERO`, which reads [Ordered] off an object and the annotation only off a

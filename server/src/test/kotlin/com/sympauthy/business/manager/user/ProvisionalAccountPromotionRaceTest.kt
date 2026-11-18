@@ -27,14 +27,13 @@ import java.util.*
 /**
  * That two flows promoting one identity take turns, and that the second of them refuses.
  *
- * The winner is driven by hand over a connection of its own — its lock taken, its rows made committed, its
- * transaction left open — because nothing else proves the serialisation. Two promotions racing freely assert
- * a property that held before any lock existed: whichever ran second would find the first committed and
- * refuse. What has to be seen is the loser reaching the lock, waiting there, and answering against what the
- * winner committed once it lets go.
+ * The winner is driven by hand over a connection of its own — its lock taken, its rows made
+ * committed, its transaction left open — because nothing else proves the serialisation. Two
+ * promotions racing freely prove nothing: whichever ran second would find the first committed and
+ * refuse. What has to be seen is the loser reaching the lock, waiting there, and answering against
+ * what the winner committed once it lets go.
  *
- * Both halves run against every dialect, which is the point of the identity being a key rather than a
- * constraint: the unique index over a provider subject holds on PostgreSQL alone.
+ * Both halves run against every dialect, for the reason `docs/design/provisional-user.md` gives.
  */
 class ProvisionalAccountPromotionRaceTest {
 

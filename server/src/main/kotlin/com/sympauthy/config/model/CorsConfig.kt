@@ -22,11 +22,11 @@ class DisabledCorsConfig(
 ) : CorsConfig(configurationErrors)
 
 /**
- * Unlike the other configuration models, [CorsConfig] deliberately exposes no `orThrow()` counterpart:
- * an invalid CORS configuration must never make a request fail.
+ * The enabled configuration, or null where the `cors` section is invalid.
  *
- * When the `cors` section is invalid, callers fall back to the mandatory header set and the errors are
- * surfaced through the readiness health indicator instead.
+ * Unlike the other configuration models, [CorsConfig] has no `orThrow()`: it is read on every
+ * preflight, which narrows the sealed type rather than throwing
+ * (`docs/standards/config-layer-code-standard.md`) and falls back to the mandatory header set.
  */
 fun CorsConfig.orNull(): EnabledCorsConfig? {
     return when (this) {

@@ -36,8 +36,9 @@ as an `Array<String>`, a duration as the integer its column holds, and narrow th
 **A timestamp is a domain value set by the manager that knows what it means.** The framework's
 automatic created- and updated-at annotations stay off.
 
-**Every date is a `LocalDateTime`, and it is UTC.** The application forces the JVM's default zone to
-UTC at startup.
+**A moment is a `LocalDateTime` in UTC, and a calendar date with no time of day is a `LocalDate`.**
+The application forces the JVM's default zone to UTC at startup, which is what lets either one
+round-trip through a zoneless column.
 
 ## The repository
 
@@ -72,9 +73,11 @@ that dialect's own query. An upsert is the case that arises, and it is worth a c
 only where a read-then-write would be a race the table's unique index would then refuse. Declare
 the method on the shared interface, documented there, so every spelling answers one contract.
 
-**A parameter whose type the driver cannot infer carries an explicit type definition.** An array
-bound into a raw query is one case. A value selected into a derived table is the other: H2 types
-that source from the statement alone, so cast each one to its column's type.
+**A parameter whose type the driver cannot infer is given one.** An array bound into a raw query
+carries an explicit type definition, and a value selected into a derived table is cast to its
+column's type, since H2 types that source from the statement alone. An optional parameter keeps to
+the one usage the driver types — `col = COALESCE(:value, col)` over a `NOT NULL` column, rather
+than `:value IS NULL OR …`.
 
 **A `json` column is written through a derived method, never through a raw query.** A map bound as a
 raw-query parameter is stored as its `toString()` and fails on the next read; where a raw statement

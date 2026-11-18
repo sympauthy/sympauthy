@@ -7,17 +7,9 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * Hold the flow-generic state of an end-user's journey through an interactive flow.
- *
- * This is the primary primitive the whole interactive flow passes around. It carries only state that is
- * common to every flow purpose (progress, expiration, terminal status). Concern-specific state lives in
- * its own record attached by [id] and fetched via the matching manager, never carried here:
- * - the client's OAuth2 request context + consent/grant in [InteractiveFlowSessionOAuth2],
- * - the state of authorizing the user through a third-party provider in [InteractiveFlowSessionProvider].
- *
- * Designer note: By defining a sealed class, we ensure that business logic can only interact on ongoing
- * sessions without having to check the status in every business method. It forces the developer to check
- * the status of the session before interacting with it.
+ * Hold the flow-generic state of an end-user's journey through an interactive flow. Concern-specific state
+ * lives in its own record attached by [id] and fetched via the matching manager, never here — such as
+ * [InteractiveFlowSessionOAuth2] and [InteractiveFlowSessionProvider]. See `docs/design/interactive-flow.md`.
  */
 sealed class InteractiveFlowSession(
     /**
@@ -26,12 +18,10 @@ sealed class InteractiveFlowSession(
     val id: UUID,
 
     /**
-     * The ordered list of purposes this session serves.
-     *
-     * The engine drives them in order: the first purpose is the one that initiated the session and owns the
-     * terminal handoff (e.g. issuing an authorization code); further purposes are appended by a purpose as it
-     * resolves (e.g. the OAuth2 authorize purpose appending an MFA purpose) and must all resolve before the
-     * session completes.
+     * The ordered list of purposes this session serves, which the engine drives in order and which grows
+     * while the session runs; every one must resolve before the session completes. Its first entry is not
+     * the initiating one where a gate stands in front — [initiatingPurpose] is. See
+     * `docs/design/interactive-flow.md`.
      */
     val purposes: List<InteractiveFlowPurpose>,
 
@@ -39,10 +29,7 @@ sealed class InteractiveFlowSession(
      * The purpose that initiated the session and owns its terminal handoff.
      *
      * Set once when the session is created — the starter names the purpose it creates the session for — and
-     * carried for the whole life of the session. It is deliberately **stored** rather than derived from
-     * [purposes]: gate purposes ([InteractiveFlowPurpose.CONFIRM], [InteractiveFlowPurpose.REAUTHENTICATION])
-     * are prepended and second-factor purposes ([InteractiveFlowPurpose.MFA_CHALLENGE]) are inserted at
-     * runtime, so no positional rule over [purposes] stays correct as the chain grows.
+     * stored rather than derived from [purposes]; see `docs/design/interactive-flow.md`.
      */
     val initiatingPurpose: InteractiveFlowPurpose,
 
@@ -50,11 +37,9 @@ sealed class InteractiveFlowSession(
      * The identifier of the client that initiated the session, or null where an administrator initiated it
      * and where the initiating purpose has no client at all.
      *
-     * Set once when the session is created and never updated, for the reason [initiatingPurpose] is: the
-     * client is on the attached record of whichever purpose initiated the session
+     * Set once when the session is created, in the same transaction as the attached record it duplicates
      * ([InteractiveFlowSessionOAuth2] for an authorization, [InteractiveFlowSessionConfirm] for a gated one),
-     * so no rule over [purposes] reaching for it stays correct as purposes gain initiators. It is written in
-     * the same transaction as the record it duplicates, which is what keeps the two from disagreeing.
+     * and never updated; see `docs/design/interactive-flow.md`.
      *
      * It names a client this deployment configured at the moment the session started. Configuration is not a
      * table, so a session may outlive the client it names.
@@ -78,9 +63,8 @@ sealed class InteractiveFlowSession(
     /**
      * Where and how the end-user is handed back to whoever started the session, whatever way it ends. Set once
      * when the session is created, and null where the start request named nowhere this server may send the
-     * end-user back to — an authorization request from an unknown client, or naming a redirect URI the client
-     * does not declare — so such a session is left only through its error page. A completed and a cancelled
-     * session always carry one.
+     * end-user back to, so such a session is left only through its error page. A completed and a cancelled
+     * session always carry one. See `docs/design/interactive-flow.md`.
      */
     abstract val handBack: InteractiveFlowHandBack?
 }
@@ -105,9 +89,8 @@ class OnGoingInteractiveFlowSession(
 
     /**
      * Optimistic-concurrency version of the underlying row, as it was last read. Every guarded
-     * lifecycle mutation is a compare-and-swap against this value (and returns a session carrying the
-     * incremented version); a stale value loses the swap, so a replayed / concurrent request cannot
-     * silently overwrite newer state.
+     * lifecycle mutation is a compare-and-swap against this value and returns a session carrying the
+     * incremented version; see `docs/design/interactive-flow.md`.
      *
      * Defaults to 0 (a freshly-created row) purely for construction ergonomics; the mapper always
      * supplies the persisted value read from the database.
@@ -262,7 +245,8 @@ class FailedInteractiveFlowSession(
     val errorDescriptionId: String? = null,
 
     /**
-     * Value to expose to the mustache template to inject values into the localized error messages.
+     * Values interpolated into the `{name}` placeholders of the localized error messages, copied from the
+     * same exception.
      */
     val errorValues: Map<String, String>? = null,
 

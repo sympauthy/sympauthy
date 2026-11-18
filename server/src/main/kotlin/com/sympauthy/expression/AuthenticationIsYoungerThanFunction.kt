@@ -13,10 +13,8 @@ import java.time.Duration
  * Custom function checking whether the person's authentication behind the token is no older than a duration.
  * Return true or false, and false where no person authenticated behind the token.
  *
- * The duration is read the way every duration key of the configuration is, through the same conversion, so
- * a deployment writes `5m` here as it does anywhere else. One that does not read is refused rather than
- * answered, and it is read before anything else so that the configuration, which evaluates the function with
- * no authentication behind it, refuses it at startup.
+ * The duration is read the way every duration key of the configuration is, and one that does not read throws
+ * an [EvaluationException], whether or not a person authenticated behind the token.
  */
 @FunctionParameter(name = "duration")
 class AuthenticationIsYoungerThanFunction(

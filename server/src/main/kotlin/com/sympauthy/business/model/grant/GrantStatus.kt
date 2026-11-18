@@ -3,9 +3,7 @@ package com.sympauthy.business.model.grant
 /**
  * Where a grant this server still holds stands, read at one moment.
  *
- * The four are exclusive, and they are decided in the order they are declared below `LIVE`: a revoked grant is
- * [REVOKED] whatever else holds of it, because the revocation is what somebody acted on, and a grant past its
- * lifetime is [EXPIRED] rather than [LAPSED], since every token under it has expired by then too. See
+ * The four are exclusive, and they are decided in the order they are declared below `LIVE`. See
  * `docs/design/grants.md`.
  */
 enum class GrantStatus {
@@ -18,7 +16,7 @@ enum class GrantStatus {
     /** Revoked, by whichever revocation came first. */
     REVOKED,
 
-    /** Past the lifetime `auth.grant.expiration` gave it. */
+    /** Past its lifetime. */
     EXPIRED,
 
     /**

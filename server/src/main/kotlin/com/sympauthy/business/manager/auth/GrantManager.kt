@@ -41,20 +41,10 @@ import java.util.*
 /**
  * Opens the grants tokens are issued under, checks one presented to it, and revokes them.
  *
- * Every revocation reaches grants rather than tokens, and only a grant still live: one not revoked yet and
- * holding a token that has not expired. A grant already revoked keeps who revoked it first, and one that
- * lapsed is not recorded as revoked afterwards, so a revocation that counts answers how many grants it took
- * out of service.
- *
- * Every revocation of a grant a refresh or a code exchange writes tokens under is written holding the lock
- * over the account of its person, which both of them take too. A revocation reads a grant live from the
- * tokens committed under it, so without the lock a refresh renewing a grant whose last token is about to
- * expire could have its tokens written after the revocation judged the grant lapsed, and left live.
- *
- * An act-as grant is the exception: revoking the grant it was exchanged from reaches it without the lock over
- * the account it acts as, even though a revocation of that person's grants takes it. Nothing writes a token
- * under an act-as grant after the exchange that opened it, so there is no judgment for the lock to protect,
- * and two revocations of one are settled by the update each of them is. See `docs/design/grants.md`.
+ * Every revocation reaches only a grant still live, and is written holding the lock over the account of the
+ * grant's person, except that revoking a grant reaches the act-as grants exchanged from it without the lock
+ * over the accounts they act as. Which grants are live, and why the lock is taken and that one is not, is
+ * `docs/design/grants.md`.
  */
 @Singleton
 open class GrantManager(
@@ -133,9 +123,7 @@ open class GrantManager(
      * Whether [grant] was opened for [client], and for the audience [client] belongs to now:
      * [GrantOpenedForResult.OpenedForAnotherClient] where it was opened for another client, and
      * [GrantOpenedForResult.OpenedForAnotherAudience] where [client] has since moved to another audience.
-     *
-     * A grant is the audience's it was opened for, and that is what revoking a consent reaches it by: tokens
-     * issued for an audience its client has since moved to would escape the consent they rest on.
+     * Why a grant is the audience's it was opened for is `docs/design/grants.md`.
      */
     fun verifyOpenedFor(grant: Grant, client: Client): GrantOpenedForResult = when {
         grant.clientId != client.id -> GrantOpenedForResult.OpenedForAnotherClient(
@@ -177,9 +165,8 @@ open class GrantManager(
      * Refuse [grant] where it names a user that is not an account this server has finished creating, as an
      * `OAuth2Exception` carrying `invalid_grant` and `grant.invalid_user`. A grant naming no user passes.
      *
-     * A token is what turns an account into one another system will act on, so none is issued under a grant
-     * whose account a sign-up has not finished, however the request reached this point. The account is read
-     * through the reader of committed accounts alone, which answers an unfinished one as no account at all.
+     * The account is read through the reader of committed accounts alone, which answers an unfinished one as
+     * no account at all.
      */
     suspend fun checkUserPromoted(grant: Grant) {
         val userId = grant.userId ?: return
@@ -266,16 +253,12 @@ open class GrantManager(
 
     /**
      * Open the grant a token exchange (RFC 8693) issues its act-as token under: the person [userId] acted
-     * as by the client holding [actorToken], for the audience identified by [audienceId] the exchange named.
+     * as by the client holding [actorToken], for the audience identified by [audienceId], which is that
+     * client's own.
      *
      * It holds no scope, since an act-as rule grants none, and no authentication date, since nobody proved
      * a credential of the person here. It records the grant of [actorToken], which revoking revokes this
-     * grant too.
-     *
-     * It expires no later than [actorToken]: a `client_credentials` request opens a grant of its own, so that
-     * token is the last of its grant, and the act-as grant is refused once it has expired. Lasting no longer
-     * caps the `exp` of every token under the act-as grant, which is what a resource server that is not this
-     * one stops honouring it by.
+     * grant too. It expires no later than [actorToken], for the reason `docs/design/grants.md` gives.
      */
     suspend fun createTokenExchangeGrant(
         userId: UUID,
@@ -307,8 +290,7 @@ open class GrantManager(
      * later than [latestExpirationDate] where one is passed.
      *
      * Throws `user.not_found` or `user.not_promoted` where [userId] names no account this server has finished
-     * creating, as [UserManager.checkPromoted] does: a grant outlives the session that may still be signing
-     * the account up, and every token issued under it would hang on that account.
+     * creating, as [UserManager.checkPromoted] does.
      */
     @Suppress("LongParameterList")
     internal suspend fun createGrant(
@@ -448,8 +430,8 @@ open class GrantManager(
      * still live, recording it as revoked by [GrantRevokedBy.PASSWORD_RESET] at [revokedAt], and return how many
      * there were.
      *
-     * A grant opened through a provider, or by proving another password, is not reached: what replacing a
-     * password withdraws is what that password stood behind.
+     * A grant opened through a provider, or by proving another password, is not reached, for the reason
+     * `docs/design/grants.md` gives.
      *
      * The update is written holding the lock over the account of [userId], which is released only when it
      * commits: a refresh or a code exchange under one of those grants either has its tokens committed before
@@ -474,10 +456,8 @@ open class GrantManager(
 
     /**
      * Revoke every grant of [userId] opened for the audience identified by [audienceId] that is still live,
-     * except the act-as ones, recording it as revoked at [revokedAt], and return how many there were.
-     *
-     * An act-as grant rests on the act-as rules rather than on anything the person agreed to, so nothing a
-     * person withdraws for an audience reaches one.
+     * except the act-as ones, recording it as revoked at [revokedAt], and return how many there were. Why a
+     * consent spares the act-as grants is `docs/design/grants.md`.
      *
      * The update is written holding the lock over the account of [userId], which is released only when it
      * commits: a refresh or a code exchange under one of those grants either has its tokens committed before

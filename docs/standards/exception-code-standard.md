@@ -14,9 +14,11 @@ is [the API standard](api-standard.md#errors).
 
 ## One root, a type per layer
 
-**Every failure extends one localized exception type**, which carries a code, an optional second
-code for the person's version, a map of values to interpolate, and whether the caller could
-recover. The root type is extended and rendered, never thrown.
+**Every failure carries a code and the values to interpolate into it, in the type its layer
+throws.** `LocalizedException` is the root the `business` and `api` types extend, adding an optional
+second code for the person's version and whether the caller could recover; it is extended and
+rendered, never thrown. `OAuth2Exception` carries the protocol's code beside the same keys and
+`ConfigurationException` the configuration key it refuses, and neither extends the root.
 
 | Layer | Throws | Meaning |
 | --- | --- | --- |
@@ -30,6 +32,10 @@ recover. The root type is extended and rendered, never thrown.
 `invalid_grant`, split from the key that will not load and travels out of the same call as a `500`.
 The alternative is a list of codes at every catch: the contract restated once per caller, and wide
 by default the day one caller stops restating it.
+
+**A precondition is refused by a guard clause, where it is checked.** A function throws or returns
+as soon as an input fails, so it carries as many of each as it has preconditions, and no check is
+nested to reach a single exit.
 
 ## An exception carries keys, never a sentence
 
@@ -55,7 +61,7 @@ row that cannot become a model and a provider that answered something unparseabl
 
 **Recoverable and having something to say are separate questions.** Recoverable decides the status
 and whether a retry is worth suggesting; the description decides what the reader is told, and a
-`400` takes a second code for the person's message either way. A `500` takes none: the caller is
+`400` can take a second code for the person's message either way. A `500` takes none: the caller is
 not at fault and has nothing to do but report it.
 
 **Inside an interactive flow, recoverable decides whether the flow survives.** `handleException`
@@ -147,13 +153,8 @@ part is the thing: `method.unsupported`, `parameter.malformed`.
 **A `5xx` tells the caller that the server failed.** Keep the row, the key, the provider and the
 step in the log, behind the flag that gates them.
 
-## The apostrophe rule
-
-**A message carries no apostrophe of its own.** The message source reads one as opening a quoted
-literal and the next as closing it, so both are dropped and every placeholder between them is
-emitted verbatim instead of interpolated — *the person's* loses its `'s` and takes the `{claim}`
-three clauses later down with it. Reword the possessive rather than escaping it, and double the
-character only where a message has to print it.
+**A message in the bundle follows [the apostrophe rule](i18n-standard.md#the-apostrophe-rule)**,
+which holds in every bundle.
 
 ## What this standard does not cover
 

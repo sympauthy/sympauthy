@@ -16,8 +16,7 @@ import jakarta.inject.Singleton
  * business model.
  *
  * If the content of the entity is not valid (e.g. an inconsistent PKCE challenge), an internal
- * [BusinessException] "mapper.interactive_flow_session_oauth2.invalid_property" is thrown: a row this
- * server wrote and cannot read back is its own failure rather than the caller's.
+ * [BusinessException] "mapper.interactive_flow_session_oauth2.invalid_property" is thrown.
  */
 @Singleton
 class InteractiveFlowSessionOAuth2Mapper {

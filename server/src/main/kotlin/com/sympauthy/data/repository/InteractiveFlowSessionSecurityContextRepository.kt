@@ -72,10 +72,8 @@ interface InteractiveFlowSessionSecurityContextRepository :
      * Drop the one place of [sessionId] worth keeping least, and answer how many rows that removed —
      * zero where the session holds none.
      *
-     * **Worth keeping least is least recently seen, and a place a credential was proven at goes last.**
-     * The first is what a session is read for: where it is being driven from now, which the place nobody
-     * has been seen at for longest answers worst. The second is what the fold reads, and the only thing
-     * on this table nobody can write without a credential — so every unproven place makes room before it.
+     * **Worth keeping least is least recently seen, and a place a credential was proven at goes last**,
+     * for the reasons `docs/design/security-context.md` gives.
      */
     @Query(
         """

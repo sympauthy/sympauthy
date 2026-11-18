@@ -6,11 +6,8 @@ import io.opentelemetry.api.common.Attributes
 import jakarta.inject.Singleton
 
 /**
- * The attempts to get into the server, the validation codes checked, and the passwords hashed.
- *
- * A sign-up is an attempt like a sign-in, under its own `kind`, so that one metric shows the rate of every
- * attempt. The refusals of a password sign-in are one code — an unknown identifier, a disabled account and a
- * wrong password are answered alike — and are counted together.
+ * The attempts to get into the server, the validation codes checked, and the passwords hashed, counted as
+ * `docs/design/telemetry.md` says.
  */
 @Singleton
 class AuthenticationMetrics(
