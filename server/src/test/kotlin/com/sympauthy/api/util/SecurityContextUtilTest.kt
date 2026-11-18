@@ -191,9 +191,8 @@ class SecurityContextUtilTest {
     }
 
     /**
-     * Naming an edge that auto-detection already found moves it to the end, where it wins the fields
-     * it answers. It is read once all the same: the stub would answer the same thing twice, so only
-     * the verification shows the second read is not made.
+     * The stub would answer the same thing twice, so only the verification shows the second read is
+     * not made.
      */
     @Test
     fun `observe - Read an edge auto-detection already found once, at the position it was named`() {
@@ -270,10 +269,6 @@ class SecurityContextUtilTest {
         assertEquals(IpSource.NAMED_HEADER, observed.ipSource)
     }
 
-    /**
-     * A filter reads this on every request, so a configuration that did not parse has to answer rather
-     * than throw: throwing would fail the health endpoint an operator reads to find out why.
-     */
     @Test
     fun `observe - Answer the socket peer where the configuration did not parse`() {
         val util = SecurityContextUtil(DisabledAdvancedConfig(emptyList()), ipProviders, geoProviders)

@@ -245,8 +245,7 @@ class UserManagerTest {
             userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
         )
 
-        // The claim is the caller's own, which it already knows; the account is the other one, which is
-        // the half only this read can answer.
+        // The claim is the caller's own; the account is the one holding the row.
         assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
     }
 
@@ -256,8 +255,6 @@ class UserManagerTest {
         val ownerId = UUID.randomUUID()
         committedRows(claimRow(ownerId, emailClaim, storedAddress))
 
-        // The rule is any of the offered values under any identifier claim, and not an account holding all
-        // of them: the account owning one owns the identity whether or not it owns the rest.
         val taken = manager.findTakenIdentifierOrNull(
             userId,
             listOf(emailClaim, phoneClaim),
@@ -301,8 +298,6 @@ class UserManagerTest {
             val userId = UUID.randomUUID()
             val ownerId = UUID.randomUUID()
             // Another account already holds, under its username, the address this one offers as its email.
-            // Allowing it leaves each value matching a row of each account, and whoever owns one of them is
-            // resolved to the other account.
             committedRows(claimRow(ownerId, phoneClaim, storedAddress))
 
             val taken = manager.findTakenIdentifierOrNull(
@@ -347,8 +342,7 @@ class UserManagerTest {
 
     @Test
     fun `findByAnyIdentifierClaimValue - Drops a row whose folded value is not the one offered`() = runTest {
-        // What the hash selected is a candidate. This is the collision the re-check exists to refuse, and
-        // acting on it would sign somebody in against an account that is not theirs.
+        // The hash selected this row: it is the collision the re-check refuses.
         committedRows(claimRow(UUID.randomUUID(), emailClaim, "somebody.else@example.com"))
 
         assertNull(manager.findByAnyIdentifierClaimValue(mapOf(emailClaim to storedAddress)))
@@ -373,8 +367,6 @@ class UserManagerTest {
 
     @Test
     fun `findByIdentifierClaims - Answers none where an account holds only some of the values`() = runTest {
-        // Resolving is the read that has to answer one account rather than a choice between several, so an
-        // account matching the address and not the number is not the one being asked after.
         committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
         coEvery { userRepository.findByIdInListAndSessionIdIsNull(emptyList()) } returns emptyList()
 

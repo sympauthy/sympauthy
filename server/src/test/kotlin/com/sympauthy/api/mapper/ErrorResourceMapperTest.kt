@@ -67,7 +67,6 @@ class ErrorResourceMapperTest {
     fun `toResource - Carry no properties at all for an error refusing none`() {
         every { localizedErrorMapper.toLocalizedError(exception, Locale.US) } returns localizedError()
 
-        // Absent rather than an empty list: a client tests for the presence of the key.
         assertNull(mapper.toResource(exception, Locale.US).properties)
     }
 }

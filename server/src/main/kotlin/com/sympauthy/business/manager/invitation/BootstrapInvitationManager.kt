@@ -19,10 +19,9 @@ import kotlinx.coroutines.runBlocking
 /**
  * Creates bootstrap invitations defined in YAML configuration at application startup.
  *
- * Nothing is created on a deployment whose configuration has errors. [ServiceReadyEvent] says only that
- * the embedded server started, so this asks [ConfigReadiness] for the verdict the readiness probe and the
- * startup banner both report, and skips the section when that verdict is negative. A token minted there
- * would be revoked by the startup that fixes the configuration, and its audience may not even exist.
+ * Nothing is created on a deployment whose configuration has errors: it asks [ConfigReadiness] first, as
+ * `docs/standards/config-layer-code-standard.md` has all startup work do. A token minted there would be
+ * revoked by the startup that fixes the configuration, and its audience may not even exist.
  *
  * For each configured bootstrap invitation:
  * - Checks if any user has already consented for the configured audience.
@@ -100,9 +99,9 @@ class BootstrapInvitationManager(
         // library's getBootstrapInvitationToken. The format of the two lines below is its contract.
         //
         // An accepted deviation from the logging standard: the line carries a credential, and the console
-        // is the only place an operator is handed it. Being INFO, it also goes through the queue, which
-        // drops it once the queue is four fifths full and abandons it a second into shutdown; the operator
-        // who misses it restarts the server, which revokes it and writes a new one.
+        // is the only place an operator is handed it. Being INFO, it also goes through the queue, which may
+        // drop it under load or at shutdown (`docs/design/logging.md`); the operator who misses it restarts
+        // the server, which revokes it and writes a new one.
         val urlTemplate = bootstrapInvitation.urlTemplate
         if (urlTemplate != null) {
             val url = urlTemplate.replace("{token}", rawToken)

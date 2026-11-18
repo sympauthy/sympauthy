@@ -43,10 +43,8 @@ import java.util.*
  * Manager in charge of an end-user resetting, from the sign-in step of an interactive auth flow, a password they
  * forgot: asking for a code, proving the account with it, and choosing the new password.
  *
- * **Every identifier is answered alike.** Whatever account holds the identifier typed, if any, the end-user is
- * taken to the code page, and a code typed there that proves nothing is refused as a wrong code is. What differs is
- * only what reaches an inbox: a code to the proven email address of an account holding a password, a notice where
- * the account holds none, a notice to an email address no account uses, and nothing otherwise.
+ * **Every identifier is answered alike**, whatever account holds it, if any; only what reaches an inbox differs,
+ * as [prepareResetMail] decides. Why is `docs/design/security.md`.
  *
  * The new password is held on the session's reset record until the session completes, which is when
  * [com.sympauthy.business.manager.flow.reset.PasswordResetInteractiveFlowPurposeHandler] applies it.
@@ -95,9 +93,9 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * again, for another identifier or the same one, the reset starts over: a code sent before proves only the
      * account it was sent to, and only while that account is the one asked for.
      *
-     * Asking again is held to the delay [resendCode] is, or a script asking in a loop would send a mail to any
-     * address at the rate it asks. Asked too soon, nothing is sent: the same identifier keeps the reset as it was,
-     * and another is recorded with no code sent, so that a resend once the delay has passed goes to it.
+     * Asking again is held to the delay [resendCode] is, for the reason `docs/design/security.md` gives. Asked too
+     * soon, nothing is sent: the same identifier keeps the reset as it was, and another is recorded with no code
+     * sent, so that a resend once the delay has passed goes to it.
      *
      * Throws the recoverable `flow.password.reset.missing_login` where [login] is blank, and the internal
      * `flow.password.reset.disabled` where [flow] offers no reset. A session whose user is already established

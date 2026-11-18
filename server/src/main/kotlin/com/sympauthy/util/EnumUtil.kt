@@ -2,10 +2,8 @@ package com.sympauthy.util
 
 /**
  * Implemented by an enum holding a value the lowercased Kotlin name does not spell: the value
- * declares what it is published under, and [wireName] reads the declaration.
- *
- * A value the rule reaches declares nothing, so the declaration that is left reads as what it is —
- * this one value is spelled differently on purpose.
+ * declares what it is published under, and [wireName] reads the declaration — see
+ * `docs/standards/api-layer-code-standard.md`.
  */
 interface PublishedUnderAnotherName {
     /**

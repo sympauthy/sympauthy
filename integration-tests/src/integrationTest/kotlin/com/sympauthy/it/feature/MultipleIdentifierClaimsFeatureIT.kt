@@ -21,7 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * No unit test reaches this. Which claim a login matched is decided in a query, the account it resolves
  * to is proved by a signed token minted at the end of a second complete flow, and the sign-up that
- * collected both claims is a third — three flows through the live instance, against each database.
+ * collected both claims is a third — three flows through the live instance.
  *
  * The rejection below is the other half of the same rule, and the reason the guarantee above is worth
  * anything: a value belongs to one account across the whole set rather than within one claim. Allowing a

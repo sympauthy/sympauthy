@@ -46,8 +46,8 @@ class UserSecurityContextEntity(
     val timeZone: String? = null,
     val firstSeenDate: LocalDateTime,
     /**
-     * When this place was last seen, which is what retention is measured from: a place someone keeps
-     * signing in from is kept for as long as they keep using it.
+     * When this place was last seen, which is what retention is measured from — see
+     * `docs/design/security-context.md`.
      *
      * There is no expiration column beside it. One retention applies to every row and an operator may
      * change it, so a stamped expiry would leave the rows already written on the old policy.

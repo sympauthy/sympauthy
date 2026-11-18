@@ -14,9 +14,9 @@ import kotlinx.coroutines.launch
 /**
  * Expires the interactive flow sessions whose time is up, and the records attached to them.
  *
- * The lease is what keeps a deployment of several instances from doing that work several times over. It is
- * not what keeps it correct: the cleaner deletes what is committed-expired, which is the same set on every
- * instance, and [JobLeaseManager] says why a leased job has to stay correct when it runs twice.
+ * The lease keeps a deployment of several instances from doing that work several times over; the cleaner
+ * stays correct when it runs twice, as `docs/standards/locking-standard.md` requires of a leased job, because
+ * it deletes what is committed-expired, which is the same set on every instance.
  */
 @Singleton
 class CleanExpiredInteractiveFlowSessionCron(

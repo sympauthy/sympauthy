@@ -17,9 +17,9 @@ import kotlinx.coroutines.launch
  * A job of its own rather than a step of [CleanExpiredInteractiveFlowSessionCron]: that transaction exists
  * to delete a session's dependants, and these rows deliberately outlive the sessions that observed them.
  *
- * The lease keeps a deployment of several instances from sweeping several times over, and the sweep stays
- * correct when it runs twice anyway — it deletes what is committed-expired, which is the same set on every
- * instance. [JobLeaseManager] carries why a leased job has to be one of those.
+ * The lease keeps a deployment of several instances from sweeping several times over; the sweep stays correct
+ * when it runs twice, as `docs/standards/locking-standard.md` requires of a leased job, because it deletes what
+ * is committed-expired, which is the same set on every instance.
  */
 @Singleton
 class CleanExpiredUserSecurityContextCron(

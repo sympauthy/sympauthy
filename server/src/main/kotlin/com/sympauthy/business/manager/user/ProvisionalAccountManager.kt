@@ -56,15 +56,11 @@ open class ProvisionalAccountManager(
      *
      * Throws a non-recoverable [BusinessException] when another account has taken one of this one's
      * identifiers in the meantime: `user.promote.identifier_taken` for a claim, and
-     * `user.promote.provider_subject_taken` for a third-party identity. Neither uniqueness is a database
-     * constraint, and both were checked at sign-up against committed rows only, so two sign-ups may hold the
-     * same identifier at once. This is where the first of them to complete wins.
+     * `user.promote.provider_subject_taken` for a third-party identity. This is where the first of two
+     * sign-ups holding one identifier to complete wins, as `docs/design/provisional-user.md` has it.
      *
      * **The checks are serialised by the identities this account is about to take**, held over the checks
-     * and the writes both. Without them two promotions of one address each read committed rows the other
-     * has not written yet, both find it free and both commit — and the loser of that race is only found
-     * when a sign-in with that address matches two accounts. The loser now waits on the winner instead, and
-     * re-checks against what the winner committed. See [LockKey] and `docs/standards/locking-standard.md`.
+     * and the writes both. See [LockKey].
      *
      * The keys come from a read taken before the lock, because the lock has to name them. What that read
      * cannot miss is another promotion, which is what the keys are for; what it may miss is [deleteAbandoned]
@@ -72,12 +68,8 @@ open class ProvisionalAccountManager(
      * every write here re-asserts the session id, and the completion write finds no session to mark. They
      * are named in one call because a second one in that transaction is refused.
      *
-     * The account itself is named beside them whenever there are any. The promotion writes five of the
-     * tables it owns, which is what [LockKey.User] is for, and naming it here leaves the rest of the caller's
-     * transaction free to write under that key, where a set without it would refuse that as a second lock.
-     * An account holding no identity takes nothing, and leaves the rest of the transaction to take the
-     * account's key itself: every stripe taken here is held until that transaction ends, whatever the caller
-     * does in the meantime.
+     * The account's own [LockKey.User] is named beside them whenever there are any, and an account holding no
+     * identity takes nothing; `docs/design/provisional-user.md` is why.
      *
      * The whole of it — the checks and the five writes — belongs to the caller's transaction, so an account
      * either becomes real in full or stays provisional and is collected, and the locks are held until that
@@ -145,24 +137,17 @@ open class ProvisionalAccountManager(
      *
      * An account counts as abandoned when the session signing it up is **gone** — see
      * [UserRepository.findAbandoned], which is where that and the rule for skipping an account something
-     * still refers to are written. Keying on absence rather than on the sessions one run expired makes this
-     * self-correcting: an account orphaned by an earlier failure is collected on the next pass, and this
-     * sweep needs nothing from the run that expired the session. It is a cleaner of its own, on a cron of
-     * its own ([com.sympauthy.cron.CleanAbandonedAccountCron]), rather than a step of the one removing the
-     * sessions — which is what keeps it reading an absence every other transaction can see too, and keeps
-     * it from holding a session's lock while it waits for an account's.
+     * still refers to are written. Why it keys on absence, as a cleaner of its own, is
+     * `docs/design/provisional-user.md`'s.
      *
      * The account's own rows go first, every one of them rather than only the provisional ones: the account
      * is going, so anything hanging off it is going too. By the [com.sympauthy.data.model.SessionScoped]
      * invariant those are the same set — a provisional account owns no committed row — which is why every
      * one of the five statements can carry the session id and still delete what the account holds.
      *
-     * **Each statement re-asserts provisionality; none of them trusts the read that selected the account.**
-     * A flow may promote one of these accounts between that read and these deletes, and an id names a row
-     * whatever became of it. Naming the session id instead makes each delete re-check the account as the
-     * promotion left it — PostgreSQL through `EvalPlanQual`, H2 through the re-check it runs when the row
-     * it locked turns out to have changed — so a promoted account is skipped rather than deleted out from
-     * under the flow that finished it.
+     * **Each statement re-asserts provisionality; none of them trusts the read that selected the account**
+     * — see `docs/design/provisional-user.md`. PostgreSQL re-checks through `EvalPlanQual`, H2 through the
+     * re-check it runs when the row it locked turns out to have changed.
      *
      * The five deletes commit together, holding every row they removed until then, so a promotion racing the
      * sweep is ordered against it as a whole: whichever reaches the account's rows first, the other finds them

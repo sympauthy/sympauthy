@@ -108,10 +108,8 @@ class ClientConfigFieldValidator {
      * Look up default scopes the way [validateScopes] does, and also refuse a [ClientScope] among
      * them under `config.client.default_scopes.not_user_scope`, against the index it was written at.
      *
-     * The default scopes are what an authorization request naming no scope is answered with, and a
-     * client scope is obtained in a `client_credentials` flow only: one named here could never be
-     * granted, and each such request would be refused at the authorization endpoint instead of once,
-     * at startup.
+     * A client scope never reaches a person's token (`docs/design/security.md`), so one named here
+     * is refused once, at startup, rather than at every authorization request naming no scope.
      */
     fun validateDefaultScopes(
         ctx: ConfigParsingContext,

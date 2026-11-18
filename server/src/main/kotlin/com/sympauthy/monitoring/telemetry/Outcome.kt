@@ -9,8 +9,7 @@ import kotlinx.coroutines.CancellationException
  * `error.type`.
  *
  * [Refused] is an ending the caller caused — a wrong password, a code already exchanged — and [Error] the
- * server or a dependency failing. Two attributes rather than a metric per ending, so that summing a metric over
- * every attribute still counts every event.
+ * server or a dependency failing. See `docs/design/telemetry.md`.
  */
 sealed class Outcome(
     internal val value: String

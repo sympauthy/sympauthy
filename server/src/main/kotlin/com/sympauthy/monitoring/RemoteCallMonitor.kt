@@ -11,12 +11,8 @@ import jakarta.inject.Singleton
 
 /**
  * Every call this server makes outside its process: timed on `sympauthy.remote_call.duration`, and reported to
- * the [Condition] the call is made to.
- *
- * A remote call is always a condition's, and a condition is not always reached by a call — the console's queue
- * is this server's own — so the conditions are [ConditionMonitor]'s and this only reports to it. An
- * [Outcome.Error] is a failure of the condition; a success and an [Outcome.Refused] are both its answer, a
- * refusal being one to what was sent.
+ * the [Condition] the call is made to, whose state [ConditionMonitor] holds. An [Outcome.Error] is a failure of
+ * the condition; a success and an [Outcome.Refused] are both its answer, a refusal being one to what was sent.
  *
  * The collector's exports are not reported here: its condition recovers only once every signal has exported
  * again, which the exporters report to [ConditionMonitor] themselves.

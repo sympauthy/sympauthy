@@ -16,9 +16,6 @@ import jakarta.inject.Singleton
  * X-Akamai-Edgescape: georegion=263,country_code=US,region_code=MA,city=CAMBRIDGE,zip=02138,timezone=EST
  * ```
  *
- * A `Map<field, header>` cannot express that, which is the reason an edge carries an extraction
- * rather than a table of header names.
- *
  * Two fields are what the edge sends rather than what this server would have asked for, and are
  * recorded as they arrive: `zip` may be a set of ranges rather than one code, and `timezone` is an
  * abbreviation where other edges send an IANA name.

@@ -8,9 +8,8 @@ import jakarta.inject.Singleton
 /**
  * The mails this server hands the mail server.
  *
- * A send is counted beside the call carrying it, which `sympauthy.remote_call.duration` times under the mail
- * server's condition: the call says whether the dependency answers, the send says which mail a person was sent.
- * A mail that failed to build never reached the mail server, and is not a send.
+ * A send is counted beside the call carrying it, which `sympauthy.remote_call.duration` times. See
+ * `docs/design/telemetry.md` for which mails are a send.
  */
 @Singleton
 class MailMetrics(

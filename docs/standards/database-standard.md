@@ -73,7 +73,8 @@ which is what makes a zoneless column unambiguous.
 **A column is `NOT NULL` unless null means what no value could** — "never revoked", "never used".
 Give a column a default where a value is merely inconvenient to supply at insert time.
 
-**Absence is spelled `NULL`.** Every other value a column admits means itself.
+**Absence is spelled `NULL` in every column but a `bytea` one.** Every other value a column admits
+means itself.
 
 **A `bytea` column is `NOT NULL`.** A null one cannot be written — the R2DBC binding types it
 `smallint[]`, which PostgreSQL refuses against a `bytea` — so give the absent value a spelling of
@@ -116,8 +117,8 @@ longer. [The provisional user](../design/provisional-user.md) owns it.
 sessions and the accounts an abandoned sign-up left half-written, and the places a person signs in
 from carry a retention of their own because an address is personal data — [the security
 context](../design/security-context.md) holds it. Expired tokens and finished grants are collected
-as [the grants](../design/grants.md#what-is-collected) hold; how long a used validation code is kept
-is still a policy nobody has set.
+as [the grants](../design/grants.md#what-is-collected) hold, and a validation code, used or not, is
+collected with the session it was sent for.
 
 **Encryption at rest and column-level encryption.** Secrets are hashed where they are secrets, and
 what the storage does underneath is the deployment's business.

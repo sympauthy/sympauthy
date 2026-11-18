@@ -14,8 +14,7 @@ data class EnabledUrlsConfig(
 ) : UrlsConfig() {
 
     /**
-     * Whether the [root] has a local host, which nothing on the internet reaches. Judged once, since the root does not
-     * change until the server restarts.
+     * Whether the [root] has a local host, which nothing on the internet reaches.
      */
     val isRootLocal: Boolean = root.hasLocalHost()
 }

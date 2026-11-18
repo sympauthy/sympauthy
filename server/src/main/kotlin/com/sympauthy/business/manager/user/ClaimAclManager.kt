@@ -21,9 +21,9 @@ import java.time.LocalDateTime
  * Answers whether a door of a claim's ACL is open to a caller, by evaluating the expression the deployment
  * wrote on it.
  *
- * Whether an expression is usable at all is settled once, when the configuration is read, by
- * [ClaimAclExpressions]. What is left here is the half that needs a request behind it: binding the functions
- * to the context the door is asked in, and running them. A door no expression opens is shut to everybody.
+ * Whether an expression is usable at all is settled when the configuration is read, by
+ * [ClaimAclExpressions]; what is left here is binding the functions to the context the door is asked in, and
+ * running them. A door no expression opens is shut to everybody.
  *
  * Each door is asked by the place that reads or writes through it and by no other: `docs/design/claims.md`
  * is where the places are told apart.
@@ -62,13 +62,10 @@ class ClaimAclManager {
      * [com.sympauthy.business.model.user.claim.ClaimAclExpression] holds them, so a condition under `!` is
      * never one a client is told to meet. Every such condition is answered whichever operand of the expression
      * it sits in, so an expression `A || B` refused on both is answered with both, and a client meeting either
-     * would have been let through. That over-reports, and is what hiding which term failed behind one boolean
-     * costs; the alternative is a refusal telling the client nothing to do. Empty where no condition bears — a
-     * door that is shut, or one refused on a granted scope, the client or a literal — and the caller then
-     * refuses by name, because there is nothing to re-authorize for.
+     * would have been let through. Empty where no condition bears — a door that is shut, or one refused on a
+     * granted scope, the client or a literal — and the caller then refuses by name.
      *
-     * A scope the client is not allowed is never named: the authorization it asks for next would drop it, and
-     * the client would be refused again for a scope it was told would let it through.
+     * A scope the client is not allowed is never named. `docs/design/claims.md` holds why of both.
      *
      * The age demanded is the smallest refused one, which satisfies every one of them.
      */

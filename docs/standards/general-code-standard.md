@@ -111,13 +111,14 @@ the name.
 ## Concurrency
 
 **Everything is `suspend`**, including the operations that await nothing today — a controller
-handler, a manager method, a repository query.
+handler, a manager method, a repository query. A query streaming its rows answers a `Flow` instead,
+which is the same promise for a stream.
 
 **A coroutine a bridge to a reactive type starts for a request is handed
 `traceCoroutineContext()`.** `publish`, `rxSingle`, `asPublisher` and their kin start one with
 nothing in it, even inside a `suspend` function, so what it queries opens no span and what it logs
 carries no trace. Hand it the trace alone, never the whole propagated context, which also holds the
-caller's connection and transaction.
+caller's connection and transaction for the coroutine to join and then outlive.
 
 **A blocking third-party call is made inside an IO dispatcher.** A library that fetches a key set or
 sends mail does its own I/O.
@@ -129,7 +130,7 @@ standard](locking-standard.md) holds the mechanisms that do.
 ## Rules that compile and then fail
 
 **A class carrying an AOP annotation is `open`, and so is the annotated method.** Kotlin classes are
-final by default, the `all-open` plugin is not applied, and the modifier is written by hand.
+final by default, and the modifier is written by hand.
 
 **A generated class that is only ever constructed reflectively is declared to the native image.**
 [The native image standard](native-image-standard.md) is where that lives.
@@ -148,12 +149,15 @@ the top level of the file that owns the concept — a downcast off an authentica
 caused it.
 
 **Retries and circuit breaking on outbound calls.** A third-party provider being down surfaces as a
-failed flow. The one retry is a provider's discovery document that could not be fetched at startup,
-which [logging](../design/logging.md#what-implements-it) has tried again until it answers, since
-nothing else would ever resolve that provider.
+failed flow. What is fetched once at startup and nothing else would ever resolve — a provider's
+discovery document, a brand image — is tried again until it answers, as
+[logging](../design/logging.md#what-implements-it) describes.
 
-**Caching.** Nothing memoises anything, including the discovery documents and key sets fetched from
-third-party providers.
+**Caching.** What the configuration determines, or the server fetched once at startup, is held until
+a restart. Nothing a request fetches from a third party is memoised, a provider's key set included.
+
+**Size thresholds.** No length is set for a function or a class, and no rule says which literal
+deserves a name; the detekt rules that would hold either stay off until one is argued for here.
 
 ---
 

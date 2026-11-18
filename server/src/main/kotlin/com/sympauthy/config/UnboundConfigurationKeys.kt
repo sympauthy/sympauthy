@@ -10,10 +10,9 @@ import jakarta.inject.Singleton
  * The keys a deployment wrote under one of the server's own prefixes that bind to nothing, as errors
  * naming the key and the file it was read from.
  *
- * This is the other configuration bean [ConfigReadiness] holds that is not a domain: there is no value
- * here to parse, validate and hand to a manager, only the file itself held against what the server
- * declares. Everything else in this layer is written as the quintet a domain is written as, and this
- * is one of the two departures from it.
+ * It departs from the artifacts a configuration domain is written as, and is a bean
+ * [ConfigReadiness] holds without being a domain: there is no value here to parse, validate and
+ * hand to a manager, only the file itself held against what the server declares.
  */
 @Singleton
 class UnboundConfigurationKeys(

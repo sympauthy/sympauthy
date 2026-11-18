@@ -12,8 +12,7 @@ import jakarta.inject.Singleton
  * Handle the mapping from the [ValidationCodeEntity] to the [ValidationCode] business model.
  *
  * If the row holds no identifier, or a media or a reason the model's enums do not name, an internal
- * [BusinessException] "mapper.validation_code.invalid_property" is thrown: a row this server wrote and
- * cannot read back is its own failure rather than the caller's.
+ * [BusinessException] "mapper.validation_code.invalid_property" is thrown.
  */
 @Singleton
 class ValidationCodeMapper {

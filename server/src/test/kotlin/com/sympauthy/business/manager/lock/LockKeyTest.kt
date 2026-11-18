@@ -8,9 +8,8 @@ import java.util.*
 /**
  * The mapping from a key to its row, pinned.
  *
- * Every assertion here is a golden value rather than a property, because the property that matters is
- * that the answer never changes: two instances running different versions of this would take different
- * rows for one key and exclude nothing, and a rolling deploy is exactly when that happens.
+ * Every assertion here is a golden value rather than a property, for the reason
+ * `docs/standards/locking-standard.md` gives.
  */
 class LockKeyTest {
 

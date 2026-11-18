@@ -26,7 +26,6 @@ class WrittenConfigurationKeysTest {
 
     @Test
     fun `under - Return a key written with nothing under it`() {
-        // The one a properties class cannot answer for: it binds to null, as a key nobody wrote does.
         val source = yaml(
             """
             claims:

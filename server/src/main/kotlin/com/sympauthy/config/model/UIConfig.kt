@@ -34,12 +34,12 @@ fun UIConfig.orThrow(): EnabledUIConfig {
 sealed class ConfiguredBrandImage
 
 /**
- * An image read from a file while the configuration was, since a file that is wrong is the file being wrong.
+ * An image read from a file while the configuration was.
  */
 class LocalBrandImage(val image: BrandImage) : ConfiguredBrandImage()
 
 /**
- * An image still to be fetched, since a host that does not answer is the world being wrong.
+ * An image still to be fetched.
  */
 data class RemoteBrandImage(val uri: URI) : ConfiguredBrandImage()
 

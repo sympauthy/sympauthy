@@ -21,11 +21,9 @@ class DeclaredConfigurationKeys(
      * under one near enough to it to be that prefix misspelt — and is therefore this server's to answer
      * for.
      *
-     * A section written under `scope` where the domain is `scopes` is dropped whole and in silence,
-     * which is the worst of what this exists to catch, so a prefix that is nearly a declared one is
-     * judged as though it were that one. Sharing a word is not enough here as it is further down a key:
-     * a deployment writing its own `auth-vars` prefix to interpolate `${auth-vars.issuer}` out of is
-     * naming something the server was never going to read, and so is every framework prefix.
+     * Sharing a word is not enough here as it is further down a key: a deployment writing its own
+     * `auth-vars` prefix to interpolate `${auth-vars.issuer}` out of is naming something the server
+     * was never going to read, and so is every framework prefix.
      */
     fun answersFor(key: String): Boolean {
         val root = segmentsOf(key).first().name

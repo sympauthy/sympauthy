@@ -18,14 +18,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import jakarta.inject.Inject
 
 /**
- * Lets the end-user leave any interactive flow, from any page of it: a session still running ends as cancelled,
- * and the end-user is sent back to whoever started it.
+ * Lets a person leave an interactive flow from a page offering it: a session still running ends as cancelled,
+ * and the person is sent back to whoever started it.
  *
- * **It ends a session on a `GET`, and answers with a redirect rather than a `redirect_url`.** Both depart from
- * the rules a flow operation and an action follow, so that a page can offer leaving as a plain link without
- * sending a request first. That is safe here because the link is only on a page the end-user is looking at,
- * never in a mail, and a browser does not prefetch a plain link unless the page asks it to; the state it carries
- * is already in every URL a flow response holds. `docs/design/interactive-flow.md` holds the rest.
+ * **It ends a session on a `GET`, and answers with a redirect rather than a `redirect_url`**, departing from
+ * `docs/standards/api-standard.md` so that a page offers leaving as a plain link. Why that is safe here is
+ * `docs/design/interactive-flow.md`.
  */
 @Secured(HAS_STATE)
 @Controller(CancelController.FLOW_CANCEL_ENDPOINT)

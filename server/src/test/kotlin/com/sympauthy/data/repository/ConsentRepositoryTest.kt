@@ -19,17 +19,13 @@ import java.util.*
 /**
  * The paging and counting queries [ConsentRepository] declares as raw SQL.
  *
- * None of what it proves is in the Kotlin. That the composite order is total — two consents sharing a
- * `consented_at` are separated by the primary key, so pages of one walk every row exactly once —
- * compiles either way and fails only against a database. So does the optional subject: an absent one is
- * bound as a null the driver has to type, and the `COALESCE` is what gives it a single typed usage.
+ * That the composite order is total — two consents sharing a `consented_at` are separated by the
+ * primary key, so pages of one walk every row exactly once — compiles either way and fails only
+ * against a database. So does the optional subject: an absent one is bound as a null the driver has
+ * to type, and the `COALESCE` is what gives it a single typed usage.
  */
 class ConsentRepositoryTest {
 
-    /**
-     * The audience the consents carry, and the two providers their users are linked under. Each names
-     * this test class, so no other class's rows fall inside the queries below.
-     */
     private val audienceId = "consent-repository-test"
     private val providerId = "consent-repository-test-provider"
     private val otherProviderId = "consent-repository-test-other-provider"

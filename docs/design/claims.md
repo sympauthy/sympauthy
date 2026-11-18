@@ -265,9 +265,9 @@ client belongs to now authenticates nothing and is answered as inactive at intro
 audience is always the token's own.
 
 **The audience is the one the decision lands in.** An authorization grants scopes to the client that
-started the flow, so the flow's audience is that client's; an act-as token is issued for the acting
-client's own audience, because [a client acts as a person in its own audience
-alone](security.md#acting-as-a-person). Read the claims of that audience, and of no other.
+started the flow, so the flow's audience is that client's; an act-as token is issued for [the
+audience a token exchange issues for](security.md#acting-as-a-person). Read the claims of that
+audience, and of no other.
 
 **The audience an interactive flow works in is the one its authorization is for**, the audience of
 the client that started it. It decides the whole of what that flow does with claims: which it offers
@@ -306,7 +306,10 @@ because the file it is written in is what the deployment is being told about.
 
 **A token for the person writes only the claims of the audience it was issued for, for the same
 reason.** The consent behind it is that audience's, and a claim restricted to another is refused by
-name rather than ignored. For an act-as token that is the acting client's own.
+name rather than ignored. For an act-as token that is [the audience a token exchange issues
+for](security.md#acting-as-a-person). The client and user surfaces are where either refusal is
+made, and the manager behind each leaves such a claim out the same way, so a write reaching it by
+another road sets nothing it names.
 
 **No client writes an identifier claim, whatever its scopes, and no person's token does either.** An
 identifier is what an account signs in with, and nothing in a claim write verifies the value it
@@ -411,6 +414,12 @@ and both read doors on consent to the scope the specification groups it in.
 claim an account has a value for, and the row answers every reader with the value as the person or
 the writer spelled it. How two spellings compare, and how a row is found by a value, is
 [the identifier claims](identifier-claims.md#when-two-values-are-one-value).
+
+**A claim is collected where its row holds a value, not where it has a row.** A blank submission is
+a value being cleared, and it writes a row holding null rather than deleting the row; deleting it is
+a different write, one that says the claim was never collected. So a reader asking whether a claim
+was collected — the required claims a flow holds a person to, an identifier claim — reads the value,
+since one reading presence alone would be satisfied by a person posting an empty field.
 
 **A value leaves this server as the type the deployment declared.** `ClaimDataType` is the set of
 types, its KDoc the authority on what each admits, and
@@ -602,8 +611,10 @@ channel the claim's own file already named a condition for.
 
 **That ordering is the whole of the security argument.** A claim restricted to another audience, or
 one the person never consented to, must not appear because a client named it — and it does not,
-because both filters run inside `ConsentAwareCollectedClaimManager.findByUserIdAndReadableByClient`
-before either channel sees a row. The request is asked beside `Claim.isPublishedIn` and never in
+because both filters run inside the read each channel makes before it sees a row:
+`ConsentAwareCollectedClaimManager.findByUserIdAndReadableByClientAndPublishedIn` for the id token,
+and `findByUserIdAndReadableByPerson` for `/userinfo`, since [each asks its own
+door](#where-a-claim-is-published). The request is asked beside `Claim.isPublishedIn` and never in
 place of it.
 
 **A claim advertised in the discovery document may be carried on request alone.** A client reading
@@ -617,9 +628,9 @@ the code exchange, the id token minted again by a refresh, and `/userinfo` read 
 token descended from the same grant.
 
 **So it is stored where the consented scopes are stored, and for the same reason** — on the flow
-session's OAuth2 row, and copied onto the token rows every generator writes. A request held on the
-session alone would be honoured by the first id token and silently dropped by the refresh, which is
-a shape that changes on a schedule nobody chose.
+session's OAuth2 row, and on the grant the authorization opens, which every token descended from it
+is issued under. A request held on the session alone would be honoured by the first id token and
+silently dropped by the refresh, which is a shape that changes on a schedule nobody chose.
 
 **It is stored as a claim id per channel, sanitized at the endpoint**, the way
 `InteractiveFlowSessionOAuth2.requestedScopes` is. `RequestedClaimsManager` is the one reader of the

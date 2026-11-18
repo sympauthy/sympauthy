@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * This calls UserInfo on the running native image with (a) no `Authorization` header, (b) a garbage
  * bearer, (c) a token issued by the `client_credentials` grant and (d) a valid access token in the
  * framework's `JWT` cookie and no `Authorization` header, asserting the status and the challenge of
- * each, on each supported database.
+ * each.
  *
  * Source: [RFC 6750 §3 (The WWW-Authenticate Response Header Field)](
  * https://datatracker.ietf.org/doc/html/rfc6750#section-3),

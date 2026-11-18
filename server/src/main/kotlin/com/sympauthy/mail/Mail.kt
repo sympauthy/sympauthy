@@ -3,8 +3,8 @@ package com.sympauthy.mail
 /**
  * A mail this server sends, by the template it is drawn from.
  *
- * Each is counted under its own value on `sympauthy.mail.sends`, the lowercased name, the notices included:
- * folded into the mail they stand beside, a sweep of addresses through the password reset would not show.
+ * Each is counted under its own value on `sympauthy.mail.sends`, the lowercased name, the notices included —
+ * see `docs/design/telemetry.md`.
  */
 enum class Mail(
     /**

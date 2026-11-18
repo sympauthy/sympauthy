@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test
 
 /**
  * Reads the bundles the server ships rather than doubles of them, because what the mapper answers
- * for a key with no entry is the rule under test: a field named nowhere falls back to the name it is
- * sent under, and one this deployment already named is read under the key that names it.
+ * for a key with no entry is the rule under test, the one `docs/standards/collection-standard.md`
+ * states.
  */
 class AdminCollectionCapabilitiesResourceMapperTest {
 

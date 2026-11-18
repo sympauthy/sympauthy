@@ -24,8 +24,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * exchanges a code once the session that issued it has expired: tokens are issued. The third has a
  * confidential client exchange its code, waits past the code's lifetime and exchanges it again: the second
  * exchange is refused with `invalid_grant`, and the tokens of the first still introspect as active — a code
- * past its lifetime is refused as expired, and revokes nothing as a replay inside it would. Each runs on
- * every supported database.
+ * past its lifetime is refused as expired, and revokes nothing as a replay inside it would.
  *
  * Source: [RFC 6749 §4.1.2](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2), and
  * [sympauthy#590](https://github.com/sympauthy/sympauthy/issues/590).

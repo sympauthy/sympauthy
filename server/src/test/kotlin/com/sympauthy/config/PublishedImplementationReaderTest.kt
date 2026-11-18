@@ -32,10 +32,7 @@ class PublishedImplementationReaderTest {
     @Inject
     lateinit var generationStrategies: Map<String, CryptoKeysGenerationStrategy>
 
-    /**
-     * The maps [com.sympauthy.api.util.SecurityContextUtil] resolves an edge out of, which are two
-     * because an edge publishing no location is not a word the geo setting may name.
-     */
+    /** The maps [com.sympauthy.api.util.SecurityContextUtil] resolves an edge out of. */
     @Inject
     lateinit var ipProviders: Map<String, IpProvider>
 

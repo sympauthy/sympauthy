@@ -22,9 +22,6 @@ import kotlin.coroutines.EmptyCoroutineContext
  * Opens the spans the server names itself under the span of the request it serves — a wait no other span
  * measures, and a stage of a request its route does not name — and marks that request's span with the interactive
  * flow session it acts on, as `docs/design/telemetry.md` says.
- *
- * It is built on the `OpenTelemetry` bean, OpenTelemetry's no-op while telemetry is off, so the code it wraps has one
- * path whether a collector is named or not.
  */
 @Singleton
 class CustomSpanTracer(
@@ -148,8 +145,7 @@ class CustomSpanTracer(
      * Mark the span of the request the caller serves with [sessionId], the interactive flow session it acts on, and
      * link it to [startedBy], the span of the request that started that session, where the session kept one.
      *
-     * The request's own span is marked rather than the stage the caller runs under, so that a search on the session
-     * lands on the request.
+     * The request's own span is marked, not the stage the caller runs under.
      */
     suspend fun markFlowSession(sessionId: UUID, startedBy: SpanReference?) {
         val span = requestSpan()?.takeIf(Span::isRecording) ?: return

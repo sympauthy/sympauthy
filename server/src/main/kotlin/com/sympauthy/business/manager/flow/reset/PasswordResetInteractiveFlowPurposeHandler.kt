@@ -77,8 +77,8 @@ class PasswordResetInteractiveFlowPurposeHandler(
      *
      * Its writes are applied before the authorization's own, since this gate stands in front of it: the grant the
      * authorization opens records the new password, and is not among those revoked. The mail is sent only once the
-     * completion has committed, so a completion that rolled back tells nobody of a change it did not make. Nothing
-     * is applied for a reset that did not get as far as a new password for the session's user.
+     * completion has committed. Nothing is applied for a reset that did not get as far as a new password for the
+     * session's user.
      */
     override suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect {
         val passwordReset = passwordResetManager.fetchPasswordResetOrNull(session)

@@ -493,8 +493,7 @@ class InteractiveAuthFlowSessionControllerUtil(
      *
      * **For the controller that created it, rather than for the manager that wrote it.** A session is
      * written in a transaction of its own, and recording must never fail a flow: a statement that failed
-     * inside that transaction would abort it on PostgreSQL and take the creation down with it. Calling it
-     * here also keeps the [ObservedRequest] out of the managers, which have no other use for one.
+     * inside that transaction would abort it on PostgreSQL and take the creation down with it.
      *
      * Call it before the engine is asked what comes next, so a session that resolves immediately is folded
      * with the place it was started from rather than after it.
@@ -504,20 +503,10 @@ class InteractiveAuthFlowSessionControllerUtil(
     }
 
     /**
-     * Record [session] as driven from [observedRequest], where it is still a session a request can drive.
-     *
-     * **A session that has reached a terminal state is not recorded against.** Completing one folds the
-     * place a credential was proven at into that person's record and consumes every row it held, and the
-     * signed state outlives the flow — so a replay would re-open rows on a session that is over, which
-     * only the cleaner would then collect.
-     *
-     * **An expired one is not either, and that is the sharper reason.** `InteractiveFlowSessionCleaner`
-     * deletes a session's places and the session itself in one transaction: a row inserted between the
-     * two takes a key lock the parent delete then fails on, and on PostgreSQL that rolls the whole
-     * collection back — every expired session and validation code with it, until a run gets through.
-     *
-     * A session created already failed is still recorded, by the entry point that created it: that row is
-     * the only thing such a session will ever say about the browser that started it.
+     * Record [session] as driven from [observedRequest], where it is still a session a request can drive:
+     * one that has reached a terminal state or has expired is not recorded against, for the reasons
+     * `docs/design/security-context.md` gives. A session created already failed is recorded by the entry
+     * point that created it, through [observeStartedSession].
      */
     private suspend fun observeIfStillDrivable(
         session: InteractiveFlowSession,

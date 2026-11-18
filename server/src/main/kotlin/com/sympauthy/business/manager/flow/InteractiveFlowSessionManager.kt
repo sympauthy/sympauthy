@@ -202,11 +202,6 @@ open class InteractiveFlowSessionManager(
      * Insert [purpose] into the ordered purpose list of the [session] immediately after [afterPurpose],
      * persist it, and return the updated session. Falls back to appending at the end when [afterPurpose] is
      * not present (which never happens for the engine's use — the resolving purpose is always in the list).
-     *
-     * The case for it is a purpose resolving and declaring a follow-up that must run before the session
-     * completes (e.g. the re-authentication gate inserting an MFA challenge). Inserting **after** the
-     * resolving purpose — rather than at the end — keeps the follow-up ahead of any later purpose the session
-     * already carries, so e.g. a provider link never commits before its MFA challenge.
      */
     suspend fun insertPurposeAfter(
         session: OnGoingInteractiveFlowSession,
@@ -339,7 +334,8 @@ open class InteractiveFlowSessionManager(
      * persist the updated completed-purpose list, and return the still-[OnGoingInteractiveFlowSession].
      *
      * This is pure progress bookkeeping: it never transitions the session to completed — that is
-     * [markAsCompleted], run by the engine once every purpose has resolved and its terminal effect applied.
+     * [markAsCompleted], run by the engine once every purpose has resolved, before the terminal effects are
+     * applied.
      *
      * Marking an already-completed [purpose] writes nothing and answers [session] as it is. The engine marks
      * every resolved purpose on every advance, so a write there would be one two requests on the same session
@@ -431,10 +427,8 @@ open class InteractiveFlowSessionManager(
      * - there is no user associated to the ongoing [session].
      * - the [session] has failed.
      *
-     * This is the one read entitled to an account that is still provisional — the account this very session
-     * is signing up, which no other reader may see (see [com.sympauthy.data.model.SessionScoped]). Every
-     * caller holding a session reads its user through here rather than through
-     * [UserManager.findByIdOrNull], which answers committed accounts only.
+     * It answers the account this very session is signing up while that account is still provisional, which
+     * [UserManager.findByIdOrNull] answers as none. See `docs/design/provisional-user.md`.
      *
      * Throws an unrecoverable [BusinessException] if the user id is corrupted and cannot be found in the
      * database anymore.

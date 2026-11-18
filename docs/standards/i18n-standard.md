@@ -43,15 +43,20 @@ standard](collection-standard.md) owns what declares them.
 **A mail key names the template and the usage.** The template segment is the FreeMarker file's name
 without its extension.
 
-**A message carries no apostrophe.** [The apostrophe
-rule](exception-code-standard.md#the-apostrophe-rule) holds in every bundle.
-
 **A message interpolates a value as its `toString()`.** The message source substitutes a `{name}`
 rather than formatting it, so a bundle sentence needing a formatted number, a duration or a plural
 is reworded rather than parameterised.
 
 **A name with no value is written out as the bare word.** Nothing fails and no brace survives, so a
 message naming a placeholder nobody supplies reads as a sentence with a stray identifier in it.
+
+## The apostrophe rule
+
+**A message in any bundle carries no apostrophe of its own.** The message source reads one as
+opening a quoted literal and the next as closing it, so both are dropped and every placeholder
+between them is emitted verbatim instead of interpolated — *the person's* loses its `'s` and takes
+the `{claim}` three clauses later down with it. Reword the possessive rather than escaping it, and
+double the character only where a message has to print it.
 
 ## Locale
 
@@ -78,9 +83,9 @@ nothing here.
 
 **Translation tooling and workflow.** The bundles are edited by hand in this repository.
 
-**Locale-sensitive formatting.** The message source cannot format a number, a duration or a plural,
-and nothing preformats one before handing it over; the pages and the mail templates make their own
-choices.
+**Locale-sensitive formatting.** The message source cannot format a number, a date, a duration or a
+plural. A mail sender formats a date or a list it carries itself, in the mail's locale, before
+handing it over, and nothing says how; the pages make their own choices.
 
 **Right-to-left and per-locale layout.** A concern of the pages, not of the server that supplies
 their strings.

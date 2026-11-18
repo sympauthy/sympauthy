@@ -163,12 +163,8 @@ class ClientAuthenticationUtil(
          * The challenge a refused client is answered with: the `Basic` scheme, the only one this server accepts
          * client credentials in, as RFC 6749 §5.2 requires.
          *
-         * RFC 7617 §2 requires the realm: a `Basic` challenge without one is malformed. RFC 9110 §11.5 makes
-         * the realm, together with the root URL of the server, a protection space — the resources one set of
-         * credentials is good for. The root URL already says which server this is, so the realm only has to
-         * tell the spaces within it apart, and naming the server again, by its issuer or by its product name,
-         * would add nothing. Client credentials are accepted on the OAuth2 surface and nowhere else, so the
-         * realm names that surface.
+         * RFC 7617 §2 requires the realm, and it names the OAuth2 surface, for the reason
+         * `docs/design/security.md` gives.
          *
          * Nothing branches on the value: no OAuth2 client reads it, and a browser only keys the credentials it
          * remembers on it and shows it in the prompt it may put up. Renaming it breaks no client.

@@ -50,8 +50,7 @@ import org.reactivestreams.Publisher
  * or a client only (client_credentials flow), we return a [UserAuthentication] or [ClientAuthentication].
  *
  * Every refusal is a `401` challenging the token under the scheme it was presented with: `invalid_dpop_proof`
- * where its DPoP proof is what refused it, and `invalid_token` for every other reason. The challenge is sent
- * only where the route the request reached accepts an access token.
+ * where its DPoP proof is what refused it, and `invalid_token` for every other reason.
  */
 @Singleton
 class AccessTokenValidator(
@@ -142,8 +141,7 @@ class AccessTokenValidator(
                 scheme = scheme,
                 challenges = listOf(InvalidToken)
             )
-        // A grant is the audience's it was opened for, so every surface answers a token for the audience its
-        // client belongs to, and one issued for another is refused. See `docs/design/grants.md`.
+        // A grant opened for an audience other than its client's now is refused. See `docs/design/grants.md`.
         val openedFor = grantManager.verifyOpenedFor(grant, client)
         if (openedFor is GrantOpenedForResult.Refused) {
             throw openedFor.toBusinessException().toAccessTokenChallengeException(scheme, listOf(InvalidToken))

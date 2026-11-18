@@ -103,9 +103,7 @@ class InteractiveFlowSessionCollectionManager(
     /**
      * Read the page [pageParams] names of the sessions [criteria] keep.
      *
-     * The order ends on the session's identifier, so it is total and a new session appends at the tail. That
-     * identifier stays ascending whichever direction the caller asked for: it is not what they asked to sort
-     * by, it is there to decide what their own keys leave undecided.
+     * The order ends on the session's identifier, so it is total and a new session appends at the tail.
      */
     suspend fun listSessions(
         criteria: CollectionCriteria,
@@ -458,7 +456,7 @@ class InteractiveFlowSessionCollectionManager(
      * One session, every purpose it carries and where each one stands.
      *
      * The three error fields are the keys the session ended with and the values they interpolate, carried
-     * unrendered because rendering happens at the edge, once. A session that ran out of time ended with a
+     * unrendered as `docs/standards/i18n-standard.md` has every message. A session that ran out of time ended with a
      * failure nothing wrote down, so its three are the ones
      * [com.sympauthy.business.model.flow.interactiveFlowSessionExpiredExceptionOf] names; every status but
      * that one and [InteractiveFlowSessionStatus.FAILED] carries none.

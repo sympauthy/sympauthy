@@ -19,10 +19,8 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
 
     /**
      * Find the user [id] as the interactive flow session [sessionId] sees it: the account that session is
-     * still signing up, or any committed account.
-     *
-     * The one read that may return a provisional row, for the flow that owns it. Every other reader of this
-     * table sees committed rows only — see [com.sympauthy.data.model.SessionScoped].
+     * still signing up, or any committed account. It takes the session, which is what exempts it from reading
+     * committed rows only — see `docs/standards/business-layer-code-standard.md`.
      */
     @Query(
         """
@@ -44,11 +42,9 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
     suspend fun clearSessionId(userId: UUID, sessionId: UUID): Int
 
     /**
-     * Move the last authentication of the committed account [id] to [lastAuthenticationDate], and answer 1 when
-     * it did. An account a session is still signing up is left as it is.
-     *
-     * The comparison is the statement's rather than a read before it, so two flows completing in either order,
-     * on any instance, leave the later proof behind and the date never moves backwards.
+     * Move the last authentication of the committed account [id] forward to [lastAuthenticationDate], and
+     * answer 1 when it did. An account a session is still signing up, or one already holding a later date, is
+     * left as it is. Why the comparison is the statement's is `docs/design/security.md`.
      */
     @Query(
         """
@@ -74,24 +70,16 @@ interface UserRepository : CoroutineCrudRepository<UserEntity, UUID> {
 
     /**
      * Find every account left provisional by a session that no longer exists, and that nothing else refers
-     * to — the accounts an abandoned sign-up left behind, ready to be collected.
+     * to — the accounts an abandoned sign-up left behind, ready to be collected. Keyed on the session being
+     * gone, so an account an earlier run failed to collect is found again by the next.
      *
-     * Keyed on the session being **gone** rather than on the list of sessions this run expired, which makes
-     * it self-correcting: an account orphaned by an earlier failure is collected on the next run rather than
-     * left forever.
-     *
-     * The conditions are the rule this table lives under, written out. Ten tables hold a foreign key to
-     * `users`, and each has to be one of three things or the delete that follows breaks it — and, being one
-     * transaction, takes the whole run down with it, every quarter of an hour, for good. Four of them
-     * (`passwords`, `collected_claims`, `provider_user_info`, `totp_enrollments`) belong to the account and
-     * are deleted with it. Five are the reasons named below: an account any of them still refers to is
-     * skipped rather than deleted, because a row that outlived its account is a bug to find, not a run to
-     * lose.
-     *
-     * `user_security_contexts` is the tenth and is neither, because it is never written against a
-     * provisional account at all: a place is recorded only once a flow has completed, and that transaction
-     * promotes whatever the session signed up before it commits. So no row there can name an account this
-     * query selects. **An eleventh table is a decision to make here.**
+     * This is where each table holding a foreign key to `users` is classified, as
+     * `docs/design/provisional-user.md` requires. `passwords`, `collected_claims`, `provider_user_info` and
+     * `totp_enrollments` belong to the account and are deleted with it. The tables named below are the
+     * guard: an account any of them still refers to is skipped rather than deleted, because a row that
+     * outlived its account is a bug to find, not a run to lose. `user_security_contexts` is never written
+     * against a provisional account, so no row there can name one this query selects. **A new table
+     * referencing `users` is a decision to make here.**
      */
     @Query(
         """

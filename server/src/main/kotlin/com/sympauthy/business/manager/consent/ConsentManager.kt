@@ -25,8 +25,8 @@ import java.util.*
  * may exist per user+audience pair at any time. When a new consent is granted for an existing pair, the previous
  * consent is automatically revoked and replaced.
  *
- * Revoking a consent also revokes every grant of the user for the audience, so no client goes on acting for the
- * user under it. An act-as grant rests on no consent, and is left to the act-as rules.
+ * Revoking a consent also revokes every grant of the user for the audience but the act-as ones; see
+ * `docs/design/grants.md`.
  *
  * Consents only apply to user-facing flows (not client_credentials).
  */
@@ -135,9 +135,8 @@ open class ConsentManager(
      * meaningless and is ignored; the caller is expected to have refused the combination already.
      *
      * The order is by consent date and total, so two calls agree on a snapshot. It is not append-only, which
-     * is the departure the API standard's ordering rule allows for and names: [saveConsent] revokes and
-     * re-inserts rather than updating, so a user consenting again moves to the tail, and a caller walking every
-     * page while that happens may miss one or see one twice.
+     * `docs/standards/collection-standard.md` has a collection say in its description: [saveConsent] revokes
+     * and re-inserts rather than updating, so a user consenting again moves to the tail.
      */
     suspend fun listActiveConsentsByAudience(
         audience: Audience,
@@ -189,10 +188,8 @@ open class ConsentManager(
     /**
      * Revoke the given [consent], and every grant of its user for its audience except the act-as ones.
      *
-     * Each of the audience's clients acts under the one consent, so a grant opened for the audience rests on it
-     * whichever client holds it — not only one opened for the client that last updated it, which
-     * [Consent.promptedByClientId] records and nothing more. An act-as grant rests on the act-as rules instead,
-     * and is left in service.
+     * A grant opened for the audience rests on its consent whichever client holds it, not only one opened for
+     * [Consent.promptedByClientId]; see `docs/design/grants.md`.
      *
      * Both are written under [lockConsentForUser], and commit together, so a failure revoking the grants leaves
      * the consent in service rather than revoked with its grants still live — which a second attempt could not
@@ -230,9 +227,9 @@ open class ConsentManager(
     /**
      * Run [block] holding the lock every writer of the consents of [userId] takes, and answer what it answered.
      *
-     * One active consent per user and audience is held by this lock on every dialect. The unique index
-     * PostgreSQL carries over it is partial, which H2 cannot spell, so it is the backstop behind the lock rather
-     * than the rule. Without it, two authorizations for one audience completing at once each read the same
+     * One active consent per user and audience is held by this lock on every dialect, and the partial unique
+     * index PostgreSQL carries over it is a backstop behind it (`docs/standards/locking-standard.md`). Without
+     * it, two authorizations for one audience completing at once each read the same
      * consent as active and each insert a replacement: H2 is left with two active consents, the second missing
      * the scopes the first added, and PostgreSQL rolls the second completion back on the index. A revocation
      * landing between that read and that insert sees the consent it revoked brought back under a new row, with

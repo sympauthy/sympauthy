@@ -1,11 +1,10 @@
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// End-to-end integration tests: boot the SympAuthy native image (as a Docker container, via the
-// `testcontainers-sympauthy` library) and exercise it over real HTTP against each supported database
-// (H2 and PostgreSQL). These tests require Docker and a published/built SympAuthy image, so they live
-// in a dedicated `integrationTest` source set and run only via `./gradlew :integration-tests:integrationTest`
-// — never as part of the default `build`/`check`/`test` lifecycle.
+// End-to-end integration tests: boot a SympAuthy image as a Docker container, through the
+// `testcontainers-sympauthy` library, and exercise it over real HTTP. They require Docker and an
+// image, so they live in a dedicated `integrationTest` source set and run only through
+// `./gradlew :integration-tests:integrationTest`. See docs/standards/testing-standard.md.
 //
 // The tests call the server through a typed HTTP client generated from the server's OpenAPI contract:
 // the Micronaut OpenAPI plugin turns `server`'s published spec into declarative Micronaut @Client
@@ -34,8 +33,7 @@ repositories {
     }
 }
 
-// Container-starting tests live in their own source set so they never run under the default `test`
-// task (and therefore never under `check`/`build`), keeping Docker off the regular build path.
+// A source set of its own, which the default `test` task, and so `check` and `build`, never runs.
 val integrationTest: SourceSet = sourceSets.create("integrationTest")
 
 configurations["integrationTestImplementation"].extendsFrom(configurations["testImplementation"])
@@ -72,9 +70,8 @@ dependencies {
 
 micronaut {
     openapi {
-        // Generate a typed Kotlin client from the server's published OpenAPI contract — one source of
-        // truth for the request/response models and the endpoint paths. Live-wired below so the client is
-        // regenerated whenever the server's contract changes.
+        // A typed Kotlin client generated from the server's published OpenAPI contract, regenerated
+        // whenever that contract changes (below). See docs/standards/testing-standard.md.
         client(file("${rootProject.projectDir}/server/build/openapi/openapi.yml")) {
             apiPackageName = "com.sympauthy.api.client.api"
             modelPackageName = "com.sympauthy.api.client.model"

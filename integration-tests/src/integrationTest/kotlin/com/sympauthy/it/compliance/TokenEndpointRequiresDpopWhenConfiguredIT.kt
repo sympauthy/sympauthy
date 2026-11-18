@@ -16,8 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * authorization-code exchange must be rejected without a proof.
  *
  * This obtains a genuine authorization code, then exchanges it with **no** `DPoP` header against a
- * server configured with `dpop-required: true`, asserting a 400 `invalid_dpop_proof`, on each supported
- * database.
+ * server configured with `dpop-required: true`, asserting a 400 `invalid_dpop_proof`.
  *
  * Source: [RFC 9449 §5 (Token Request) / §7](https://datatracker.ietf.org/doc/html/rfc9449#section-7).
  */

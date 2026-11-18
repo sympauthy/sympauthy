@@ -30,10 +30,8 @@ import java.util.*
  * Issues the access token a client presents to a resource server.
  *
  * Beside what the token says about its own authorization, it carries the claims the deployment publishes
- * in [ClaimPublicationPlace.ACCESS_TOKEN] and the client may read — so a resource server reads an attribute of
- * the person off the credential it was handed rather than calling `/userinfo` for it. That is the one
- * place a claim travels as a bearer credential presented on every request, for the life of the token, so
- * withdrawing one from a token already issued means revoking that token.
+ * in [ClaimPublicationPlace.ACCESS_TOKEN] and the client may read. What carrying a claim there costs is
+ * `docs/design/claims.md`'s.
  */
 @Singleton
 class AccessTokenGenerator(
@@ -51,19 +49,15 @@ class AccessTokenGenerator(
      *
      * [audience] is the one the token is issued for: it names the token's own `aud`, and a claim
      * restricted to another audience is left out. [doors] are the ones this token comes through: built in
-     * [ClaimAclContext.of] the [grant], the client the token is issued to — which is not always of [audience] —
-     * and [dpopJkt], and a claim is carried where the client's read door of it is open.
+     * [ClaimAclContext.of] the [grant], the client the token is issued to and [dpopJkt], and a claim is
+     * carried where the client's read door of it is open.
      *
      * The token states everything about its authorization off the [grant]: the subject — the person, or the
-     * client where the grant has none — the scopes, the `auth_time` of the person's authentication, and,
-     * for a grant a token exchange opened, the acting client in the RFC 8693 `act` claim. A grant no person
-     * proved a credential behind — a `client_credentials` grant, a token exchange — states no `auth_time`.
-     * An act-as grant holds no scope, and a token carrying none satisfies no claim's ACL, so it holds none of
-     * the person's claims beyond the identity.
+     * client where the grant has none — the scopes, the `auth_time` the grant records, if any, and, for a
+     * grant a token exchange opened, the acting client in the RFC 8693 `act` claim.
      *
-     * It expires no later than the [grant], so a resource server that is not this one stops honouring it
-     * when the grant stops. Passing [dpopJkt] binds it to that JWK thumbprint, and leaving it null issues a
-     * bearer token.
+     * It expires no later than the [grant]. Passing [dpopJkt] binds it to that JWK thumbprint, and leaving it
+     * null issues a bearer token.
      */
     suspend fun generateAccessToken(
         grant: Grant,
@@ -98,8 +92,7 @@ class AccessTokenGenerator(
                 subject(grant.userId?.toString() ?: grant.clientId)
                 claim("client_id", grant.clientId)
                 claim("scope", grant.allScopes.joinToString(" "))
-                // RFC 9068 §2.2.1 puts it here so a resource server that is not this one can tell a password
-                // typed a minute ago from one typed a month ago, which `iat` cannot say across a refresh.
+                // RFC 9068 §2.2.1; why an access token states it is `docs/design/security.md`'s.
                 grant.authenticationDate?.let {
                     claim(OpenIdConnectClaimId.AUTH_TIME, it.toEpochSecond(ZoneOffset.UTC))
                 }

@@ -18,9 +18,7 @@ import kotlin.jvm.optionals.getOrNull
  * The tokens of the design system this server ships, read once from its `tokens.json`, with each colour the
  * deployment configured under `ui.theme` written over its default.
  *
- * Every rendering of the brand reads them here, so that the sign-in pages and the mails agree on what a role colours
- * and on which tokens the dark theme carries. The configuration does not change until the server restarts, so
- * neither do they.
+ * Every rendering of the brand reads them here, as `docs/design/branding.md` has it.
  */
 @Singleton
 class BrandTokenResolver(
@@ -30,8 +28,7 @@ class BrandTokenResolver(
 ) {
 
     /**
-     * The theme the deployment configured. A `ui` section that failed reads as one that configured none, since it
-     * already takes readiness down and a page or a mail is better drawn in SympAuthy's colours than in none.
+     * The theme the deployment configured. A `ui` section that failed reads as one that configured none.
      */
     val theme: ThemeConfig = (uncheckedUIConfig as? EnabledUIConfig)?.theme ?: ThemeConfig.DEFAULT
 

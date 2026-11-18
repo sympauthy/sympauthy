@@ -11,12 +11,8 @@ import kotlin.io.path.readText
 
 /**
  * Holds the codes named in the server's sources and the keys of `error_messages.properties` to the
- * same set, in both directions.
- *
- * A code the bundle does not hold renders as null and is dropped from the response, which reads
- * exactly like `print-details-in-error` being off — so the failure has no symptom on any path
- * anyone looks at. Nothing else fails: the code compiles, the throw site reads correctly, and a
- * test asserting the error code passes.
+ * same set, in both directions, which is the rule `docs/standards/exception-code-standard.md`
+ * states.
  *
  * The two directions are not established the same way, because they do not need the same evidence.
  * A code with no message has to be caught where it is *named*, so the sources are read for the
@@ -24,10 +20,8 @@ import kotlin.io.path.readText
  * whole of the sources is read for the literal — which never fails on a site the position rules do
  * not recognise.
  *
- * It holds one rule about the messages themselves as well, and holds it over every bundle: an apostrophe
- * is read as opening a quoted literal, so the character is dropped and every placeholder after it in the
- * span stops interpolating, which the reader sees as a sentence missing a word and a key printed as its
- * own name.
+ * It holds one rule about the messages themselves as well, over every bundle: the apostrophe rule
+ * of `docs/standards/i18n-standard.md`.
  *
  * The other bundles are out of scope for the two set comparisons and stay out: a deployment derives
  * their keys from the claims, the templates and the fields its collections configured, so there is no
@@ -70,8 +64,8 @@ private const val SOURCES = "src/main/kotlin"
 private const val BUNDLE = "src/main/resources/error_messages.properties"
 
 /**
- * Where a code sits in the argument list of each factory docs/standards/exception-code-standard.md names.
- * The description, where one is passed positionally, is the argument after it.
+ * Where a code sits in the argument list of each factory taking one. The description, where one is
+ * passed positionally, is the argument after it.
  */
 private val FACTORIES = mapOf(
     "businessExceptionOf" to 0,
@@ -126,7 +120,6 @@ private val BUNDLES = listOf(
 /**
  * A run of apostrophes the message source does not read as a pair: it closes every second one, so an odd
  * run leaves a quoted literal open to the end of the message.
- * `docs/standards/exception-code-standard.md` holds why no message carries one at all.
  */
 private val APOSTROPHE_RUN = Regex("'+")
 

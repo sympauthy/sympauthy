@@ -14,9 +14,9 @@ import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties.Comp
 import jakarta.inject.Singleton
 
 /**
- * Convert each of the [values] into the place it names, recording an error against the entry's own index
- * for every one that names none, so a file naming two unknown places reports both. [key] is the property
- * the entries were written under, whether that is a scope's or a template's.
+ * Convert each of the [values] into the place it names, recording an error against the entry's own
+ * index for every one that names none. [key] is the property the entries were written under,
+ * whether that is a scope's or a template's.
  *
  * Returns null where [values] is null — nothing written, which falls through to whatever a template offers
  * and then to the default. An entry-less list is a scope published nowhere, which does not.

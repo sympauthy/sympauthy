@@ -4,8 +4,8 @@ micronaut:
 
   health:
     monitor:
-      # Off because no context a test starts schedules anything: the monitor polls every health
-      # indicator on a thread of its own, a minute into the run and every minute after.
+      # Off because no context a test starts schedules anything. See
+      # docs/standards/testing-standard.md.
       enabled: false
 
 claims:

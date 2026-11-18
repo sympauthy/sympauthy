@@ -10,8 +10,7 @@ import com.ezylang.evalex.parser.Token
  * Custom function checking whether a rule granted a scope to the credential: a client scope on a
  * `client_credentials` token, a grantable scope on a person's. Return true or false.
  *
- * It never answers for a scope the person consented to, so a door opened to a granted scope is opened to
- * what the deployment decided and never to what a client asked for.
+ * It never answers for a scope the person consented to. See `docs/design/claims.md`.
  */
 @FunctionParameter(name = "scope")
 class ScopeIsGrantedFunction(

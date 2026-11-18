@@ -29,8 +29,8 @@ import kotlin.jvm.optionals.getOrNull
  * type with one canonical form answers with it rather than with what was submitted — a boolean folded, a
  * number read as a [Long]. What this returns is what gets stored and what every reader is answered with,
  * so **nothing here folds the case of a value a person chose**: how somebody capitalises their own name
- * or their own address is theirs to decide, and the spelling comparisons are made in is a second one
- * `collected_claims` holds beside it. See `docs/design/identifier-claims.md`.
+ * or their own address is theirs to decide, and a comparison is made on a fold recovered from it. See
+ * `docs/design/identifier-claims.md`.
  */
 @Singleton
 class ClaimValueValidator(
@@ -140,10 +140,8 @@ class ClaimValueValidator(
      * Validate the [value] is a JSON object, and return it as it was submitted.
      *
      * Every other JSON value throws `user.claim_value_validator.invalid_json`, so `[1, 2]` and `"foo"` are
-     * refused: a reader of a [JSON] claim may always assume an object, and an array goes under a key of one.
-     * An empty object is a value, since it is a document a caller meant to store; only null clears the
-     * claim. Nothing is cleaned inside the document, whose shape is the writer's and nothing this server
-     * models.
+     * refused, as `docs/design/claims.md` has it. An empty object is a value; only null clears the claim.
+     * Nothing is cleaned inside the document.
      */
     internal fun validateJsonForClaim(value: Any): Optional<Any> {
         if (value !is Map<*, *>) {

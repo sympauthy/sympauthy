@@ -81,11 +81,9 @@ class TokenManager(
      * or `null` if the token is invalid, expired, issued under a grant that is revoked or past its lifetime,
      * not opened for [client] and the audience it belongs to now, or not of [type].
      *
-     * A null [type] accepts an access token and a refresh token alike.
-     *
-     * A token issued for another audience than the one [client] belongs to is answered as inactive rather than
-     * described: what an answer said of its audience and of the person's claims would be told to a client
-     * outside that audience.
+     * A null [type] accepts an access token and a refresh token alike. A token issued for another audience
+     * than the one [client] belongs to is answered as inactive rather than described, as
+     * `docs/design/grants.md` has it.
      */
     suspend fun introspectToken(
         client: Client,

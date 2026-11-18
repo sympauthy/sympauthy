@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * A public client allowed the refresh grant signs a person up and exchanges the code, refreshes once to
  * show the grant serves it, revokes the refresh token it now holds with its `client_id` alone, then
- * presents that token again and asserts a 400 `invalid_grant`, on each supported database.
+ * presents that token again and asserts a 400 `invalid_grant`.
  *
  * Source: [RFC 7009 §2.1 (Revocation Request)](https://datatracker.ietf.org/doc/html/rfc7009#section-2.1).
  */

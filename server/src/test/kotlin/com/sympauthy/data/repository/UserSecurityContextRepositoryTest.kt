@@ -25,9 +25,9 @@ import java.util.*
 /**
  * The places a person signs in from: the key two sightings collapse on, and the claim the sweep takes.
  *
- * The claim is raw SQL, so it is proved here against a real database of every dialect — and the one
- * thing about it that is not in the Kotlin, that a second run skips what a first is holding rather than
- * waiting for it, is driven over a connection of its own.
+ * The claim is raw SQL, and the one thing about it that is not in the Kotlin — that a second run
+ * skips what a first is holding rather than waiting for it — is driven over a connection of its
+ * own.
  */
 class UserSecurityContextRepositoryTest {
 
@@ -172,9 +172,8 @@ class UserSecurityContextRepositoryTest {
     }
 
     /**
-     * `FOR UPDATE SKIP LOCKED` is what lets two instances sweep at once without either waiting, and a
-     * test whose transactions ran one after the other would assert a property that held before it was
-     * written. So the holder is driven over a connection of its own and its transaction stays open.
+     * `FOR UPDATE SKIP LOCKED` is what lets two instances sweep at once without either waiting, so
+     * the holder is driven over a connection of its own and its transaction stays open.
      */
     @ParameterizedTest
     @EnumSource(Database::class)

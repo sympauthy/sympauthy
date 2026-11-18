@@ -122,11 +122,9 @@ class InteractiveAuthFlowSessionClaimValidationManager(
      * - Otherwise, send a validation code to the [user] using the provided [media] to validate claims collected by this
      * authorization server.
      *
-     * The claims are the audience's, the one the session's authorization is for: this flow asks a person to
-     * confirm what it was entitled to collect from them and nothing another audience holds. They are read
-     * through the flow's own half of the ACL, per
-     * [ConsentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow], so the code goes to the value the
-     * flow collected.
+     * The claims are the audience's, the one the session's authorization is for, read through the flow's own
+     * half of the ACL, per [ConsentAwareCollectedClaimManager.findByUserIdAndCollectedInFlow], so the code
+     * goes to the value the flow collected. Why the flow's audience decides is `docs/design/claims.md`.
      */
     suspend fun getOrSendValidationCode(
         session: OnGoingInteractiveFlowSession,

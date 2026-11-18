@@ -10,9 +10,8 @@ import org.testcontainers.utility.DockerImageName
  *  2. the `SYMPAUTHY_IMAGE` environment variable,
  *  3. the published nightly image [DEFAULT_IMAGE].
  *
- * CI builds a `sympauthy:it` image from the current commit's native binary and passes it via the
- * system property, so the pipeline validates the code under test. Locally, the default nightly image
- * lets the harness run without a GraalVM toolchain.
+ * The default does not hold the working tree; which image to point the suite at instead is
+ * `docs/design/running-locally.md`.
  */
 object SympauthyImage {
 

@@ -65,11 +65,10 @@ templates:
     personal:
       kind: personal
       # The two channels where the claims OpenID Connect defines are expected, and the discovery
-      # document that says they exist. Nothing is published unless a file says so — a claim naming no
-      # place reaches none — so the set the specification defines names them here rather than being
-      # defaulted into. Neither carrier is what the access token or the introspection response would
-      # be: a claim named there travels on every request a resource server makes, which is a decision
-      # no file shipped with the server takes on a deployment's behalf.
+      # document that says they exist, named here because a claim naming no place reaches none. Neither
+      # carrier is what the access token or the introspection response would be: a claim named there
+      # travels on every request a resource server makes, which is a decision no file shipped with the
+      # server takes on a deployment's behalf.
       published-in: [ id-token, userinfo, discovery ]
       # No door, because a door opens on a scope and this template names none: each claim opens its
       # own under the scope it belongs to. Nor a client write anywhere, since a claim of the person's

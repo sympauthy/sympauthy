@@ -109,11 +109,8 @@ class InvitationManager(
      * Validate that all claim keys in the map correspond to existing enabled claims, that each is one
      * [audienceId] has, and that the values are valid for the claim type.
      *
-     * The audience is asked of every caller, and it is asked whatever [doors] say. A claim restricted
-     * to another audience is not something a caller may or may not be permitted to write: an invitation is
-     * consumed by a client of [audienceId] and by no other, so pre-assigning one is writing a value the flow
-     * that applies it can never read back, chosen for an audience that was never asked. The admin API and the
-     * bootstrap name the audience as deliberately as a client does, and neither is spared the question.
+     * The audience is asked of every caller, the admin API and the bootstrap included, and it is asked
+     * whatever [doors] say. Why is `docs/design/claims.md`.
      *
      * When [doors] are provided (client API), additionally checks that the client's write door of each
      * claim is open through them. No person consented to anything for an account not yet created, so the
@@ -279,16 +276,12 @@ class InvitationManager(
      *
      * **An identifier claim is applied only to an account the flow created.** [user] is a committed account
      * whenever the flow resolved one instead — a provider merge landing on an account that already exists —
-     * and that account already signs in with an identifier of its own. Replacing it would repoint its
-     * sign-in at whatever address the invitation carries, which hands the account to whoever wrote the
-     * invitation and tells its owner nothing; the invitee named no claim and is not the one at fault. The
-     * invitation still applies every other claim it carries, and still works: what it cannot do is change
-     * who an existing account is. `docs/design/security.md` is where that rule lives.
+     * and the invitation then applies every other claim it carries, and still works: what it cannot do is
+     * change who an existing account is. `docs/design/security.md` is where that rule lives.
      *
-     * Applying the claims and consuming the invitation are deliberately apart. This runs at sign-up, where
-     * the claims it writes are as provisional as the account they land on; [consumeInvitation] runs when the
-     * session completes, so an abandoned invited sign-up leaves the invitation intact and the invitee's link
-     * still works. See [com.sympauthy.data.model.SessionScoped].
+     * Applying the claims and consuming the invitation are deliberately apart: the claims this writes are as
+     * provisional as the account they land on, and [consumeInvitation] spends the invitation only when the
+     * session completes, for the reason `docs/design/provisional-user.md` gives.
      *
      * A claim the invitation's own audience does not have is dropped rather than written. Two things reach
      * here past [validateAndCleanClaims]: an invitation minted before that check existed, and a restriction

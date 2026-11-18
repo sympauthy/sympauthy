@@ -19,17 +19,17 @@ say: the three roles a purpose plays, and how the engine treats each.
 | --- | --- | --- |
 | initiating | it is the reason the session was created at all | yes |
 | gate | it must be satisfied before another purpose may run | no |
-| follow-up | another purpose appends it once it knows it is needed | no |
+| follow-up | another purpose adds it, right after itself, once it knows it is needed | no |
 
 Authorizing a client is initiating; confirming that the person meant to start this is a gate;
 challenging for a second factor is a follow-up. Those are illustrations of the criterion, not the
 set — the roles are what a new purpose has to be classified into, and the classification decides
 where in the order it goes and whether it may complete the session.
 
-A session's purposes are **ordered**, gates first and the initiating purpose last, and the list
-**grows** while the session runs: a follow-up is inserted after the purpose that needs it, and a
-gate a person asks for — resetting a forgotten password from the sign-in step — before the purpose
-it stands in front of.
+A session's purposes are **ordered**: the gates in front of the purpose they guard, and each
+follow-up right after the purpose that needs it. The list **grows** while the session runs: a
+follow-up is inserted once its purpose knows it is needed, and a gate a person asks for — resetting
+a forgotten password from the sign-in step — in front of the purpose it guards.
 
 ## The session
 
@@ -40,8 +40,8 @@ the ordered purpose list and [where it hands them back](#how-a-session-hands-the
 type is the authority on which fields those are.
 
 **Which purpose and which client started it are stored rather than derived**, and set once. Gates
-are prepended and follow-ups inserted at runtime, so no positional rule over the purpose list stays
-correct as the chain grows; and the client sits on the attached record of whichever purpose
+are put in front and follow-ups inserted at runtime, so no positional rule over the purpose list
+stays correct as the chain grows; and the client sits on the attached record of whichever purpose
 initiated the session, so no rule reaching for it there stays correct as purposes gain initiators.
 The client is written in the same transaction as the record it duplicates and never written again,
 which is what keeps the two from disagreeing.
@@ -66,11 +66,13 @@ another purpose's data if it has to ask another manager for it.
 flow, and nothing else, so it works even when the record that would explain the failure is the thing
 that is missing.
 
-**The session carries a version, and every lifecycle mutation checks it.** Two tabs, a double
-submit, or a replayed callback all become one write that succeeds and one that finds the version
-moved, rather than two writes that both look fine. The one that lost is sent where the session now
-stands: where its sibling ended it, or to the error page when the session was still running, since a
-conflict fails it.
+**The session carries a version, and every lifecycle mutation but its failure checks it.** Two
+tabs, a double submit, or a replayed callback all become one write that succeeds and one that finds
+the version moved, rather than two writes that both look fine. The one that lost is sent where the
+session now stands: where its sibling ended it, or to the error page when the session was still
+running, since a conflict fails it. A failure is written only while the session is still running
+instead, because the request failing it has usually moved the version itself, and a session another
+request already ended keeps the outcome it ended with.
 
 ## How a session hands the person back
 
@@ -167,8 +169,10 @@ configured. That is what keeps the engine transport-free and testable without a 
 **Completing is one transaction, and it is where a sign-up becomes an account.** The terminal
 effects, the promotion of whatever the session signed up and the completion write commit together
 or not at all — everything before them is deliberately not, because a flow a person is still
-walking through is many requests and no transaction spans them. What a promotion is, and what it
-has to take turns with, is [the provisional user](provisional-user.md).
+walking through is many requests and no transaction spans them. The completion write comes before
+the effects, so a session that moved or was collected while they were prepared is refused before
+anything is written against its account. What a promotion is, why it comes first, and what it has
+to take turns with, is [the provisional user](provisional-user.md).
 
 **A terminal effect is decided before that transaction and written inside it.** The promotion's
 locks are held until the transaction commits, and [the locking
@@ -212,8 +216,7 @@ completion transaction opens, so nothing is promoted for a flow that was going t
 
 **There is no registration list to edit.** The registry injects every handler bean and indexes them
 by purpose, so a new handler is wired up by existing. A purpose with no handler fails at runtime,
-and a test asserts that every enum value resolves — so the gap is a build failure, not a production
-one.
+the first time a session carrying it is advanced.
 
 ### A handler describes its own purpose
 
@@ -222,9 +225,9 @@ a time, published by the admin API. The handler owns it because the handler is t
 knows what its purpose means.
 
 **It is required rather than defaulted to nothing.** A purpose that shipped contributing nothing
-here would be discovered by whoever is debugging that exact purpose, at the worst possible moment —
-the same argument the registry makes for a purpose with no handler, and the same answer: a build
-failure rather than a production one.
+here would be discovered by whoever is debugging that exact purpose, at the worst possible moment,
+so the compiler asks every handler for it and the gap is a build failure rather than a production
+one.
 
 **It takes the session in any state, and must answer for any shape of one.** No user, no attached
 record, a terminal status: each emits the code with no value rather than throwing. This is called
@@ -379,15 +382,15 @@ is the server's, derived from configuration and from what the person has already
 a second factor may be attempted within a session. This is a known gap with its own work, not a
 decision.
 
-**It does not resume across sessions.** An expired session is gone, and its attached records — and
-the account a sign-up had not finished creating — are collected by a scheduled job. A person starts
-again from the client that sent them.
+**It does not resume across sessions.** An expired session is gone: a scheduled job collects it
+with its attached records, and [another](provisional-user.md#collecting-one-that-never-will) the
+account a sign-up had not finished creating, once the session is. A person starts again from the
+client that sent them.
 
-**One attached record is read rather than collected, where the flow completed.** The places a
-session was driven from are attached to it — one row per distinct place, written where the session
-is created and at every request that resolves one still in flight, both through
-`InteractiveAuthFlowSessionControllerUtil`. Completing the flow folds the one a credential was
-proven at into that person's own record and consumes them all; what the cleaner collects is
+**One attached record is read rather than collected, where the flow completed.** [The places a
+session was driven from](security-context.md#what-is-kept-and-for-how-long) are attached to it, one
+row per distinct place. Completing the flow folds the one a credential was proven at into that
+person's own record and consumes them all; what the cleaner collects is
 therefore only the places of flows that never finished. It is the one thing a session writes whose
 contents outlive it — deliberately, because [the security context](security-context.md) keeps a
 place for months and a session for half an hour, and only the row a proof stamped is ever read that

@@ -30,11 +30,9 @@ import io.micronaut.web.router.exceptions.UnsatisfiedRouteException
 import jakarta.inject.Singleton
 
 /**
- * Normalize all kinds of exceptions thrown by various frameworks like Micronaut Security
- * into our common [LocalizedHttpException] with proper http status to respond and details/description
- * for the end-user.
- *
- * Currently unhandled exception will be converted into 500 errors.
+ * Normalizes every exception but an `OAuth2Exception` — those thrown by Micronaut Security and the other
+ * frameworks included — into a [LocalizedHttpException] carrying the status to answer with. An exception it
+ * does not recognise becomes a `500`.
  */
 @Singleton
 class ExceptionNormalizer {

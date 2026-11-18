@@ -57,7 +57,7 @@ GET /api/v1/admin/users
 | one of | `field.in=a,b,c` | the value is one of a comma-separated list |
 | holds | `field.contains=` | a partial, case-insensitive match |
 | begins | `field.starts_with=` | a case-insensitive prefix match |
-| absent | `field.is_null=true` | the row carries no value for this field |
+| absent | `field.is_null=true` | the row carries no value for this field; `false` asks for one |
 
 **The set is closed and none of its words is localized.** What renders a filter bar holds them, so a
 collection publishes which of them a field admits rather than what any of them means.
@@ -222,7 +222,8 @@ says what it holds.
 **The set a field enumerates is this deployment's, not the build's.** The claims this deployment
 configured, the clients it declares, the audiences and the scopes it serves are what make this a
 request rather than a constant, and they are the reason the generated OpenAPI document cannot answer
-it.
+it. A field over the clients offers as well each one its rows still name that the configuration no
+longer declares, so a row such a client left behind stays one a caller filters on.
 
 **`default_sort` is spelled the way `sort` is**, prefix included, and it is absent where the
 collection has none.
@@ -232,7 +233,8 @@ is a field the collection refuses, and a field present in it is one the collecti
 every operator it lists — which is what makes the refusals above a contract rather than a surprise.
 
 **It describes the collection rather than a row, so a document under a parent path reads the same
-for every parent.** Nothing is looked up to answer it.
+for every parent.** What it reads of the stored rows, it reads across every parent rather than
+under the one in the path.
 
 ## Where a name in it comes from
 
@@ -277,9 +279,10 @@ standard's](business-layer-code-standard.md#composition); this is where it goes,
 answers the same question for every collection is in one place and the next one has an obvious
 package to join.
 
-**`capabilities` is a reserved identifier on every collection whose item is named by a string.** A
-claim, a client, an audience or a scope named by that word would be unreachable through its own item
-route, so the configuration refuses one rather than leaving a deployment with a row it cannot read.
+**`capabilities` is a reserved identifier, whatever its case, for every configured item a route
+names by a string.** One named by that word would be unreachable through its own item route, so the
+configuration refuses it rather than leaving a deployment with a row it cannot read — whether or
+not its collection has an item route yet, since an identifier is read for the life of a deployment.
 
 ## What this standard does not cover
 

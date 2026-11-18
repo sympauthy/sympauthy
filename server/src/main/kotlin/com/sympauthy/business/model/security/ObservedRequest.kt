@@ -4,8 +4,7 @@ package com.sympauthy.business.model.security
  * Where one request came from, as this server observed it under the trust model a deployment
  * configured — which `docs/design/security-context.md` carries.
  *
- * It is computed once per request at the boundary, by `ObservedRequestFilter`, and reaches whatever
- * needs it as an ordinary parameter rather than as something a manager reaches back for.
+ * It is computed once per request at the boundary, by `ObservedRequestFilter`.
  *
  * It is named for the request rather than for the record it is written to, because a throttle reads one
  * without storing anything and a security context is not what that is about.

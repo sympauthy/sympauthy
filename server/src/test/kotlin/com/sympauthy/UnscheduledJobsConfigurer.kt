@@ -5,12 +5,8 @@ import io.micronaut.context.ApplicationContextBuilder
 import io.micronaut.context.ApplicationContextConfigurer
 
 /**
- * Leaves the server's scheduled jobs out of every context a test starts.
- *
- * A context carrying them runs them: each declares a fixed delay and no initial delay, so the startup
- * event schedules the first run for now — inside whichever test resolved the bean that started the
- * context. Each sweep then deletes against the live clock, which has moved past the constant a fixture
- * dates its rows from, so the test loses rows it is still using.
+ * Leaves the server's scheduled jobs out of every context a test starts, for the reason
+ * `docs/standards/testing-standard.md` gives.
  *
  * Registered as a service rather than applied by [com.sympauthy.data.Database], because every builder
  * loads one: a context `@MicronautTest` starts shares the `h2` database with the repository tests and

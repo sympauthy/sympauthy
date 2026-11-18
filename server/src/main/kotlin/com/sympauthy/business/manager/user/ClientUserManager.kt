@@ -36,13 +36,12 @@ class ClientUserManager(
     /**
      * What this collection accepts.
      *
-     * **It declares its fields without binding them to a row**, because this is the one collection whose
-     * criteria reach the database: the page, the filter and the total are each a query, and nothing here
-     * ever holds the collection to run a criterion over. It therefore offers the two fields that query can
-     * answer, each under an exact match and nothing else.
+     * **It declares its fields without binding them to a row**, because its criteria reach the database:
+     * the page, the filter and the total are each a query, and nothing here ever holds the collection to run
+     * a criterion over. It therefore offers the two fields that query can answer, each under an exact match
+     * and nothing else.
      *
-     * Nothing publishes it: what reads the client surface is generated from the published specification,
-     * and the values it would enumerate belong to the one client asking.
+     * Nothing publishes it, as `docs/standards/collection-standard.md` leaves the client surface.
      */
     suspend fun capabilities(): CollectionCapabilities = CollectionCapabilities(
         fields = listOf(

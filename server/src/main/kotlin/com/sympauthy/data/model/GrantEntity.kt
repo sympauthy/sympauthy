@@ -18,12 +18,8 @@ class GrantEntity(
     val clientId: String,
     /**
      * Identifier of the audience this grant was opened for, whose token audience is the `aud` its tokens
-     * state. For an act-as grant it is the audience the exchange named, which need not be the acting
-     * client's.
-     *
-     * Recorded rather than read off the client because a client's audience is configuration, and moves or
-     * disappears with it: revoking a consent reaches the grants opened for that audience, whatever has become
-     * of the clients they were opened for since.
+     * state. Recorded rather than read off the client, whose audience is configuration and may move: see
+     * `docs/design/grants.md`.
      */
     val audienceId: String,
     /**
@@ -80,8 +76,7 @@ class GrantEntity(
     val sessionId: UUID? = null,
     /**
      * The trace and span id of the request that started the session in [sessionId], both set or both null: a
-     * copy of the session's, kept for every request redeeming or refreshing the grant to link to once the session
-     * is collected.
+     * copy of the session's, which outlives it. See `docs/design/telemetry.md`.
      */
     val sessionStartedByTraceId: String? = null,
     val sessionStartedBySpanId: String? = null,
@@ -95,8 +90,8 @@ class GrantEntity(
     val actorGrantId: UUID? = null,
     val creationDate: LocalDateTime,
     /**
-     * When this grant can no longer be refreshed, as `auth.grant.expiration` set it when the grant was
-     * opened. Null where it has no lifetime of its own.
+     * When this grant can no longer be refreshed, fixed when the grant was opened as
+     * `docs/design/grants.md` says. Null where it has no lifetime of its own.
      */
     val expirationDate: LocalDateTime? = null,
     val revokedAt: LocalDateTime? = null,

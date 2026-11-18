@@ -37,7 +37,7 @@ to change it, and why it was settled that way. The rules a change is held to are
   images and name it configures, what `/branding` answers for them, and what an image host being
   down costs.
 - **[Logging](logging.md)** — what the server says about itself while it runs: what an ERROR line
-  means, the dependencies `/health` reports degraded, and why a log line never makes its caller
+  means, the dependencies `/health` reports degraded, and why only an ERROR ever makes its caller
   wait.
 - **[Telemetry](telemetry.md)** — what the server exports to an OpenTelemetry collector: the
   signals that leave and the query string that never does, what an authorization server counts and

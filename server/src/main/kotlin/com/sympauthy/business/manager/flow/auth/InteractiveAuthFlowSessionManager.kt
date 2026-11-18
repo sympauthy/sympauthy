@@ -83,25 +83,14 @@ class InteractiveAuthFlowSessionManager(
     }
 
     /**
-     * Create a new [InteractiveFlowSession] for the end-user, answering [authorizationRequest].
+     * Create a new [InteractiveFlowSession] for the end-user, answering [authorizationRequest], and return it
+     * with the [InteractiveFlow] it runs in: the one the [Client] is configured with, or the default one where
+     * there is no client or its flow cannot be found.
      *
-     * This method is in charge of:
-     * - validating the client id. Redirect the user to the error page of the default interactive auth flow in
-     *   case of error.
-     * - selecting the flow: Either the one provided by the [Client] or the default one.
-     * - refusing a request object, carried by the request or behind its URL, which [checkRequestObject]
-     *   explains.
-     * - validating the scopes. Redirect the user to the error page of the selected flow in case of error.
-     * - validating the redirect URI. Redirect the user to the error page of the selected flow in case of
-     *   error.
-     * - validating the invitation token if provided: checks that the invitation exists, is pending, and
-     *   belongs to the same audience as the client. The invitation ID is stored on the session's OAuth2 record.
-     * - validating the `max_age` if provided, which [checkMaxAge] explains is all this server has to
-     *   do with it.
-     * - parsing the `claims` if provided, dropping every name no enabled claim answers to, so the
-     *   session records claim ids. What a name there is allowed to add is the claim's own
-     *   `published-in-when-requested`.
-     * - creating the [InteractiveFlowSession].
+     * Every parameter is checked, and the first refusal, in the order `docs/design/oauth2-authorization.md`
+     * gives, is recorded on a session created already failed rather than thrown, with the OAuth2 error
+     * answering it. The invitation, checked pending and of the client's audience, and the claims the `claims`
+     * parameter names, as claim ids, are stored on the session's OAuth2 record.
      *
      * The parameters of [authorizationRequest] are expected to be non-validated as this method will perform the
      * validation and assign default values if necessary.
@@ -271,10 +260,8 @@ class InteractiveAuthFlowSessionManager(
      * as not sent.
      *
      * This server reads no request object, and OpenID Connect Core §6.1 and §6.2 require a server that does not to
-     * refuse one rather than ignore it. A client may put any parameter of its request in the object — the
-     * `redirect_uri`, the `nonce`, the `claims` — so serving what was left in the query would answer a request the
-     * client did not make. The refusal is ordered after the client's own, and before every parameter the object
-     * may have carried in its place.
+     * refuse one rather than ignore it; why, and why it is ordered before every parameter the object may have
+     * carried, is `docs/design/oauth2-authorization.md`.
      */
     internal fun checkRequestObject(uncheckedRequest: String?, uncheckedRequestUri: String?): BusinessException? {
         if (!uncheckedRequest.isNullOrBlank()) {
@@ -301,12 +288,8 @@ class InteractiveAuthFlowSessionManager(
      * seconds, so anything but a non-negative integer is malformed. A value sent with nothing after the `=`
      * is treated as not sent, which RFC 6749 §3.1 requires of every parameter of this endpoint.
      *
-     * **An acceptable value is checked and not kept, deliberately.** This server holds no session
-     * between authorizations — see `docs/design/interactive-flow.md` and `docs/design/security.md` — so
-     * every authorization signs the person in anew and the authentication a code represents is always
-     * younger than the flow that produced it. There is nothing for a maximum age to prepend, and what a
-     * client observes is what §3.1.2.1 asks of a server answering one: an id token stating `auth_time`,
-     * which this server states on every id token whether or not a client asked.
+     * **An acceptable value is checked and not kept, deliberately**, for the reason `docs/design/security.md`
+     * gives.
      */
     internal fun checkMaxAge(uncheckedMaxAge: String?): BusinessException? {
         if (uncheckedMaxAge.isNullOrBlank()) return null

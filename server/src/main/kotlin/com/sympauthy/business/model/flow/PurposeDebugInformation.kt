@@ -13,11 +13,8 @@ import java.time.LocalDateTime
  * A handler emits a list of these rather than a map: the order is the handler's, and it is the order the
  * operator reads in.
  *
- * **[code] is a key.** It is what an interface switches on to label and render the entry, so renaming or
- * removing one breaks a caller the way renaming a wire field does. The server writes no label beside it: the
- * interface already has to know a code to render it, and a label would be a second name for the entry.
- *
- * Each subtype is one [type], which is what lets an interface render a [code] it holds no label for yet.
+ * **[code] is a key**: renaming or removing one breaks a caller the way renaming a wire field does. Each
+ * subtype is one [type]. See `docs/design/interactive-flow.md`.
  */
 sealed class PurposeDebugInformation {
     /**

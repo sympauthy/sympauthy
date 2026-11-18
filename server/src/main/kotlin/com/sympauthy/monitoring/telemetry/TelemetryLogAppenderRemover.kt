@@ -16,11 +16,8 @@ import org.slf4j.LoggerFactory
 const val TELEMETRY_ENABLED = "micronaut.otel.enabled"
 
 /**
- * Detaches every OpenTelemetry appender from the root logger when telemetry is off.
- *
- * `logback.xml` names the appender before the configuration can say whether it is wanted, and with no SDK
- * installed into it, it would hold the records it is handed until its queue of a thousand fills, then say so on
- * stderr.
+ * Detaches every OpenTelemetry appender from the root logger when telemetry is off, for the reason
+ * `docs/design/telemetry.md` gives.
  *
  * It runs at startup, where the framework would have installed the SDK, because the framework reloads
  * `logback.xml` while the context is built and attaches a new appender.

@@ -18,7 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource
  * A user signs up through the mock interactive frontend, the captured authorization code is exchanged
  * at the token endpoint, and the returned id_token is verified against the key set the server
  * advertises at its `jwks_uri`. This proves the end-to-end flow, token issuance and JWT signing all
- * work on the running native image, against each supported database.
+ * work on the running native image.
  *
  * The scenario runs for both client profiles: a **public** client that authenticates the code exchange
  * with PKCE alone, and a **confidential** client that additionally presents its secret at the token

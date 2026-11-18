@@ -11,12 +11,11 @@ import java.util.*
  * The subtypes below are what may be locked, and a caller wanting something else adds one here rather
  * than inventing a string at the call site. [LockManager] is what takes them.
  *
- * A key is a scope and a value, and the value is the one the check it protects compares on: a lock over
- * a spelling that check would not have matched excludes nothing. It hashes to one of [STRIPE_COUNT]
- * rows, so two unrelated keys sometimes share a row and wait for each other — a few milliseconds, and
- * never a wrong answer. What that buys is a lock table the migration creates once: no row is inserted at
- * runtime, so nothing needs an upsert the dialects spell differently, nothing grows by one row per value
- * anyone ever submits, and nothing has to be collected afterwards.
+ * A key is a scope and a value, and the value is the one the check it protects compares on. It hashes to
+ * one of [STRIPE_COUNT] rows, so two unrelated keys sometimes share a row and wait for each other — a few
+ * milliseconds, and never a wrong answer. What that buys is a lock table the migration creates once: no row
+ * is inserted at runtime, so nothing needs an upsert the dialects spell differently, nothing grows by one
+ * row per value anyone ever submits, and nothing has to be collected afterwards.
  */
 sealed class LockKey(
     private val scope: String,
@@ -47,8 +46,7 @@ sealed class LockKey(
     /**
      * The value of an identifier claim, held by an account or held by nobody yet.
      *
-     * It is the case a constraint cannot express: an end-user signs in with any configured identifier
-     * claim, so a value has to be unique across all of them rather than within one column, and the
+     * It is the case a constraint cannot express — see `docs/design/identifier-claims.md` — and the
      * competitor a caller has to exclude may have no committed row to lock.
      *
      * It is taken by a transaction about to make one of these values taken — committing the row that will
@@ -79,10 +77,9 @@ sealed class LockKey(
      * serialises them. A transaction that only reads which account holds one, as a re-authentication does,
      * commits no link and takes nothing.
      *
-     * The unique index PostgreSQL carries over `(provider_id, subject)` is the backstop
-     * `docs/standards/database-standard.md` asks for and not the rule: it is partial, because two provisional links
-     * may share a subject by the same design that lets two sign-ups share an address, and H2 spells no
-     * partial index at all.
+     * The unique index PostgreSQL carries over `(provider_id, subject)` is a backstop behind this key, as
+     * `docs/standards/locking-standard.md` has a partial index be. It is partial because two provisional links
+     * may share a subject by the same design that lets two sign-ups share an address.
      *
      * The two halves are joined by the byte the digest already separates the scope with, so no pair of
      * them collides with another pair.

@@ -15,21 +15,13 @@ import java.util.*
 /**
  * Hands one instance the right to run a job, and tells every other instance to skip it.
  *
- * **A lease is not mutual exclusion.** A run whose instance stops renewing runs beside the instance that
- * takes the lease next, because nothing an instance stops doing proves the run stopped with it. What a
- * lease buys is the work being done once rather than once per instance — so a job taking one must be a
- * job that stays correct when it runs twice, which every cleaner keying on a committed absence already
- * is.
+ * **A lease is not mutual exclusion**: a run whose instance stops renewing runs beside the instance that
+ * takes the lease next. What a lease is, and what a job taking one must be, is
+ * `docs/standards/locking-standard.md`'s.
  *
- * **A lease expires on how long an instance may be silent, not on how long its job takes.** It is taken
- * for [GRACE_PERIOD] and pushed back every [RENEWAL_PERIOD] by [renewLeases] for as long as this instance
- * is alive, so a slow run keeps its lease and a dead instance's is free within the grace period. Nobody
- * has to guess a job's duration, and guessing it is what a fixed expiry asked for: too short overtakes a
- * slow run, too long leaves a crashed instance's job unrun.
- *
- * The clock is the database's, read back through [JobLeaseRepository.now] rather than taken from this
- * process. It is the only one every instance shares, and a lease timed by each instance's own would let
- * one running fast hold past its grace period and one running slow take a lease that is still live.
+ * A lease is taken for [GRACE_PERIOD] and pushed back every [RENEWAL_PERIOD] by [renewLeases] for as long
+ * as this instance is alive, so a slow run keeps its lease and a dead instance's is free within the grace
+ * period. The clock is the database's, read back through [JobLeaseRepository.now].
  *
  * **A run never throws.** Each one is recorded on `sympauthy.job.run.duration` as it ended — run, failed, or
  * skipped for another instance's lease — and a failure is handed to [ConditionMonitor.absorb], then written at
@@ -59,10 +51,8 @@ class JobLeaseManager(
     /**
      * Run [block] under the lease [job] holds, and answer whether this instance was the one that ran it.
      *
-     * Neither the acquisition nor the release joins a transaction, and [block] runs outside both: a job
-     * is minutes of work owning its own writes, and a lease held open across it would make all of them
-     * one transaction. So a crash mid-run leaves the lease taken until it stops being renewed, which is
-     * what the grace period is for.
+     * Neither the acquisition nor the release joins a transaction, and [block] runs outside both, so a
+     * crash mid-run leaves the lease taken until it stops being renewed.
      *
      * The lease is released whatever [block] does. A failure, of [block] or of the lease itself, is reported
      * as the class says and not thrown; a run that failed after taking the lease still answers true.

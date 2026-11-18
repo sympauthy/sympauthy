@@ -26,10 +26,9 @@ class LocalizedErrorMapper(
      * and the code that message was read under, and the technical message where it may be printed.
      *
      * **[alwaysPrintDetails] is passed by a caller whose reader is the audience the technical message
-     * is written for.** `features.print-details-in-error` keeps the server's internals away from a
-     * caller nobody vouched for, and the API standard names the surfaces that are not one. It only
-     * ever turns the message on: a deployment that asked for it is not answered with less because a
-     * caller said so.
+     * is written for**, as on the surface `docs/standards/api-standard.md` exempts from
+     * `features.print-details-in-error`. It only ever turns the message on: a deployment that asked
+     * for it is not answered with less because a caller said so.
      */
     fun toLocalizedError(
         exception: LocalizedException,
@@ -72,9 +71,7 @@ class LocalizedErrorMapper(
      * holding it is: its own code, its own description and its own technical message, behind the
      * same flag [printDetails] carries.
      *
-     * A failure naming no description contributes none. The fallback above answers for the response
-     * as a whole, and answering it per property would print *an unexpected error occurred* against a
-     * field a reader can correct.
+     * A failure naming no description contributes none, as `docs/standards/api-standard.md` says.
      */
     private fun toLocalizedPropertyError(
         path: String,

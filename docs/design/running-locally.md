@@ -18,8 +18,8 @@ suites. What the server *is* is [the index](index.md); how to configure a real d
 ## Configuration
 
 The server reads a YAML file named by `MICRONAUT_CONFIG_FILES`, and layers it over the defaults
-selected by `MICRONAUT_ENVIRONMENTS`. For development, put yours in `config/application.yml` — the
-directory is git-ignored apart from a sample.
+selected by `MICRONAUT_ENVIRONMENTS`. For development, put yours in `config/application.yml` —
+git ignores every YAML file in that directory, and none is shipped there.
 
 A development configuration needs four things: a datasource, an issuer, at least one client, and the
 page addresses of a flow. This is enough to sign in end to end:
@@ -148,9 +148,11 @@ the verifier when exchanging the code at the token endpoint.
 one before that:
 
 ```
-Bootstrap invitation 'first-admin' created for audience 'admin'.
-Registration URL: http://localhost:5174/register?invitation_token=...
+Bootstrap invitation 'first-admin' created for audience 'admin'. Registration URL: http://localhost:8080/admin/register?invitation_token=...
 ```
+
+The address is the invitation's `url-template`, so with the override above it points at the admin
+pages in development instead.
 
 **Take the link from the latest startup**, because each one revokes the link before it. Once an
 administrator has registered the line stops appearing, and the console and the Authorize button
@@ -163,8 +165,9 @@ with PKCE. Signing in needs the administrator registered above.
 
 **A client of your own is usable there once `${urls.root}/swagger-ui/oauth2-redirect.html` is one of
 its `allowed-redirect-uris`.** Swagger UI derives that address from the page it runs on, which is
-why `/swagger-ui` and `/swagger-ui/` both land on `/swagger-ui/index.html`. The other scheme the
-documentation declares, `client`, is client credentials and takes a client id and a secret instead.
+why `/swagger-ui` and `/swagger-ui/` both land on `/swagger-ui/index.html`. The documentation
+declares a scheme per kind of token: `user` signs a person in through the same flow as `admin`, and
+`client` is client credentials and takes a client id and a secret instead.
 
 ### Watching the telemetry
 

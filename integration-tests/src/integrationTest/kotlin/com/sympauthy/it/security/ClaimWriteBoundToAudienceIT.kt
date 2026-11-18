@@ -28,7 +28,7 @@ import java.util.UUID
  * to no audience and `custom_tier` to `billing`; both are writable with `users:claims:write`, so the
  * restriction is the only thing that can tell them apart. The scenario signs a person up through the flow,
  * mints a `client_credentials` token, and asserts `PATCH /api/v1/client/users/{userId}/claims` stores
- * `custom_region` and refuses `custom_tier` with `400 client.invalid_claim`, on each supported database.
+ * `custom_region` and refuses `custom_tier` with `400 client.invalid_claim`.
  *
  * Issue: [#454](https://github.com/sympauthy/sympauthy/issues/454).
  */
@@ -83,7 +83,7 @@ class ClaimWriteBoundToAudienceIT : AbstractSympauthyIT() {
 
     /**
      * Calls `PATCH /api/v1/client/users/{userId}/claims` expecting a rejection, and captures the HTTP status
-     * and error body **inside** the client's context, whose response buffer is released once it closes.
+     * and error body.
      */
     private fun claimWriteRejection(
         sympauthy: SympauthyContainer,

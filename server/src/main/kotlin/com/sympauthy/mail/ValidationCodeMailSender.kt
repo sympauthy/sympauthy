@@ -15,9 +15,6 @@ import java.util.*
 
 /**
  * Components in charge of sending the validation code to the user by email.
- *
- * The mail is queued with the code alone: the brand, the name it is signed under and the minutes the code has left
- * are read when it is sent.
  */
 @Singleton
 class ValidationCodeMailSender(

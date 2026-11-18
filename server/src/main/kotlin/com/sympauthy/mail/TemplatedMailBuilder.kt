@@ -66,7 +66,7 @@ class TemplatedMailBuilder(
 
     /**
      * `msg(key)` in a template: the message [key] names in the mail bundle, in the locale of the mail and
-     * interpolated with its model, so that a template holds the structure and the bundle every string.
+     * interpolated with its model.
      *
      * A key the bundle does not hold fails the rendering rather than mailing a dotted identifier.
      */

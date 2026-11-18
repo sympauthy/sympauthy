@@ -11,8 +11,8 @@ import jakarta.inject.Singleton
  * the deployment configured written over its default.
  *
  * `tokens.json` is the design system's own file, and this writes what its `build-theme.mjs` writes for
- * `tokens.css` but for the two things the design system does not have to answer: the dark roles apply under the
- * device's preference, and they are left out under [DarkMode.OFF].
+ * `tokens.css` but for the two things the design system does not have to answer: when the dark roles apply, which
+ * `docs/design/branding.md` holds, and that they are left out under [DarkMode.OFF].
  */
 @Singleton
 class BrandStylesheetRenderer(

@@ -97,8 +97,8 @@ open class TokenRefreshManager(
     /**
      * The body of [refresh], run once the lock over the account [decodedToken] belongs to is held.
      *
-     * The token is read again here rather than handed in, because the read made to find the account came
-     * before the wait: a revocation committed during it is only seen by a read made after.
+     * The token is read again here rather than handed in, as `docs/standards/locking-standard.md` has the
+     * check a lock protects read inside it.
      *
      * Once the grant is found to be the [client]'s, the request is marked as acting on the interactive flow session
      * it came from, where one did.
@@ -147,10 +147,8 @@ open class TokenRefreshManager(
                     )
                 } else null
             }
-            // A refresh reissues the identity because OpenID Connect Core §12.2 lets it, and a client holding
-            // a refreshed access token with a stale id token has no way to learn the subject changed. Whether
-            // this grant is owed one is the generator's to answer, so that the authorization code cannot
-            // answer it differently.
+            // Why a refresh reissues the identity is `docs/design/security.md`'s. Whether this grant is owed an
+            // id token is the generator's to answer, so that the authorization code cannot answer it differently.
             val deferredIdToken = async {
                 idTokenGenerator.generateIdToken(
                     grant = grant,

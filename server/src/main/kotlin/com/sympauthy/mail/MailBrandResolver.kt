@@ -19,19 +19,11 @@ import jakarta.inject.Singleton
 import kotlin.math.roundToInt
 
 /**
- * The brand a mail is drawn in, as the `brand` the mail kit (`views/mails/kit.ftl`) reads.
- *
- * Its colours are the ones [BrandTokenResolver] answers the stylesheet under `/branding` with, but resolved to values:
- * a mail client reads no CSS variable. So a mail follows the operator's colours as the sign-in pages do, and the
- * status colours keep their meaning whatever the brand.
- *
- * Its logo is the PNG `/branding/logo.png` answers, by absolute address: a mail client draws no SVG, and a mail is
- * read away from the server. A deployment whose logo is an SVG, or whose root URL is not configured, has mails
- * showing its name alone.
- *
- * **So has a deployment whose root URL is local** ([EnabledUrlsConfig.isRootLocal]): a mail is read through its
- * provider, whose image proxy fetches the logo from the internet, so a link no mail client can reach draws a broken
- * image where the name alone would do.
+ * The brand a mail is drawn in, as the `brand` the mail kit (`views/mails/kit.ftl`) reads: the colours
+ * [BrandTokenResolver] answers the stylesheet under `/branding` with, resolved to values, and the PNG
+ * `/branding/logo.png` answers, by absolute address. A deployment whose logo is an SVG, whose root URL is not
+ * configured, or whose root URL is local ([EnabledUrlsConfig.isRootLocal]) has mails showing its name alone. Why
+ * a mail reads each of them that way is `docs/design/branding.md`.
  */
 @Singleton
 class MailBrandResolver(

@@ -28,12 +28,11 @@ import jakarta.inject.Singleton
  * Assembles the complete set of scopes the server knows about.
  *
  * A deployment only ever adds custom scopes and turns scopes off; every other scope is one the
- * server defines itself and no configuration can name. Both halves are put together here so that
- * nothing downstream has to know the difference.
+ * server defines itself and no configuration can name.
  *
- * A scope the deployment turned off is built as a [DisabledScope] rather than left out, so that the
- * administration API can list it. Its configuration is validated all the same: an unknown audience
- * or an invalid type is an error whether or not the scope is on.
+ * A scope the deployment turned off is built as a [DisabledScope] (`docs/design/security.md`), and
+ * its configuration is validated all the same: an unknown audience or an invalid type is an error
+ * whether or not the scope is on.
  */
 @Singleton
 class ScopeConfigValidator {
@@ -76,8 +75,8 @@ class ScopeConfigValidator {
     }
 
     /**
-     * Whether the deployment is allowed to configure the scope at all.
-     * A scope the server defines itself is reported as an error rather than silently ignored.
+     * Whether the deployment is allowed to configure the scope at all, recording an error against
+     * the scope's key where it is not.
      */
     private fun isConfigurable(
         ctx: ConfigParsingContext,
@@ -239,13 +238,8 @@ class ScopeConfigValidator {
      * The places the deployment publishes the scope in, which is the discovery document for every scope it
      * configured unless it said otherwise, and for every scope it did not configure at all.
      *
-     * The default is the advertising one, the other way round from a claim's. A claim keeps a value back
-     * until a file says to send it; a scope has no value to keep back, and hiding one nobody asked to hide
-     * would take it out of `scopes_supported` for every deployment on upgrade — so a client configuring
-     * itself from the document would stop asking for a scope this server still serves.
-     *
-     * The document is a hint to a client that has not been told what to ask for, so hiding a scope is not
-     * turning it off: a client naming it is served exactly as before.
+     * The default is the advertising one, the other way round from a claim's, for the reason
+     * `docs/design/security.md` gives.
      */
     private fun publishedIn(parsed: ParsedScopeConfig?): Set<ScopePublicationPlace> =
         parsed?.publishedIn ?: setOf(ScopePublicationPlace.DISCOVERY)

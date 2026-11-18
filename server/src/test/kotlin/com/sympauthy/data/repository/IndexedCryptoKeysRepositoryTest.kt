@@ -16,7 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource
 /**
  * The keys held in a numbered series. Its identifier is the one integer key the database generates
  * itself, spelled `serial` under PostgreSQL and `AUTO_INCREMENT` under H2 — the sharpest divergence
- * between the two schemas, and one only an insert can settle.
+ * between the dialects' schemas, and one only an insert can settle.
  */
 class IndexedCryptoKeysRepositoryTest {
 
@@ -75,7 +75,6 @@ class IndexedCryptoKeysRepositoryTest {
             assertTrue(found.isEmpty())
         }
 
-    /** The empty public half a symmetric key carries, for the reason [CryptoKeysRepositoryTest] gives. */
     @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the empty public half of a symmetric key`(database: Database) =

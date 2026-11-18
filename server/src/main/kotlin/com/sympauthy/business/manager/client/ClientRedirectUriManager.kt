@@ -13,8 +13,7 @@ import java.net.URISyntaxException
  * `redirect_uri` of an authorization against its redirect URIs, and the `return_uri` of a flow a client or an
  * administrator started against its return URIs.
  *
- * The two lists are never read for each other. A redirect URI is where an authorization code goes, and a page
- * declared as a return destination was not built to exchange one, so it never receives one.
+ * The two lists are never read for each other, as `docs/design/security.md` has it.
  */
 @Singleton
 class ClientRedirectUriManager {

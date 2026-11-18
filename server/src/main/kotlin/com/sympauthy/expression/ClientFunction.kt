@@ -8,7 +8,8 @@ import com.ezylang.evalex.parser.Token
 import com.sympauthy.business.model.client.Client
 
 /**
- * Custom function returning the value of a client property as a string.
+ * Custom function returning the value of a client property: `public` as a boolean, every other one as a
+ * string, and null for a property the client does not have.
  */
 @FunctionParameter(name = "property")
 class ClientFunction(

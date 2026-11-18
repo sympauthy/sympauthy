@@ -1,18 +1,14 @@
 package com.sympauthy.business.model.user.claim
 
 /**
- * A place this authorization server publishes a claim in.
- *
- * It answers where a claim goes and not who may know it: what a caller is entitled to is the claim's
- * [ClaimAcl], and the places a claim names only narrow what that already permits.
+ * A place this authorization server publishes a claim in. It answers where a claim goes and not who may
+ * know it, which is the claim's [ClaimAcl]; see `docs/design/claims.md`.
  *
  * Four of them carry a value and one advertises a name, which is what [carriesAValue] separates. A
  * claim advertised and carried nowhere is a name no client could ever obtain a value for, and
  * [com.sympauthy.config.validation.ClaimsConfigValidator] refuses one at startup.
  *
- * Two of them a client may ask a claim into, which is what [nameableInAClaimsRequest] separates. A
- * claim is carried there on the strength of the deployment having opened the channel to a request —
- * `claims.<id>.published-in-when-requested` — and never on the strength of the request alone.
+ * Two of them a client may ask a claim into, which is what [nameableInAClaimsRequest] separates.
  */
 enum class ClaimPublicationPlace(
     /**
@@ -44,10 +40,6 @@ enum class ClaimPublicationPlace(
 
     /**
      * The JWT access token, where RFC 9068 §2.2.3 defines the profile that carries identity claims.
-     *
-     * It is the one place a value travels as a bearer credential presented on every request, for the
-     * whole life of the token, to every resource server of its audience — so withdrawing a claim from it
-     * means revoking the tokens that already carry one.
      */
     ACCESS_TOKEN,
 

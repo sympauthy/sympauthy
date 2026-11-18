@@ -36,9 +36,8 @@ import java.util.*
  * writers, so exactly one can observe a given `expectedVersion`. No surrounding transaction is
  * required.
  *
- * The lone exception is the terminal error write: its `error_values` `json` column round-trips
- * correctly only through Micronaut's property-mapped serialization, not through a raw-query
- * parameter, so it cannot be expressed as a single versioned statement. It is instead a scalar
+ * The lone exception is the terminal error write. Its `error_values` column is `json`, written through
+ * a derived method as `docs/standards/data-layer-code-standard.md` requires, so it is a scalar
  * [failIfOngoing] guard (which bumps the version only while the session is still ongoing) paired with
  * the derived [updateError] inside one transaction.
  *

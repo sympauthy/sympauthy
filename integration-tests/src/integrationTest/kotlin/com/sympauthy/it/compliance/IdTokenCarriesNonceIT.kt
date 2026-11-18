@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * `nonce`, that mitigation would silently break.
  *
  * This drives a sign-up with a known `nonce`, exchanges the code, and asserts the (signature-verified)
- * `id_token` echoes exactly that `nonce`, on each supported database.
+ * `id_token` echoes exactly that `nonce`.
  *
  * Source: [OpenID Connect Core 1.0 §3.1.3.7 (ID Token Validation)](https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation)
  * and [§15.5.2 (Nonce Implementation Notes)](https://openid.net/specs/openid-connect-core-1_0.html#NonceNotes).

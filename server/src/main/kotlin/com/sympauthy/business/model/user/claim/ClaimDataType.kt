@@ -58,10 +58,8 @@ enum class ClaimDataType(
     val canBeEnumerated: Boolean = true,
     /**
      * Whether a claim of this type may declare a `max-size`, the size in bytes its values are held to,
-     * measured on the serialized form a claim stores and publishes.
-     *
-     * Only a type whose value has an inside is capped. A [JSON] value rides into every response a client
-     * reads it through, so a document with no ceiling is a ceiling chosen by whoever writes first.
+     * measured on the serialized form a claim stores and publishes. Only a type whose value has an inside
+     * is capped; see `docs/design/claims.md`.
      */
     val canHaveMaxSize: Boolean = false,
     /**

@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * honoured by introspection (RFC 7662).
  *
  * A confidential client obtains an access token via `client_credentials`, introspects it (active),
- * revokes it, then introspects again (inactive), on each supported database.
+ * revokes it, then introspects again (inactive).
  *
  * Source: [RFC 7009 §2 (Token Revocation)](https://datatracker.ietf.org/doc/html/rfc7009#section-2) and
  * [RFC 7662 §2.2 (Introspection Response)](https://datatracker.ietf.org/doc/html/rfc7662#section-2.2).

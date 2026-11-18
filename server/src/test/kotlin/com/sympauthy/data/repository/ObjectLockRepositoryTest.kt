@@ -23,9 +23,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * The stripes a named lock is taken over, and the one thing about them that is not in the Kotlin: that
  * `SELECT … FOR UPDATE` makes a second caller wait.
  *
- * A test where both transactions run one after the other would assert a property that held before the
- * query existed, so the holder here is driven over a connection of its own and its transaction stays
- * open while the second caller tries. It names [STRIPE_COUNT] across the layer boundary on purpose: the
+ * The holder is driven over a connection of its own and its transaction stays open while the second
+ * caller tries. It names [STRIPE_COUNT] across the layer boundary on purpose: the
  * constant and the rows the migration inserts are one fact, and this is where the two meet a database.
  */
 class ObjectLockRepositoryTest {

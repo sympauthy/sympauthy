@@ -9,13 +9,10 @@ import io.micronaut.inject.BeanDefinitionReference
 import jakarta.inject.Singleton
 
 /**
- * The keys the server's own configuration domains declare, read off the bean definitions the annotation
- * processor wrote for them.
- *
- * Those are generated at compile time, so what comes back is closed by construction rather than by
- * anything remembering to register on a list. It is also only the server's own: a framework compiles its
- * configuration classes with the property lookups inlined rather than declared, so there is no list of
- * what `micronaut` or `flyway` accepts to be read here at all.
+ * The keys the server's own configuration domains declare, read off the bean definitions the
+ * annotation processor wrote for them, and no framework's.
+ * `docs/standards/config-layer-code-standard.md` says why the set is read there, and why a
+ * framework's keys are not.
  */
 @Singleton
 class DeclaredConfigurationKeyReader {

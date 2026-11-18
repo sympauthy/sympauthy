@@ -26,8 +26,8 @@ import org.junit.jupiter.params.provider.EnumSource
  * This signs a person up, which completes the authorization and hands the code to that request, then
  * submits the sign-up again and reloads the sign-in step with the same state. Both answer a `redirect_url`
  * to the error page and carry no code, and the error page answers
- * `auth.interactive_flow_session.already_completed` — the session was left completed rather than failed —
- * on each supported database.
+ * `auth.interactive_flow_session.already_completed` — the session was left completed rather than
+ * failed.
  *
  * Source: [RFC 6749 §10.5 (Authorization Codes)](https://datatracker.ietf.org/doc/html/rfc6749#section-10.5)
  * and [#536](https://github.com/sympauthy/sympauthy/issues/536).

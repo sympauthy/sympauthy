@@ -1,10 +1,8 @@
 package com.sympauthy.business.model.collection
 
 /**
- * What a criterion asks of the field it names, written as a dotted suffix on that field's name.
- *
- * The set is closed and every collection offers the same words, so what renders a filter bar holds them
- * rather than reading them from a capability document — which is why none of them is localized.
+ * What a criterion asks of the field it names, written as a dotted suffix on that field's name. The set
+ * is closed and none of its words is localized; see `docs/standards/collection-standard.md`.
  */
 enum class CollectionOperator {
     /** The value is exactly the one sent, which is also what a bare `field=` means. */

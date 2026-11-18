@@ -11,8 +11,7 @@ import jakarta.inject.Singleton
  * Handle the mapping from the [ConsentEntity] to the [Consent] business model.
  *
  * If the row holds no identifier, or an actor [ConsentRevokedBy] does not name, an internal
- * [BusinessException] "mapper.consent.invalid_property" is thrown: a row this server wrote and cannot
- * read back is its own failure rather than the caller's.
+ * [BusinessException] "mapper.consent.invalid_property" is thrown.
  */
 @Singleton
 class ConsentMapper {
@@ -37,8 +36,7 @@ class ConsentMapper {
      * The actor [value] names, or null where the consent is still active.
      *
      * A value [ConsentRevokedBy] does not name throws an internal [BusinessException]
-     * "mapper.consent.invalid_property": a row this server wrote and cannot read back is its own
-     * failure rather than the caller's.
+     * "mapper.consent.invalid_property".
      */
     fun toConsentRevokedBy(value: String?): ConsentRevokedBy? = value?.let {
         try {

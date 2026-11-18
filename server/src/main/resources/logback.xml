@@ -23,9 +23,8 @@
     </appender>
 
     <!--
-    Every level below ERROR: the caller hands the line over and moves on. INFO and below are dropped once
-    the queue is four fifths full, which is logback's default discarding threshold, and a WARN once it is
-    full. On exit, what is left is drained for up to a second and then abandoned.
+    Every level below ERROR: the caller hands the line over and moves on. What the queue drops, and when, is
+    docs/design/logging.md.
     -->
     <appender name="QUEUE" class="com.sympauthy.monitoring.ConsoleQueueAppender">
         <queueSize>1024</queueSize>
@@ -41,8 +40,8 @@
     </appender>
 
     <!--
-    ERROR alone, written on the caller's thread: it is the one line that must not be dropped, and it is
-    written when the queue is the most likely to be full.
+    ERROR alone, written on the caller's thread rather than queued, for the reason docs/design/logging.md
+    gives.
     -->
     <appender name="CONSOLE_ERROR" class="ch.qos.logback.core.ConsoleAppender">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -54,11 +53,9 @@
     </appender>
 
     <!--
-    Every level, handed to the OpenTelemetry SDK on the caller's thread: a record is stamped with the trace and
-    span of the thread that logged it, which a record handed to the queue's thread first would lose. What it
-    costs the caller is the record built there, a throwable's stack trace rendered as text included, and one add
-    to the SDK's own bounded queue, which drops rather than waits. The server detaches it at startup when
-    telemetry is off.
+    Every level, handed to the OpenTelemetry SDK on the caller's thread so that a record keeps the trace and span
+    of the thread that logged it; what that costs the caller is docs/design/logging.md. The server detaches it at
+    startup when telemetry is off.
     -->
     <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender"/>
 

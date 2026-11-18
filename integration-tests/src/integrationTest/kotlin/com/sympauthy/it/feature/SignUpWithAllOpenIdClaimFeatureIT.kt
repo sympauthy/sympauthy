@@ -21,7 +21,7 @@ import java.util.UUID
  * OpenID claims, and the flow completes and issues tokens. Every collected claim is then read back and
  * asserted against the value it was signed up with. This proves end-to-end sign-up, multi-scope consent, the
  * collect-claims step with per-type claim validation, and claim persistence all work on the running native
- * image, against each supported database.
+ * image.
  *
  * The claims are read back through the admin user API (`GET /api/v1/admin/users/{userId}/claims`) — the most
  * direct way to see every stored claim. Reaching that API needs an access token carrying the admin scopes, so

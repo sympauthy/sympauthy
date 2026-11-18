@@ -40,10 +40,8 @@ class ClaimsConfigValidator(
             validateClaim(ctx, parsedClaim, audiencesById, scopesById, identifierClaimIds)
         }
 
-        // An identifier claim belongs to no audience, and saying otherwise is refused rather than ignored.
-        // auth.identifier-claims is declared once for the deployment, so every audience signs people in with
-        // the same claim — and a restricted one would be filtered out of the very reads that resolve an
-        // account, leaving a deployment whose sign-in silently stops seeing the value it identifies people by.
+        // An identifier claim belongs to every audience, and `docs/design/claims.md` says why
+        // restricting one is refused.
         identifierClaims?.forEach { identifierClaimId ->
             val identifierClaim = claims.firstOrNull { it.id == identifierClaimId }
             if (identifierClaim?.audienceId != null) {
@@ -56,10 +54,9 @@ class ClaimsConfigValidator(
                     )
                 )
             }
-            // An identifier claim is the person's: it is what the account signs in with, and nobody but
-            // the person ever types it. It is read off the resolved kind, so a claim taking `application`
-            // from a template — or from the silence every bare claim falls through to — is refused on the
-            // key where the deployment overrides it.
+            // An identifier claim is a personal claim (`docs/design/claims.md`). The kind is read
+            // resolved, so a claim taking `application` from its template is refused on the key
+            // where the deployment overrides it.
             if (identifierClaim != null && identifierClaim.kind == ClaimKind.APPLICATION) {
                 ctx.addError(
                     configExceptionOf(
@@ -92,18 +89,8 @@ class ClaimsConfigValidator(
 
     /**
      * Record an error against every one of the [writtenKeys] a deployment wrote under a generated
-     * claim, so that a setting which will not take effect is never accepted in silence. A generated
-     * claim reads none of them, whichever key it is.
-     *
-     * The key is refused rather than the value under it, which is what makes this answer for the whole
-     * section rather than for a list of properties. A key written with nothing under it is refused,
-     * because a deployment that wrote one believes it is deciding something; a value equal to the one
-     * the server would have used is refused too, because a rule firing only where the two differ is
-     * one nobody can predict from their own file; and a property added to a claim tomorrow is refused
-     * without anyone having to say so.
-     *
-     * The error names the key as the file spells it, so an operator reads back what they wrote — the
-     * claim id included, which Micronaut would otherwise hand over hyphenated.
+     * claim, naming the key as the file spells it. A generated claim reads none of them, so each
+     * one is refused whatever is written under it, a key with nothing under it included.
      */
     private fun refuseKeysWrittenOnAGeneratedClaim(ctx: ConfigParsingContext, writtenKeys: Set<String>) {
         writtenKeys.sorted().forEach { key ->
@@ -116,18 +103,13 @@ class ClaimsConfigValidator(
     }
 
     /**
-     * Record an error where a claim is advertised in the discovery document and carried by no place at all.
+     * Record an error where a claim is advertised in the discovery document and carried by no place
+     * at all, which `docs/design/claims.md` refuses.
      *
-     * `claims_supported` says what a client could be told, so a name in it a client can never obtain a
-     * value for is the one direction publication may not go: a deployment stays free to carry what it does
-     * not advertise, and this is what stops it advertising what it does not carry.
-     *
-     * **A channel opened to a request counts as a carrier, where a request can reach it.** A client
-     * reading the name out of the document can ask for it and be answered, which is the whole of what
-     * this rule asks of a carrier; refusing such a claim would make a deployment choose between
-     * advertising a name and only answering it on request. A place
-     * [refuseAPlaceNoRequestCanName] is about to refuse carries nothing, so it is not one — counting it
-     * would hide this error behind that one and report a file naming both mistakes one restart at a time.
+     * A channel opened to a request counts as a carrier where a request can reach it. A place
+     * [refuseAPlaceNoRequestCanName] is about to refuse carries nothing, so it is not one —
+     * counting it would hide this error behind that one and report a file naming both mistakes one
+     * restart at a time.
      *
      * It is checked on the resolved set rather than on the claim's own entry, so that a template naming
      * [ClaimPublicationPlace.DISCOVERY] and a claim naming a place that carries the value agree — which is what
@@ -154,11 +136,6 @@ class ClaimsConfigValidator(
 
     /**
      * Record an error against every channel a claim names in both of its publication lists.
-     *
-     * Always and on-request are two answers for one channel and only one of them can be meant: a channel
-     * in `published-in` carries the value for every request, which leaves `published-in-when-requested`
-     * saying nothing about it, so a deployment writing both has either opened a channel it meant to keep
-     * shut or asked for a condition that will never be applied.
      *
      * Each channel is named, so a file naming two reports both, and the error names
      * `published-in-when-requested` because that is the list whose entry has no effect.
@@ -188,12 +165,9 @@ class ClaimsConfigValidator(
     }
 
     /**
-     * Record an error against every place a claim opens to a request that no request can name.
-     *
-     * OpenID Connect Core §5.5 defines a member for the two OpenID channels and for no other place, so a
-     * claim opening the access token or the introspection response to a request has asked for a condition
-     * nothing will ever satisfy — the value is published there always or not at all.
-     * [ClaimPublicationPlace.nameableInAClaimsRequest] is which places a request can reach.
+     * Record an error against every place a claim opens to a request that no request can name,
+     * which [ClaimPublicationPlace.nameableInAClaimsRequest] answers. `docs/design/claims.md` says
+     * why such a place is refused.
      */
     private fun refuseAPlaceNoRequestCanName(
         ctx: ConfigParsingContext,
@@ -216,23 +190,17 @@ class ClaimsConfigValidator(
     }
 
     /**
-     * Record an error against every ACL key the [ParsedClaim.kind] of [parsed] cannot mean.
-     *
-     * A personal claim restricted to no audience grants no client write: a client of one audience setting
-     * `name` would be choosing what every other audience is told a person is called, over the person's head
-     * and with the person never asked. Restricted to one audience the value leaves this server to that
-     * audience alone, and the clients of an audience already trust each other with what it owns, so the
-     * grant is refused on the shared claim alone. An application claim grants neither of the person's
-     * writes, because a backend answers for its value and nobody asks a person to type their credit score.
-     * A claim of neither kind is held to nothing here: this server computes its value, or its file never
-     * said whose the value is, and the parser refused that.
+     * Record an error against every ACL key the [ParsedClaim.kind] of [parsed] cannot mean: the
+     * client write door of a personal claim restricted to no audience, and the flow's door and the
+     * person's write door of an application claim, which `docs/design/claims.md` refuses. A claim
+     * of neither kind is held to nothing here.
      *
      * [acl] is the resolved ACL, and the audience and the kind are read resolved too, so a grant, a
-     * restriction or a kind reaching the claim through a template is held to this like one written on the
-     * claim — which is what makes all three settable on a template at all. A door is held to this when it
-     * resolved to anything but nothing or the literal `"false"`, whatever its expression asks, and each door
-     * refused is named, so a deployment shutting one of two is told about the other rather than refused twice
-     * over; the key named is the claim's own, which is where an operator overrides what a template offers.
+     * restriction or a kind reaching the claim through a template is held to this like one written
+     * on the claim. A door is held to this when it resolved to anything but nothing or the literal
+     * `"false"`, whatever its expression asks, and each door refused is named, so a deployment
+     * shutting one of two is told about the other rather than refused twice over; the key named is
+     * the claim's own, which is where an operator overrides what a template offers.
      */
     private fun refuseAclTheKindCannotMean(
         ctx: ConfigParsingContext,
@@ -284,11 +252,9 @@ class ClaimsConfigValidator(
      * are held to: the `max-size` it resolved to, else the [ClaimDataType.defaultMaxSize] of its type, and
      * null for a type that cannot have one.
      *
-     * What a type may be is the type's to say — [ClaimDataType] declares it beside each value — so a type
-     * added tomorrow answers here by declaring, and nothing in this function names one. Each key is held
-     * to it on the resolved claim, so a value reaching it through a template is refused like one written
-     * on the claim, and the error names the claim's own key, which is where an operator overrides what a
-     * template offers. A `max-size` that is not greater than zero is refused too, because no value is that
+     * Each key is held to what [dataType] declares, on the resolved claim, so a value reaching it
+     * through a template is refused like one written on the claim, and the error names the claim's
+     * own key. A `max-size` that is not greater than zero is refused too, because no value is that
      * small.
      */
     private fun refuseWhatTheTypeCannotMean(
@@ -331,15 +297,12 @@ class ClaimsConfigValidator(
     }
 
     /**
-     * Record an error where [parsed] is required and the interactive flow can never collect it, which is
-     * where `required` holds nobody up while the claim still reads as required everywhere it is listed.
-     *
-     * The flow holds a person to a required claim only through the claim's `acl.collected-in-flow` door, so
-     * a door that resolved to nothing or to the literal `"false"` — an application claim's always does —
-     * is one no flow will ever ask through. A door opening on a condition is not refused, because whether it
-     * opens is decided per request. An identifier claim is not refused either: the sign-up collects it
-     * whatever its door says, so `required` on one is true of it. A type that cannot be required at all has
-     * already been refused for that by [refuseWhatTheTypeCannotMean], and is not refused a second time.
+     * Record an error where [parsed] is required and its `acl.collected-in-flow` door resolved to
+     * nothing or to the literal `"false"`, so that no flow will ever collect it, which
+     * `docs/design/claims.md` refuses. A door opening on a condition is not refused, and neither is
+     * an identifier claim, which the sign-up collects whatever its door says. A type that cannot be
+     * required at all has already been refused for that by [refuseWhatTheTypeCannotMean], and is
+     * not refused a second time.
      */
     private fun refuseRequiredTheFlowNeverCollects(
         ctx: ConfigParsingContext,

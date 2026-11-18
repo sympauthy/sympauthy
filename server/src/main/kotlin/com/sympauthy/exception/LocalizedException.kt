@@ -20,14 +20,12 @@ open class LocalizedException(
      */
     override val detailsId: String,
     /**
-     * Identifier of the message displayed to the end user.
-     *
-     * This message is meant to be displayed to the end user. It must help the user to understand what went wrong and
-     * how to get out of the situation if the error is [recoverable].
+     * Identifier of the message displayed to the end user, or null where the failure has nothing of its own to tell
+     * them. See `docs/standards/exception-code-standard.md`.
      */
     val descriptionId: String? = null,
     /**
-     * Value to expose to the mustache template to inject values into the localized message.
+     * Values interpolated into the `{name}` placeholders of both localized messages.
      */
     val values: Map<String, String> = emptyMap(),
     /**

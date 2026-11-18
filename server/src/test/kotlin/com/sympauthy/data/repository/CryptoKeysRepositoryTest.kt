@@ -39,13 +39,6 @@ class CryptoKeysRepositoryTest {
             assertEquals(BASE_DATE, stored.creationDate)
         }
 
-    /**
-     * A symmetric secret has no public half, and the row spells that as an empty array rather than
-     * as a null: Micronaut Data binds a null `ByteArray` as a `Byte[]`, which PostgreSQL types
-     * `smallint[]` and refuses against a `bytea`, so `public_key` is `NOT NULL`.
-     * [com.sympauthy.business.mapper.StoredPublicKeyMapper] is what turns the empty array back into
-     * the null the domain says absence with.
-     */
     @ParameterizedTest
     @EnumSource(Database::class)
     fun `save - Round-trips the empty public half of a symmetric key`(database: Database) =

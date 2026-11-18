@@ -14,8 +14,7 @@ class CorsConfigValidator {
         parsed: ParsedCorsConfig
     ) {
         parsed.allowedHeaders.forEachIndexed { index, header ->
-            // Errors are keyed per entry: the readiness indicator collapses errors sharing a key, so a
-            // section-wide key would report only one of several invalid headers.
+            // Keyed per entry, so each refusal names the index the header was written at.
             val key = "$CORS_KEY.allowed-headers[$index]"
             when {
                 header == WILDCARD -> ctx.addError(

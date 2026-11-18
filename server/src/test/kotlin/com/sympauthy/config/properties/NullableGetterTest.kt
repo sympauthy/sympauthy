@@ -8,13 +8,8 @@ import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.javaGetter
 
 /**
- * Every nullable property of a properties interface carries `@get:Nullable`.
- *
- * The implementation of such an interface is generated, and KSP does not carry Kotlin's nullability
- * into it: a property declared `String?` and left out of the configuration fails the bean with
- * "No property found" instead of answering null. The annotation is what the generated implementation
- * reads. A class bound through its setters is not concerned, since nothing is generated for its
- * getters.
+ * Every nullable property of a properties interface carries `@get:Nullable`, the rule
+ * `docs/standards/config-layer-code-standard.md` states.
  */
 class NullableGetterTest {
 

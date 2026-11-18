@@ -24,15 +24,14 @@ words is kebab-case.
 a step and revoking an invitation are written that way.
 
 **Leaving an interactive flow is the one action written as a `GET`**, and it answers with a redirect
-rather than JSON: it is a link every page of a flow offers, followed without the page sending a
-request first. [Interactive
-flow](../design/interactive-flow.md#leaving-is-a-link-through-this-server) argues why that is safe
-there, and nowhere else is it.
+rather than JSON: it is a plain link, followed without the page sending a request first.
+[Interactive flow](../design/interactive-flow.md#leaving-is-a-link-through-this-server) says which
+pages offer it and argues why that is safe there, and nowhere else is it.
 
 **An action reaching many items is a `POST` to a sub-path of their collection, its body naming
 them.** It names them by identifier — their own, or those of what they belong to — and never by the
-collection's criteria, whose free text and ranges reach items nobody named. A body naming nothing is
-refused rather than read as every item.
+collection's criteria, whose free text and ranges reach items nobody named. A body sending no set of
+them is refused rather than read as every item, and an empty set reaches no item.
 
 **A path parameter is camelCase**, so the framework binds it by identity. A JSON property is a wire
 name chosen explicitly, and it is snake_case.
@@ -61,7 +60,7 @@ a client changes one field, so two concurrent edits of different fields both sur
 | Situation | Status |
 | --- | --- |
 | malformed, failing validation, or refused by a business rule | `400` |
-| no credential, or one that does not validate | `401` |
+| no credential, or one a different credential would be accepted in place of | `401` |
 | a valid credential without the scope for this surface or this row | `403` |
 | no such row, or one the caller may not know exists | `404` |
 | a method, a `Content-Type` or an `Accept` the route does not answer | `405`, `415`, `406` |
@@ -159,11 +158,12 @@ the same flag. Nothing else of the body above carries over: no `status`, no `err
 
 ## CORS
 
-**Each surface has its own allow-list, and it is `*` only where the caller is any client's page.**
-The flow surface's origins are the pages a deployment configured and the admin surface's is the
-console, and elsewhere a wildcard is a deployment's decision. The protocol endpoints and the user
-surface answer every origin, since their caller is a page of whichever client the person signed in
-to and every route there authenticates from a header, never from a cookie.
+**Each surface has its own allow-list, and it is `*` only where the origin calling it cannot be
+known ahead of the request.** The flow surface's origins are the pages a deployment configured, and
+the admin surface's is this server's own while it serves the console and every origin once a
+deployment hosts the console elsewhere. The protocol endpoints and the user surface answer every
+origin, since their caller is a page of whichever client the person signed in to and every route
+there authenticates from a header, never from a cookie.
 
 **A new flow step served from a new origin is a configuration change as well as a controller.**
 

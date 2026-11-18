@@ -13,8 +13,7 @@ import java.time.LocalDateTime
  * Handle the mapping from the [InvitationEntity] to the [Invitation] business model.
  *
  * If the row holds a status or a creator the model's enums do not name, or no identifier, an internal
- * [BusinessException] "mapper.invitation.invalid_property" is thrown: a row this server wrote and
- * cannot read back is its own failure rather than the caller's.
+ * [BusinessException] "mapper.invitation.invalid_property" is thrown.
  */
 @Singleton
 class InvitationMapper {

@@ -7,13 +7,11 @@
 #
 # A rule is enabled here because detekt ships it off and these sources already obey it: it reports
 # nothing on the tree as it stands, so it costs no cleanup and gates the first violation rather than
-# judging the ones already written. That is the reason for every rule set to true below, which is why
-# none of them carries one of its own. A rule detekt ships off that this codebase would violate is
-# not enabled until the violations are gone, so no count ever has to be excused.
+# judging the ones already written. A rule detekt ships off that this codebase would violate is not
+# enabled until the violations are gone, so no count ever has to be excused.
 #
-# A rule is disabled here because this codebase deliberately does the thing it forbids. That reason
-# is particular to each one, so each carries a line saying it. Nothing is disabled to make a number
-# go down.
+# A rule is disabled here because this codebase deliberately does the thing it forbids, and each
+# says why. Nothing is disabled to make a number go down.
 
 comments:
   DeprecatedBlockTag:

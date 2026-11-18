@@ -23,9 +23,6 @@ import jakarta.inject.Singleton
  * Reads where a request came from, under the trust model a deployment configured — which
  * `docs/design/security-context.md` carries, including what naming a proxy promises and what it does not.
  *
- * It is a bean rather than a function because which headers may be believed is a deployment's to
- * decide, and it is in the `api` layer because a request is what it reads.
- *
  * **It answers for every request and throws for none.** It is read on the whole filter chain, so a
  * failure here would be a failure of every endpoint including the one reporting why —
  * [enabledSecurityContextOrNull] is where that is held.
@@ -49,8 +46,8 @@ class SecurityContextUtil(
      * What [request] shows about where it came from.
      *
      * The address is the header a deployment named, else the edge it named, else the peer of the
-     * socket the request arrived on — one answer from one source, never a merge, because only the
-     * proxy nearest this server knows it. The location is merged across the edges that answered,
+     * socket the request arrived on — one answer from one source, never a merge. The location is merged
+     * across the edges that answered,
      * each overriding the fields the ones before it filled, and the headers a deployment named win
      * over all of them.
      */
@@ -88,32 +85,19 @@ class SecurityContextUtil(
     }
 
     /**
-     * The security-context settings, or null where the configuration did not parse.
-     *
-     * **Narrowing the sealed type rather than calling `orThrow()` is what keeps this total**, which a
-     * bean every request passes through has to be: throwing here would fail `/health` too, and
-     * `ConfigReadinessHealthIndicator` exists so that a deployment whose configuration is broken stays
-     * alive and says which keys are at fault instead of being restarted for it.
-     *
-     * Answering null means believing no header and attributing the socket peer, which is both the
-     * shipped default and the only safe answer — a file that did not parse names no proxy, so it makes
-     * none of the promise that believing one rests on.
-     *
-     * It says nothing about it in the log. The readiness listener already reports the verdict at
-     * startup, with the key at fault; a line here would be a second copy of it, and one per request.
+     * The security-context settings, or null where the configuration did not parse, which is then
+     * believed about nothing (`docs/design/security-context.md`). It narrows rather than throws, as
+     * `docs/standards/config-layer-code-standard.md` has a filter do, and logs nothing: the readiness
+     * listener reports the key at fault at startup.
      */
     private fun enabledSecurityContextOrNull(): SecurityContextConfig? =
         (advancedConfig as? EnabledAdvancedConfig)?.securityContext
 
     /**
      * The edges whose location is read, weakest first, fixed once because the configuration they
-     * come from is.
-     *
-     * Auto-detection is every edge publishing a location rather than an edge of its own, sorted so
-     * that the same request is read the same way twice. Each answers only where its own headers
-     * arrived, which is what makes applying all of them mean "whichever edge is in front" — and it is
-     * safe here in a way it would not be for the address, because every edge publishes its location
-     * under a header of its own rather than at a position in one they share.
+     * come from is: every edge publishing a location where auto-detection is on, sorted by name, then
+     * the named ones, an edge both detected and named read in its named place
+     * (`docs/design/security-context.md`).
      */
     private val geoSources: List<GeoProvider> by lazy {
         val config = enabledSecurityContextOrNull()?.geo ?: return@lazy emptyList()
@@ -150,10 +134,6 @@ class SecurityContextUtil(
 
     /**
      * Reads the location fields out of the headers a deployment named for itself, each as it stands.
-     *
-     * An override is never a parse: a header named here is read whole, including where it holds a
-     * set of packed pairs. A deployment needing a value dug out of one names the edge that knows how
-     * instead.
      */
     private fun namedHeaders(
         config: SecurityContextGeoHeadersConfig,

@@ -180,6 +180,11 @@ one would put two answers in the server at the same moment, and pinning each rec
 was created under would make every resolved value nullable — a cost paid on every read, in every
 manager, to spare a restart that is otherwise free.
 
+**A read that only names what a record holds names it by its identifier, and resolves nothing.**
+Showing a grant, filtering on its client and revoking it act through nothing the configuration
+declares, so they still answer for a client it no longer does, as [what an administrator sees of a
+grant](../design/grants.md#what-an-administrator-sees-of-a-grant) describes.
+
 ## Configuration validates input, and nothing else
 
 **A factory validates the file in front of it.** Fetching a discovery document, probing a database

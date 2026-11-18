@@ -24,7 +24,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * Two audiences are configured and the client belongs to `default`, the one its template names. `nickname` is
  * required and restricted to `billing`, and nothing else is required, so a `default` sign-up owes no claim at
  * all. The scenario asserts the flow walks sign-up straight to completion — no collect-claims step — and
- * issues its tokens, on each supported database. No claims handler is registered, so a flow that did ask
+ * issues its tokens. No claims handler is registered, so a flow that did ask
  * fails rather than quietly answering.
  *
  * Issue: [#454](https://github.com/sympauthy/sympauthy/issues/454).

@@ -73,7 +73,8 @@ itself.** It chooses the status and the code its surface answers with — `orNot
 path names the record, a recoverable `400` naming the field where the body does.
 
 **A collection's page is read by a manager, and its criteria are resolved before they reach it.**
-The controller binds the paging pair, `sort` and `q`, resolves the bounds and maps the page it gets
+The controller binds the paging pair and whichever of `sort` and `q` [its collection
+declares](collection-standard.md#what-is-refused), resolves the bounds and maps the page it gets
 back; the criteria, the order and the slice are the manager's.
 
 **Criteria are resolved by `collectionCriteriaOf` against the fields that manager declared.** A
@@ -147,12 +148,14 @@ status or reading a credential off a header is what earns a utility.
 
 ## Filters and error handlers
 
-**Each surface has its own CORS filter**, ordered ahead of everything else, and the framework's own
-handling stays off. The flow pages are a configured origin, the admin console another, and the
-protocol endpoints and the user surface are called from anywhere.
+**CORS is answered by this server's own filters, ordered ahead of everything else, and the
+framework's own handling stays off.** A surface whose allow-list the configuration decides has a
+filter of its own, the surfaces answering every origin share one, and a surface no browser calls
+has none. Which origins each answers is [the API standard's](api-standard.md#cors).
 
 **A failure becomes a status in one place.** Normalise every exception into the single localized
-HTTP exception first, and render it from there.
+HTTP exception first, and render it from there — except a protocol error, which already carries the
+code and the status its specification names, and which a handler of its own renders.
 
 **An unrecognised exception is a `500` with a generic body.** Give every exception type that should
 mean something else [its own answer](exception-code-standard.md).

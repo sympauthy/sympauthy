@@ -9,13 +9,8 @@ import io.r2dbc.spi.R2dbcTransientResourceException
 /**
  * A dependency the server cannot fully work without, reported operational or degraded by [ConditionMonitor].
  *
- * This declaration is the authority on which conditions exist: anything reached outside this process on
- * a request's behalf, the console's own queue, whose dropping a line is the server failing to say what it
- * was asked to, the collector the server's telemetry is exported to, and the host an image a deployment
- * configured is fetched from.
- *
- * A condition is published on `/health` by its [name] alone, and the names say nothing the sign-in pages
- * do not.
+ * Its subclasses are the conditions that exist, and each is published on `/health` by its [name] alone.
+ * `docs/design/logging.md` says what makes a dependency one, and what a name may say.
  */
 sealed class Condition {
 
@@ -87,8 +82,8 @@ sealed class Condition {
 
     /**
      * The collector traces, metrics and log records are exported to. Its failures are the exports it did not
-     * accept, and what they lost is the spans and log records in them: a metric is exported as a running
-     * total, so the next export that succeeds carries what a failed one did not.
+     * accept, and what they lost is the spans and log records in them, never a metric: see
+     * `docs/design/telemetry.md`.
      */
     data object Collector : Condition() {
         override val name = "collector"

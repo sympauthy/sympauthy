@@ -93,7 +93,7 @@ data class PaginationConfig(
      */
     val defaultSize: Int,
     /**
-     * Largest size a caller may ask for. A larger one is refused rather than reduced.
+     * Largest size a caller may ask for.
      */
     val maxSize: Int,
 )
@@ -104,26 +104,19 @@ data class AuthorizationWebhookAdvancedConfig(
 
 /**
  * Which edges this deployment sits behind, and are therefore believed about where a request came
- * from.
- *
- * The trustless configuration is the empty one, and it is what a deployment that configured nothing
- * has. Every header this server reads is read because something here named it.
+ * from. `docs/design/security-context.md` says what is believed where nothing is configured.
  */
 data class SecurityContextConfig(
     val ip: SecurityContextIpConfig,
     val geo: SecurityContextGeoConfig,
     /**
      * How long a place a known person signs in from is kept, measured from when it was last seen.
-     *
-     * Nothing names a retention for an unidentified observation because nothing stores one: what is seen
-     * before a person is known is attached to the interactive flow session that saw it, and is collected
-     * with it.
      */
     val knownUserRetention: Duration,
 )
 
 /**
- * Where the address a request came from is read, which is one edge or one header and never a guess.
+ * Where the address a request came from is read: one proxy, one header or both, and never a guess.
  */
 data class SecurityContextIpConfig(
     /**

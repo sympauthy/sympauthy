@@ -141,7 +141,13 @@ of service, and how many tokens stood under one depends only on how often its cl
 `auth.grant.expiration` has passed since a grant was opened, its refresh token is refused with
 `invalid_grant` and `grant.expired`, whatever its own expiry, and so is its code if it was never
 exchanged; the person signs in again however often the client refreshed. Left unset, a grant has no
-lifetime of its own, and refreshing keeps it alive for as long as its refresh tokens allow.
+lifetime of its own beyond the one below, and refreshing keeps it alive for as long as its refresh
+tokens allow.
+
+**An act-as grant ends no later than the token it was exchanged from.** Its lifetime is the earlier
+of `auth.grant.expiration` and that token's expiry: a `client_credentials` request opens a grant of
+its own, so that token is the last of its grant, and an act-as grant outliving it would outlive what
+it rests on.
 
 **Every token under a grant expires no later than the grant does.** An access token issued a minute
 before the grant ends lives that minute, and states it as its `exp`, so a resource server that is
@@ -163,6 +169,10 @@ lifetime](oauth2-authorization.md#how-long-a-code-is-exchangeable), exchanged or
 grant left with neither; a grant whose code was never exchanged therefore goes once the code does. A
 refresh adds an access token to its grant every time, so a grant refreshed for months would
 otherwise keep every one of them.
+
+**A token or a code is deleted a few minutes after it expires, not the moment it does.** A refresh
+that found its token unexpired a moment before, or an exchange its code, is still writing under the
+grant, and the margin is what keeps the job from deleting that grant beneath it.
 
 **A revoked grant is deleted on the next run, with its tokens.** Until then an administrator reads
 who revoked it and when; afterwards it is answered as a grant this server does not hold, and a token

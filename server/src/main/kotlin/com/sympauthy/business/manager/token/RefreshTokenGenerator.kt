@@ -37,10 +37,8 @@ class RefreshTokenGenerator(
      * every token the next refresh mints reads the [grant] — beyond the subject and the [audience] it was
      * issued for.
      *
-     * Its row expires no later than the [grant] does, which is what lets a grant past its lifetime lapse and
-     * be collected. The `exp` it is signed with is its own lifetime instead, so that one presented past the
-     * grant's end, and before the grant is collected, is refused by the grant, as `grant.expired`, rather than
-     * by the signature check as a token that ran out on its own.
+     * Its row expires no later than the [grant] does, and the `exp` it is signed with is its own lifetime
+     * instead, as `docs/design/grants.md` has it.
      */
     suspend fun generateRefreshToken(
         grant: Grant,

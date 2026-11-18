@@ -99,9 +99,9 @@ class UserSecurityContextManagerTest {
     }
 
     /**
-     * The postal code is read at the boundary and deliberately not kept: it narrows to a street group and
-     * nothing reads it, which is the answer `docs/design/security-context.md` already gives a coordinate pair. An edge
-     * that sent nothing else therefore leaves a row with no location at all.
+     * The postal code is read at the boundary and deliberately not kept, for the reason
+     * `docs/design/security-context.md` gives. An edge that sent nothing else therefore leaves a
+     * row with no location at all.
      */
     @Test
     fun `observe - Keeps no location where the only field an edge sent was a postal code`() = runTest {
@@ -181,10 +181,7 @@ class UserSecurityContextManagerTest {
         coVerify(exactly = 0) { sessionRepository.deleteBySessionIdIn(any()) }
     }
 
-    /**
-     * Anybody holding the session's state writes rows here, so a place nothing was proven at is invisible
-     * to the fold — and it is consumed all the same, because the session it described is over.
-     */
+    /** The places are consumed all the same: the session they described is over. */
     @Test
     fun `fold - Writes nothing against the person where no place was proven`() = runTest {
         coEvery { sessionRepository.findBySessionId(sessionId) } returns listOf(row(provenDate = null))

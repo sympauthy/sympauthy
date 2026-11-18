@@ -15,9 +15,8 @@ import kotlin.time.toKotlinDuration
  * reported it. A failure while it is degraded is only counted.
  *
  * **A condition recovers on a success followed by [QUIET_PERIOD] without a failure**, and says so in one
- * line at INFO, with how long it was degraded and what it absorbed. Without the quiet period a dependency
- * failing one call in two would flip on every call, and write the ERROR per failure by another route.
- * The quiet period runs out when [endQuietPeriods] is next called after it.
+ * line at INFO, with how long it was degraded and what it absorbed. The quiet period runs out when
+ * [endQuietPeriods] is next called after it.
  *
  * A success reported while a condition is operational costs a map lookup and nothing else: it is
  * reported on every call a dependency answers. The first one is what makes the condition observed, so that
@@ -93,10 +92,8 @@ class ConditionMonitor {
     /**
      * Report [failure] to the condition it says is failing, if it says one is, and answer whether it did.
      *
-     * A caller about to write [failure] at WARN writes nothing when this answers true: a dependency that
-     * is down fails every operation that meets it, and its condition already says so once. A condition
-     * already degraded is not reported to again, since whatever degraded it may have counted this very
-     * failure on its way up.
+     * A caller about to write [failure] at WARN writes nothing when this answers true. A condition already
+     * degraded is not reported to again.
      */
     fun absorb(failure: Throwable, now: Instant = Instant.now()): Boolean {
         val condition = ABSORBING_CONDITIONS.firstOrNull { it.isFailedBy(failure) } ?: return false

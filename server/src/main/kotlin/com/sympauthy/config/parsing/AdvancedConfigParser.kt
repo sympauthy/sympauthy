@@ -191,8 +191,6 @@ class AdvancedConfigParser(
 
     /**
      * The one proxy a deployment named as nearest, and the header it named instead.
-     *
-     * A word naming no published edge is refused by the mechanism every setting of this shape shares.
      */
     private fun parseSecurityContextIpConfig(
         ctx: ConfigParsingContext,
@@ -215,11 +213,8 @@ class AdvancedConfigParser(
     }
 
     /**
-     * The edges a deployment named for a location, in the order it wrote them.
-     *
-     * Each is refused against the index it was written at, so a file listing two unknown words
-     * reports both. An edge publishing no location is not in the published set, so naming one is
-     * refused there rather than accepted to no effect.
+     * The edges a deployment named for a location, in the order it wrote them, each refused against
+     * the index it was written at.
      */
     private fun parseSecurityContextGeoConfig(
         ctx: ConfigParsingContext,

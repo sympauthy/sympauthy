@@ -56,8 +56,7 @@ class ScopeTemplatesConfigValidator {
      * The specification names those scopes and decides what they are, so there is nothing here for
      * a default to say: an audience and a type cannot apply to them at all, and a deployment that
      * no longer wants one turns that scope off — or stops publishing it — by name rather than
-     * taking the set at once. Every setting is reported, rather than the first, so that one startup
-     * names every line to delete.
+     * taking the set at once.
      */
     private fun refuseOpenIdConnectDefaults(
         ctx: ConfigParsingContext,

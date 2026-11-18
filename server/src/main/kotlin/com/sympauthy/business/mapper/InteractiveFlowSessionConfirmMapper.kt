@@ -12,8 +12,7 @@ import jakarta.inject.Singleton
  * [InteractiveFlowSessionConfirm] business model.
  *
  * If the row holds an action [ConfirmActionType] does not name, an internal [BusinessException]
- * "mapper.interactive_flow_session_confirm.invalid_property" is thrown: a row this server wrote and
- * cannot read back is its own failure rather than the caller's.
+ * "mapper.interactive_flow_session_confirm.invalid_property" is thrown.
  */
 @Singleton
 class InteractiveFlowSessionConfirmMapper {

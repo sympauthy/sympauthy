@@ -111,7 +111,6 @@ dependencies {
     implementation("ch.qos.logback:logback-classic")
 
     // API documentation
-    // Must be above 6.3.0 to fix KSP issue: https://github.com/micronaut-projects/micronaut-openapi/issues/1154
     ksp("io.micronaut.openapi:micronaut-openapi")
     // Must be implementation (not compileOnly) so annotation classes are available at runtime.
     // OpenApiController reads @OpenAPIDefinition via reflection to derive the generated spec filename.
@@ -126,17 +125,15 @@ dependencies {
     // Health & Liveness endpoints
     implementation("io.micronaut:micronaut-management")
 
-    // Telemetry: traces, metrics and logs from one OpenTelemetry SDK, over one OTLP exporter.
+    // Telemetry. See docs/design/telemetry.md.
     implementation("io.micronaut.tracing:micronaut-tracing-opentelemetry-http")
     runtimeOnly("io.opentelemetry:opentelemetry-exporter-otlp") {
-        // The default sender is OkHttp, a second HTTP stack and a second Kotlin runtime for one POST that
-        // java.net.http already makes. The sender is chosen by what is on the classpath, so excluding this one
-        // and adding the JDK's is the whole switch.
+        // The JDK's sender replaces OkHttp's. A sender is chosen by what is on the classpath, so excluding this
+        // one and adding the JDK's is the whole switch.
         exclude(group = "io.opentelemetry", module = "opentelemetry-exporter-sender-okhttp")
     }
     runtimeOnly("io.opentelemetry:opentelemetry-exporter-sender-jdk")
-    // Named by logback.xml, which places it beside the console's queue rather than behind it, and detached by
-    // the server when telemetry is off.
+    // Named by logback.xml, and detached by the server when telemetry is off.
     implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0")
     // A query's span, opened from r2dbc-proxy's callbacks by an instrumenter of the server's own, and its
     // statement sanitized by the instrumentation's own analyzer.
@@ -145,7 +142,7 @@ dependencies {
     implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-incubator")
     implementation("io.opentelemetry.semconv:opentelemetry-semconv")
 
-    // Expression evaluation: for scope granting rules
+    // Expression evaluation: for the rules a deployment writes
     implementation(libs.evalex)
 
     // Testing
@@ -159,8 +156,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mock.webserver)
     testImplementation(kotlin("test"))
-    // A repository test runs against a real database of each supported dialect. H2 is embedded; PostgreSQL
-    // is a container, which is why the default `test` task requires Docker. See docs/standards/testing-standard.md.
+    // The PostgreSQL a repository test runs against is a container, so the default `test` task requires
+    // Docker. See docs/standards/testing-standard.md.
     testImplementation(libs.testcontainers)
     testImplementation(libs.testcontainers.postgresql)
 }
@@ -199,8 +196,7 @@ graalvmNative {
     binaries {
         named("main") {
             verbose.set(true)
-            // Classpaths for all supported databases must be listed under location and all terminate by the name of the driver: postgresql, h2
-            // https://micronaut-projects.github.io/micronaut-flyway/latest/guide/#graalvm
+            // Every dialect's migration folder. See docs/standards/native-image-standard.md.
             buildArgs.add("-Dflyway.locations=classpath:databases/postgresql,classpath:databases/h2")
             // Increase per-method compilation timeout from default 300s to 900s.
             // macOS ARM64 CI runners can be slow enough to hit the default limit.
@@ -306,9 +302,8 @@ sourceSets {
 // micronaut-openapi generates the HTTP contract as part of `kspKotlin`, writing it under
 // build/generated/ksp/main/resources/META-INF/swagger/sympauthy-<info.version>.yml (the file name
 // tracks the OpenAPI `info.version`, not the project version). Republish it at a stable, versionless
-// path (build/openapi/openapi.yml) and expose it as a consumable Gradle artifact so a downstream module
-// — the integration-tests OpenAPI client generator — consumes a single source of truth and regenerates
-// whenever the contract changes.
+// path (build/openapi/openapi.yml) and expose it as a consumable Gradle artifact, which a client is
+// generated from. See docs/standards/openapi-standard.md.
 val syncOpenApiSpec = tasks.register<Sync>("syncOpenApiSpec") {
     description = "Publishes the generated OpenAPI spec to build/openapi/openapi.yml for downstream consumers."
     group = "openapi"

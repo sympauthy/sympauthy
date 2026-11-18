@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * to `billing`, and both are required. The person signs up through the billing client, whose flow collects
  * both — and whose own `id_token` carries both, which is what proves the claim was stored rather than quietly
  * dropped. They then sign in through the storefront client, and the `id_token` it is issued and the
- * `/userinfo` it reads must carry `name` and not `nickname`, on each supported database.
+ * `/userinfo` it reads must carry `name` and not `nickname`.
  *
  * Issue: [#454](https://github.com/sympauthy/sympauthy/issues/454).
  */

@@ -52,10 +52,6 @@ class IpProviderTest {
         assertEquals("203.0.113.7", provider.readIpOrNull(headersOf(header.lowercase() to "203.0.113.7")))
     }
 
-    /**
-     * The caller sent the header first and the proxy appended rather than replaced, so the value the
-     * edge wrote is the last one and everything before it is the caller's.
-     */
     @ParameterizedTest
     @MethodSource("headerReadingProviders")
     fun `readIpOrNull - Answer the value the edge appended rather than the one the caller sent`(

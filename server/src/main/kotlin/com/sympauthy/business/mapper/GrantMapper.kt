@@ -156,12 +156,8 @@ class GrantMapper {
     }
 
     /**
-     * A grant no person's authentication is behind must carry no [Grant.authenticationDate].
-     *
-     * A client-credentials grant has no person at all and a token exchange asserts an identity nobody
-     * proved, so a date on either would be published as an `auth_time` naming an authentication that never
-     * happened — and a resource server deciding recency off it would let through exactly the unattended
-     * caller it was asking about.
+     * A grant no person's authentication is behind — a client-credentials grant, a token exchange — must
+     * carry no [Grant.authenticationDate]; see `docs/design/security.md`.
      */
     private fun requireNoAuthenticationDate(grant: Grant) {
         if (grant.authenticationDate != null) {

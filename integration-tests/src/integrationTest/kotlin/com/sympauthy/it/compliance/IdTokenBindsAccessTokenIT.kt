@@ -17,8 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * omitted or computed over the wrong string would hold third parties to a rule it did not keep.
  *
  * This drives a sign-up, exchanges the code, recomputes the hash from the `access_token` the client
- * actually received, and asserts the (signature-verified) `id_token` carries exactly it, on each
- * supported database.
+ * actually received, and asserts the (signature-verified) `id_token` carries exactly it.
  *
  * Source: [OpenID Connect Core 1.0 §3.1.3.6 (ID Token)](
  * https://openid.net/specs/openid-connect-core-1_0.html#CodeIDToken).

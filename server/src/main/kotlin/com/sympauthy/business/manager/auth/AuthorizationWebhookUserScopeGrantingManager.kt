@@ -116,8 +116,7 @@ class AuthorizationWebhookUserScopeGrantingManager(
             }
 
             is AuthorizationWebhookResult.Failure -> {
-                // Every failure counts, a 4xx included: the request is this server's own, composed from what it
-                // has already validated, so a refusal says the webhook or the secret it shares is wrong.
+                // Every failure counts, a 4xx included, for the reason `docs/design/logging.md` gives.
                 val outcome = Outcome.Error(result.cause?.remoteErrorType() ?: UNKNOWN_FAILURE)
                 remoteCallMonitor.reportCall(
                     condition, WEBHOOK_OPERATION, System.nanoTime() - start, outcome, result.cause

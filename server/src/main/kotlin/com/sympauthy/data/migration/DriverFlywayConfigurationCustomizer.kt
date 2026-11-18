@@ -11,40 +11,13 @@ import java.nio.file.Path
 import kotlin.io.path.pathString
 
 /**
- * Customize the configuration of Flyway to only keep locations containing script designed for the [driver].
+ * Customize the configuration of Flyway to only keep locations containing script designed for the [driver]:
+ * a location whose last path segment is the driver's name, `databases/<driver>/` under the resources. One
+ * classpath ships the migrations of every dialect, and each datasource runs its own.
  *
- * ## Migration script layout
- *
- * Scripts must live under `resources/databases/<driver>/` so that a single classpath can ship
- * migrations for every supported database and each concrete migrator only picks up the scripts
- * that match its own driver:
- *
- * ```
- * resources/
- *   databases/
- *     postgresql/   ← picked up by PostgreSQLDatabaseMigrator (driver = "postgresql")
- *       V1__init.sql
- *     h2/           ← picked up by H2DatabaseMigration (driver = "h2")
- *       V1__init.sql
- * ```
- *
- * ## GraalVM native image
- *
- * Classpath resources are not automatically discoverable inside a native image binary.
- * Every `databases/<driver>` location must therefore be declared explicitly in two places:
- * - `resources/application.yml` under `flyway.datasources.default.locations`
- * - `build.gradle.kts` as a `-Dflyway.datasources.default.locations` build argument for the
- *   `nativeCompile` task, so Flyway can resolve them at build time.
- *
- * ## Implementation
- *
- * Each supported driver must have its own singleton extending this class. Ex. for PG:
- *
- * ```
- * @Singleton
- * @Requires(condition = DefaultDataSourceIsPostgreSQL::class)
- * class PostgreSQLFlywayConfigurationCustomizer: DriverFlywayConfigurationCustomizer("postgresql")
- * ```
+ * Each supported driver has its own singleton extending this class, required by the condition selecting
+ * that dialect — [com.sympauthy.data.postgresql.migration.PostgreSQLFlywayConfigurationCustomizer] is one.
+ * Where a dialect's location is declared for the native image is `docs/standards/native-image-standard.md`.
  */
 open class DriverFlywayConfigurationCustomizer(
     val driver: String,

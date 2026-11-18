@@ -9,11 +9,12 @@ import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
  * Exception describing an error that will be exposed to the end-user.
  * Ex. if the user provided an identifier that does not exist in the system.
  *
- * The description must be localized and comprehensible by the user to allow him to solve the issue
- * if the error is recoverable.
+ * Its description, where it names one, is the message the end-user is shown, so it must be localized and
+ * comprehensible by them; an internal failure names none.
  *
- * Note: Use the [businessExceptionOf] or [recoverableBusinessExceptionOf] factory methods
- * to create instances of this class.
+ * Note: Use the [businessExceptionOf], [recoverableBusinessExceptionOf] or [internalBusinessExceptionOf]
+ * factory methods to create instances of this class. The constructor is for a subclass and for a failure
+ * whose recoverability its caller decides. See `docs/standards/exception-code-standard.md`.
  */
 open class BusinessException(
     recoverable: Boolean,

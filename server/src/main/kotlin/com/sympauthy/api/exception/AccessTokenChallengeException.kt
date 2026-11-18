@@ -25,7 +25,7 @@ import io.micronaut.http.HttpStatus.UNAUTHORIZED
  * §7.1 defines beside it.
  *
  * It is a [LocalizedHttpException] like any other refusal of the `api` layer, so the body a client reads is
- * [the API standard's](https://github.com/sympauthy/sympauthy/blob/main/docs/standards/api-standard.md#errors);
+ * `docs/standards/api-standard.md`'s;
  * what makes it its own type is the challenges among its [headers], which is how a client reading headers
  * learns the same thing. Its status is decided by the [challenges] it carries rather than by its caller. Which
  * refusal carries which challenge, and how several are written into one header, is `docs/design/security.md`'s.
@@ -118,17 +118,8 @@ class AccessTokenChallengeException(
 
     companion object {
         /**
-         * The realm every challenge of an access token names.
-         *
-         * RFC 6750 §3 requires a `Bearer` challenge to carry a parameter, and one answering a request that
-         * presented no token has no error to carry, so the realm is what it carries. RFC 9110 §11.5 makes the
-         * realm, together with the root URL of the server, a protection space — the resources one set of
-         * credentials is good for. An access token is accepted on the userinfo endpoint and on the client, user
-         * and admin surfaces, so no one surface names the space it is good in, and the realm names the server. The
-         * `Basic` challenge of a client names its surface instead, because client credentials are accepted on
-         * that one alone.
-         *
-         * Nothing branches on the value, so renaming it breaks no client.
+         * The realm every challenge of an access token names: the server's rather than a surface's, for the
+         * reason `docs/design/security.md` gives. Nothing branches on the value, so renaming it breaks no client.
          */
         const val REALM = "sympauthy"
 

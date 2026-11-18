@@ -37,8 +37,7 @@ import java.time.Duration
  * published under it. That is what this holds, against the container's own maps rather than ones a
  * test assembled.
  *
- * It also holds the two sets apart: an edge publishing no location is absent from the geo map, which
- * is what makes naming one under the geo setting a refusal rather than a setting with no effect.
+ * It also holds the two sets apart: an edge publishing no location is absent from the geo map.
  */
 @MicronautTest(environments = ["default", "test", "h2"])
 @ExtendWith(MockKExtension::class)
@@ -103,10 +102,6 @@ class SecurityContextWiringTest {
         assertEquals(setOf("akamai", "cloudflare", "cloudfront", "gcp"), geoProviders.keys)
     }
 
-    /**
-     * The set a deployment may name under the geo setting is the one the container publishes, so an
-     * edge with no location to give is refused there rather than accepted to no effect.
-     */
     @Test
     fun `An edge publishing no location is not a word the geo setting accepts`() {
         assertFalse("nginx" in reader.read(GeoProvider::class).qualifiers)

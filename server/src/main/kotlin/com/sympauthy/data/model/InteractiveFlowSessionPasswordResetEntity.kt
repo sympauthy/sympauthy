@@ -23,8 +23,8 @@ class InteractiveFlowSessionPasswordResetEntity(
     val requestedDate: LocalDateTime,
     val codeProvenDate: LocalDateTime? = null,
     /**
-     * The salt and the hash of the new password, both empty until [passwordChosenDate] is set: a `bytea` column
-     * cannot be written null.
+     * The salt and the hash of the new password, both empty until [passwordChosenDate] is set, as
+     * `docs/standards/database-standard.md` spells an absent `bytea`.
      */
     val salt: ByteArray = ByteArray(0),
     val hashedPassword: ByteArray = ByteArray(0),

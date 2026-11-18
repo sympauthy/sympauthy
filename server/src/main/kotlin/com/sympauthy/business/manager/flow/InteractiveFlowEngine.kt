@@ -25,23 +25,10 @@ import kotlinx.coroutines.CancellationException
  * Advances the purposes of an [InteractiveFlowSession] to the single abstract step the end-user must go
  * through next.
  *
- * The engine drives the purposes in order: it asks each [InteractiveFlowPurposeHandler], in turn, for the next
- * step of its purpose; the first purpose that still needs a step yields the step to present. As a purpose
- * resolves, the engine marks it complete and inserts the follow-up purposes it declares right after it — so
- * completion is recorded one purpose at a time as the engine hands off, even while later purposes still need
- * steps. Once every purpose has resolved, the engine has each handler prepare its purpose's terminal effect,
- * applies them and transitions the session to completed (or failed). The engine is the sole owner of every
- * session mutation — appending, completing, failing — while the handlers only read the session and describe
- * what their purpose needs.
- *
- * **Completing is one transaction.** The terminal effects, the promotion of whatever the session signed up
- * and the completion write commit together or not at all — see [commitCompletion] — and what a rollback could not
- * take back, such as a mail, waits for that commit in [PreparedTerminalEffect.Apply.afterCommit]. Everything before
- * that is deliberately not: a flow the end-user is still walking through is many requests, and the point of
- * [com.sympauthy.data.model.SessionScoped] is that the rows those requests write need no transaction to span them.
- * Preparing the terminal effects is not either, because the promotion's locks are held until that
- * transaction commits and deciding an effect may call out of this server, which
- * `docs/standards/locking-standard.md` forbids a transaction holding a lock to do.
+ * It is the only thing that mutates the session — inserting, completing and failing purposes — while each
+ * [InteractiveFlowPurposeHandler] only reads it and describes what its purpose needs. How it walks the
+ * purposes, and why completing is one transaction while preparing the terminal effects is not, is
+ * `docs/design/interactive-flow.md`.
  */
 @Singleton
 open class InteractiveFlowEngine(
@@ -56,8 +43,8 @@ open class InteractiveFlowEngine(
     private val logger = loggerForClass()
 
     /**
-     * Advance [session] to the next [InteractiveFlowStep] the end-user must go through, running any append /
-     * completion mutation it entails, and return it together with the possibly-transitioned session.
+     * Advance [session] to the next [InteractiveFlowStep] the end-user must go through, running any insertion
+     * or completion it entails, and return it together with the possibly-transitioned session.
      *
      * **[InteractiveFlowStep.Complete] is answered to the call that completes the session**, and that call is
      * the one handing the end-user back. A session that was already completed when passed here is a later
@@ -114,7 +101,7 @@ open class InteractiveFlowEngine(
 
     private suspend fun advanceOnGoing(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
         // Walk the purposes in order; the first one that still needs a step yields it. `purposes` is re-read
-        // every iteration so follow-up purposes appended while resolving are visited too.
+        // every iteration so follow-up purposes inserted while resolving are visited too.
         var current = session
         var index = 0
         while (index < current.purposes.size) {
@@ -159,11 +146,7 @@ open class InteractiveFlowEngine(
     /**
      * Insert the follow-up purposes [handler] declares for [session] — that are not already present —
      * immediately after the just-resolved [afterPurpose], in declared order, persisting each, and return the
-     * possibly-grown session.
-     *
-     * Inserting right after the resolving purpose (rather than appending at the end) keeps a follow-up ahead
-     * of any later purpose the session already carries: a re-authentication gate's MFA challenge lands before
-     * the sensitive purpose it guards (e.g. a provider link), never after it.
+     * possibly-grown session. Why right after it rather than at the end is `docs/design/interactive-flow.md`.
      */
     private suspend fun insertFollowUpsAfter(
         session: OnGoingInteractiveFlowSession,
@@ -188,10 +171,9 @@ open class InteractiveFlowEngine(
      * Every purpose has resolved and been marked complete: prepare each purpose's terminal effect, then commit
      * the completion, or fail the session on a terminal effect that refused it.
      *
-     * The effects are prepared before the completion transaction opens, because deciding one may call out of
-     * this server — the OAuth2 purpose asks the client's authorization webhook — and the promotion's locks are
-     * held until that transaction commits. A refusal therefore comes before anything is written, and the
-     * session is failed in a transaction of its own.
+     * The effects are prepared before the completion transaction opens, for the reason
+     * `docs/design/interactive-flow.md` gives, so a refusal comes before anything is written and the session
+     * is failed in a transaction of its own.
      */
     private suspend fun complete(session: OnGoingInteractiveFlowSession): InteractiveFlowStepResult {
         val effects = mutableListOf<PreparedTerminalEffect.Apply>()
@@ -241,10 +223,6 @@ open class InteractiveFlowEngine(
      * Promote whatever the session signed up, transition it to completed, and apply each of the [effects]
      * prepared for its purposes in order — all in one transaction.
      *
-     * Terminal effects are applied only here — once every purpose (e.g. the final MFA gate) has resolved — so a
-     * purpose's concern-specific completion work (e.g. the OAuth2 purpose granting scopes, recording consent
-     * and consuming the invitation) is committed only when the whole flow is about to succeed.
-     *
      * The transaction is what makes "the account exists" and "the flow succeeded" the same fact. Without it,
      * a process dying between the two leaves rows owned by an account that will never be promoted — and the
      * cleaner then cannot delete that account, which is a foreign key it must not break rather than one row
@@ -259,22 +237,9 @@ open class InteractiveFlowEngine(
         session: OnGoingInteractiveFlowSession,
         effects: List<PreparedTerminalEffect.Apply>
     ): CompletedInteractiveFlowSession {
-        // Promotion first, so every row a terminal effect goes on to write — a consent, a consumed
-        // invitation — attaches to an account that exists rather than to one still being authored. It is
-        // still before the completion write, so a session the cleaner expired in the meantime has no row
-        // left for markAsCompleted to update: that raises a concurrent modification and takes the whole of
-        // this down with it, leaving the account provisional to be collected rather than real for a flow
-        // that did not complete.
-        //
-        // That covers this transaction and no other. It says a flow racing the expiry cannot win; it says
-        // nothing about the sweep that collects the account, which may have listed it before the promotion
-        // committed and refuses to delete a promoted one on its own terms rather than on this one's — see
-        // ProvisionalAccountManager.deleteAbandoned.
+        // Promotion first, and the completion write before the effects: why, and what each guards against, is
+        // `docs/design/provisional-user.md` and `docs/design/interactive-flow.md`.
         provisionalAccountManager.promote(session)
-        // The completion write before the effects, so a session that moved or went while the effects were
-        // prepared is refused before anything is written against its account. The cleaner collects an account
-        // only once its session is gone, so this is also where a sign-up collected during that wait is answered,
-        // rather than by an effect finding its account missing.
         val completed = sessionManager.markAsCompleted(session)
         effects.forEach { it.apply() }
         return completed

@@ -17,7 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * the authenticated client (`token.mismatching_client`) and refuses the exchange.
  *
  * This drives a real sign-up for client `test-app`, then attempts to redeem the resulting code as a
- * second registered public client and asserts a 400 `invalid_grant`, on each supported database.
+ * second registered public client and asserts a 400 `invalid_grant`.
  *
  * Source: [RFC 6749 §4.1.3](https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3) and
  * [§10.5](https://datatracker.ietf.org/doc/html/rfc6749#section-10.5).

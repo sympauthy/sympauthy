@@ -44,8 +44,8 @@ class TokenRequestManager(
      * The request is checked against [grantType] because that is the grant the client was checked for and the
      * request is recorded under: a request for another one would be served to a client never allowed it.
      *
-     * A request [readRequest] refuses is recorded like any other, under [grantType] and [client]: a client
-     * sending malformed requests is one an operator is looking for.
+     * A request [readRequest] refuses is recorded like any other, under [grantType] and [client]; see
+     * `docs/design/telemetry.md`.
      */
     suspend fun issueTokens(
         client: Client,

@@ -35,23 +35,20 @@ import javax.net.ssl.SSLException
  *
  * A mail server that cannot be reached is reported to the mail sender's condition; any other mail that
  * fails to send is a WARN about that mail. Every mail handed to the mail server is counted by which [Mail] it
- * is and how the send ended, beside the call reported to the condition.
+ * is and how the send ended — see `docs/design/telemetry.md`.
  *
  * On startup, unsent mails that have not expired are replayed; expired records are discarded.
  * Mails with no expiration date are always replayed.
  *
- * **The replay is one instance's job, taken under a lease.** Without it every instance of a deployment
- * replays the same rows and every recipient is sent their validation code once per instance. The lease
- * is held for the whole of the delivery rather than for the reading of it: the rows are deleted as they
- * are attempted, so a lease released while they were still in a queue would leave the next instance to
- * boot a backlog it would send again. That is why a replayed mail is sent by the replay itself rather
- * than handed to the channel — see [com.sympauthy.business.manager.lock.JobLeaseManager].
+ * **The replay is one instance's job, taken under a lease** held over the delivery rather than over the
+ * reading of it, as `docs/standards/locking-standard.md` requires of a job that runs once. That is why a
+ * replayed mail is sent by the replay itself rather than handed to the channel.
  *
- * The replay does not run on a deployment whose configuration has errors. [processMail] deletes the record
- * whatever the send returned, so a mail replayed there has spent the one attempt it gets — sent from a
- * server reporting itself unready, carrying links to one that answers errors. Left in the table it keeps
- * that attempt, and costs a startup. A mail [send] queues is not gated the same way: that one belongs to a
- * request the server did serve.
+ * The replay asks readiness first, as `docs/standards/config-layer-code-standard.md` requires of startup
+ * work, and here for a reason of its own: [processMail] deletes the record whatever the send returned, so a
+ * mail replayed there has spent the one attempt it gets — sent from a server reporting itself unready,
+ * carrying links to one that answers errors. Left in the table it keeps that attempt, and costs a startup. A
+ * mail [send] queues is not gated the same way: that one belongs to a request the server did serve.
  *
  * When mail sending is not configured (no [MailSender] available), the queue is disabled
  * and [send] is a no-op.
@@ -92,8 +89,7 @@ class MailQueue(
     }
 
     /**
-     * Deliver the backlog, if this instance is the one that gets to: the deployment's other instances
-     * hold the same rows and would send every one of them again.
+     * Deliver the backlog, if this instance is the one that gets to take its lease.
      *
      * It runs on the queue's own scope rather than on the thread the readiness event arrived on. The
      * lease is held until the last mail has been attempted, and readiness is not something to hold open
@@ -150,11 +146,8 @@ class MailQueue(
     }
 
     /**
-     * Discard the mails that expired while unsent, then deliver the ones that did not.
-     *
-     * Each is sent here rather than queued for the consumer, because the caller's lease has to cover the
-     * delivery: a lease released once the rows were read would let the next instance to become ready read
-     * the same rows and send them a second time.
+     * Discard the mails that expired while unsent, then deliver the ones that did not. Each is sent here
+     * rather than queued for the consumer, so that the caller's lease covers the delivery.
      */
     internal suspend fun replayUnsentMails() {
         val now = LocalDateTime.now()

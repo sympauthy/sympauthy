@@ -10,12 +10,7 @@ import java.time.LocalDateTime
 import java.util.*
 
 /**
- * What a client was allowed, which every token issued for it stands under: opened by an authorization
- * before it hands out its code, a `client_credentials` request or a token exchange, and descended from by
- * every refresh of the tokens it issued. A token is live only while its grant is, so revoking a grant takes
- * every token under it out of service at once.
- *
- * See `docs/design/grants.md`.
+ * What a client was allowed, which every token issued for it stands under. See `docs/design/grants.md`.
  */
 data class Grant(
     val id: UUID,
@@ -25,14 +20,12 @@ data class Grant(
     val userId: UUID?,
     val clientId: String,
     /**
-     * Identifier of the audience this grant was opened for. For an act-as grant it is the audience the
-     * exchange named, which need not be the acting client's.
+     * Identifier of the audience this grant was opened for.
      */
     val audienceId: String,
     /**
      * The grant type this grant serves: [GrantType.AUTHORIZATION_CODE] for the one an authorization opens
-     * before handing out its code, [GrantType.CLIENT_CREDENTIALS] or [GrantType.TOKEN_EXCHANGE]. A refresh
-     * opens none.
+     * before handing out its code, [GrantType.CLIENT_CREDENTIALS] or [GrantType.TOKEN_EXCHANGE].
      */
     val grantType: GrantType,
     /**
@@ -67,32 +60,24 @@ data class Grant(
      * When the person this grant was opened for proved a credential of their account, in the flow the
      * authorization behind it came from. Stated as `auth_time` by every token under this grant.
      *
-     * Null where no person's authentication is behind the grant: a `client_credentials` grant has no person
-     * at all, and a token exchange asserts an identity nobody proved.
-     *
-     * Every refresh issues its tokens under this grant, which is what keeps it from moving: an authentication
-     * a month old states a month-old `auth_time` on a token minted a minute ago.
+     * Null for a `client_credentials` grant and for a token exchange. Kept unchanged by every refresh; see
+     * `docs/design/security.md`.
      */
     val authenticationDate: LocalDateTime?,
     /**
      * The claims the `claims` request parameter of the authorization behind this grant named, per OpenID
      * channel. [RequestedClaims.NONE] where no such request is behind the grant — a `client_credentials`
-     * grant, a token exchange — and where the request named nothing.
-     *
-     * It outlives the flow session that received the parameter, so the id token a refresh mints and the
-     * `/userinfo` answered with an access token of this grant honour the same request the code exchange did.
+     * grant, a token exchange — and where the request named nothing. See `docs/design/claims.md`.
      */
     val requestedClaims: RequestedClaims,
     /**
-     * Identifier of the interactive flow session this grant came from: what lets a session open one grant only,
-     * what the authorization code a session handed back is found by, and what a token request under the grant is
-     * traced with. The session is collected long before most grants end.
+     * Identifier of the interactive flow session this grant came from, kept after the session is collected.
+     * See `docs/design/grants.md`.
      */
     val sessionId: UUID?,
     /**
-     * The span of the request that started the interactive flow session this grant came from, which every
-     * request redeeming or refreshing the grant links to. Null where that request was not traced, or where no
-     * session opened the grant.
+     * The span of the request that started the interactive flow session this grant came from. Null where
+     * that request was not traced, or where no session opened the grant. See `docs/design/telemetry.md`.
      */
     val sessionStartedBy: SpanReference? = null,
     /**

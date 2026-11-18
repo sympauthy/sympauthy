@@ -141,8 +141,7 @@ class CollectionFieldsTest {
     fun `page - Ask ne of the row rather than of a value where a field reads several`() = runTest {
         val rows = listOf(Row("a", tags = listOf("red", "blue")), Row("b", tags = listOf("green")))
 
-        // "a" holds a tag that is not red, and is dropped all the same: ne asks that the row hold no
-        // red tag, which is what a caller excluding red asked for.
+        // "a" holds a tag that is not red, and is dropped all the same.
         assertEquals(listOf("b"), page("tag.ne" to "red", rows = rows))
     }
 

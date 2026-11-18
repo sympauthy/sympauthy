@@ -17,7 +17,7 @@ class ClaimAclFlowDoors internal constructor(private val evaluate: (ClaimAclExpr
      * Return true if the flow collects [claim].
      *
      * An identifier claim answers from its door like any other, and the flow reaches this for none of what
-     * it does with one: [ClaimAcl.collectedInFlow] says why.
+     * it does with one — see [ClaimAcl.collectedInFlow].
      */
     fun isCollectedInFlow(claim: EnabledClaim): Boolean {
         if (claim.generated) return false

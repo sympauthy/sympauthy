@@ -22,8 +22,7 @@ import org.junit.jupiter.params.provider.EnumSource
  *
  * This starts an authorization, leaves it through the `cancel_url` its sign-in step offers, then replays
  * the same state against a state-secured step that requires an ongoing session
- * (`GET /api/v1/flow/mfa/challenge`) and asserts it is rejected with `400 ctrl.flow.not_ongoing`, on each
- * supported database.
+ * (`GET /api/v1/flow/mfa/challenge`) and asserts it is rejected with `400 ctrl.flow.not_ongoing`.
  *
  * Source: [OAuth 2.1 §7.1 (Access Token / credential handling)](
  * https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1#section-7.1) — cancellation is a terminal

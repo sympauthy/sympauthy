@@ -15,27 +15,10 @@ import org.reactivestreams.Publisher
 import kotlin.jvm.optionals.getOrNull
 
 /**
- * Wildcard CORS filter for endpoints that allow all origins (`Access-Control-Allow-Origin: *`).
- *
- * Covers:
- * - **OpenID discovery** (`/.well-known`) — public metadata per OIDC spec.
- * - **OAuth 2.0** (`/api/oauth2`) — token and revocation endpoints called directly by public clients (e.g. SPAs).
- * - **OpenID Connect** (`/api/openid`) — the UserInfo endpoint, which an SPA calls cross-origin with the
- *   access token it just obtained.
- * - **The brand document** (`/branding/brand.json`) — the name and dark mode a flow hosted on another origin reads.
- *   It holds nothing private and answers the same to everybody. The rest of `/branding` is linked from a page,
- *   which needs no CORS.
- * - **The user API** (`/api/v1/user`) — the person's own claims, which a page of any client of the deployment
- *   reads and writes with the person's access token, so no origin is known to this server ahead of the request.
- *
- * All of them authenticate from an explicit `Authorization` (or `DPoP`) header rather than from cookies,
- * and no `Access-Control-Allow-Credentials` is ever sent, so allowing every origin does not let a
- * third-party page act on behalf of a signed-in user: it would need a token it does not have.
- *
- * The client API (`/api/v1/client`) is deliberately **not** covered. Its endpoints answer only a token the
- * `client_credentials` flow issued, which carries the client scopes `ScopeManager.parseRequestedClientScopes`
- * grants there, so reaching them requires a client secret and they are server-to-server by design. A browser cannot
- * legitimately authenticate there, and advertising CORS would suggest otherwise.
+ * The CORS filter for the surfaces answering every origin (`Access-Control-Allow-Origin: *`): OpenID discovery
+ * (`/.well-known`), the OAuth 2.0 and OpenID Connect endpoints, the user API, and the brand document
+ * (`/branding/brand.json`; the rest of `/branding` needs no CORS). Why each answers every origin, and why the
+ * client API has no filter, is `docs/standards/api-standard.md` and `docs/standards/api-layer-code-standard.md`.
  *
  * ## Request handling
  * - **No `Origin` header** — not a browser CORS request; passed through unchanged.

@@ -17,8 +17,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * the request is answered with `invalid_grant`.
  *
  * This drives a real sign-up through the mock frontend to obtain a genuine authorization code, then
- * exchanges it with a fresh, non-matching verifier and asserts a 400 `invalid_grant`, on each
- * supported database.
+ * exchanges it with a fresh, non-matching verifier and asserts a 400 `invalid_grant`.
  *
  * Source: [RFC 7636 §4.6 (Server verifies code_verifier)](https://datatracker.ietf.org/doc/html/rfc7636#section-4.6).
  */

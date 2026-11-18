@@ -553,9 +553,7 @@ class InteractiveFlowEngineTest {
 
             assertSame(completed, engine.advance(session).session)
 
-            // Prepared before the promotion, so whatever deciding the effect calls out to is not waited on under
-            // the promotion's locks. Applied after it, so a consent or a consumed invitation the effect writes
-            // attaches to an account that exists.
+            // The order `docs/design/provisional-user.md` sets for the completion transaction.
             coVerifyOrder {
                 handler.prepareTerminalEffect(marked)
                 provisionalAccountManager.promote(marked)

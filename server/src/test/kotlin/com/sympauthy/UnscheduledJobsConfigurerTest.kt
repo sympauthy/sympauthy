@@ -7,8 +7,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /**
- * Holds [UnscheduledJobsConfigurer] to the jobs a context wires: one it leaves in is scheduled for now
- * by whichever test starts that context, and sweeps the database every class in the run shares.
+ * Holds [UnscheduledJobsConfigurer] to the jobs a context wires.
  *
  * What it catches is a job declared outside the package the configurer names, and a scheduled bean a
  * framework contributes with it.

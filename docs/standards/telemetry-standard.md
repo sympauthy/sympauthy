@@ -86,9 +86,9 @@ adding it, and drop it from the JVM run too, so that both export one set.
 **A metric attribute takes its values from a set the server bounds.** Key on the route template,
 never on the path, and on an id only where the configuration declares the set it comes from.
 
-**An id is recorded once the configuration has been found to declare it, and left out otherwise.**
-`client_id` waits for the client to authenticate: the id a request sent is chosen by whoever sent
-it.
+**An attribute whose value is not known is left out, never recorded empty.** An id is known once
+the configuration has been found to declare it, so `client_id` waits for the client to
+authenticate: the id a request sent is chosen by whoever sent it.
 
 **No metric attribute names an account, a session, a grant, a token, a scope list, an address, a
 redirect URI or an exception's message.** A single request is a trace's to show.
@@ -144,7 +144,8 @@ or environment the server ships: a span is a developer's, turned on in their own
 **A span the server opens itself starts only under a span already open.** A scheduled job's work has
 no request around it, and a root span there is a trace per run, per instance, for the life of the
 deployment. `DatabaseCallTracingListener`, `CustomSpanTracer` and `LibraryHttpCallTracer` open none
-outside a request.
+outside a request, nor under a span that is not recorded, as every request's is while traces are
+off.
 
 **A span of the server's own names a wait or a stage, and is opened through `CustomSpanTracer`.** A
 wait is time no other span measures that can be long or unbounded; a stage is a step the route does

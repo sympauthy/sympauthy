@@ -21,9 +21,10 @@ Both of its entry points read that one declaration, so an expression accepted at
 calls a function the evaluation does not provide.
 
 **A kind of rule has two entry points: one validating an expression, one configuring its
-evaluation.** The validating one binds every function to nothing; the configuring one takes the
+evaluation.** The validating one binds every function to nothing, and the configuring one takes the
 values a request carries as non-null parameters. Never merge them into one entry point taking
-nullable values.
+nullable values: one bound to nothing says whether an expression is well formed, and is silently
+wrong about what a request may have.
 
 **A function is offered to a kind of rule only where its subject can exist there.** Leave it out
 of the set elsewhere, so writing it is refused at startup as an unknown function rather than
@@ -33,6 +34,10 @@ answered at request time.
 fun validateClientExpression(expressionString: String) // CLIENT bound to nothing
 fun clientConfiguration(client: Client): ExpressionConfiguration // CLIENT bound to the client
 ```
+
+**A configuration is built for the request it evaluates, and never kept beyond it.** EvalEx
+registers a function by mutating the configuration it is handed, so one kept between requests would
+let each rebind the functions every other is evaluating against.
 
 ## Naming a function
 
@@ -91,8 +96,9 @@ argument first is what refuses it at startup rather than answering `false` at ev
 
 **A failure is thrown as `InvalidRuleExpressionException`, carrying both of its codes.** The
 validator reports the configuration code; a manager evaluating an expression that passed validation
-and then failed reports the business one, `expression.evaluate.failed` or
-`expression.evaluate.invalid_return`.
+and then failed reports the business one as [an internal
+failure](exception-code-standard.md#the-question-that-tells-the-business-failures-apart),
+`expression.evaluate.failed` or `expression.evaluate.invalid_return`.
 
 ## Documenting a function
 

@@ -15,8 +15,8 @@ import java.lang.management.MemoryUsage
  *
  * Heap memory per pool, thread count, process CPU time and count, under the names OpenTelemetry's semantic
  * conventions give them, and each garbage collector's collection count and accumulated time under the names
- * OpenTelemetry's JMX metrics give them, since the conventions' `jvm.gc.duration` is built from notifications a
- * native image never sends. `docs/design/telemetry.md` says why nothing else is exported.
+ * OpenTelemetry's JMX metrics give them. `docs/design/telemetry.md` says why these names, and why nothing else
+ * is exported.
  */
 @Context
 @Requires(property = TELEMETRY_ENABLED, notEquals = "false")

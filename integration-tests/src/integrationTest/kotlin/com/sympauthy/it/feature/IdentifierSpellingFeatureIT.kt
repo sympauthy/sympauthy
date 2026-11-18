@@ -23,7 +23,7 @@ import org.junit.jupiter.params.provider.EnumSource
  * No unit test reaches this. What is stored is written by one flow and read back through the userinfo
  * endpoint with that flow's own access token; that a differently spelled login still matches is decided
  * in a query against a column nothing publishes, and that a second sign-up loses to it is a third
- * complete flow — each against both databases.
+ * complete flow.
  *
  * Issue: [#488](https://github.com/sympauthy/sympauthy/issues/488), and `docs/design/identifier-claims.md`.
  */

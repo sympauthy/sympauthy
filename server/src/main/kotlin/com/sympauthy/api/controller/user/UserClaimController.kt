@@ -121,10 +121,9 @@ class UserClaimController(
         val audienceId = userAuth.client.audience.id
         val user = userManager.findByIdOrNull(authentication.userId).orNotFound()
 
-        // Asked before the ACL below, because no answer the ACL could give would change this one: nothing in a
-        // claim write proves the person controls the new value, or that the person is the one asking.
-        // A deployment whose ACL opens the person's write over an identifier is told that, rather than told the
-        // person may not write it.
+        // Asked before the ACL below, which could not change the answer (`docs/design/claims.md`): a deployment
+        // whose ACL opens the person's write over an identifier is told that, rather than told the person may
+        // not write it.
         val identifierClaimIds = claimManager.listIdentifierClaims().map(Claim::id).toSet()
         val identifierClaim = body.keys.firstOrNull { it in identifierClaimIds }
         if (identifierClaim != null) {
@@ -153,8 +152,8 @@ class UserClaimController(
         val challengesByRefusedClaim = claimsById.values.filterNotNull()
             .filterNot(doors::canBeWrittenByPerson)
             .associateWith { claimAclManager.getPersonWriteChallenges(it, context, now) }
-        // A claim no token could be re-authorized into writing is refused by name, before any challenge: a client
-        // re-authorizing for the others would be refused again for it.
+        // A claim no token could be re-authorized into writing is refused by name, before any challenge
+        // (`docs/design/claims.md`).
         val unchallengedClaim = challengesByRefusedClaim.entries.firstOrNull { (_, challenges) -> challenges.isEmpty() }
         if (unchallengedClaim != null) {
             throw invalidClaimException(unchallengedClaim.key.id)

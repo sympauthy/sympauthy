@@ -64,10 +64,6 @@ class ScopeGrantingRuleExpressionsTest {
         }
     }
 
-    /**
-     * EvalEx registers a function by mutating the configuration it is given, so a configuration kept
-     * between calls would let one request's values answer another request's expression.
-     */
     @Test
     fun `userConfiguration - Bind claims to this configuration and no other`() {
         val first = ScopeGrantingRuleExpressions.userConfiguration(

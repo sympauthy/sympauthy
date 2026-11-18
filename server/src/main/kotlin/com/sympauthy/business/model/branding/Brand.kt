@@ -1,10 +1,8 @@
 package com.sympauthy.business.model.branding
 
 /**
- * What a page needs of the brand besides its stylesheet and its images.
- *
- * It needs the dark mode because choosing the dark logo by the device's preference alone would put it on a light
- * page under [DarkMode.OFF].
+ * What a page needs of the brand besides its stylesheet and its images, the dark mode included; see
+ * `docs/design/branding.md`.
  */
 data class Brand(
     val displayName: String?,

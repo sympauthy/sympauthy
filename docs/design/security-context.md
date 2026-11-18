@@ -13,7 +13,7 @@ authorization this sits beside are [security](security.md).
 
 A change to any of it starts in a handful of places. `SecurityContextUtil` reads a request under
 the trust model a deployment configured and answers with an `ObservedRequest`, and
-`ObservedRequestFilter` is what calls it, once, ahead of everything else. An edge is an
+`ObservedRequestFilter` is what calls it, once, before the request is authenticated. An edge is an
 implementation of `IpProvider` or of `GeoProvider`, and each interface's KDoc is the authority on
 why one is named and the other may be detected. `SecurityContextConfig` and the types under it are
 what the settings parse into. What is recorded lands in
@@ -50,8 +50,9 @@ balancer in front of it.
 ### The address
 
 **Only the proxy nearest this server knows the address**, as the peer it accepted a connection from
-rather than a value it was handed. So `advanced.security-context.ip` names one proxy, or one header
-read as it stands, and falls back to the socket peer.
+rather than a value it was handed. So `advanced.security-context.ip` names one proxy, one header
+read as it stands, or both, and the address is the first of them a request answers: the header,
+then the proxy, then the socket peer.
 
 There is no detecting it, and no merging two answers. An edge reading an entry of `X-Forwarded-For`
 reads it at a position only its own hop count explains, so a server guessing which edge is in front
@@ -64,8 +65,11 @@ that works through a *legitimate* proxy, which a closed origin does not stop.
 `X-Akamai-Edgescape`, `CloudFront-Viewer-City` — rather than at a position in one they share. Two
 edges reading their own headers cannot be read at cross purposes, so
 `advanced.security-context.geo` takes a list applied in order, each entry overriding the fields the
-ones before it answered, and `auto-detect` reads every edge that publishes one. A wrong answer here
-costs a wrong location on a record, not a request attributed to whoever asked for it.
+ones before it answered. `auto-detect` reads every edge that publishes one ahead of that list,
+sorted by name so that a request is read the same way twice. An edge both detected and named is
+read once, in its named place, and a header the deployment names for one field wins over every
+edge. A wrong answer here costs a wrong location on a record, not a request attributed to whoever
+asked for it.
 
 **An edge publishing no location cannot be named under the geo setting.** nginx, Traefik, Caddy,
 Fastly and Azure Front Door publish an address and nothing else, so naming one there is refused at
@@ -74,15 +78,20 @@ startup rather than accepted to no effect.
 ## What is kept, and for how long
 
 **A place is recorded once a flow completes, against the person it completed for.** What is observed
-when a credential verifies is held against the session that saw it, then folded into that person's
+where a credential [proves the session's user](security.md#when-the-person-authenticated) is held
+against the session that saw it, then folded into that person's
 places once their flow succeeds — deduplicated on the address and the user agent, so a row is a
 place somebody keeps signing in from rather than one per sign-in.
 
-**A session records every place it is driven from, and a person's record is fed by one of them.**
-Creating an interactive flow session and every request that resolves one write a place against that
-session — deduplicated the same way, counted the same way — so a flow stalled at the sign-in step,
-one that failed validating the authorize request and an enrollment an operator started all say
-where they came from. What a credential proof writes is the same row with the moment of the proof
+**A session records every place it is driven from while it runs, and a person's record is fed by
+one of them.** Creating an interactive flow session, failed or not, and every request that resolves
+one still running write a place against that session — deduplicated the same way, counted the same
+way — so a flow stalled at the sign-in step, one that failed validating the authorize request and an
+enrollment an operator started all say where they came from. A session that has ended is not
+written against: completing it consumed its places, and the state outlives it, so a replay would
+open rows only the cleaner collects. Neither is one that has expired, because the cleaner deletes
+its places and the session together, and a row inserted between the two rolls the cleaner's whole
+run back. What a credential proof writes is the same row with the moment of the proof
 stamped on it, and the fold reads the latest stamp and nothing else. That is what keeps a record
 against a person as narrow as it was when only a proof wrote one: the state a flow travels under
 carries [no identity](security.md#the-state-authentication-is-not-a-session), so anybody holding it
@@ -151,8 +160,9 @@ operator which key is at fault.
 ### Where the reading happens
 
 **It is read once, at the boundary, and passed on as an ordinary parameter.**
-`ObservedRequestFilter` runs ahead of Micronaut Security, over every path rather than one surface,
-and leaves an `ObservedRequest` on the request; a handler binds that and passes it down. Why it is
+`ObservedRequestFilter` runs ahead of Micronaut Security and behind the CORS filters, so a
+preflight they answer is never observed, over every path rather than one surface, and leaves an
+`ObservedRequest` on the request; a handler binds that and passes it down. Why it is
 scoped to no surface, and what it costs on the requests that never use it, is the filter's own
 KDoc.
 

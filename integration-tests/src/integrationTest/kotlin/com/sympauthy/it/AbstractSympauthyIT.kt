@@ -52,7 +52,7 @@ import java.util.concurrent.ConcurrentHashMap
  * (password auth + email identifier + a public client wired to the mock frontend), container
  * lifecycle with log capture on failure, and small HTTP/JWT helpers used by the scenarios.
  *
- * Each scenario boots a fresh container per [Database] so H2 and PostgreSQL are exercised identically.
+ * Each scenario boots a fresh container per [Database].
  */
 abstract class AbstractSympauthyIT {
 
@@ -780,10 +780,7 @@ abstract class AbstractSympauthyIT {
 
     /**
      * Asserts [response] refused with HTTP [status] and that its `error` is exactly [error], the
-     * RFC 6749 value a client branches on, reporting [message] when it did not. The member is compared
-     * rather than searched for in the body: `error_description` is a bundle message, so a body
-     * containing the code is not the same thing as a body naming it, and a rewrite of that sentence
-     * must not decide whether this passes.
+     * RFC 6749 value a client branches on, reporting [message] when it did not.
      */
     protected fun assertOAuthError(
         response: HttpResponse<String>,
@@ -794,7 +791,7 @@ abstract class AbstractSympauthyIT {
 
     /**
      * [assertOAuthError] for a refusal the generated client threw. Call it inside the client block that
-     * made the request: the response buffer is released when the context closes.
+     * made the request; `docs/standards/testing-standard.md` says why.
      */
     protected fun assertOAuthError(
         refusal: HttpClientResponseException,
@@ -818,7 +815,7 @@ abstract class AbstractSympauthyIT {
 
     /**
      * [assertError] for a refusal the generated client threw. Call it inside the client block that made
-     * the request: the response buffer is released when the context closes.
+     * the request; `docs/standards/testing-standard.md` says why.
      */
     protected fun assertError(
         refusal: HttpClientResponseException,

@@ -30,10 +30,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Each provider is resolved concurrently at startup. For OAuth2 providers, this is a direct mapping.
  * For OpenID Connect providers, this involves fetching the discovery document to resolve endpoints.
  *
- * A provider whose discovery cannot be fetched — it cannot be reached, does not answer in time, or answers
- * with a `5xx` — starts disabled and its condition degraded, and its resolution is retried until it answers.
- * One that answers with something this server cannot use is a configuration error rather than an outage:
- * it says so in one ERROR and stays disabled until the server restarts.
+ * A provider whose discovery cannot be fetched starts disabled and is retried until it answers, as
+ * [retryResolution] says; one that answers with something this server cannot use stays disabled until the
+ * server restarts. What each reports, and why, is `docs/design/logging.md`.
  *
  * Configuration validation (parsing YAML, checking required fields) is handled by
  * [com.sympauthy.config.factory.ProvidersConfigFactory].
@@ -84,9 +83,7 @@ open class ProviderManager(
      * Resolve the provider [config] declares again every [RESOLUTION_RETRY_INTERVAL] until it resolves, and
      * from then on serve it like a provider that resolved at startup.
      *
-     * A provider whose discovery cannot be fetched at startup is otherwise disabled until the server is
-     * restarted, and its condition reported degraded with nothing that could ever see it recover. Every
-     * attempt is reported to its condition by [resolveProvider]. An attempt that fetches something this
+     * Every attempt is reported to its condition by [resolveProvider]. An attempt that fetches something this
      * server cannot use ends the retries: the provider answered, so its condition recovers, and it stays
      * disabled with the ERROR it would have had at startup.
      */

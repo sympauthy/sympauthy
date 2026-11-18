@@ -58,8 +58,7 @@ class InteractiveFlowSessionEntity(
 
     /**
      * The trace and span id of the request that started the session, both set or both null: null where that
-     * request was not traced. Kept for every later request acting on the session to link to, and never written
-     * again.
+     * request was not traced. Never written again; what links to it is `docs/design/telemetry.md`.
      */
     val startedByTraceId: String? = null,
     val startedBySpanId: String? = null,

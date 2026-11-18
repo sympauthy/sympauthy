@@ -23,8 +23,7 @@ import java.time.LocalDateTime
  * Manager in charge of the authorization code a client exchanges for the access, refresh and id tokens.
  *
  * A code lives for `auth.authorization-code.expiration` from when it is handed out, whatever is left of the
- * interactive flow session that issued it, and is collected once that has passed, exchanged or not. See
- * `docs/design/oauth2-authorization.md`.
+ * interactive flow session that issued it. See `docs/design/oauth2-authorization.md`.
  */
 @Singleton
 class AuthorizationCodeManager(

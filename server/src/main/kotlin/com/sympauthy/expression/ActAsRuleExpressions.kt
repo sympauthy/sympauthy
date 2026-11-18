@@ -11,9 +11,6 @@ import java.util.Map.entry
  *
  * An act-as expression may speak about both the acting client and the user being acted for, which is
  * why it gets both function families where a scope granting rule gets one.
- *
- * The two uses have separate entry points rather than one taking nullable values, for
- * [the reason given beside the scope granting rules][ScopeGrantingRuleExpressions].
  */
 object ActAsRuleExpressions {
 

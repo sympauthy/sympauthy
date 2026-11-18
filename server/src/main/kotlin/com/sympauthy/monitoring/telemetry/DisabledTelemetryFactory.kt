@@ -9,8 +9,8 @@ import jakarta.inject.Singleton
  * The `OpenTelemetry` the server's instruments are built on while telemetry is off: OpenTelemetry's own no-op,
  * which records into nothing and starts no thread.
  *
- * A metric is recorded where the event happens, by code that runs whether telemetry is on or not, so its
- * instruments need an `OpenTelemetry` either way; the tracing module provides one only when it is on.
+ * The tracing module provides one only while telemetry is on. `docs/design/telemetry.md` says why the
+ * instruments need one either way.
  */
 @Factory
 @Requires(property = TELEMETRY_ENABLED, value = "false")

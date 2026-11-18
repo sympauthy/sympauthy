@@ -20,9 +20,8 @@ import java.util.Locale
 /**
  * Publishes the interactive flow sessions an operator reads.
  *
- * Written by hand rather than generated because it composes [AdminUserResourceMapper] and
- * [AdminClientResourceMapper]: a session names its person and its client with the resources a grant names them
- * with, so a console renders each with one component.
+ * It composes [AdminUserResourceMapper] and [AdminClientResourceMapper]: a session names its person and its
+ * client with the resources a grant names them with, so a console renders each with one component.
  */
 @Singleton
 class AdminInteractiveFlowSessionResourceMapper(
