@@ -30,8 +30,7 @@ class ClaimsConfigValidator(
         templates: Map<String, ClaimTemplate>,
         audiencesById: Map<String, Audience>,
         scopesById: Map<String, Scope>,
-        identifierClaims: List<String>?,
-        userMergingEnabled: Boolean?
+        identifierClaims: List<String>?
     ): List<Claim> {
         refuseKeysWrittenOnAGeneratedClaim(ctx, writtenKeys)
 
@@ -65,22 +64,6 @@ class ClaimsConfigValidator(
                         "claim" to identifierClaimId
                     )
                 )
-            }
-        }
-
-        // Validate identifier claims are enabled.
-        if (userMergingEnabled == true) {
-            val enabledClaimIds = claims.filter { it.isEnabled }.map { it.id }.toSet()
-            identifierClaims?.forEach { identifierClaimId ->
-                if (identifierClaimId !in enabledClaimIds) {
-                    ctx.addError(
-                        configExceptionOf(
-                            "$CLAIMS_KEY.$identifierClaimId",
-                            "config.auth.identifier_claim.disabled",
-                            "claim" to identifierClaimId
-                        )
-                    )
-                }
             }
         }
 

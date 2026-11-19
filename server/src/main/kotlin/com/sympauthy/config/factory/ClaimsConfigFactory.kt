@@ -41,8 +41,7 @@ class ClaimsConfigFactory(
             ctx, parsed, writtenConfigurationKeys.under("$CLAIMS_KEY."), enabledTemplatesConfig.templates,
             enabledAudiencesConfig.audiences.associateBy { it.id },
             enabledScopesConfig.scopes.associateBy(Scope::scope),
-            authProperties.identifierClaims,
-            authProperties.userMergingEnabled
+            authProperties.identifierClaims
         )
         return if (ctx.hasErrors) DisabledClaimsConfig(ctx.errors)
         else EnabledClaimsConfig(claims)
