@@ -14,7 +14,6 @@ import com.sympauthy.expression.ClaimAclExpressionTerms
 import com.sympauthy.expression.ClaimAclExpressions
 import com.sympauthy.expression.InvalidRuleExpressionException
 import jakarta.inject.Singleton
-import java.time.Duration
 
 /**
  * Validates the expression each door of a parsed ACL is opened by, and builds final ACL models.
@@ -97,8 +96,8 @@ class ClaimAclValidator {
         terms.consentedScopes.forEach { validateConsentedScope(ctx, it, configKey, scopesById) }
         terms.grantedScopes.forEach { validateGrantedScope(ctx, it, configKey, scopesById) }
         // Every age is checked before any is acted on, so a file writing two bad ones is told about both.
-        val agesAccepted = terms.authenticationAges.map { validateAuthenticationAge(ctx, it, configKey) }
-        if (false in agesAccepted) return null
+        val ages = terms.authenticationAges.map { validateLifetime(ctx, configKey, it) }
+        if (null in ages) return null
         return ClaimAclExpression(
             expression = expression,
             consentedScopes = terms.opening.consentedScopes,
@@ -141,22 +140,6 @@ class ClaimAclValidator {
             "config.claim.acl.not_grantable_scope"
         }
         ctx.addError(configExceptionOf(configKey, detailsId, "scope" to scope))
-    }
-
-    /**
-     * Return true if [age] may be asked of an authentication, or record why it is refused and return false.
-     *
-     * One of zero or less is refused: it would refuse every write of the claim for the life of the
-     * deployment, since no authentication is ever more recent than the moment it is asked about.
-     */
-    private fun validateAuthenticationAge(ctx: ConfigParsingContext, age: Duration, configKey: String): Boolean {
-        if (age.isPositive) return true
-        ctx.addError(
-            configExceptionOf(
-                configKey, "config.claim.acl.authentication_age.not_positive", "duration" to age.toString()
-            )
-        )
-        return false
     }
 
     companion object {
