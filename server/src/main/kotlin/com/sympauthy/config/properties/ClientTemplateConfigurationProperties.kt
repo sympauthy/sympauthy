@@ -15,7 +15,7 @@ class ClientTemplateConfigurationProperties(
     @param:Parameter val id: String
 ) {
     var audience: String? = null
-    var public: Boolean? = null
+    var public: String? = null
     var authorizationFlow: String? = null
     var uris: Map<String, String>? = null
     var allowedGrantTypes: List<String>? = null

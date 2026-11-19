@@ -15,7 +15,7 @@ class ClientConfigurationProperties(
     var template: String? = null
     var displayName: String? = null
     var audience: String? = null
-    var public: Boolean? = null
+    var public: String? = null
     var secret: String? = null
     var authorizationFlow: String? = null
     var uris: Map<String, String>? = null

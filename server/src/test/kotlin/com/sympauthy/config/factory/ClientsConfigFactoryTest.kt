@@ -59,7 +59,7 @@ class ClientsConfigFactoryTest {
         id: String,
         template: String? = null,
         displayName: String? = null,
-        public: Boolean? = null,
+        public: String? = null,
         secret: String? = null,
         allowedGrantTypes: List<String>? = null,
         allowedRedirectUris: List<String>? = null,
@@ -666,5 +666,36 @@ class ClientsConfigFactoryTest {
         val client = config.clients.first()
         assertTrue(client.public)
         assertNull(client.secret)
+    }
+
+    @Test
+    fun `provideClients - Client public word that is not a boolean is refused against its key`() = runTest {
+        passGrantTypesThrough()
+
+        val factory = factory(
+            clientTemplate(id = "default", allowedGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS))
+        )
+        val clients = listOf(clientProperties(id = "my-app", public = "maybe"))
+
+        val result = factory.provideClients(clients).first()
+
+        val errors = assertInstanceOf(DisabledClientsConfig::class.java, result).configurationErrors!!
+            .filterIsInstance<ConfigurationException>()
+        assertTrue(errors.any { it.messageId == "config.invalid_boolean" && it.key == "clients.my-app.public" })
+    }
+
+    @Test
+    fun `provideClients - Client public reads the words every boolean key reads`() = runTest {
+        passGrantTypesThrough()
+
+        val factory = factory(
+            clientTemplate(id = "default", allowedGrantTypes = setOf(GrantType.CLIENT_CREDENTIALS))
+        )
+        val clients = listOf(clientProperties(id = "my-app", public = "t"))
+
+        val result = factory.provideClients(clients).first()
+
+        val client = assertInstanceOf(EnabledClientsConfig::class.java, result).clients.first()
+        assertTrue(client.public)
     }
 }

@@ -11,7 +11,7 @@ interface AuthConfigurationProperties {
     @get:Nullable
     val identifierClaims: List<String>?
     @get:Nullable
-    val userMergingEnabled: Boolean?
+    val userMergingEnabled: String?
 
     companion object {
         const val AUTH_KEY = "auth"

@@ -84,7 +84,6 @@ class ClaimsConfigFactoryTest {
 
     @BeforeEach
     fun setUp() {
-        every { authProperties.userMergingEnabled } returns null
         every { authProperties.identifierClaims } returns null
         every { writtenConfigurationKeys.under(any()) } returns emptySet()
 

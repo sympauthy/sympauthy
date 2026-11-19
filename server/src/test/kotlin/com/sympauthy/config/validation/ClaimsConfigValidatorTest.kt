@@ -70,7 +70,7 @@ class ClaimsConfigValidatorTest {
         val ctx = ConfigParsingContext()
         validator.validate(
             ctx, parsed, writtenKeys, emptyMap(), audiencesById, emptyMap<String, Scope>(),
-            identifierClaims, null
+            identifierClaims
         )
         return ctx
     }
@@ -513,7 +513,7 @@ class ClaimsConfigValidatorTest {
     }
 
     private fun validateClaims(parsed: List<ParsedClaim>): List<Claim> = validator.validate(
-        ConfigParsingContext(), parsed, emptySet(), emptyMap(), audiencesById, emptyMap<String, Scope>(), null, null
+        ConfigParsingContext(), parsed, emptySet(), emptyMap(), audiencesById, emptyMap<String, Scope>(), null
     )
 
     @Test
