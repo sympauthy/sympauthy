@@ -14,6 +14,8 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.security.SecurityRule
 import com.sympauthy.util.orDefault
 import io.micronaut.http.HttpRequest
@@ -30,12 +32,18 @@ import jakarta.inject.Singleton
 class LocalizedExceptionHandler(
     private val localizedErrorMapper: LocalizedErrorMapper,
     private val errorResourceMapper: ErrorResourceMapper,
-    private val oAuth2ErrorResourceMapper: OAuth2ErrorResourceMapper
+    private val oAuth2ErrorResourceMapper: OAuth2ErrorResourceMapper,
+    private val conditionMonitor: ConditionMonitor
 ) : ExceptionHandler<LocalizedException, HttpResponse<*>> {
+
+    private val logger = loggerForClass()
+
+    override fun handle(request: HttpRequest<*>, exception: LocalizedException): HttpResponse<*> =
+        handle(request, exception, exception)
 
     /**
      * Answer the [exception] with the body it renders to in the caller's locale, and with the headers
-     * it carries.
+     * it carries, logging the [failure] it answers first where it is answered with a `5xx`.
      *
      * The body is the one RFC 6749 §5.2 defines where [request] is addressed to an endpoint whose errors
      * that body is — see [answersWithOAuth2Error] — and the ordinary error body everywhere else. The
@@ -46,8 +54,26 @@ class LocalizedExceptionHandler(
      * none. The one header the request decides is the challenge of an [AccessTokenChallengeException], which
      * is answered without it where [request] reached no route accepting an access token: a challenge would
      * send the caller after a token that route does not take.
+     *
+     * The [failure] is the [exception] itself where the framework handed this handler one, and the
+     * throwable the [ExceptionNormalizer] normalized into it where [ThrowableExceptionHandler] did.
+     *
+     * Every `5xx` is logged and not only the uncoded one: a failure telling the caller the server broke
+     * says nothing else on the wire, so the row, the column and the cause reach nobody unless they reach
+     * the log. A `4xx` is the caller's to read and is not logged.
+     *
+     * A `5xx` caused by a dependency being out of reach is the exception, reported to its condition
+     * instead: the condition writes the ERROR once, and a WARN per request on top of it would be the line
+     * per failure the condition exists to remove.
+     *
+     * A failure no code names — one that reached the edge as anything but a [LocalizedException] — is
+     * written at ERROR rather than WARN, asking for an issue: nothing in the server anticipated it, so it
+     * is most likely a bug. This departs from `docs/standards/logging-standard.md`, which keeps ERROR for
+     * a condition changing state. The line is written for every occurrence, synchronously on the
+     * request's thread, even where a caller can provoke it at will. A bug repeated is accepted as a line
+     * repeated, because the line is what gets the bug reported, and fixed.
      */
-    override fun handle(request: HttpRequest<*>, exception: LocalizedException): HttpResponse<*> {
+    fun handle(request: HttpRequest<*>, exception: LocalizedException, failure: Throwable): HttpResponse<*> {
         val answered = if (exception is AccessTokenChallengeException && !acceptsAccessToken(request)) {
             exception.withoutChallenge()
         } else {
@@ -55,6 +81,16 @@ class LocalizedExceptionHandler(
         }
         val locale = request.locale.orDefault()
         val status = localizedErrorMapper.toHttpStatus(answered)
+        if (status.code >= 500 && !conditionMonitor.absorb(failure)) {
+            if (failure is LocalizedException) {
+                logger.warn(failure) { "Server failure ${answered.detailsId} ${answered.values}" }
+            } else {
+                logger.error(failure) {
+                    "Unhandled failure ${answered.detailsId}: this is most likely a bug in SympAuthy. " +
+                        "Please open an issue at $ISSUES_URL."
+                }
+            }
+        }
         val body = if (answersWithOAuth2Error(request)) {
             oAuth2ErrorResourceMapper.toResource(answered.toOAuth2Exception(oAuth2ErrorCodeOf(status)), locale)
         } else {
@@ -104,6 +140,8 @@ class LocalizedExceptionHandler(
     }
 
     private companion object {
+        const val ISSUES_URL = "https://github.com/sympauthy/sympauthy/issues"
+
         val OAUTH2_ERROR_ENDPOINTS = setOf(
             OAUTH2_TOKEN_ENDPOINT,
             OAUTH2_INTROSPECTION_ENDPOINT,

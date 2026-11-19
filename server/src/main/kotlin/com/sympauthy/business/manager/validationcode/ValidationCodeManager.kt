@@ -193,7 +193,7 @@ open class ValidationCodeManager(
 
         val sender = senderByMediaMap[newValidationCode.media] ?: throw localizedExceptionOf(
             "validationcode.missing_sender",
-            "media" to newValidationCode.code
+            "media" to newValidationCode.media.name
         )
         sender.sender.sendValidationCode(
             user = user,

@@ -5,10 +5,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.api.exception.toHttpException
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
-import com.sympauthy.exception.LocalizedException
 import com.sympauthy.security.accessTokenSchemeOrNull
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
@@ -30,9 +27,10 @@ import io.micronaut.web.router.exceptions.UnsatisfiedRouteException
 import jakarta.inject.Singleton
 
 /**
- * Normalizes every exception but an `OAuth2Exception` — those thrown by Micronaut Security and the other
- * frameworks included — into a [LocalizedHttpException] carrying the status to answer with. An exception it
- * does not recognise becomes a `500`.
+ * Normalizes every exception but an `OAuth2Exception` and a `LocalizedException`, which their own handlers answer
+ * — those thrown by Micronaut Security and the other frameworks included — into a [LocalizedHttpException]
+ * carrying the status to answer with. An exception it does not recognise becomes a `500`, as does one wrapping a
+ * `LocalizedException`.
  */
 @Singleton
 class ExceptionNormalizer {
@@ -62,9 +60,6 @@ class ExceptionNormalizer {
             is ContentLengthExceededException, is BufferLengthExceededException -> recoverableHttpExceptionOf(
                 REQUEST_ENTITY_TOO_LARGE, "body.too_large", "description.body.too_large"
             )
-            is LocalizedHttpException -> throwable
-            is BusinessException -> throwable.toHttpException(throwable.recommendedStatus ?: INTERNAL_SERVER_ERROR)
-            is LocalizedException -> throwable.toHttpException(INTERNAL_SERVER_ERROR)
             else -> internalServerError(throwable)
         }
     }
