@@ -10,7 +10,7 @@ interface ValidationCodeRepository : CoroutineCrudRepository<ValidationCodeEntit
 
     suspend fun findBySessionIdAndMedia(sessionId: UUID, media: String): List<ValidationCodeEntity>
 
-    suspend fun deleteByIds(ids: List<UUID>)
+    suspend fun deleteByIds(ids: List<UUID>): Int
 
     suspend fun deleteBySessionIdIn(sessionIds: List<UUID>): Int
 }
