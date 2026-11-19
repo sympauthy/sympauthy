@@ -1,5 +1,8 @@
 package com.sympauthy.api.errorhandler
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import com.sympauthy.api.controller.ADMIN_SURFACE
 import com.sympauthy.api.controller.FLOW_SURFACE
 import com.sympauthy.api.controller.OPENID_SURFACE
@@ -16,13 +19,18 @@ import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientUserAuthentication
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.config.model.Config
+import com.sympauthy.config.model.invalidConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
+import com.sympauthy.monitoring.Condition
+import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.SecurityRule.IS_USER
@@ -35,14 +43,20 @@ import io.micronaut.web.router.RouteAttributes
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
 import io.mockk.slot
+import io.r2dbc.spi.R2dbcNonTransientResourceException
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.util.*
 
@@ -58,8 +72,105 @@ class LocalizedExceptionHandlerTest {
     @MockK
     lateinit var oAuth2ErrorResourceMapper: OAuth2ErrorResourceMapper
 
+    @SpyK
+    var conditionMonitor = ConditionMonitor()
+
     @InjectMockKs
     lateinit var handler: LocalizedExceptionHandler
+
+    private val written = ListAppender<ILoggingEvent>()
+
+    private val logger = LoggerFactory.getLogger(LocalizedExceptionHandler::class.java) as ch.qos.logback.classic.Logger
+
+    @BeforeEach
+    fun attach() {
+        written.start()
+        logger.addAppender(written)
+    }
+
+    @AfterEach
+    fun detach() {
+        logger.detachAppender(written)
+    }
+
+    @Test
+    fun `handle - Log a server failure at WARN with its code, its values and its cause`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+        val cause = IllegalArgumentException("No enum constant UserStatus.FOO")
+        val exception = internalBusinessExceptionOf("mapper.user.invalid_property", cause, "property" to "status")
+
+        val response = handler.handle(request(), exception)
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.status)
+        val warning = written.list.single()
+        assertEquals(Level.WARN, warning.level)
+        assertEquals("Server failure mapper.user.invalid_property {property=status}", warning.formattedMessage)
+        assertEquals(exception.message, warning.throwableProxy.message)
+        assertEquals(cause.message, warning.throwableProxy.cause.message)
+    }
+
+    @Test
+    fun `handle - Log an unhandled failure at ERROR as the throwable it was normalized from, asking for an issue`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+        val failure = IllegalStateException("Broken")
+
+        handler.handle(request(), internalServerError(failure), failure)
+
+        val error = written.list.single()
+        assertEquals(Level.ERROR, error.level)
+        assertEquals(
+            "Unhandled failure internal_server_error: this is most likely a bug in SympAuthy. " +
+                "Please open an issue at https://github.com/sympauthy/sympauthy/issues.",
+            error.formattedMessage
+        )
+        assertEquals(IllegalStateException::class.java.name, error.throwableProxy.className)
+    }
+
+    @Test
+    fun `handle - Report an unhandled failure caused by the database out of reach to its condition, not the log`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+        val failure = R2dbcNonTransientResourceException("Connection refused")
+
+        handler.handle(request(), internalServerError(failure), failure)
+
+        assertEquals(emptyList<ILoggingEvent>(), written.list)
+        assertTrue(conditionMonitor.listObserved().getValue(Condition.Database))
+    }
+
+    @Test
+    fun `handle - Log nothing for a configuration found invalid, which the startup verdict announced`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+
+        handler.handle(request(), Config().invalidConfig)
+
+        assertEquals(emptyList<ILoggingEvent>(), written.list)
+    }
+
+    @Test
+    fun `handle - Log nothing for a refusal answered with a 4xx`() {
+        stubResource(HttpStatus.BAD_REQUEST)
+
+        handler.handle(
+            request(),
+            recoverableHttpExceptionOf(HttpStatus.BAD_REQUEST, "body.malformed", "description.body.malformed")
+        )
+
+        assertEquals(emptyList<ILoggingEvent>(), written.list)
+    }
+
+    @Test
+    fun `handle - Report a server failure caused by the database out of reach to its condition, not the log`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+        val exception = internalBusinessExceptionOf(
+            "manager.failed",
+            R2dbcNonTransientResourceException("Connection refused")
+        )
+
+        handler.handle(request(), exception)
+
+        assertEquals(emptyList<ILoggingEvent>(), written.list)
+        assertTrue(conditionMonitor.listObserved().getValue(Condition.Database))
+    }
 
     @Test
     fun `handle - Answer a refusal carrying a challenge with the WWW-Authenticate header`() {
@@ -227,6 +338,10 @@ class LocalizedExceptionHandlerTest {
 
         assertSame(resource, response.body())
     }
+
+    private fun internalServerError(failure: Throwable) = httpExceptionOf(
+        HttpStatus.INTERNAL_SERVER_ERROR, "internal_server_error", "description.internal_server_error", failure
+    )
 
     private fun stubStatus(status: HttpStatus) {
         every { localizedErrorMapper.toHttpStatus(any()) } returns status

@@ -4,6 +4,7 @@ import jakarta.inject.Singleton
 import java.time.Duration
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.toKotlinDuration
@@ -31,6 +32,13 @@ class ConditionMonitor {
 
     private val states = ConcurrentHashMap<Condition, AtomicReference<State>>()
 
+    /**
+     * Every failure a condition was reported with and that something still holds, by identity: a [Throwable]
+     * does not override `equals`. A failure nothing holds any more cannot reach [absorb], so it is let go.
+     */
+    private val reported: MutableSet<Throwable> = Collections.synchronizedSet(
+        Collections.newSetFromMap(WeakHashMap())
+    )
 
     /**
      * Report that [condition] failed, with the [failure] that says how, if there is one.
@@ -53,6 +61,7 @@ class ConditionMonitor {
         now: Instant = Instant.now(),
         lost: Map<String, Long> = emptyMap()
     ) {
+        failure?.let(reported::add)
         val state = states.computeIfAbsent(condition) { AtomicReference(Operational) }
         while (true) {
             val current = state.get()
@@ -90,12 +99,16 @@ class ConditionMonitor {
     }
 
     /**
-     * Report [failure] to the condition it says is failing, if it says one is, and answer whether it did.
+     * Report [failure] to the condition it says is failing, if it says one is, and answer whether it did or
+     * whether a condition was already reported with it.
      *
-     * A caller about to write [failure] at WARN writes nothing when this answers true. A condition already
-     * degraded is not reported to again.
+     * A caller about to write [failure] to the log writes nothing when this answers true. A failure a condition
+     * was reported with, or one it caused, answers true and is not counted again: a remote call's failure
+     * reaches whoever surfaces it after [RemoteCallMonitor] has reported it. A condition already degraded is
+     * not reported to again.
      */
     fun absorb(failure: Throwable, now: Instant = Instant.now()): Boolean {
+        if (generateSequence(failure) { it.cause }.any(reported::contains)) return true
         val condition = ABSORBING_CONDITIONS.firstOrNull { it.isFailedBy(failure) } ?: return false
         if (!isDegraded(condition)) {
             reportFailure(condition, failure, now)

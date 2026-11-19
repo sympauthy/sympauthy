@@ -1796,6 +1796,31 @@ The survey behind this found no authorization server that deduplicates a repeate
 Keycloak's definition of ERROR, "a significant error or problem leading to the inability to process
 requests", is the nearest to the meaning this one gives it.
 
+### Is a failure no code names a WARN, or an ERROR written every time?
+
+**Decision:** An ERROR, written every time it is met, saying it is most likely a bug in SympAuthy and
+asking for an issue. A `5xx` the server gave a code to stays a WARN, and a failure a condition was
+reported with is absorbed by it either way.
+
+**Options considered:**
+
+- **A WARN every time** — what every `5xx` was, and what a coded one still is.
+- **An ERROR every time, asking for an issue.**
+- **An ERROR once per failure, then counted** — a condition of its own for each bug.
+
+**Rationale:**
+
+A failure no code names is one nothing in the server anticipated, so it is most likely a bug rather
+than something an operator can fix by acting on the deployment. A WARN reads as a failure to watch,
+and the line that should reach the project instead stays in a deployment's log; an ERROR asking for
+an issue says who has to act. Counting it as a condition would need to tell one bug from another,
+and nothing identifies a bug short of reading its stack.
+
+**What it costs.** The ERROR takes the synchronous path once per occurrence, so a caller who finds a
+bug they can provoke at will can make the server wait on stdout per request. That departs from [the
+logging standard](../standards/logging-standard.md#levels), and is accepted: the cost lasts until
+the bug is fixed, and the line is what gets it fixed.
+
 ### Is an ERROR written through the log queue?
 
 **Decision:** No. Every level below ERROR goes through the bounded queue in front of the console;
@@ -1813,7 +1838,9 @@ The queue is full exactly when the server is degraded, which is when an ERROR is
 the queue, the one line saying the server is in trouble is the one most likely to be dropped, and
 one that is queued is lost with the process if a crash follows it. Blocking for it instead makes the
 caller wait on the queue and on stdout both. Written directly, it waits on stdout alone, and only a
-condition changing state takes that path — which is what makes a synchronous write affordable.
+condition changing state takes that path — which is what makes a synchronous write affordable. A bug
+is the one other line that takes it, at a cost [its own
+entry](#is-a-failure-no-code-names-a-warn-or-an-error-written-every-time) accepts.
 
 **What it costs.** An ERROR may appear before a line queued ahead of it, and a stdout that stops
 being read blocks the caller writing one. [Logging](logging.md) names both.

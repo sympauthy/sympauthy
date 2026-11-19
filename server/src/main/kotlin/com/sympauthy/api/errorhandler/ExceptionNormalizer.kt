@@ -5,10 +5,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.api.exception.toHttpException
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
-import com.sympauthy.exception.LocalizedException
 import com.sympauthy.security.accessTokenSchemeOrNull
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException
@@ -18,6 +15,7 @@ import io.micronaut.http.HttpStatus.*
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.exceptions.BufferLengthExceededException
 import io.micronaut.http.exceptions.ContentLengthExceededException
+import io.micronaut.http.exceptions.HttpStatusException
 import io.micronaut.http.server.exceptions.NotAcceptableException
 import io.micronaut.http.server.exceptions.NotAllowedException
 import io.micronaut.http.server.exceptions.NotFoundException
@@ -30,9 +28,10 @@ import io.micronaut.web.router.exceptions.UnsatisfiedRouteException
 import jakarta.inject.Singleton
 
 /**
- * Normalizes every exception but an `OAuth2Exception` — those thrown by Micronaut Security and the other
- * frameworks included — into a [LocalizedHttpException] carrying the status to answer with. An exception it
- * does not recognise becomes a `500`.
+ * Normalizes every exception — those thrown by Micronaut Security and the other frameworks included — into a
+ * [LocalizedHttpException] carrying the status to answer with, but an `OAuth2Exception` and a
+ * `LocalizedException`, which their own handlers answer. An exception it does not recognise becomes a `500`, as
+ * does one wrapping a `LocalizedException`.
  */
 @Singleton
 class ExceptionNormalizer {
@@ -62,9 +61,7 @@ class ExceptionNormalizer {
             is ContentLengthExceededException, is BufferLengthExceededException -> recoverableHttpExceptionOf(
                 REQUEST_ENTITY_TOO_LARGE, "body.too_large", "description.body.too_large"
             )
-            is LocalizedHttpException -> throwable
-            is BusinessException -> throwable.toHttpException(throwable.recommendedStatus ?: INTERNAL_SERVER_ERROR)
-            is LocalizedException -> throwable.toHttpException(INTERNAL_SERVER_ERROR)
+            is HttpStatusException -> toStatusException(throwable)
             else -> internalServerError(throwable)
         }
     }
@@ -108,6 +105,21 @@ class ExceptionNormalizer {
             scheme = scheme,
             challenges = listOf(InsufficientScope(scopes = emptyList()))
         )
+    }
+
+    /**
+     * The failure a framework answered with a status of its choosing, answered with that status: under the code
+     * this normalizer gives a refusal of that status where it gives one, and `bad_request` where it gives none.
+     *
+     * A `5xx` is the server failing whatever the framework called it, and is answered as one it does not
+     * recognise.
+     */
+    private fun toStatusException(exception: HttpStatusException): LocalizedHttpException = when {
+        exception.status.code >= INTERNAL_SERVER_ERROR.code -> internalServerError(exception)
+        exception.status == NOT_FOUND -> httpExceptionOf(NOT_FOUND, "not_found", "description.not_found")
+        exception.status == UNAUTHORIZED -> unauthorized()
+        exception.status == FORBIDDEN -> httpExceptionOf(FORBIDDEN, "forbidden", "description.forbidden")
+        else -> httpExceptionOf(exception.status, "bad_request", "description.bad_request")
     }
 
     private fun unauthorized() = recoverableHttpExceptionOf(

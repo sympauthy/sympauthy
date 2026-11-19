@@ -19,6 +19,7 @@ import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.Body
 import io.micronaut.http.exceptions.BufferLengthExceededException
 import io.micronaut.http.exceptions.ContentLengthExceededException
+import io.micronaut.http.exceptions.HttpStatusException
 import io.micronaut.http.server.exceptions.NotAcceptableException
 import io.micronaut.http.server.exceptions.NotAllowedException
 import io.micronaut.http.server.exceptions.NotFoundException
@@ -254,6 +255,27 @@ class ExceptionNormalizerTest {
     @Test
     fun `normalize - Answer a failure of the routes themselves with internal server error`() {
         val exception = normalizer.normalize(DuplicateRouteException("$CLIENT_SURFACE/users", emptyList()))
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.status)
+        assertEquals("internal_server_error", exception.detailsId)
+    }
+
+    @Test
+    fun `normalize - Answer a status a framework chose with that status`() {
+        val refused = normalizer.normalize(HttpStatusException(HttpStatus.CONFLICT, "Conflict"))
+        val notFound = normalizer.normalize(HttpStatusException(HttpStatus.NOT_FOUND, "Not found"))
+
+        assertEquals(HttpStatus.CONFLICT, refused.status)
+        assertEquals("bad_request", refused.detailsId)
+        assertEquals(HttpStatus.NOT_FOUND, notFound.status)
+        assertEquals("not_found", notFound.detailsId)
+    }
+
+    @Test
+    fun `normalize - Answer a 5xx a framework chose with internal server error`() {
+        val failure = HttpStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Unavailable")
+
+        val exception = normalizer.normalize(failure)
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.status)
         assertEquals("internal_server_error", exception.detailsId)
