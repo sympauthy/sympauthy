@@ -3,7 +3,8 @@
 What the server says about itself while it runs: the lines it writes to the console, and what it
 publishes on `/health` about the dependencies it cannot work without. Both rest on one rule, that a
 log line costs the code writing it almost nothing and never makes it wait, and on one meaning, that
-an ERROR says the server is not fully operational and says it once.
+an ERROR says the server needs an operator: it is not fully operational, said once, or it met a bug,
+said every time.
 
 The rules a call site is held to — which level a line takes, how its message is built, what it may
 never carry — are [the logging standard](../standards/logging-standard.md). The configuration's own
@@ -12,10 +13,18 @@ standard](../standards/config-layer-code-standard.md)'s.
 
 ## What an operator reads
 
-**An ERROR line means the server is not fully operational.** A dependency stopped answering, a queue
-is dropping what it was handed, or the configuration leaves the server unready. Nothing else is an
-ERROR: a request that failed is not, and neither is a person typing a wrong password a thousand
+**An ERROR line means the server is not fully operational, or met a failure nothing in it
+anticipated.** A dependency stopped answering, a queue is dropping what it was handed, the
+configuration leaves the server unready, or a request failed in a way no code names. Nothing else is
+an ERROR: a request refused is not, and neither is a person typing a wrong password a thousand
 times.
+
+**A failure no code names is a bug, and its ERROR asks for an issue.** A `5xx` the server chose a
+code for was anticipated, and is a WARN. One it chose none for is most likely a bug in SympAuthy,
+and the line says so and links the tracker. It is written every time it is met, on the request's
+thread, even where a caller can provoke it at will, which departs from [the logging
+standard](../standards/logging-standard.md#levels). A bug that repeats is accepted as a line that
+repeats: the line is what gets the bug reported, and fixed.
 
 **An outage costs two lines, however long it lasts.** The ERROR is written when a dependency first
 fails, and one line at INFO when it has recovered, saying for how long it was degraded and how many
@@ -147,7 +156,8 @@ queued.
 one line that must not be lost, and it is written exactly when it would be: when the server is
 degraded, the queue may be full, and a crash may follow — see [the design
 FAQ](design-faq.md#is-an-error-written-through-the-log-queue). It is the one path that can wait on
-stdout, which is why only a condition changing state takes it.
+stdout, which is why it is taken only by a condition changing state, and by a bug the server would
+rather wait on than leave unreported.
 
 **An ERROR may overtake a line queued before it.** Every line carries its timestamp, which is what
 orders them; holding an ERROR until the queue drained would undo the reason it does not queue.
@@ -178,9 +188,11 @@ exception. A call the managers make outside the process reaches its condition th
 `RemoteCallMonitor`, which times it as [telemetry](telemetry.md#what-an-authorization-server-counts)
 says; `ConditionMonitor` holds the conditions alone.
 
-**A failure caught on its way to a WARN is handed to the monitor first.** It recognises the database
-failing in whatever surfaced it — a `500`, a security context that could not be recorded — reports
-it to the database's condition unless that is already degraded, and the WARN is not written. A
+**A failure caught on its way to a WARN, or to the ERROR of a bug, is handed to the monitor
+first.** It recognises the database failing in whatever surfaced it — a `500`, a security context
+that could not be recorded — reports it to the database's condition unless that is already
+degraded, and the line is not written. Every `5xx` a request is answered with is caught in
+`LocalizedExceptionHandler`, which every failure but an `OAuth2Exception` reaches. A
 condition already degraded is not reported to again, since whatever degraded it may have counted
 that very failure on its way up. That is also how a connection lost mid-query is reported, since
 obtaining the connection had succeeded.

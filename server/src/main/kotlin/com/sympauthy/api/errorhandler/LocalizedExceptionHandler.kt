@@ -67,11 +67,8 @@ class LocalizedExceptionHandler(
      * per failure the condition exists to remove.
      *
      * A failure no code names — one that reached the edge as anything but a [LocalizedException] — is
-     * written at ERROR rather than WARN, asking for an issue: nothing in the server anticipated it, so it
-     * is most likely a bug. This departs from `docs/standards/logging-standard.md`, which keeps ERROR for
-     * a condition changing state. The line is written for every occurrence, synchronously on the
-     * request's thread, even where a caller can provoke it at will. A bug repeated is accepted as a line
-     * repeated, because the line is what gets the bug reported, and fixed.
+     * written at ERROR rather than WARN, asking for an issue, the departure from the logging standard
+     * `docs/design/logging.md` argues.
      */
     fun handle(request: HttpRequest<*>, exception: LocalizedException, failure: Throwable): HttpResponse<*> {
         val answered = if (exception is AccessTokenChallengeException && !acceptsAccessToken(request)) {
