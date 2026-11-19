@@ -19,7 +19,7 @@ expected to prove, and how little of that a comment has left to say. The compone
 | a flow purpose handler | JUnit and MockK doubles | `server/src/test` |
 | a repository, a migration | a real database per dialect, started by the test | `server/src/test` |
 | a rule holding two files to each other | JUnit, reading both | `server/src/test` |
-| a controller | JUnit and MockK doubles | `server/src/test` |
+| a controller, a filter | JUnit and MockK doubles | `server/src/test` |
 | a whole flow, a protocol rule | the server in a container | `integration-tests` |
 
 ## Unit tests
@@ -92,6 +92,11 @@ port and arrives programmatically; a context started without either has no repos
 clock inside whichever test started the context, so `UnscheduledJobsConfigurer` leaves the `cron`
 package out of every context a test JVM builds and `application-test.yml` turns off the framework's
 own. A sweep is proved by calling the manager that does the work.
+
+**No test in `server/src/test` starts the server.** A context closed while the suite runs leaves
+background work behind that throws into whichever coroutine test the runner schedules next, so a
+full run fails an unrelated `runTest`. A test whose subject is the bean graph keeps its context and
+sets `startApplication = false`.
 
 **A key a test queries by names the test class**, so no other class's rows fall inside the query
 under test.

@@ -39,7 +39,7 @@ import java.time.Duration
  *
  * It also holds the two sets apart: an edge publishing no location is absent from the geo map.
  */
-@MicronautTest(environments = ["default", "test", "h2"])
+@MicronautTest(environments = ["default", "test", "h2"], startApplication = false)
 @ExtendWith(MockKExtension::class)
 class SecurityContextWiringTest {
 

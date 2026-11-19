@@ -20,7 +20,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * [BuiltTestImplementations] is what shows the reading builds none of them. The shipped strategy
  * would not: it injects only repositories, so building it raises nothing a test would notice.
  */
-@MicronautTest(environments = ["default", "test", "h2"])
+@MicronautTest(environments = ["default", "test", "h2"], startApplication = false)
 class PublishedImplementationReaderTest {
 
     @Inject

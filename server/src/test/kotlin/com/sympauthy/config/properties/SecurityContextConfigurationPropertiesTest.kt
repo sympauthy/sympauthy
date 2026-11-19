@@ -17,12 +17,11 @@ import org.junit.jupiter.api.Test
  * bind leaves the deployment with no edge named and no error saying so. An indexed key is the form
  * a YAML list is flattened into, so it is the form worth binding.
  *
- * One context carries every value, rather than one per case. A context built and closed while the
- * suite is running leaves background work behind that throws into whichever coroutine test the
- * runner schedules next, so the properties are set on the class and the framework closes the
- * context once, at the end.
+ * One context carries every value, rather than one per case, so the properties are set on the class
+ * and the framework closes the context once, at the end, for the reason
+ * `docs/standards/testing-standard.md` gives for starting no server.
  */
-@MicronautTest(environments = ["test", "h2"])
+@MicronautTest(environments = ["test", "h2"], startApplication = false)
 @Property(name = "advanced.security-context.ip.provider", value = "nginx")
 @Property(name = "advanced.security-context.geo.providers[0]", value = "gcp")
 @Property(name = "advanced.security-context.geo.providers[1]", value = "cloudflare")
