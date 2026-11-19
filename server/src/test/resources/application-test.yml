@@ -1,7 +1,4 @@
 micronaut:
-  server:
-    port: 18080
-
   health:
     monitor:
       # Off because no context a test starts schedules anything. See
