@@ -2,6 +2,7 @@ package com.sympauthy.server
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Properties
@@ -61,7 +62,12 @@ class ErrorMessageBundleTest {
 
 private const val SOURCES = "src/main/kotlin"
 
-private const val BUNDLE = "src/main/resources/error_messages.properties"
+private const val RESOURCES = "src/main/resources"
+
+private const val BUNDLE = "$RESOURCES/error_messages.properties"
+
+/** The name of a bundle, as `docs/standards/i18n-standard.md` matches one. */
+private val BUNDLE_NAME = FileSystems.getDefault().getPathMatcher("glob:*_messages*.properties")
 
 /**
  * Where a code sits in the argument list of each factory taking one. The description, where one is
@@ -109,13 +115,15 @@ private val bundle: Properties by lazy {
 
 private val bundleKeys: Set<String> by lazy { bundle.stringPropertyNames() }
 
-/** Every bundle under the server's resources, which the apostrophe rule holds over. */
-private val BUNDLES = listOf(
-    BUNDLE,
-    "src/main/resources/admin_messages.properties",
-    "src/main/resources/display_messages.properties",
-    "src/main/resources/mail_messages.properties"
-)
+/**
+ * Every bundle under the server's resources, which the apostrophe rule holds over. An empty listing
+ * fails rather than letting a moved directory pass the rule by checking nothing.
+ */
+private val bundles: List<Path> by lazy {
+    Files.list(moduleRoot.resolve(RESOURCES)).use { paths ->
+        paths.filter { BUNDLE_NAME.matches(it.fileName) }.sorted().toList()
+    }.also { check(it.isNotEmpty()) { "No bundle under ${moduleRoot.resolve(RESOURCES)}." } }
+}
 
 /**
  * A run of apostrophes the message source does not read as a pair: it closes every second one, so an odd
@@ -124,13 +132,13 @@ private val BUNDLES = listOf(
 private val APOSTROPHE_RUN = Regex("'+")
 
 private val keysOfMessagesWithALoneApostrophe: List<String> by lazy {
-    BUNDLES.flatMap { bundlePath ->
-        val bundle = Properties().apply { moduleRoot.resolve(bundlePath).bufferedReader().use(::load) }
+    bundles.flatMap { bundlePath ->
+        val bundle = Properties().apply { bundlePath.bufferedReader().use(::load) }
         bundle.stringPropertyNames()
             .filter { key ->
                 APOSTROPHE_RUN.findAll(bundle.getProperty(key)).any { it.value.length % 2 == 1 }
             }
-            .map { "$bundlePath: $it" }
+            .map { "${moduleRoot.relativize(bundlePath)}: $it" }
     }.sorted()
 }
 

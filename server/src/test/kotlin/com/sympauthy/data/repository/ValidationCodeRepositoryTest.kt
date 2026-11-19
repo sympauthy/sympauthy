@@ -72,7 +72,7 @@ class ValidationCodeRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `deleteByIds - Removes every code named`(database: Database) = withFixture(database) {
+    fun `deleteByIds - Removes every code named and counts them`(database: Database) = withFixture(database) {
         val codes = repository<ValidationCodeRepository>()
         val userId = newUser()
         val session = newSession()
@@ -80,8 +80,9 @@ class ValidationCodeRepositoryTest {
         val alsoDeleted = saveCode(userId, session.id!!, code = "100002")
         val kept = saveCode(userId, session.id!!, code = "100003")
 
-        codes.deleteByIds(listOf(deleted, alsoDeleted))
+        val count = codes.deleteByIds(listOf(deleted, alsoDeleted))
 
+        assertEquals(2, count)
         assertNull(codes.findById(deleted))
         assertNull(codes.findById(alsoDeleted))
         assertNotNull(codes.findById(kept))
