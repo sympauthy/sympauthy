@@ -163,6 +163,17 @@ class ConditionMonitorTest {
     }
 
     @Test
+    fun `absorb - Answers true for a failure a condition was reported with, or one it caused, writing nothing`() {
+        val failure = IOException("Connection refused")
+        conditionMonitor.reportFailure(Condition.Mail, failure, start)
+
+        assertTrue(conditionMonitor.absorb(failure, start.plusSeconds(1)))
+        assertTrue(conditionMonitor.absorb(IllegalStateException("send failed", failure), start.plusSeconds(1)))
+
+        assertEquals(1, linesAt(Level.ERROR).size)
+    }
+
+    @Test
     fun `absorb - Answers false for a query that failed on a working connection`() {
         assertFalse(conditionMonitor.absorb(R2dbcBadGrammarException("syntax error"), start))
 

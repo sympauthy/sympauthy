@@ -55,8 +55,8 @@ class LocalizedExceptionHandler(
      * is answered without it where [request] reached no route accepting an access token: a challenge would
      * send the caller after a token that route does not take.
      *
-     * The [failure] is the [exception] itself where the framework handed this handler one, and the
-     * throwable the [ExceptionNormalizer] normalized into it where [ThrowableExceptionHandler] did.
+     * The [failure] is what the server failed with, and the [exception] the form it is answered in: the two
+     * are one, unless the [exception] was normalized from the [failure].
      *
      * Every `5xx` is logged and not only the uncoded one: a failure telling the caller the server broke
      * says nothing else on the wire, so the row, the column and the cause reach nobody unless they reach

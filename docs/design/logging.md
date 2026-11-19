@@ -2,9 +2,9 @@
 
 What the server says about itself while it runs: the lines it writes to the console, and what it
 publishes on `/health` about the dependencies it cannot work without. Both rest on one rule, that a
-log line costs the code writing it almost nothing and never makes it wait, and on one meaning, that
-an ERROR says the server needs an operator: it is not fully operational, said once, or it met a bug,
-said every time.
+log line below ERROR costs the code writing it almost nothing and never makes it wait, and on one
+meaning, that an ERROR says the server needs an operator: it is not fully operational, said once, or
+it met a bug, said every time.
 
 The rules a call site is held to — which level a line takes, how its message is built, what it may
 never carry — are [the logging standard](../standards/logging-standard.md). The configuration's own
@@ -24,7 +24,8 @@ code for was anticipated, and is a WARN. One it chose none for is most likely a 
 and the line says so and links the tracker. It is written every time it is met, on the request's
 thread, even where a caller can provoke it at will, which departs from [the logging
 standard](../standards/logging-standard.md#levels). A bug that repeats is accepted as a line that
-repeats: the line is what gets the bug reported, and fixed.
+repeats: the line is what gets the bug reported, and fixed — see [the design
+FAQ](design-faq.md#is-a-failure-no-code-names-a-warn-or-an-error-written-every-time).
 
 **An outage costs two lines, however long it lasts.** The ERROR is written when a dependency first
 fails, and one line at INFO when it has recovered, saying for how long it was degraded and how many
@@ -39,7 +40,7 @@ is where somebody arriving later reads the state.
 
 | Level | What it carries |
 | --- | --- |
-| WARN | one operation failed in a way the server did not expect, and an operator would act on it |
+| WARN | one operation failed for a reason the server names, and an operator would act on it |
 | INFO | the server's lifecycle: startup, a recovery, a backlog replayed |
 | DEBUG | the decisions an operator turns on to investigate |
 
@@ -191,7 +192,9 @@ says; `ConditionMonitor` holds the conditions alone.
 **A failure caught on its way to a WARN, or to the ERROR of a bug, is handed to the monitor
 first.** It recognises the database failing in whatever surfaced it — a `500`, a security context
 that could not be recorded — reports it to the database's condition unless that is already
-degraded, and the line is not written. Every `5xx` a request is answered with is caught in
+degraded, and the line is not written. Nor is it for a failure a condition was already reported
+with, or one that failure caused: a provider's or a webhook's reaches the request after
+`RemoteCallMonitor` reported it. Every `5xx` a request is answered with is caught in
 `LocalizedExceptionHandler`, which every failure but an `OAuth2Exception` reaches. A
 condition already degraded is not reported to again, since whatever degraded it may have counted
 that very failure on its way up. That is also how a connection lost mid-query is reported, since
