@@ -152,10 +152,33 @@ class ClaimAclValidatorTest {
     }
 
     @Test
-    fun `validateAcl - Refuse an authentication age that is not positive`() {
+    fun `validateAcl - Refuse an authentication age that is not positive as a lifetime, and build no door`() {
+        val ctx = ConfigParsingContext()
+
+        val result = validate(parsedAcl(writableByPerson = """AUTHENTICATION_IS_YOUNGER_THAN("0s")"""), ctx)
+
+        assertNull(result.writableByPerson)
         assertEquals(
-            listOf("claims.test.acl.writable-by-person" to "config.claim.acl.authentication_age.not_positive"),
-            errorsOf(parsedAcl(writableByPerson = """AUTHENTICATION_IS_YOUNGER_THAN("0s")"""))
+            listOf("claims.test.acl.writable-by-person" to "config.lifetime.not_positive"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validateAcl - Refuse every authentication age that is not positive, on whichever door names it`() {
+        val zeroAge = """AUTHENTICATION_IS_YOUNGER_THAN("0s")"""
+        assertEquals(
+            listOf(
+                "claims.test.acl.writable-by-person" to "config.lifetime.not_positive",
+                "claims.test.acl.writable-by-person" to "config.lifetime.not_positive",
+                "claims.test.acl.readable-by-client" to "config.lifetime.not_positive"
+            ),
+            errorsOf(
+                parsedAcl(
+                    writableByPerson = """$zeroAge || AUTHENTICATION_IS_YOUNGER_THAN("-1m")""",
+                    readableByClient = zeroAge
+                )
+            )
         )
     }
 
