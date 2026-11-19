@@ -29,7 +29,7 @@ fun ClientTemplatesConfig.orThrow(): EnabledClientTemplatesConfig {
 }
 
 suspend fun Flow<ClientTemplatesConfig>.orThrow(): EnabledClientTemplatesConfig {
-    val config = firstOrNull() ?: throw localizedExceptionOf("config.invalid")
+    val config = firstOrNull() ?: throw localizedExceptionOf(INVALID_CONFIG_DETAILS_ID)
     return config.orThrow()
 }
 

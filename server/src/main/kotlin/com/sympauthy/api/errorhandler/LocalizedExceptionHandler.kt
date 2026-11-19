@@ -12,6 +12,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
+import com.sympauthy.config.model.isInvalidConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.monitoring.ConditionMonitor
@@ -64,7 +65,8 @@ class LocalizedExceptionHandler(
      *
      * A `5xx` caused by a dependency being out of reach is the exception, reported to its condition
      * instead: the condition writes the ERROR once, and a WARN per request on top of it would be the line
-     * per failure the condition exists to remove.
+     * per failure the condition exists to remove. So is a configuration found invalid, which the verdict on
+     * it already wrote once at startup.
      *
      * A failure no code names — one that reached the edge as anything but a [LocalizedException] — is
      * written at ERROR rather than WARN, asking for an issue, the departure from the logging standard
@@ -78,15 +80,8 @@ class LocalizedExceptionHandler(
         }
         val locale = request.locale.orDefault()
         val status = localizedErrorMapper.toHttpStatus(answered)
-        if (status.code >= 500 && !conditionMonitor.absorb(failure)) {
-            if (failure is LocalizedException) {
-                logger.warn(failure) { "Server failure ${answered.detailsId} ${answered.values}" }
-            } else {
-                logger.error(failure) {
-                    "Unhandled failure ${answered.detailsId}: this is most likely a bug in SympAuthy. " +
-                        "Please open an issue at $ISSUES_URL."
-                }
-            }
+        if (status.code >= 500) {
+            record(failure, answered)
         }
         val body = if (answersWithOAuth2Error(request)) {
             oAuth2ErrorResourceMapper.toResource(answered.toOAuth2Exception(oAuth2ErrorCodeOf(status)), locale)
@@ -96,6 +91,23 @@ class LocalizedExceptionHandler(
         val response = HttpResponseFactory.INSTANCE.status(status, body)
         (answered as? LocalizedHttpException)?.headers?.forEach { (name, value) -> response.header(name, value) }
         return response
+    }
+
+    /**
+     * Write the [failure] answered as [answered] to the log, unless a line already said it: a condition
+     * [ConditionMonitor.absorb] reports it to, or the configuration's verdict for a configuration found invalid.
+     */
+    private fun record(failure: Throwable, answered: LocalizedException) {
+        if (failure is LocalizedException && failure.isInvalidConfig) return
+        if (conditionMonitor.absorb(failure)) return
+        if (failure is LocalizedException) {
+            logger.warn(failure) { "Server failure ${answered.detailsId} ${answered.values}" }
+        } else {
+            logger.error(failure) {
+                "Unhandled failure ${answered.detailsId}: this is most likely a bug in SympAuthy. " +
+                    "Please open an issue at $ISSUES_URL."
+            }
+        }
     }
 
     /**

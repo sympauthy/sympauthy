@@ -25,6 +25,8 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientUserAuthentication
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.config.model.Config
+import com.sympauthy.config.model.invalidConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.monitoring.Condition
@@ -133,6 +135,15 @@ class LocalizedExceptionHandlerTest {
 
         assertEquals(emptyList<ILoggingEvent>(), written.list)
         assertTrue(conditionMonitor.listObserved().getValue(Condition.Database))
+    }
+
+    @Test
+    fun `handle - Log nothing for a configuration found invalid, which the startup verdict announced`() {
+        stubResource(HttpStatus.INTERNAL_SERVER_ERROR)
+
+        handler.handle(request(), Config().invalidConfig)
+
+        assertEquals(emptyList<ILoggingEvent>(), written.list)
     }
 
     @Test

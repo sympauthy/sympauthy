@@ -17,4 +17,13 @@ open class Config(
 )
 
 val Config.invalidConfig: LocalizedException
-    get() = localizedExceptionOf("config.invalid")
+    get() = localizedExceptionOf(INVALID_CONFIG_DETAILS_ID)
+
+/**
+ * Whether this failure says the configuration is invalid, which the verdict on it announced once at startup
+ * and every request reaching that configuration meets again.
+ */
+val LocalizedException.isInvalidConfig: Boolean
+    get() = detailsId == INVALID_CONFIG_DETAILS_ID
+
+internal const val INVALID_CONFIG_DETAILS_ID = "config.invalid"
