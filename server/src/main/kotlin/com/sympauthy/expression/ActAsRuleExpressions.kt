@@ -21,13 +21,7 @@ object ActAsRuleExpressions {
     fun configuration(
         client: Client,
         targetUserClaims: List<CollectedClaim>
-    ): ExpressionConfiguration {
-        return defaultExpressionConfiguration().withAdditionalFunctions(
-            entry(ClientFunction.FUNCTION_NAME, ClientFunction(client)),
-            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction(targetUserClaims)),
-            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction(targetUserClaims))
-        )
-    }
+    ): ExpressionConfiguration = functions(client, targetUserClaims)
 
     /**
      * Refuse [expressionString] unless it is usable as an act-as rule, by evaluating it against
@@ -35,11 +29,17 @@ object ActAsRuleExpressions {
      * [InvalidRuleExpressionException] naming which of the two ways it failed.
      */
     fun validateExpression(expressionString: String) {
-        val configuration = defaultExpressionConfiguration().withAdditionalFunctions(
-            entry(ClientFunction.FUNCTION_NAME, ClientFunction()),
-            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction()),
-            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction())
-        )
-        evaluateRuleExpression(expressionString, configuration)
+        evaluateRuleExpression(expressionString, functions(client = null, targetUserClaims = emptyList()))
     }
+
+    /**
+     * The act-as function set, bound to the acting [client] and the [targetUserClaims] of the user it acts
+     * for, or to nothing where the client is null.
+     */
+    private fun functions(client: Client?, targetUserClaims: List<CollectedClaim>): ExpressionConfiguration =
+        defaultExpressionConfiguration().withAdditionalFunctions(
+            entry(ClientFunction.FUNCTION_NAME, ClientFunction(client)),
+            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction(targetUserClaims)),
+            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction(targetUserClaims))
+        )
 }

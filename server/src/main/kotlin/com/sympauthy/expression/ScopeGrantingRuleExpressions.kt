@@ -15,21 +15,14 @@ object ScopeGrantingRuleExpressions {
      * Configuration for a rule granting scopes to an end-user, whose [collectedClaims] the expression
      * may read.
      */
-    fun userConfiguration(collectedClaims: List<CollectedClaim>): ExpressionConfiguration {
-        return defaultExpressionConfiguration().withAdditionalFunctions(
-            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction(collectedClaims)),
-            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction(collectedClaims))
-        )
-    }
+    fun userConfiguration(collectedClaims: List<CollectedClaim>): ExpressionConfiguration =
+        userFunctions(collectedClaims)
 
     /**
      * Configuration for a rule granting scopes to a [client].
      */
-    fun clientConfiguration(client: Client): ExpressionConfiguration {
-        return defaultExpressionConfiguration().withAdditionalFunctions(
-            entry(ClientFunction.FUNCTION_NAME, ClientFunction(client))
-        )
-    }
+    fun clientConfiguration(client: Client): ExpressionConfiguration =
+        clientFunctions(client)
 
     /**
      * Refuse [expressionString] unless it is usable as a rule about an end-user, by evaluating it
@@ -37,11 +30,7 @@ object ScopeGrantingRuleExpressions {
      * [InvalidRuleExpressionException] naming which of the two ways it failed.
      */
     fun validateUserExpression(expressionString: String) {
-        val configuration = defaultExpressionConfiguration().withAdditionalFunctions(
-            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction()),
-            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction())
-        )
-        evaluateRuleExpression(expressionString, configuration)
+        evaluateRuleExpression(expressionString, userFunctions(collectedClaims = emptyList()))
     }
 
     /**
@@ -49,9 +38,24 @@ object ScopeGrantingRuleExpressions {
      * the same failures as a rule about an end-user.
      */
     fun validateClientExpression(expressionString: String) {
-        val configuration = defaultExpressionConfiguration().withAdditionalFunctions(
-            entry(ClientFunction.FUNCTION_NAME, ClientFunction())
-        )
-        evaluateRuleExpression(expressionString, configuration)
+        evaluateRuleExpression(expressionString, clientFunctions(client = null))
     }
+
+    /**
+     * The function set of a rule about an end-user, bound to the [collectedClaims] of one, or to nothing
+     * where there are none.
+     */
+    private fun userFunctions(collectedClaims: List<CollectedClaim>): ExpressionConfiguration =
+        defaultExpressionConfiguration().withAdditionalFunctions(
+            entry(ClaimFunction.FUNCTION_NAME, ClaimFunction(collectedClaims)),
+            entry(ClaimIsVerifiedFunction.FUNCTION_NAME, ClaimIsVerifiedFunction(collectedClaims))
+        )
+
+    /**
+     * The function set of a rule about a client, bound to the [client], or to nothing where it is null.
+     */
+    private fun clientFunctions(client: Client?): ExpressionConfiguration =
+        defaultExpressionConfiguration().withAdditionalFunctions(
+            entry(ClientFunction.FUNCTION_NAME, ClientFunction(client))
+        )
 }
