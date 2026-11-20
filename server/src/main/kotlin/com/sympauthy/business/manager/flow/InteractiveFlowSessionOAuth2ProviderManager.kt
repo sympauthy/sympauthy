@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.ClaimManager
 import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
@@ -28,7 +29,9 @@ import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.client.oauth2.INVALID_GRANT
 import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.client.oauth2.tokenEndpointErrorOrNull
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.monitoring.Condition
@@ -41,6 +44,7 @@ import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_U
 import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import java.net.URI
 import java.util.UUID
 
@@ -473,6 +477,16 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         val lockKeys: List<LockKey> = valuesByClaimId.values.map(LockKey::IdentifierValue)
     }
 
+    /**
+     * Exchange the [authorizeCode] the [provider] sent back to [redirectUri] at its token endpoint, which [auth]
+     * names, for the tokens it issues.
+     *
+     * Throws `provider.token.code_refused` where the provider answers `invalid_grant`, the error it refuses an
+     * authorization code with, `provider.token.request_refused` where it answers any other error of RFC 6749
+     * §5.2, `provider.token.failed` where it cannot be reached, does not answer in time or answers with something
+     * that is neither tokens nor such an error, and `flow.web_oauth2_provider.unsupported_token_type` where the
+     * tokens are not bearer tokens.
+     */
     suspend fun fetchTokens(
         provider: Provider,
         auth: ProviderAuthConfig,
@@ -494,8 +508,29 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             authorizeCode = authorizeCode,
             redirectUri = redirectUri
         )
-        val response = remoteCallMonitor.observe(Condition.Provider(provider.id), "token", Throwable::remoteOutcome) {
-            tokenEndpointClient.fetchTokens(request)
+        val response = try {
+            remoteCallMonitor.observe(Condition.Provider(provider.id), "token", Throwable::remoteOutcome) {
+                tokenEndpointClient.fetchTokens(request)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            // Only a refused code is what the callback carried, and only a new authorization replaces it; any
+            // other error names this server's request, and the rest is the provider failing.
+            throw when (val error = e.tokenEndpointErrorOrNull()) {
+                null -> internalBusinessExceptionOf("provider.token.failed", e, "providerId" to provider.id)
+                INVALID_GRANT -> businessExceptionOf(
+                    "provider.token.code_refused",
+                    "providerId" to provider.id,
+                    throwable = e
+                )
+                else -> internalBusinessExceptionOf(
+                    "provider.token.request_refused",
+                    e,
+                    "providerId" to provider.id,
+                    "error" to error
+                )
+            }
         }
 
         // Verify token type is Bearer (RFC 6749 §7.1)

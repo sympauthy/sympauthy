@@ -11,6 +11,7 @@ import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
 import com.sympauthy.client.branding.BrandImageClient
 import com.sympauthy.client.remoteErrorType
 import com.sympauthy.client.remoteOutcome
+import com.sympauthy.client.remoteResponseOrNull
 import com.sympauthy.config.model.ConfiguredBrandImage
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.LocalBrandImage
@@ -26,7 +27,6 @@ import io.micronaut.context.annotation.Context
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.MediaType
-import io.micronaut.http.client.exceptions.HttpClientResponseException
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject
@@ -205,9 +205,8 @@ class BrandManager(
  * request, and one fetch at startup is all this image gets until a restart.
  */
 private fun Throwable.fetchOutcome(): Outcome {
-    val response = generateSequence(this) { it.cause }.filterIsInstance<HttpClientResponseException>().firstOrNull()
-    return when (response?.status) {
-        HttpStatus.REQUEST_TIMEOUT, HttpStatus.TOO_MANY_REQUESTS -> Outcome.Error(remoteErrorType())
+    return when (remoteResponseOrNull()?.code()) {
+        HttpStatus.REQUEST_TIMEOUT.code, HttpStatus.TOO_MANY_REQUESTS.code -> Outcome.Error(remoteErrorType())
         else -> remoteOutcome()
     }
 }
