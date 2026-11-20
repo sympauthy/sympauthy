@@ -26,6 +26,15 @@ fun Throwable.isRemoteFailure(): Boolean {
 }
 
 /**
+ * Whether this failure of a call to another server is that server refusing what was sent: it answered with a
+ * `4xx`. A success this server could not read is not.
+ */
+fun Throwable.isRemoteRefusal(): Boolean {
+    val response = generateSequence(this) { it.cause }.filterIsInstance<HttpClientResponseException>().firstOrNull()
+    return response?.status?.code in 400..499
+}
+
+/**
  * How a call to another server that ended in this failure is recorded: an [Outcome.Error] where
  * [isRemoteFailure] holds, typed by [remoteErrorType], and an [Outcome.Refused] otherwise — a `4xx` typed by its
  * status, anything thrown after the answer was read by its error code, or by its class where it carries none.

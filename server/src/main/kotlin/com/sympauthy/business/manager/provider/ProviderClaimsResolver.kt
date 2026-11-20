@@ -2,6 +2,7 @@ package com.sympauthy.business.manager.provider
 
 import com.jayway.jsonpath.JsonPath
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenClaimsExtractor
 import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenManager
 import com.sympauthy.business.model.provider.EnabledProvider
@@ -14,6 +15,7 @@ import com.sympauthy.monitoring.Condition
 import com.sympauthy.monitoring.RemoteCallMonitor
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
 
 /**
  * Resolves [RawProviderClaims] from a provider's token response.
@@ -38,6 +40,9 @@ class ProviderClaimsResolver(
      *
      * [expectedNonce] is matched against the ID token's `nonce` claim, so it is read on the first of those two
      * paths only — a provider that answered without an ID token has nothing to match it against.
+     *
+     * Throws `provider.user_info.failed` where the userinfo endpoint cannot be reached, does not answer in time
+     * or answers with an error status or with something that is not a JSON object.
      */
     suspend fun resolveClaims(
         provider: EnabledProvider,
@@ -80,13 +85,21 @@ class ProviderClaimsResolver(
         val userInfo = provider.userInfo
             ?: throw businessExceptionOf("provider.user_info.not_configured", "providerId" to provider.id)
 
-        val rawUserInfoMap = remoteCallMonitor.observe(
-            Condition.Provider(provider.id), "user_info", Throwable::remoteOutcome
-        ) {
-            userInfoEndpointClient.fetchUserInfo(
-                userInfoConfig = userInfo,
-                credentials = tokens
-            )
+        // Whatever the provider answers, the access token it just issued is all this call sends, so a refusal is
+        // the provider failing as much as an outage is.
+        val rawUserInfoMap = try {
+            remoteCallMonitor.observe(
+                Condition.Provider(provider.id), "user_info", Throwable::remoteOutcome
+            ) {
+                userInfoEndpointClient.fetchUserInfo(
+                    userInfoConfig = userInfo,
+                    credentials = tokens
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (e: Exception) {
+            throw internalBusinessExceptionOf("provider.user_info.failed", e, "providerId" to provider.id)
         }
 
         val document = JsonPath.parse(rawUserInfoMap)

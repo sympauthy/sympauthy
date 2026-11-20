@@ -42,6 +42,19 @@ class RemoteFailureTest {
     }
 
     @Test
+    fun `isRemoteRefusal - Is true for a 4xx, however deep the cause`() {
+        assertTrue(answered(HttpStatus.BAD_REQUEST).isRemoteRefusal())
+        assertTrue(IllegalStateException("wrapped", answered(HttpStatus.UNAUTHORIZED)).isRemoteRefusal())
+    }
+
+    @Test
+    fun `isRemoteRefusal - Is false for a 5xx, a success that could not be read and a server that did not answer`() {
+        assertFalse(answered(HttpStatus.SERVICE_UNAVAILABLE).isRemoteRefusal())
+        assertFalse(answered(HttpStatus.OK).isRemoteRefusal())
+        assertFalse(ReadTimeoutException.TIMEOUT_EXCEPTION.isRemoteRefusal())
+    }
+
+    @Test
     fun `remoteOutcome - Is an error typed by the status for a 5xx`() {
         assertEquals(Outcome.Error("503"), answered(HttpStatus.SERVICE_UNAVAILABLE).remoteOutcome())
     }
