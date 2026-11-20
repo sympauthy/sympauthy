@@ -1,6 +1,7 @@
 package com.sympauthy.api.controller.flow.auth
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.errorhandler.LocalizedExceptionHandler
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.business.exception.BusinessException
@@ -50,7 +51,8 @@ class InteractiveAuthFlowSessionControllerUtil(
     @Inject private val engine: InteractiveFlowEngine,
     @Inject private val stepUriMapper: InteractiveFlowStepUriMapper,
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
-    @Inject private val customSpanTracer: CustomSpanTracer
+    @Inject private val customSpanTracer: CustomSpanTracer,
+    @Inject private val exceptionHandler: LocalizedExceptionHandler
 ) {
 
     /**
@@ -212,18 +214,11 @@ class InteractiveAuthFlowSessionControllerUtil(
         }
 
         val onGoingSession = session as? OnGoingInteractiveFlowSession
-        val user = try {
-            onGoingSession?.let { sessionManager.getUserOrNull(it) }
-        } catch (_: BusinessException) {
-            // If the user is missing for the operation, we let the step engine redirect the user to the
-            // proper step.
-            // ex. the end-user is trying to access the claims validation step before signing in.
-            null
-        }
-
-        val (runResult, runException) = if (onGoingSession != null && user != null) {
+        val (runResult, runException) = if (onGoingSession != null) {
             try {
-                run(onGoingSession, flow, user) to null
+                // A session with no user yet runs nothing, and the engine redirects the end-user to the step
+                // that provides one: ex. the claims validation step reached before signing in.
+                sessionManager.getUserOrNull(onGoingSession)?.let { run(onGoingSession, flow, it) } to null
             } catch (e: BusinessException) {
                 null to e
             }
@@ -331,18 +326,13 @@ class InteractiveAuthFlowSessionControllerUtil(
 
         var afterUpdateSession = session
         val onGoingSession = session as? OnGoingInteractiveFlowSession
-        val user = try {
-            onGoingSession?.let { sessionManager.getUserOrNull(it) }
-        } catch (_: BusinessException) {
-            // If the user is missing for the operation, we let the step engine redirect the user to the
-            // proper step.
-            // ex. the end-user is trying to access the claims validation step before signing in.
-            null
-        }
-
-        val updateException = if (onGoingSession != null && user != null) {
+        val updateException = if (onGoingSession != null) {
             try {
-                afterUpdateSession = update(onGoingSession, flow, user)
+                // A session with no user yet updates nothing, and the engine redirects the end-user to the step
+                // that provides one: ex. the claims validation step reached before signing in.
+                sessionManager.getUserOrNull(onGoingSession)?.let { user ->
+                    afterUpdateSession = update(onGoingSession, flow, user)
+                }
                 null
             } catch (e: BusinessException) {
                 e
@@ -579,6 +569,10 @@ class InteractiveAuthFlowSessionControllerUtil(
      * If the exception is not recoverable and the session is ongoing, the session is marked as failed
      * with the specific error.
      *
+     * An exception the server failed with is written to the log first, as [LocalizedExceptionHandler.record]
+     * writes one answered with a `5xx`: the end-user is shown the error page rather than that status, and the
+     * session keeps its code and its values but not its cause.
+     *
      * The [session] is just returned if the exception is null. Or returns the [session] updated
      * by the [InteractiveFlowSessionManager.markAsFailedIfNotRecoverable] method.
      */
@@ -592,6 +586,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         if (exception.recoverable) {
             throw exception
         }
+        exceptionHandler.record(exception, exception)
         // A concurrent-modification conflict means another request advanced this shared session. If that
         // request already drove it to a terminal state, route by that current state instead of failing it
         // (which would clobber the winner): a double-submit whose sibling already completed it is answered
