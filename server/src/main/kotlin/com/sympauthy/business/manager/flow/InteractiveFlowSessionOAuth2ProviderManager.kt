@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
@@ -30,8 +29,9 @@ import com.sympauthy.business.model.redirect.ProviderOAuth2AuthorizationRedirect
 import com.sympauthy.business.model.redirect.ProviderOpenIdConnectAuthorizationRedirect
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.RawProviderClaims
-import com.sympauthy.client.isRemoteRefusal
+import com.sympauthy.client.oauth2.INVALID_GRANT
 import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.client.oauth2.tokenEndpointErrorOrNull
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.monitoring.Condition
@@ -481,10 +481,11 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
      * Exchange the [authorizeCode] the [provider] sent back to [redirectUri] at its token endpoint, which [auth]
      * names, for the tokens it issues.
      *
-     * Throws `provider.token.refused` where the provider answers with a `4xx`, which a code it already redeemed
-     * or never issued is answered with, `provider.token.failed` where it cannot be reached, does not answer in
-     * time, answers with a `5xx` or with something that is not a token response, and
-     * `flow.web_oauth2_provider.unsupported_token_type` where the tokens are not bearer tokens.
+     * Throws `provider.token.code_refused` where the provider answers `invalid_grant`, the error it refuses an
+     * authorization code with, `provider.token.request_refused` where it answers any other error of RFC 6749
+     * §5.2, `provider.token.failed` where it cannot be reached, does not answer in time or answers with something
+     * that is neither tokens nor such an error, and `flow.web_oauth2_provider.unsupported_token_type` where the
+     * tokens are not bearer tokens.
      */
     suspend fun fetchTokens(
         provider: Provider,
@@ -514,7 +515,22 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (e: Exception) {
-            throw e.toTokenRequestFailure(provider.id)
+            // Only a refused code is what the callback carried, and only a new authorization replaces it; any
+            // other error names this server's request, and the rest is the provider failing.
+            throw when (val error = e.tokenEndpointErrorOrNull()) {
+                null -> internalBusinessExceptionOf("provider.token.failed", e, "providerId" to provider.id)
+                INVALID_GRANT -> businessExceptionOf(
+                    "provider.token.code_refused",
+                    "providerId" to provider.id,
+                    throwable = e
+                )
+                else -> internalBusinessExceptionOf(
+                    "provider.token.request_refused",
+                    e,
+                    "providerId" to provider.id,
+                    "error" to error
+                )
+            }
         }
 
         // Verify token type is Bearer (RFC 6749 §7.1)
@@ -532,17 +548,4 @@ open class InteractiveFlowSessionOAuth2ProviderManager(
             idToken = response.idToken
         )
     }
-}
-
-/**
- * The failure the call to the token endpoint of the provider [providerId] names ended in, as the flow reports it:
- * `provider.token.refused` where the provider answered with a `4xx`, and `provider.token.failed` otherwise.
- *
- * A refusal answers the code the callback carried, which only a new authorization from the application replaces,
- * so it is not recoverable; anything else is the provider failing, which nothing the person sent caused.
- */
-internal fun Exception.toTokenRequestFailure(providerId: String): BusinessException = if (isRemoteRefusal()) {
-    businessExceptionOf("provider.token.refused", "providerId" to providerId, throwable = this)
-} else {
-    internalBusinessExceptionOf("provider.token.failed", this, "providerId" to providerId)
 }

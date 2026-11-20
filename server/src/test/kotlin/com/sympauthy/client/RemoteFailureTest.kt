@@ -9,6 +9,8 @@ import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.http.client.exceptions.ReadTimeoutException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.IOException
@@ -19,6 +21,9 @@ class RemoteFailureTest {
 
     private fun answered(status: HttpStatus) =
         HttpClientResponseException(status.reason, HttpResponse.status<Any>(status))
+
+    private fun answered(code: Int) =
+        HttpClientResponseException("Answered $code", HttpResponse.status<Any>(code, "Answered $code"))
 
     @Test
     fun `isRemoteFailure - Is true for a 5xx`() {
@@ -42,16 +47,22 @@ class RemoteFailureTest {
     }
 
     @Test
-    fun `isRemoteRefusal - Is true for a 4xx, however deep the cause`() {
-        assertTrue(answered(HttpStatus.BAD_REQUEST).isRemoteRefusal())
-        assertTrue(IllegalStateException("wrapped", answered(HttpStatus.UNAUTHORIZED)).isRemoteRefusal())
+    fun `isRemoteFailure - Is true for a 5xx HttpStatus does not name`() {
+        assertTrue(answered(520).isRemoteFailure())
     }
 
     @Test
-    fun `isRemoteRefusal - Is false for a 5xx, a success that could not be read and a server that did not answer`() {
-        assertFalse(answered(HttpStatus.SERVICE_UNAVAILABLE).isRemoteRefusal())
-        assertFalse(answered(HttpStatus.OK).isRemoteRefusal())
-        assertFalse(ReadTimeoutException.TIMEOUT_EXCEPTION.isRemoteRefusal())
+    fun `remoteOutcome - Types a status HttpStatus does not name by its code`() {
+        assertEquals(Outcome.Error("520"), answered(520).remoteOutcome())
+        assertEquals(Outcome.Refused("499"), answered(499).remoteOutcome())
+    }
+
+    @Test
+    fun `remoteResponseOrNull - Finds the answer however deep the cause, and none where nothing answered`() {
+        val response = answered(HttpStatus.BAD_REQUEST)
+
+        assertSame(response, IllegalStateException("wrapped", response).remoteResponseOrNull())
+        assertNull(ReadTimeoutException.TIMEOUT_EXCEPTION.remoteResponseOrNull())
     }
 
     @Test

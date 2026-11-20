@@ -37,6 +37,7 @@ import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHEN
 import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.InMemoryMetrics
 import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.monitoring.telemetry.attributes
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
@@ -166,12 +167,28 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
         assertSame(oauth2Config, result)
     }
 
+    /** What the monitor's judge was handed, which is what the provider's condition and the metric count. */
+    private val judgedFailures = mutableListOf<Throwable>()
+
     private fun stubTokenEndpointFailing(failure: Exception) {
         coEvery {
             remoteCallMonitor.observe<TokenEndpointResponse>(any(), any(), any(), any())
-        } coAnswers { arg<suspend () -> TokenEndpointResponse>(3).invoke() }
+        } coAnswers {
+            try {
+                arg<suspend () -> TokenEndpointResponse>(3).invoke()
+            } catch (e: Exception) {
+                arg<(Throwable) -> Outcome>(2).invoke(e)
+                judgedFailures += e
+                throw e
+            }
+        }
         coEvery { tokenEndpointClient.fetchTokens(any()) } throws failure
     }
+
+    private fun answered(status: Int, body: Map<String, String>? = null) = HttpClientResponseException(
+        "Answered $status",
+        HttpResponse.status<Any>(status, "Answered").apply { if (body != null) body(body) }
+    )
 
     private suspend fun fetchTokensFailure(): BusinessException {
         val auth = ProviderOAuth2Config(
@@ -187,29 +204,57 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
     }
 
     @Test
-    fun `fetchTokens - Refuses the code the provider answers with a 4xx, failing the session`() = runTest {
-        stubTokenEndpointFailing(
-            HttpClientResponseException("Bad Request", HttpResponse.status<Any>(HttpStatus.BAD_REQUEST))
-        )
+    fun `fetchTokens - Refuses the code the provider answers invalid_grant for, failing the session`() = runTest {
+        stubTokenEndpointFailing(answered(400, mapOf("error" to "invalid_grant")))
 
         val failure = fetchTokensFailure()
 
-        assertEquals("provider.token.refused", failure.detailsId)
+        assertEquals("provider.token.code_refused", failure.detailsId)
         assertFalse(failure.recoverable)
+        assertEquals(HttpStatus.BAD_REQUEST, failure.recommendedStatus)
         assertEquals("test-provider", failure.values["providerId"])
     }
 
     @Test
-    fun `fetchTokens - Fails the session where the provider answers with a 5xx`() = runTest {
-        stubTokenEndpointFailing(
-            HttpClientResponseException("Bad Gateway", HttpResponse.status<Any>(HttpStatus.BAD_GATEWAY))
-        )
+    fun `fetchTokens - Names the error the provider refused this server's request with`() = runTest {
+        stubTokenEndpointFailing(answered(401, mapOf("error" to "invalid_client")))
+
+        val failure = fetchTokensFailure()
+
+        assertEquals("provider.token.request_refused", failure.detailsId)
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.recommendedStatus)
+        assertEquals("invalid_client", failure.values["error"])
+    }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider answers a 4xx that names no error`() = runTest {
+        stubTokenEndpointFailing(answered(429))
 
         val failure = fetchTokensFailure()
 
         assertEquals("provider.token.failed", failure.detailsId)
-        assertFalse(failure.recoverable)
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.recommendedStatus)
     }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider answers with a 5xx, even one naming an error`() =
+        runTest {
+            stubTokenEndpointFailing(answered(502, mapOf("error" to "invalid_grant")))
+
+            val failure = fetchTokensFailure()
+
+            assertEquals("provider.token.failed", failure.detailsId)
+        }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider answers with a status HttpStatus does not name`() =
+        runTest {
+            stubTokenEndpointFailing(answered(520))
+
+            val failure = fetchTokensFailure()
+
+            assertEquals("provider.token.failed", failure.detailsId)
+        }
 
     @Test
     fun `fetchTokens - Fails the session where the provider does not answer in time`() = runTest {
@@ -219,6 +264,17 @@ class InteractiveFlowSessionOAuth2ProviderManagerTest {
 
         assertEquals("provider.token.failed", failure.detailsId)
         assertFalse(failure.recoverable)
+    }
+
+    @Test
+    fun `fetchTokens - Has the provider's failure judged as it was thrown, not as the flow reports it`() = runTest {
+        val thrown = answered(503)
+        stubTokenEndpointFailing(thrown)
+
+        val failure = fetchTokensFailure()
+
+        assertSame(thrown, judgedFailures.single())
+        assertSame(thrown, failure.cause)
     }
 
     @Test

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeoutException
 fun Throwable.isRemoteFailure(): Boolean {
     for (failure in generateSequence(this) { it.cause }) {
         when (failure) {
-            is HttpClientResponseException -> return failure.status.code >= 500
+            is HttpClientResponseException -> return failure.code() >= 500
             is HttpClientException, is IOException, is TimeoutException -> return true
         }
     }
@@ -26,13 +26,13 @@ fun Throwable.isRemoteFailure(): Boolean {
 }
 
 /**
- * Whether this failure of a call to another server is that server refusing what was sent: it answered with a
- * `4xx`. A success this server could not read is not.
+ * The answer the other server gave along this failure's chain, or null where it gave none.
+ *
+ * Its status is read with `code()`: `getStatus()` throws for a status [io.micronaut.http.HttpStatus] does not
+ * name, which a CDN in front of a provider answers with.
  */
-fun Throwable.isRemoteRefusal(): Boolean {
-    val response = generateSequence(this) { it.cause }.filterIsInstance<HttpClientResponseException>().firstOrNull()
-    return response?.status?.code in 400..499
-}
+fun Throwable.remoteResponseOrNull(): HttpClientResponseException? =
+    generateSequence(this) { it.cause }.filterIsInstance<HttpClientResponseException>().firstOrNull()
 
 /**
  * How a call to another server that ended in this failure is recorded: an [Outcome.Error] where
@@ -41,8 +41,9 @@ fun Throwable.isRemoteRefusal(): Boolean {
  */
 fun Throwable.remoteOutcome(): Outcome {
     if (isRemoteFailure()) return Outcome.Error(remoteErrorType())
-    val response = generateSequence(this) { it.cause }.filterIsInstance<HttpClientResponseException>().firstOrNull()
-    val errorType = response?.status?.code?.toString() ?: (this as? LocalizedException)?.detailsId ?: javaClass.name
+    val errorType = remoteResponseOrNull()?.code()?.toString()
+        ?: (this as? LocalizedException)?.detailsId
+        ?: javaClass.name
     return Outcome.Refused(errorType)
 }
 
@@ -55,8 +56,8 @@ fun Throwable.remoteOutcome(): Outcome {
  * typed as the timeout it is.
  */
 fun Throwable.remoteErrorType(): String {
+    remoteResponseOrNull()?.let { return it.code().toString() }
     val chain = generateSequence(this) { it.cause }.toList()
-    chain.filterIsInstance<HttpClientResponseException>().firstOrNull()?.let { return it.status.code.toString() }
     return when {
         chain.any {
             it is ReadTimeoutException || it is TimeoutException || it is SocketTimeoutException ||
