@@ -1,11 +1,10 @@
 package com.sympauthy.cron
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
+import com.sympauthy.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
@@ -20,13 +19,13 @@ import kotlinx.coroutines.launch
  */
 @Singleton
 class RenewJobLeaseCron(
-    @Inject private val jobLeaseManager: JobLeaseManager
+    @Inject private val jobLeaseManager: JobLeaseManager,
+    @Inject private val backgroundScope: BackgroundScope
 ) {
 
-    @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = JobLeaseManager.RENEWAL_PERIOD)
     fun renew() {
-        GlobalScope.launch {
+        backgroundScope.launch {
             jobLeaseManager.renewLeases()
         }
     }

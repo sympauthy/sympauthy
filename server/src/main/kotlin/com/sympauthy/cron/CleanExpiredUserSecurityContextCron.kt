@@ -4,11 +4,10 @@ import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
 import com.sympauthy.business.manager.security.UserSecurityContextCleaner
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
@@ -24,14 +23,14 @@ import kotlinx.coroutines.launch
 @Singleton
 class CleanExpiredUserSecurityContextCron(
     @Inject private val userSecurityContextCleaner: UserSecurityContextCleaner,
-    @Inject private val jobLeaseManager: JobLeaseManager
+    @Inject private val jobLeaseManager: JobLeaseManager,
+    @Inject private val backgroundScope: BackgroundScope
 ) {
     private val logger = loggerForClass()
 
-    @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
     fun clean() {
-        GlobalScope.launch {
+        backgroundScope.launch {
             jobLeaseManager.withLease(CLEAN_EXPIRED_USER_SECURITY_CONTEXTS) {
                 val count = userSecurityContextCleaner.clean()
                 if (count > 0) {

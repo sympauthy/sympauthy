@@ -42,6 +42,10 @@ complexity:
   NestedBlockDepth:
     active: false
 
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+
 exceptions:
   NotImplementedDeclaration:
     active: true
