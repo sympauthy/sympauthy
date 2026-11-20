@@ -1,9 +1,11 @@
 package com.sympauthy.api.controller.flow.auth
 
 import com.sympauthy.api.controller.flow.InteractiveFlowStepUriMapper
+import com.sympauthy.api.errorhandler.LocalizedExceptionHandler
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.flow.FailedVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
@@ -28,6 +30,7 @@ import com.sympauthy.business.model.security.observedRequestOf
 import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -71,6 +74,9 @@ class InteractiveAuthFlowSessionControllerUtilTest {
 
     @SpyK
     var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
+
+    @MockK(relaxUnitFun = true)
+    lateinit var exceptionHandler: LocalizedExceptionHandler
 
     @InjectMockKs
     lateinit var util: InteractiveAuthFlowSessionControllerUtil
@@ -181,6 +187,106 @@ class InteractiveAuthFlowSessionControllerUtilTest {
             )
 
             assertEquals(errorUri, result)
+        }
+
+    @Test
+    fun `fetchOnGoingSessionWithUserThenUpdateAndRedirect - Fails the session where its user cannot be read`() =
+        runTest {
+            val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val failed = mockk<FailedInteractiveFlowSession>()
+            val flow = mockk<InteractiveFlow>()
+            val failure = internalBusinessExceptionOf(
+                "mapper.user.invalid_property",
+                IllegalArgumentException("No enum constant UserStatus.FOO"),
+                "property" to "status"
+            )
+            stubFlowOf(session, flow)
+            coEvery { sessionManager.getUserOrNull(session) } throws failure
+            coEvery { sessionManager.markAsFailedIfNotRecoverable(session, failure) } returns failed
+            coEvery { engine.advance(failed) } returns InteractiveFlowStepResult(failed, InteractiveFlowStep.Error)
+            coEvery { stepUriMapper.toRedirectUri(failed, flow, InteractiveFlowStep.Error) } returns errorUri
+
+            val result = util.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
+                state = "encoded-state",
+                observedRequest = observed,
+                update = { _, _, _ -> fail("Updated a session whose user could not be read") },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(errorUri, result)
+            verify { exceptionHandler.record(failure, failure) }
+        }
+
+    @Test
+    fun `fetchOnGoingSessionWithUserThenUpdateAndRedirect - Redirects a session with no user yet, updating nothing`() =
+        runTest {
+            val stepUri = URI.create("https://flow.example.com/sign-in?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val flow = mockk<InteractiveFlow>()
+            stubFlowOf(session, flow)
+            coEvery { sessionManager.getUserOrNull(session) } returns null
+            coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, InteractiveFlowStep.SignIn)
+            coEvery { stepUriMapper.toRedirectUri(session, flow, InteractiveFlowStep.SignIn) } returns stepUri
+
+            val result = util.fetchOnGoingSessionWithUserThenUpdateAndRedirect(
+                state = "encoded-state",
+                observedRequest = observed,
+                update = { _, _, _ -> fail("Updated a session with no user") },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(stepUri, result)
+        }
+
+    @Test
+    fun `fetchOnGoingSessionWithUserThenRunAndRedirect - Fails the session where its user cannot be read`() =
+        runTest {
+            val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val failed = mockk<FailedInteractiveFlowSession>()
+            val flow = mockk<InteractiveFlow>()
+            val failure = internalBusinessExceptionOf(
+                "mapper.user.invalid_property",
+                IllegalArgumentException("No enum constant UserStatus.FOO"),
+                "property" to "status"
+            )
+            stubFlowOf(session, flow)
+            coEvery { sessionManager.getUserOrNull(session) } throws failure
+            coEvery { sessionManager.markAsFailedIfNotRecoverable(session, failure) } returns failed
+            coEvery { engine.advance(failed) } returns InteractiveFlowStepResult(failed, InteractiveFlowStep.Error)
+            coEvery { stepUriMapper.toRedirectUri(failed, flow, InteractiveFlowStep.Error) } returns errorUri
+
+            val result = util.fetchOnGoingSessionWithUserThenRunAndRedirect<Unit, URI>(
+                state = "encoded-state",
+                observedRequest = observed,
+                run = { _, _, _ -> fail("Ran a step whose user could not be read") },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(errorUri, result)
+            verify { exceptionHandler.record(failure, failure) }
+        }
+
+    @Test
+    fun `fetchOnGoingSessionWithUserThenRunAndRedirect - Redirects a session with no user yet, running nothing`() =
+        runTest {
+            val stepUri = URI.create("https://flow.example.com/sign-in?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val flow = mockk<InteractiveFlow>()
+            stubFlowOf(session, flow)
+            coEvery { sessionManager.getUserOrNull(session) } returns null
+            coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, InteractiveFlowStep.SignIn)
+            coEvery { stepUriMapper.toRedirectUri(session, flow, InteractiveFlowStep.SignIn) } returns stepUri
+
+            val result = util.fetchOnGoingSessionWithUserThenRunAndRedirect<Unit, URI>(
+                state = "encoded-state",
+                observedRequest = observed,
+                run = { _, _, _ -> fail("Ran a step with no user") },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(stepUri, result)
         }
 
     @Test
@@ -502,5 +608,41 @@ class InteractiveAuthFlowSessionControllerUtilTest {
 
         assertSame(failed, result)
         coVerify(exactly = 0) { sessionManager.fetchByIdOrNull(any()) }
+    }
+
+    @Test
+    fun `handleException - Writes the failure to the log before failing the session`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val failed = mockk<FailedInteractiveFlowSession>()
+        val error = internalBusinessExceptionOf("manager.failed", IllegalStateException("Broken"))
+        coEvery { sessionManager.markAsFailedIfNotRecoverable(session, error) } returns failed
+
+        util.handleException(session, error)
+
+        coVerifyOrder {
+            exceptionHandler.record(error, error)
+            sessionManager.markAsFailedIfNotRecoverable(session, error)
+        }
+    }
+
+    @Test
+    fun `handleException - Writes nothing for a recoverable exception`() = runTest {
+        val session = mockk<OnGoingInteractiveFlowSession>()
+
+        assertThrows<BusinessException> {
+            util.handleException(session, recoverableBusinessExceptionOf("some.detail", "some.description"))
+        }
+
+        verify(exactly = 0) { exceptionHandler.record(any(), any()) }
+    }
+
+    @Test
+    fun `handleException - Writes nothing for a failure the session is not failed with`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession>()
+
+        val result = util.handleException(session, internalBusinessExceptionOf("manager.failed"))
+
+        assertSame(session, result)
+        verify(exactly = 0) { exceptionHandler.record(any(), any()) }
     }
 }

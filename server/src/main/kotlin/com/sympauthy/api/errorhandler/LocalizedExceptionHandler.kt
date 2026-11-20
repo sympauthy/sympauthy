@@ -80,9 +80,7 @@ class LocalizedExceptionHandler(
         }
         val locale = request.locale.orDefault()
         val status = localizedErrorMapper.toHttpStatus(answered)
-        if (status.code >= 500) {
-            record(failure, answered)
-        }
+        record(failure, answered)
         val body = if (answersWithOAuth2Error(request)) {
             oAuth2ErrorResourceMapper.toResource(answered.toOAuth2Exception(oAuth2ErrorCodeOf(status)), locale)
         } else {
@@ -94,10 +92,15 @@ class LocalizedExceptionHandler(
     }
 
     /**
-     * Write the [failure] answered as [answered] to the log, unless a line already said it: a condition
-     * [ConditionMonitor.absorb] reports it to, or the configuration's verdict for a configuration found invalid.
+     * Write the [failure] answered as [answered] to the log where [answered] renders to a `5xx`, unless a line
+     * already said it: a condition [ConditionMonitor.absorb] reports it to, or the configuration's verdict for a
+     * configuration found invalid.
+     *
+     * The status is the one [answered] renders to, whether or not a response carries it: a failure answered with
+     * a page rather than its status is written exactly as one answered with that status is.
      */
-    private fun record(failure: Throwable, answered: LocalizedException) {
+    fun record(failure: Throwable, answered: LocalizedException) {
+        if (localizedErrorMapper.toHttpStatus(answered).code < 500) return
         if (failure is LocalizedException && failure.isInvalidConfig) return
         if (conditionMonitor.absorb(failure)) return
         if (failure is LocalizedException) {

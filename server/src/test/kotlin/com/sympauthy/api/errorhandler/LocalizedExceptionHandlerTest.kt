@@ -19,6 +19,7 @@ import com.sympauthy.api.mapper.ErrorResourceMapper
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.ErrorResource
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
@@ -156,6 +157,30 @@ class LocalizedExceptionHandlerTest {
         )
 
         assertEquals(emptyList<ILoggingEvent>(), written.list)
+    }
+
+    @Test
+    fun `record - Log nothing for a failure rendering to a 4xx, whatever answered it`() {
+        stubStatus(HttpStatus.BAD_REQUEST)
+        val refusal = BusinessException(
+            recoverable = false,
+            detailsId = "flow.sign_up.disabled",
+            recommendedStatus = HttpStatus.BAD_REQUEST
+        )
+
+        handler.record(refusal, refusal)
+
+        assertEquals(emptyList<ILoggingEvent>(), written.list)
+    }
+
+    @Test
+    fun `record - Log a server failure at WARN, whatever answered it`() {
+        stubStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+        val failure = internalBusinessExceptionOf("mapper.user.invalid_property", "property" to "status")
+
+        handler.record(failure, failure)
+
+        assertEquals(Level.WARN, written.list.single().level)
     }
 
     @Test
