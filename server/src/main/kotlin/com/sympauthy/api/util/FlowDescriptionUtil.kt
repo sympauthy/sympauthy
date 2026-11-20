@@ -97,10 +97,11 @@ const val STEP_CLIENT_DESCRIPTION = "Client the interactive flow session was sta
  * The `cancel_url` a step's response offers the end-user to leave the flow by. A step that may carry a
  * `redirect_url` instead appends that it is absent then too.
  */
-const val STEP_CANCEL_URL_DESCRIPTION = "URL leaving the flow, for the page to offer as a plain link: following " +
-    "it ends the interactive flow session as cancelled where it is still running, and sends the browser back to " +
-    "whoever started it. Absent when there is nowhere to send it back to: an authorization request whose client " +
-    "or `redirect_uri` was refused, or that has already completed."
+const val STEP_CANCEL_URL_DESCRIPTION = "URL leaving the flow, for the page to navigate to when the end-user " +
+    "asks to leave, and never to offer as a link: loading it ends the interactive flow session as cancelled " +
+    "where it is still running, and sends the browser back to whoever started it, so a browser loading a " +
+    "link's target for a preview would end it too. Absent when there is nowhere to send it back to: an " +
+    "authorization request whose client or `redirect_uri` was refused, or that has already completed."
 
 /**
  * What a step's response says of the URLs it holds.

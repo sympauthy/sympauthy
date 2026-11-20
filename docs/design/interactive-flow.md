@@ -113,7 +113,7 @@ for an authorization. Even so, the parameters say what to show the person; what 
 holds is read through the client API. [The design
 FAQ](design-faq.md#what-does-a-return-destination-receive) holds the names that lost.
 
-### Leaving is a link through this server
+### Leaving goes through this server
 
 **Every page of every flow lets the person leave it.** Each step answering a `GET` carries a
 `cancel_url` leading to `GET /api/v1/flow/cancel`, which ends a session still running as cancelled —
@@ -127,12 +127,14 @@ session is sent to the error page, which answers its refusal.
 **It ends a session on a `GET` and answers with a redirect, departing from two rules
 deliberately.** [The API standard](../standards/api-standard.md#routes) has an action that is not a
 state change on a resource sent as a `POST`, and a [step endpoint](#writing-a-step-endpoint) answers
-with JSON rather than navigating the browser. A plain link works from every page without the page
-sending a request first. It is safe here because the link appears only on a page the person is
-looking at, never in a mail, and a browser does not prefetch a plain link unless the page asks it
-to; the state it carries is already in every URL a flow response holds. Leaving is not a step, so a
-step still exposes at most two operations. [The design
-FAQ](design-faq.md#how-does-a-person-leave-a-flow) holds the shapes that lost.
+with JSON rather than navigating the browser. A URL the page navigates to works from every page
+without the page sending a request first. It is safe only because the page goes there when the
+person presses its way out, and never offers `cancel_url` as a link: a browser loads the target of
+a link nobody followed — a long-press preview does — and that load would end the session while the
+person is still on the page. The URL never appears in a mail, and the state it carries is already
+in every URL a flow response holds. Leaving is not a step, so a step still exposes at most two
+operations. [The design FAQ](design-faq.md#how-does-a-person-leave-a-flow) holds the shapes that
+lost.
 
 ## The engine
 
@@ -362,7 +364,7 @@ such as an enrollment an administrator asked for, on an error page whose `state`
 session, and beside a redirect, like every other field.
 
 **Every step answering a `GET` carries a `cancel_url`, the error page included**, so a person can
-[leave the flow](#leaving-is-a-link-through-this-server) from whichever page they are on. It is
+[leave the flow](#leaving-goes-through-this-server) from whichever page they are on. It is
 absent where there is nowhere to send them: the `state` resolves to no session, the session has
 [nowhere to hand them back](#how-a-session-hands-the-person-back), or it is an authorization that
 has already completed, whose code went to the client and to which OAuth2 defines no second answer.

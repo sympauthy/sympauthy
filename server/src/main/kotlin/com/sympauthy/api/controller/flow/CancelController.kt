@@ -22,8 +22,8 @@ import jakarta.inject.Inject
  * and the person is sent back to whoever started it.
  *
  * **It ends a session on a `GET`, and answers with a redirect rather than a `redirect_url`**, departing from
- * `docs/standards/api-standard.md` so that a page offers leaving as a plain link. Why that is safe here is
- * `docs/design/interactive-flow.md`.
+ * `docs/standards/api-standard.md` so that a page leaves by navigating to a URL, without sending a request
+ * first. Why that is safe here, and what it asks of the page, is `docs/design/interactive-flow.md`.
  */
 @Secured(HAS_STATE)
 @Controller(CancelController.FLOW_CANCEL_ENDPOINT)
