@@ -24,8 +24,8 @@ words is kebab-case.
 a step and revoking an invitation are written that way.
 
 **Leaving an interactive flow is the one action written as a `GET`**, and it answers with a redirect
-rather than JSON: it is a plain link, followed without the page sending a request first.
-[Interactive flow](../design/interactive-flow.md#leaving-is-a-link-through-this-server) says which
+rather than JSON: it is a URL the page navigates to, without sending a request first.
+[Interactive flow](../design/interactive-flow.md#leaving-goes-through-this-server) says which
 pages offer it and argues why that is safe there, and nowhere else is it.
 
 **An action reaching many items is a `POST` to a sub-path of their collection, its body naming

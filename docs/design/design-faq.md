@@ -2492,12 +2492,13 @@ already completed offers no way out.
 
 **Rationale:**
 
-A plain link works from every page — the error page included — without the page sending a request
-first, which a `POST` requires of a page that may have nothing else to do. The risk of ending a
-session on a `GET` is a request the person did not mean: the link appears only on a page they are
-looking at, never in a mail, and a browser does not prefetch a plain link unless the page asks it
-to. The state it carries is already in every URL a flow response holds, and already outlives the
-flow.
+A URL the page navigates to works from every page — the error page included — without the page
+sending a request first, which a `POST` requires of a page that may have nothing else to do. The
+risk of ending a session on a `GET` is a request the person did not mean, and a link carries it: a
+browser loads the target of a link nobody followed, for a long-press preview or a prefetch. So the
+page goes to `cancel_url` when the person presses its way out rather than offering it as a link,
+and the URL never appears in a mail. The state it carries is already in every URL a flow response
+holds, and already outlives the flow.
 
 Two ways out would be two paths to keep in agreement. An authorization that has completed handed its
 code to the client, and OAuth2 defines no second answer that would not contradict it.

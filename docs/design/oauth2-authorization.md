@@ -68,7 +68,7 @@ URLs, and would send the client a code it has already exchanged.
 
 **Leaving answers the client through the protocol.** The client has a request waiting, and RFC 6749
 §4.1.2.1 has it told the outcome on its callback, so a person [leaving the
-flow](interactive-flow.md#leaving-is-a-link-through-this-server) is handed back to the redirect URI
+flow](interactive-flow.md#leaving-goes-through-this-server) is handed back to the redirect URI
 with an error, the client's `state` echoed, and no code. Leaving a session still running answers
 `access_denied`: a person declining is the client's to know.
 
