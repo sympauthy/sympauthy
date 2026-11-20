@@ -8,6 +8,8 @@ import com.sympauthy.monitoring.telemetry.JobMetrics.JobRunOutcome
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.Duration.ofMinutes
 import java.util.*
@@ -25,8 +27,8 @@ import java.util.*
  *
  * **A run never throws.** Each one is recorded on `sympauthy.job.run.duration` as it ended — run, failed, or
  * skipped for another instance's lease — and a failure is handed to [ConditionMonitor.absorb], then written at
- * WARN if no condition took it. Thrown, it would end in the default handler of the coroutine the job was
- * launched in, which neither logs it nor counts it.
+ * WARN if no condition took it. Thrown, it would reach nothing: [com.sympauthy.server.BackgroundScope], which
+ * a job is launched in, installs no handler.
  *
  * [LockManager] is the mechanism for the other thing, where two writers must not both proceed.
  */
@@ -54,8 +56,10 @@ class JobLeaseManager(
      * Neither the acquisition nor the release joins a transaction, and [block] runs outside both, so a
      * crash mid-run leaves the lease taken until it stops being renewed.
      *
-     * The lease is released whatever [block] does. A failure, of [block] or of the lease itself, is reported
-     * as the class says and not thrown; a run that failed after taking the lease still answers true.
+     * The lease is released whatever [block] does, a cancelled run included: the release is not cancelled with
+     * it, so a server stopping mid-run frees the job for another instance rather than leaving it taken for the
+     * grace period. A failure, of [block] or of the lease itself, is reported as the class says and not
+     * thrown; a run that failed after taking the lease still answers true. A cancellation is rethrown.
      */
     suspend fun withLease(job: LeasedJob, block: suspend () -> Unit): Boolean {
         val start = System.nanoTime()
@@ -66,7 +70,9 @@ class JobLeaseManager(
                 try {
                     block()
                 } finally {
-                    jobLeaseRepository.release(job.leaseName, holder)
+                    withContext(NonCancellable) {
+                        jobLeaseRepository.release(job.leaseName, holder)
+                    }
                 }
                 JobRunOutcome.SUCCESS
             } else {

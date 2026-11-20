@@ -16,7 +16,12 @@ import io.mockk.junit5.MockKExtension
 import io.mockk.verify
 import io.opentelemetry.api.OpenTelemetry
 import io.r2dbc.spi.R2dbcNonTransientResourceException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -99,6 +104,29 @@ class JobLeaseManagerTest {
         manager.renewLeases()
 
         assertTrue(takenBy.single() == renewedBy.single())
+    }
+
+    @Test
+    fun `withLease - Releases the lease when the run is cancelled`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
+        var released = false
+        coEvery { jobLeaseRepository.release("clean_abandoned_accounts", any()) } coAnswers {
+            yield()
+            released = true
+            1
+        }
+        val running = CompletableDeferred<Unit>()
+
+        val run = launch {
+            manager.withLease(CLEAN_ABANDONED_ACCOUNTS) {
+                running.complete(Unit)
+                awaitCancellation()
+            }
+        }
+        running.await()
+        run.cancelAndJoin()
+
+        assertTrue(released)
     }
 
     @Test

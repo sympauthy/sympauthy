@@ -4,11 +4,10 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
@@ -21,19 +20,21 @@ import kotlinx.coroutines.launch
 @Singleton
 class CleanExpiredInteractiveFlowSessionCron(
     @Inject private val interactiveFlowSessionCleaner: InteractiveFlowSessionCleaner,
-    @Inject private val jobLeaseManager: JobLeaseManager
+    @Inject private val jobLeaseManager: JobLeaseManager,
+    @Inject private val backgroundScope: BackgroundScope
 ) {
     private val logger = loggerForClass()
 
-    @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
-    @Suppress("MaxLineLength")
     fun clean() {
-        GlobalScope.launch {
+        backgroundScope.launch {
             jobLeaseManager.withLease(CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS) {
                 val result = interactiveFlowSessionCleaner.clean()
                 if (result.sessionCount > 0) {
-                    logger.debug { "Cleaned ${result.sessionCount} expired interactive flow sessions (including ${result.validationCodesCount} validation codes)." }
+                    logger.debug {
+                        "Cleaned ${result.sessionCount} expired interactive flow sessions " +
+                            "(including ${result.validationCodesCount} validation codes)."
+                    }
                 }
             }
         }

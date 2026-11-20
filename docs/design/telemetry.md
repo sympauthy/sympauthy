@@ -178,8 +178,8 @@ call, `jwks`, which the JWT library makes outside the HTTP client the framework 
 took, once traces are on; whether a histogram over every query earns its series is left open below.
 
 **A scheduled job's run ends `success`, `error`, or `skipped` where another instance holds its
-lease, and a failing run is reported rather than thrown.** Thrown, it ended in the default handler
-of the coroutine the job was launched in, where neither the log nor a metric saw it.
+lease, and a failing run is reported rather than thrown.** Thrown, it would reach the scope the job
+was launched in, which carries no handler, so neither the log nor a metric would see it.
 
 **A technical metric takes the name an existing convention gives it**, so that an operator reads it
 with what they already know: OpenTelemetry's first, then a major library's — see [the design

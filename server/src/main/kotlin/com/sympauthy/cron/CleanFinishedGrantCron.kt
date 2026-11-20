@@ -4,11 +4,10 @@ import com.sympauthy.business.manager.auth.GrantCleaner
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_FINISHED_GRANTS
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
@@ -25,14 +24,14 @@ import kotlinx.coroutines.launch
 @Singleton
 class CleanFinishedGrantCron(
     @Inject private val grantCleaner: GrantCleaner,
-    @Inject private val jobLeaseManager: JobLeaseManager
+    @Inject private val jobLeaseManager: JobLeaseManager,
+    @Inject private val backgroundScope: BackgroundScope
 ) {
     private val logger = loggerForClass()
 
-    @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
     fun clean() {
-        GlobalScope.launch {
+        backgroundScope.launch {
             jobLeaseManager.withLease(CLEAN_FINISHED_GRANTS) {
                 val result = grantCleaner.clean()
                 if (result.tokenCount > 0 || result.authorizationCodeCount > 0 || result.grantCount > 0) {

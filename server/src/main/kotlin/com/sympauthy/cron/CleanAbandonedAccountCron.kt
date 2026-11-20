@@ -4,11 +4,10 @@ import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
@@ -23,14 +22,14 @@ import kotlinx.coroutines.launch
 @Singleton
 class CleanAbandonedAccountCron(
     @Inject private val provisionalAccountManager: ProvisionalAccountManager,
-    @Inject private val jobLeaseManager: JobLeaseManager
+    @Inject private val jobLeaseManager: JobLeaseManager,
+    @Inject private val backgroundScope: BackgroundScope
 ) {
     private val logger = loggerForClass()
 
-    @OptIn(DelicateCoroutinesApi::class)
     @Scheduled(fixedDelay = "15m")
     fun clean() {
-        GlobalScope.launch {
+        backgroundScope.launch {
             jobLeaseManager.withLease(CLEAN_ABANDONED_ACCOUNTS) {
                 val count = provisionalAccountManager.deleteAbandoned()
                 if (count > 0) {
