@@ -23,6 +23,7 @@ import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.EnabledClientTemplatesConfig
+import io.micronaut.http.HttpStatus
 import io.mockk.*
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -1242,6 +1243,19 @@ class InteractiveAuthFlowSessionManagerTest {
             manager.checkSignUpAllowed(oauth2, recoverable = false)
         }
         assertFalse(nonRecoverableException.recoverable)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Refuses with a 400 the session is failed with`() = runTest {
+        val disabled = oauth2AndClient(signUpEnabled = false, invitationEnabled = false)
+        val invitationRequired = oauth2AndClient(invitationId = null, signUpEnabled = false, invitationEnabled = true)
+
+        listOf(disabled, invitationRequired).forEach { oauth2 ->
+            val exception = assertThrows<BusinessException> {
+                manager.checkSignUpAllowed(oauth2, recoverable = false)
+            }
+            assertEquals(HttpStatus.BAD_REQUEST, exception.recommendedStatus)
+        }
     }
 
     private fun oauth2With(

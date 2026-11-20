@@ -269,6 +269,27 @@ class InteractiveAuthFlowSessionControllerUtilTest {
         }
 
     @Test
+    fun `fetchOnGoingSessionWithUserThenRunAndRedirect - Redirects a session with no user yet, running nothing`() =
+        runTest {
+            val stepUri = URI.create("https://flow.example.com/sign-in?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val flow = mockk<InteractiveFlow>()
+            stubFlowOf(session, flow)
+            coEvery { sessionManager.getUserOrNull(session) } returns null
+            coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, InteractiveFlowStep.SignIn)
+            coEvery { stepUriMapper.toRedirectUri(session, flow, InteractiveFlowStep.SignIn) } returns stepUri
+
+            val result = util.fetchOnGoingSessionWithUserThenRunAndRedirect<Unit, URI>(
+                state = "encoded-state",
+                observedRequest = observed,
+                run = { _, _, _ -> fail("Ran a step with no user") },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(stepUri, result)
+        }
+
+    @Test
     fun `fetchOnGoingSessionThenUpdateAndRedirect - Routes a lost completion by where the winner left it`() =
         runTest {
             val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
@@ -612,6 +633,16 @@ class InteractiveAuthFlowSessionControllerUtilTest {
             util.handleException(session, recoverableBusinessExceptionOf("some.detail", "some.description"))
         }
 
+        verify(exactly = 0) { exceptionHandler.record(any(), any()) }
+    }
+
+    @Test
+    fun `handleException - Writes nothing for a failure the session is not failed with`() = runTest {
+        val session = mockk<CompletedInteractiveFlowSession>()
+
+        val result = util.handleException(session, internalBusinessExceptionOf("manager.failed"))
+
+        assertSame(session, result)
         verify(exactly = 0) { exceptionHandler.record(any(), any()) }
     }
 }

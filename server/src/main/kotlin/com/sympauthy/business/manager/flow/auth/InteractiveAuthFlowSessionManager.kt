@@ -21,6 +21,7 @@ import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT
+import io.micronaut.http.HttpStatus.BAD_REQUEST
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -354,13 +355,15 @@ class InteractiveAuthFlowSessionManager(
             throw BusinessException(
                 recoverable = recoverable,
                 detailsId = "flow.sign_up.disabled",
-                descriptionId = "description.flow.sign_up.disabled"
+                descriptionId = "description.flow.sign_up.disabled",
+                recommendedStatus = BAD_REQUEST
             )
         }
         throw BusinessException(
             recoverable = recoverable,
             detailsId = "flow.sign_up.invitation_required",
-            descriptionId = "description.flow.sign_up.invitation_required"
+            descriptionId = "description.flow.sign_up.invitation_required",
+            recommendedStatus = BAD_REQUEST
         )
     }
 }

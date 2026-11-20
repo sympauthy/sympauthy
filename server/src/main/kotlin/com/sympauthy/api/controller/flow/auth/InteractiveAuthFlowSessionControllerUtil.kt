@@ -216,7 +216,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         val onGoingSession = session as? OnGoingInteractiveFlowSession
         val (runResult, runException) = if (onGoingSession != null) {
             try {
-                // A session with no user yet runs nothing, and the engine redirects the end-user to the step
+                // A session with no user to read runs nothing, and the engine redirects the end-user to the step
                 // that provides one: ex. the claims validation step reached before signing in.
                 sessionManager.getUserOrNull(onGoingSession)?.let { run(onGoingSession, flow, it) } to null
             } catch (e: BusinessException) {
@@ -328,8 +328,8 @@ class InteractiveAuthFlowSessionControllerUtil(
         val onGoingSession = session as? OnGoingInteractiveFlowSession
         val updateException = if (onGoingSession != null) {
             try {
-                // A session with no user yet updates nothing, and the engine redirects the end-user to the step
-                // that provides one: ex. the claims validation step reached before signing in.
+                // A session with no user to read updates nothing, and the engine redirects the end-user to the
+                // step that provides one: ex. the claims validation step reached before signing in.
                 sessionManager.getUserOrNull(onGoingSession)?.let { user ->
                     afterUpdateSession = update(onGoingSession, flow, user)
                 }
@@ -569,9 +569,10 @@ class InteractiveAuthFlowSessionControllerUtil(
      * If the exception is not recoverable and the session is ongoing, the session is marked as failed
      * with the specific error.
      *
-     * An exception the server failed with is written to the log first, as [LocalizedExceptionHandler.record]
-     * writes one answered with a `5xx`: the end-user is shown the error page rather than that status, and the
-     * session keeps its code and its values but not its cause.
+     * An exception failing the session is written to the log first, as [LocalizedExceptionHandler.record] writes
+     * one answered with a `5xx`: the end-user is shown the error page rather than that status, and the session
+     * keeps its code and its values but not its cause. One the session is not failed with is left to whoever
+     * surfaces it, so a failure the caller meets again is written once.
      *
      * The [session] is just returned if the exception is null. Or returns the [session] updated
      * by the [InteractiveFlowSessionManager.markAsFailedIfNotRecoverable] method.
@@ -586,7 +587,6 @@ class InteractiveAuthFlowSessionControllerUtil(
         if (exception.recoverable) {
             throw exception
         }
-        exceptionHandler.record(exception, exception)
         // A concurrent-modification conflict means another request advanced this shared session. If that
         // request already drove it to a terminal state, route by that current state instead of failing it
         // (which would clobber the winner): a double-submit whose sibling already completed it is answered
@@ -599,6 +599,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             }
         }
         return if (session is OnGoingInteractiveFlowSession) {
+            exceptionHandler.record(exception, exception)
             sessionManager.markAsFailedIfNotRecoverable(
                 session = session,
                 error = exception

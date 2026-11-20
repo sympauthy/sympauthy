@@ -96,8 +96,8 @@ class LocalizedExceptionHandler(
      * already said it: a condition [ConditionMonitor.absorb] reports it to, or the configuration's verdict for a
      * configuration found invalid.
      *
-     * A failure the server answers with something other than its status — a page saying the server failed —
-     * is handed here by whoever answers it, so it is written as if it had been answered with a `5xx`.
+     * The status is the one [answered] renders to, whether or not a response carries it: a failure answered with
+     * a page rather than its status is written exactly as one answered with that status is.
      */
     fun record(failure: Throwable, answered: LocalizedException) {
         if (localizedErrorMapper.toHttpStatus(answered).code < 500) return
