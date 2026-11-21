@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.validationcode
 
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.ValidationCodeMapper
 import com.sympauthy.business.model.code.ValidationCode
@@ -10,9 +11,7 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
-import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.util.min
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -23,9 +22,9 @@ import kotlin.math.pow
 /**
  * Component in charge of the generation of validation code that will be sent to the end-user.
  *
- * As the validation code are limited in scope to a single authorization flow, we do not need to enforce the
- * uniqueness of the across all our users. The only case of collision is if the generator generates a code that
- * was already sent to the user when the users ask to send another code.
+ * A validation code is limited in scope to the interactive flow session it is sent in, so it only has to be unique
+ * among the codes of that session. A code drawn twice is one the session already holds, and is answered with another
+ * draw.
  */
 @Singleton
 class ValidationCodeGenerator(
@@ -34,8 +33,6 @@ class ValidationCodeGenerator(
     @Inject private val randomGenerator: RandomGenerator,
     @Inject private val advancedConfig: AdvancedConfig
 ) {
-
-    private val logger = loggerForClass()
 
     internal val validationCodeLength: Int
         get() = advancedConfig.orThrow().validationCode.length
@@ -46,16 +43,20 @@ class ValidationCodeGenerator(
     internal val validationCodeFormat: String
         get() = "%0${validationCodeLength}d"
 
+    /**
+     * Draw a code the [session] does not hold yet, store it for the [user] to receive through [media] for the
+     * [reasons], and return it.
+     *
+     * A draw the session already holds is answered with another, up to [MAX_ATTEMPTS] of them, and stores nothing,
+     * so a caller may hold a transaction open around this. Once every draw was held, it throws
+     * `validationcode.every_draw_held`.
+     */
     suspend fun generateValidationCode(
         user: User,
         session: InteractiveFlowSession,
         media: ValidationCodeMedia,
         reasons: List<ValidationCodeReason>
     ): ValidationCode {
-        var tryCount = 0
-        var savedEntity: ValidationCodeEntity? = null
-        var lastFailure: Exception? = null
-
         val creationDate = now()
         val expirationDate = getExpirationDate(
             creationDate = creationDate,
@@ -63,30 +64,29 @@ class ValidationCodeGenerator(
         )
         val resendDate = getResendDate(creationDate)
 
-        while (savedEntity == null && tryCount < MAX_ATTEMPTS) {
-            try {
-                val entity = ValidationCodeEntity(
-                    code = generateCode(),
-                    userId = user.id,
-                    media = media.name,
-                    reasons = reasons.map(ValidationCodeReason::name).toTypedArray(),
-                    sessionId = session.id,
-                    creationDate = creationDate,
-                    expirationDate = expirationDate,
-                    resendDate = resendDate
-                )
-                savedEntity = validationCodeRepository.save(entity)
-            } catch (e: Exception) {
-                // A code drawn twice collides with the one already held. Any other failure is the next attempt's to
-                // meet, and the last one's to throw.
-                logger.debug(e) { "Could not insert validation code on attempt ${tryCount + 1}; drawing another." }
-                lastFailure = e
-                tryCount++
+        repeat(MAX_ATTEMPTS) {
+            val code = generateCode()
+            val inserted = validationCodeRepository.insertUnlessCodeHeld(
+                code = code,
+                userId = user.id,
+                media = media.name,
+                reasons = reasons.map(ValidationCodeReason::name).toTypedArray(),
+                sessionId = session.id,
+                creationDate = creationDate,
+                resendDate = resendDate,
+                expirationDate = expirationDate
+            )
+            if (inserted > 0) {
+                return validationCodeRepository.findBySessionIdAndCode(sessionId = session.id, code = code)
+                    ?.let(validationCodeMapper::toValidationCode)
+                    ?: throw internalBusinessExceptionOf("validationcode.inserted_missing", "media" to media.name)
             }
         }
-
-        return savedEntity?.let(validationCodeMapper::toValidationCode)
-            ?: throw IllegalStateException("Unable to generate code in $tryCount attempts.", lastFailure)
+        throw internalBusinessExceptionOf(
+            "validationcode.every_draw_held",
+            "attempts" to MAX_ATTEMPTS.toString(),
+            "media" to media.name
+        )
     }
 
     internal fun generateCode(): String {
@@ -121,8 +121,8 @@ class ValidationCodeGenerator(
 
     companion object {
         /**
-         * Number of times we will try to regenerate a code in case we have a collision.
+         * Number of codes drawn before giving up on finding one the session does not hold yet.
          */
-        private const val MAX_ATTEMPTS = 10
+        internal const val MAX_ATTEMPTS = 10
     }
 }

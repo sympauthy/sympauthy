@@ -1,12 +1,16 @@
 package com.sympauthy.business.manager.validationcode
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.ValidationCodeMapper
+import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.config.model.AdvancedConfig
+import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -54,26 +58,61 @@ class ValidationCodeGeneratorTest {
     }
 
     @Test
-    fun `generateValidationCode - Throws the last insert failure as the cause once every attempt failed`() =
-        runTest {
-            val session = mockk<InteractiveFlowSession>()
-            every { generator.generateCode() } returns "000345"
-            every { generator.getExpirationDate(session, any()) } returns LocalDateTime.MAX
-            every { generator.getResendDate(any()) } returns null
-            val failure = IllegalStateException("column does not exist")
-            coEvery { validationCodeRepository.save(any()) } throws failure
+    fun `generateValidationCode - Draws another code where the session already holds the one drawn`() = runTest {
+        val sessionId = UUID.randomUUID()
+        val session = mockk<InteractiveFlowSession> { every { id } returns sessionId }
+        val stored = mockk<ValidationCodeEntity>()
+        val validationCode = mockk<ValidationCode>()
+        every { generator.generateCode() } returnsMany listOf("000345", "000678")
+        every { generator.getExpirationDate(session, any()) } returns LocalDateTime.MAX
+        every { generator.getResendDate(any()) } returns null
+        coEvery {
+            validationCodeRepository.insertUnlessCodeHeld(
+                "000345", any(), any(), any(), sessionId, any(), any(), any()
+            )
+        } returns 0
+        coEvery {
+            validationCodeRepository.insertUnlessCodeHeld(
+                "000678", any(), any(), any(), sessionId, any(), any(), any()
+            )
+        } returns 1
+        coEvery { validationCodeRepository.findBySessionIdAndCode(sessionId, "000678") } returns stored
+        every { validationCodeMapper.toValidationCode(stored) } returns validationCode
 
-            val thrown = assertThrows<IllegalStateException> {
-                generator.generateValidationCode(
-                    user = mockk { every { id } returns UUID.randomUUID() },
-                    session = session.also { every { it.id } returns UUID.randomUUID() },
-                    media = ValidationCodeMedia.EMAIL,
-                    reasons = emptyList()
-                )
-            }
+        val result = generator.generateValidationCode(
+            user = mockk { every { id } returns UUID.randomUUID() },
+            session = session,
+            media = ValidationCodeMedia.EMAIL,
+            reasons = emptyList()
+        )
 
-            assertSame(failure, thrown.cause)
+        assertSame(validationCode, result)
+    }
+
+    @Test
+    fun `generateValidationCode - Throws once the session held every code drawn`() = runTest {
+        val session = mockk<InteractiveFlowSession> { every { id } returns UUID.randomUUID() }
+        every { generator.generateCode() } returns "000345"
+        every { generator.getExpirationDate(session, any()) } returns LocalDateTime.MAX
+        every { generator.getResendDate(any()) } returns null
+        coEvery {
+            validationCodeRepository.insertUnlessCodeHeld(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns 0
+
+        val exception = assertThrows<BusinessException> {
+            generator.generateValidationCode(
+                user = mockk { every { id } returns UUID.randomUUID() },
+                session = session,
+                media = ValidationCodeMedia.EMAIL,
+                reasons = emptyList()
+            )
         }
+
+        assertEquals("validationcode.every_draw_held", exception.detailsId)
+        coVerify(exactly = ValidationCodeGenerator.MAX_ATTEMPTS) {
+            validationCodeRepository.insertUnlessCodeHeld(any(), any(), any(), any(), any(), any(), any(), any())
+        }
+    }
 
     @Test
     fun `generateCode - Generate X digits validation code`() {

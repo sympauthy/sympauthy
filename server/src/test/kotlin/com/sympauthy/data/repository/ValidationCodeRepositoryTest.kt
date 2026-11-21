@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import java.time.LocalDateTime
 import java.util.*
 
 /**
@@ -72,6 +73,57 @@ class ValidationCodeRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
+    fun `insertUnlessCodeHeld - Stores a code the session does not hold and round-trips the row`(
+        database: Database
+    ) = withFixture(database) {
+        val codes = repository<ValidationCodeRepository>()
+        val userId = newUser()
+        val session = newSession()
+
+        val inserted = insertCode(userId, session.id!!, resendDate = BASE_DATE.plusMinutes(1))
+
+        assertEquals(1, inserted)
+        val stored = codes.findBySessionIdAndCode(session.id!!, "123456")
+        assertNotNull(stored)
+        assertEquals(userId, stored!!.userId)
+        assertEquals("EMAIL", stored.media)
+        assertArrayEquals(arrayOf("EMAIL_CLAIM", "RESET_PASSWORD"), stored.reasons)
+        assertEquals(BASE_DATE, stored.creationDate)
+        assertEquals(BASE_DATE.plusMinutes(1), stored.resendDate)
+        assertEquals(BASE_DATE.plusMinutes(10), stored.expirationDate)
+        assertNull(stored.validationDate)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `insertUnlessCodeHeld - Answers zero for a code the session already holds, rather than raising`(
+        database: Database
+    ) = withFixture(database) {
+        val codes = repository<ValidationCodeRepository>()
+        val userId = newUser()
+        val session = newSession()
+        val held = saveCode(userId, session.id!!, media = "PHONE_NUMBER")
+
+        val inserted = insertCode(userId, session.id!!)
+
+        assertEquals(0, inserted)
+        assertEquals(listOf(held), codes.findBySessionId(session.id!!).map { it.id!! })
+        assertEquals("PHONE_NUMBER", codes.findById(held)!!.media)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `insertUnlessCodeHeld - Stores a code another session already holds`(database: Database) =
+        withFixture(database) {
+            val userId = newUser()
+            val session = newSession()
+            saveCode(userId, newSession().id!!)
+
+            assertEquals(1, insertCode(userId, session.id!!))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
     fun `deleteByIds - Removes every code named and counts them`(database: Database) = withFixture(database) {
         val codes = repository<ValidationCodeRepository>()
         val userId = newUser()
@@ -108,6 +160,29 @@ class ValidationCodeRepositoryTest {
             assertNull(codes.findById(alsoDeleted))
             assertNotNull(codes.findById(kept))
         }
+
+    /** Inserts [code] for [sessionId] through the statement under test, deleting what it stored once the test ends. */
+    private suspend fun RepositoryFixture.insertCode(
+        userId: UUID,
+        sessionId: UUID,
+        code: String = "123456",
+        resendDate: LocalDateTime? = null
+    ): Int {
+        val codes = repository<ValidationCodeRepository>()
+        deleteOnEnd {
+            codes.findBySessionIdAndCode(sessionId, code)?.id?.let { codes.deleteByIds(listOf(it)) }
+        }
+        return codes.insertUnlessCodeHeld(
+            code = code,
+            userId = userId,
+            media = "EMAIL",
+            reasons = arrayOf("EMAIL_CLAIM", "RESET_PASSWORD"),
+            sessionId = sessionId,
+            creationDate = BASE_DATE,
+            resendDate = resendDate,
+            expirationDate = BASE_DATE.plusMinutes(10)
+        )
+    }
 
     private suspend fun RepositoryFixture.saveCode(
         userId: UUID,
