@@ -8,7 +8,7 @@ ksp = "2.3.13"
 # Pinned third-party libraries
 kotlinx-coroutines = "1.11.0"
 json-path = "3.0.0"
-bouncycastle = "1.86"
+bouncycastle = "1.87"
 freemarker = "2.3.35"
 evalex = "3.8.0"
 r2dbc-proxy = "1.1.7.RELEASE"
