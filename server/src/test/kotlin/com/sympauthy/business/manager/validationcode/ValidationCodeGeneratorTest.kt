@@ -1,5 +1,6 @@
 package com.sympauthy.business.manager.validationcode
 
+import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.ValidationCodeMapper
 import com.sympauthy.business.model.code.ValidationCode
@@ -9,13 +10,13 @@ import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
@@ -57,18 +58,26 @@ class ValidationCodeGeneratorTest {
     }
 
     @Test
-    fun `generateValidationCode - Draws outside the codes the session already holds`() = runTest {
+    fun `generateValidationCode - Draws another code where the session already holds the one drawn`() = runTest {
         val sessionId = UUID.randomUUID()
         val session = mockk<InteractiveFlowSession> { every { id } returns sessionId }
+        val stored = mockk<ValidationCodeEntity>()
         val validationCode = mockk<ValidationCode>()
-        every { generator.validationCodeLength } returns 6
+        every { generator.generateCode() } returnsMany listOf("000345", "000678")
         every { generator.getExpirationDate(session, any()) } returns LocalDateTime.MAX
         every { generator.getResendDate(any()) } returns null
-        coEvery { validationCodeRepository.findBySessionId(sessionId) } returns listOf(heldCode(sessionId, "000000"))
-        every { randomGenerator.generateInt(0, 99_999) } returns 0
-        val saved = slot<ValidationCodeEntity>()
-        coEvery { validationCodeRepository.save(capture(saved)) } answers { saved.captured }
-        every { validationCodeMapper.toValidationCode(any()) } returns validationCode
+        coEvery {
+            validationCodeRepository.insertUnlessCodeHeld(
+                "000345", any(), any(), any(), sessionId, any(), any(), any()
+            )
+        } returns 0
+        coEvery {
+            validationCodeRepository.insertUnlessCodeHeld(
+                "000678", any(), any(), any(), sessionId, any(), any(), any()
+            )
+        } returns 1
+        coEvery { validationCodeRepository.findBySessionIdAndCode(sessionId, "000678") } returns stored
+        every { validationCodeMapper.toValidationCode(stored) } returns validationCode
 
         val result = generator.generateValidationCode(
             user = mockk { every { id } returns UUID.randomUUID() },
@@ -78,46 +87,38 @@ class ValidationCodeGeneratorTest {
         )
 
         assertSame(validationCode, result)
-        assertEquals("000001", saved.captured.code)
     }
 
     @Test
-    fun `generateCode - Steps over each held code at or below the drawn rank`() {
-        every { generator.validationCodeLength } returns 6
-        every { randomGenerator.generateInt(0, 99_997) } returns 2
-        val code = generator.generateCode(listOf("000005", "000000", "000002"))
-        assertEquals("000004", code)
-    }
+    fun `generateValidationCode - Throws once the session held every code drawn`() = runTest {
+        val session = mockk<InteractiveFlowSession> { every { id } returns UUID.randomUUID() }
+        every { generator.generateCode() } returns "000345"
+        every { generator.getExpirationDate(session, any()) } returns LocalDateTime.MAX
+        every { generator.getResendDate(any()) } returns null
+        coEvery {
+            validationCodeRepository.insertUnlessCodeHeld(any(), any(), any(), any(), any(), any(), any(), any())
+        } returns 0
 
-    @Test
-    fun `generateCode - Ignores a held code of another length`() {
-        every { generator.validationCodeLength } returns 6
-        every { randomGenerator.generateInt(0, 100_000) } returns 2
-        val code = generator.generateCode(listOf("00002"))
-        assertEquals("000002", code)
-    }
+        val exception = assertThrows<BusinessException> {
+            generator.generateValidationCode(
+                user = mockk { every { id } returns UUID.randomUUID() },
+                session = session,
+                media = ValidationCodeMedia.EMAIL,
+                reasons = emptyList()
+            )
+        }
 
-    @Test
-    fun `generateCode - Throws once the session holds every code`() {
-        every { generator.validationCodeLength } returns 1
-        assertThrows<IllegalStateException> { generator.generateCode(listOf("0")) }
+        assertEquals("validationcode.every_draw_held", exception.detailsId)
+        coVerify(exactly = ValidationCodeGenerator.MAX_ATTEMPTS) {
+            validationCodeRepository.insertUnlessCodeHeld(any(), any(), any(), any(), any(), any(), any(), any())
+        }
     }
 
     @Test
     fun `generateCode - Generate X digits validation code`() {
         every { generator.validationCodeLength } returns 6
         every { randomGenerator.generateInt(any(), any()) } returns 345
-        val code = generator.generateCode(emptyList())
+        val code = generator.generateCode()
         assertEquals("000345", code)
     }
-
-    private fun heldCode(sessionId: UUID, code: String) = ValidationCodeEntity(
-        code = code,
-        userId = UUID.randomUUID(),
-        media = ValidationCodeMedia.EMAIL.name,
-        reasons = emptyArray(),
-        sessionId = sessionId,
-        resendDate = null,
-        expirationDate = LocalDateTime.MAX
-    )
 }
