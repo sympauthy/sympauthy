@@ -37,15 +37,16 @@ it is the one way a person learns of a reset they did not make.
 
 | The mail server | The mail | Its condition |
 | --- | --- | --- |
-| could not be reached, did not answer or take the mail within its timeouts, refused this server's credentials, or refused its session or sender whatever the code | retried | degraded |
-| refused a recipient or the mail permanently under a security or policy status, `5.7.x` — a relay this server may not use | retried | degraded |
+| could not be reached, did not answer or take the mail within its timeouts, closed the connection before it answered, refused this server's credentials, or refused its session or sender whatever the code | retried | degraded |
 | refused a recipient or the mail temporarily, a `4xx`, or greeted this server with one | retried | not degraded |
-| refused a recipient permanently, a `5xx`, or reported the mailbox full, `4.2.2` or `5.2.2` | given up | not degraded |
+| refused a recipient or the mail permanently, a `5xx`, or reported the mailbox full, `4.2.2` or `5.2.2` | given up | not degraded |
 
 **A refusal of this server's own sending is the operator's to see, not one mail's fault.** It fails
 every mail the same way, so it degrades the condition and the mails wait for it to be fixed,
-rather than each being given up at DEBUG under a healthy condition. A greylisting reply is often
-`4.7.1`, which is why only the permanent policy statuses count as this server's sending. [The design
+rather than each being given up at DEBUG under a healthy condition. What is this server's own is
+its session and its sender: a recipient refused under a security or policy status, `x.7.x`, is
+refused as any recipient is, since a domain rejects that way for a policy of its own, and a mail
+retried for it would be retried for good. [The design
 FAQ](design-faq.md#which-failures-of-a-mail-are-retried) holds the splits that lost.
 
 **A mail that cannot be built, and a failure carrying no reply and no network cause, are this
@@ -54,8 +55,9 @@ once](delivery.md#a-failed-attempt-is-retried-while-its-destination-may-yet-take
 WARN names the mail and its kind. A permanent refusal and a full mailbox are written at
 DEBUG: anybody can type an address a mail server refuses.
 
-**The `mail` environment ships the mail server's timeouts.** JavaMail waits for ever without them,
-and a mail server that stops reading mid-message would hold its attempt, and the mail, for good.
+**The `mail` environment ships the mail server's timeouts, for `smtp` and `smtps` both.** JavaMail
+waits for ever without them, and a mail server that stops reading mid-message would hold its
+attempt, and the mail, for good.
 
 **Where no mail server is configured, no mail is queued**, and the delivery does not poll. Mails
 would otherwise pile up for a mail server that does not exist, and a notice with no expiry would go

@@ -1,5 +1,6 @@
 package com.sympauthy.mail.manager
 
+import com.sympauthy.exception.toOutcome
 import com.sympauthy.mail.mapper.QueuedMailMapper
 import com.sympauthy.mail.model.Mail
 import com.sympauthy.mail.model.MailFailure
@@ -13,6 +14,7 @@ import com.sympauthy.monitoring.telemetry.Outcome
 import com.sympauthy.queue.manager.QueueItemDeliverer
 import com.sympauthy.queue.model.DeliveryAttempt
 import com.sympauthy.queue.model.QueueItem
+import io.micronaut.email.EmailException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -95,10 +97,16 @@ class MailDeliverer(
                 if (!conditionMonitor.absorb(failure)) {
                     logger.warn(failure) { "Gave up mail ${item.id} (kind=${item.kind}): it failed to send." }
                 }
-                DeliveryAttempt.Failed(Outcome.errorOf(failure))
+                DeliveryAttempt.Failed(failure.unwrapped().toOutcome())
             }
         }
     }
+
+    /**
+     * The failure a send raised, as JavaMail or the template raised it: the mail sender wraps every one in the same
+     * [EmailException], which says nothing of its own.
+     */
+    private fun Exception.unwrapped(): Throwable = if (this is EmailException) cause ?: this else this
 
     private fun build(queuedMail: QueuedMail, item: QueueItem): TemplatedMailBuilder = mailBuilderFactory
         .builder(

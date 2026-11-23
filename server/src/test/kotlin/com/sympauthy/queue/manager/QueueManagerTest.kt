@@ -5,6 +5,8 @@ import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.bean
 import com.sympauthy.data.repository.QueueItemRepository
 import com.sympauthy.data.withFixture
+import com.sympauthy.queue.mapper.QueueItemMapper
+import com.sympauthy.queue.model.QueueItem
 import io.micronaut.transaction.annotation.Transactional
 import io.mockk.every
 import io.mockk.mockk
@@ -83,10 +85,14 @@ class QueueManagerTest {
 
     private fun RepositoryFixture.manager(nudges: Nudges): QueueManager {
         val delivery = mockk<QueueDelivery>()
-        every { delivery.nudge(destination, any()) } answers {
-            nudges.received.add(secondArg<UUID>() to nudges.bodyReturned)
+        every { delivery.nudge(match { it.destination == destination }) } answers {
+            nudges.received.add(firstArg<QueueItem>().id to nudges.bodyReturned)
         }
-        return QueueManager(queueItemRepository = repository(), queueDelivery = delivery)
+        return QueueManager(
+            queueItemRepository = repository(),
+            queueItemMapper = QueueItemMapper(),
+            queueDelivery = delivery
+        )
     }
 
     /**

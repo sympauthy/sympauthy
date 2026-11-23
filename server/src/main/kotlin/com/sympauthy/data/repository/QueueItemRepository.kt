@@ -71,17 +71,17 @@ interface QueueItemRepository : CoroutineCrudRepository<QueueItemEntity, UUID> {
     suspend fun holdClaimed(ids: List<UUID>, holder: String, now: LocalDateTime, expiresAt: LocalDateTime): Int
 
     /**
-     * Push back to [expiresAt] every lease [holder] still holds, and answer how many there were. A lease already
-     * past its expiry is passed over, as a job's is.
+     * Push back to [expiresAt] the lease [holder] still holds on each of the items [ids], and answer how many there
+     * were. A lease already past its expiry is passed over, as a job's is.
      */
     @Query(
         """
         UPDATE queue_items
         SET lease_expiration_date = :expiresAt
-        WHERE holder = :holder AND lease_expiration_date > :now
+        WHERE id IN (:ids) AND holder = :holder AND lease_expiration_date > :now
         """
     )
-    suspend fun renew(holder: String, now: LocalDateTime, expiresAt: LocalDateTime): Int
+    suspend fun renew(ids: List<UUID>, holder: String, now: LocalDateTime, expiresAt: LocalDateTime): Int
 
     /**
      * Leave the item [id] [holder] attempted for a retry, as its [attemptCount]th attempt, due at
@@ -96,6 +96,12 @@ interface QueueItemRepository : CoroutineCrudRepository<QueueItemEntity, UUID> {
         """
     )
     suspend fun reschedule(id: UUID, holder: String, attemptCount: Int, nextAttemptDate: LocalDateTime): Int
+
+    /**
+     * Hand back the item [id] [holder] holds, as it stands and due as it was, and answer 1 where it still held it.
+     */
+    @Query("UPDATE queue_items SET holder = NULL, lease_expiration_date = NULL WHERE id = :id AND holder = :holder")
+    suspend fun releaseHeld(id: UUID, holder: String): Int
 
     /**
      * Hand back every item [holder] still holds, as it stands, and answer how many there were.

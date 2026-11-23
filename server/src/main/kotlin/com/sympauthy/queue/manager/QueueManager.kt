@@ -3,9 +3,8 @@ package com.sympauthy.queue.manager
 import com.sympauthy.data.currentConnectionOrNull
 import com.sympauthy.data.model.QueueItemEntity
 import com.sympauthy.data.repository.QueueItemRepository
-import io.micronaut.context.event.ApplicationEventListener
+import com.sympauthy.queue.mapper.QueueItemMapper
 import io.micronaut.data.connection.ConnectionSynchronization
-import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration
@@ -18,16 +17,9 @@ import java.time.LocalDateTime
 @Singleton
 class QueueManager(
     @Inject private val queueItemRepository: QueueItemRepository,
+    @Inject private val queueItemMapper: QueueItemMapper,
     @Inject private val queueDelivery: QueueDelivery
-) : ApplicationEventListener<ServiceReadyEvent> {
-
-    /**
-     * Start the poll once the server is ready. It is started here rather than by [QueueDelivery], which already
-     * listens for the server stopping and cannot implement the same listener for a second event.
-     */
-    override fun onApplicationEvent(event: ServiceReadyEvent) {
-        queueDelivery.startPolling()
-    }
+) {
 
     /**
      * Write an item of [kind] for [destination], carrying [payload], in the transaction the caller runs in, and have
@@ -53,14 +45,14 @@ class QueueManager(
             creationDate = now,
             expirationDate = maxAge?.let { now.plus(it) }
         )
-        val id = queueItemRepository.save(entity).id!!
+        val item = queueItemMapper.toQueueItem(queueItemRepository.save(entity))
         val connection = currentConnectionOrNull()
         if (connection == null) {
-            queueDelivery.nudge(destination, id)
+            queueDelivery.nudge(item)
         } else {
             connection.registerSynchronization(object : ConnectionSynchronization {
                 override fun afterClosed() {
-                    queueDelivery.nudge(destination, id)
+                    queueDelivery.nudge(item)
                 }
             })
         }

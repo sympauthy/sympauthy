@@ -176,6 +176,10 @@ as a job's is.** The holder is the instance's name `JobLeaseManager` mints, so t
 instance is alive renews both kinds of lease, and a row's lease expires on how long its instance may
 go silent rather than on how long an attempt takes.
 
+**A renewal names the rows the instance is attempting, never every row it holds.** A row whose
+attempt ended without its release committing is then left to lapse, rather than renewed for as long
+as the instance lives.
+
 **Every statement ending an attempt names the holder.** An instance whose lease lapsed and was taken
 elsewhere then changes nothing of the row, as a job's release frees nobody else's lease.
 

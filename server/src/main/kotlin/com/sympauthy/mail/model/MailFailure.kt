@@ -18,9 +18,9 @@ import javax.net.ssl.SSLException
 internal sealed interface MailFailure {
 
     /**
-     * The mail server is unwell: it could not be reached, did not answer in time, refused this server's
-     * credentials, or refused this server's sending — its session, its sender, its relay. The mail is retried, and
-     * the call degrades the mail sender's condition, typed by [errorType].
+     * The mail server is unwell: it could not be reached, did not answer in time, closed the connection before it
+     * answered, refused this server's credentials, or refused this server's sending — its session, its sender. The
+     * mail is retried, and the call degrades the mail sender's condition, typed by [errorType].
      */
     data class MailServerUnwell(val errorType: String) : MailFailure
 
@@ -31,8 +31,8 @@ internal sealed interface MailFailure {
     data class TemporaryRefusal(val replyCode: Int) : MailFailure
 
     /**
-     * The mail server refused a recipient for good, or reported its mailbox full, under [replyCode]. The mail is
-     * given up, since every later attempt would fail the same way.
+     * The mail server refused a recipient or the mail for good, or reported the mailbox full, under [replyCode]. The
+     * mail is given up, since every later attempt would fail the same way.
      */
     data class PermanentRefusal(val replyCode: Int) : MailFailure
 
@@ -99,32 +99,24 @@ internal class SmtpReply(
     /**
      * What this reply makes of the attempt it ended.
      *
-     * A permanent refusal of a recipient or of the mail under a security or policy status, `5.7.x`, refuses this
-     * server's sending — a relay this server may not use — rather than the mail, and so does a refusal of the
-     * session whatever its code. A temporary one, `4.7.x`, is how greylisting is often worded, and is retried as any
-     * temporary refusal is. A greeting that asks to be tried later is a temporary refusal, and any other refuses the
-     * session. A full mailbox, `4.2.2` or `5.2.2`, is given up whatever its reply code; elsewhere the reply code
-     * decides.
+     * No reply at all, the connection closed before the mail server answered, is the mail server being unwell at
+     * whichever stage it came. A refusal of the session refuses this server's sending whatever its code. A greeting
+     * that asks to be tried later is a temporary refusal, and any other refuses the session. A recipient or the mail
+     * is refused as its reply code says, a security or policy status, `x.7.x`, included: a recipient's domain
+     * rejects that way for a policy of its own, and taking it for this server's sending would retry that one mail
+     * for good. A full mailbox, `4.2.2` or `5.2.2`, is given up whatever its reply code.
      */
-    fun failure(): MailFailure = when (stage) {
-        Stage.SESSION -> MailFailure.MailServerUnwell(code.toString())
-        Stage.GREETING ->
+    fun failure(): MailFailure = when {
+        code == NO_REPLY -> MailFailure.MailServerUnwell(CONNECTION_CLOSED)
+        stage == Stage.SESSION -> MailFailure.MailServerUnwell(code.toString())
+        stage == Stage.GREETING ->
             if (code in TEMPORARY) MailFailure.TemporaryRefusal(code) else MailFailure.MailServerUnwell(code.toString())
 
-        Stage.RECIPIENT, Stage.MESSAGE -> when {
-            code in PERMANENT && enhancedSubject == SECURITY_OR_POLICY -> MailFailure.MailServerUnwell(code.toString())
-            enhancedCode in MAILBOX_FULL -> MailFailure.PermanentRefusal(code)
-            code in TEMPORARY -> MailFailure.TemporaryRefusal(code)
-            code in PERMANENT -> MailFailure.PermanentRefusal(code)
-            else -> MailFailure.Unclassified
-        }
+        enhancedCode in MAILBOX_FULL -> MailFailure.PermanentRefusal(code)
+        code in TEMPORARY -> MailFailure.TemporaryRefusal(code)
+        code in PERMANENT -> MailFailure.PermanentRefusal(code)
+        else -> MailFailure.Unclassified
     }
-
-    /**
-     * The subject of [enhancedCode], its middle number, which says what the status is about.
-     */
-    private val enhancedSubject: String?
-        get() = enhancedCode?.split('.')?.get(1)
 
     companion object {
 
@@ -154,7 +146,8 @@ internal class SmtpReply(
 
         private fun parseUntyped(message: String): SmtpReply? {
             GREETING_MESSAGE.find(message)?.let { match ->
-                return parse(match.groupValues[1].toInt(), match.groupValues[1] + match.groupValues[2], Stage.GREETING)
+                val code = match.groupValues[1].toIntOrNull() ?: NO_REPLY
+                return parse(code, match.groupValues[1] + match.groupValues[2], Stage.GREETING)
             }
             val code = REPLY.find(message)?.groupValues?.get(1)?.toInt() ?: return null
             return parse(code, message, Stage.SESSION)
@@ -171,8 +164,11 @@ internal class SmtpReply(
         private val TEMPORARY = 400..499
         private val PERMANENT = 500..599
 
-        /** The subject of a status about security or policy, `x.7.x`. */
-        private const val SECURITY_OR_POLICY = "7"
+        /** The code JavaMail reports a reply it never got under, the connection having closed first. */
+        private const val NO_REPLY = -1
+
+        /** What a mail server closing the connection before it answered is typed by. */
+        private const val CONNECTION_CLOSED = "connection_closed"
 
         /** The statuses a full mailbox is reported under. */
         private val MAILBOX_FULL = setOf("4.2.2", "5.2.2")
@@ -183,7 +179,8 @@ internal class SmtpReply(
         /** The enhanced status code following a reply's code, `class.subject.detail`. */
         private val ENHANCED = Regex("""^\d{3}[ -]([245]\.\d{1,3}\.\d{1,3})\b""")
 
-        /** How JavaMail words a greeting it was refused with. */
-        private val GREETING_MESSAGE = Regex("""Got bad greeting from SMTP host: .*?, response: (\d{3})(.*)""")
+        /** How JavaMail words a greeting it was refused with, `[EOF]` where the connection closed first. */
+        private val GREETING_MESSAGE =
+            Regex("""Got bad greeting from SMTP host: .*?, response: (\d{3}|\[EOF])(.*)""")
     }
 }

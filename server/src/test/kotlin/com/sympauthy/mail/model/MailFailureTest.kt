@@ -53,8 +53,22 @@ class MailFailureTest {
     }
 
     @Test
-    fun `of - Takes a relay refused for good as unwell`() {
-        assertEquals(MailServerUnwell("554"), of(recipientRefused(554, "554 5.7.1 Relay access denied")))
+    fun `of - Takes a recipient refused for good under a policy status as a permanent refusal`() {
+        assertEquals(PermanentRefusal(554), of(recipientRefused(554, "554 5.7.1 Relay access denied")))
+        assertEquals(PermanentRefusal(550), of(recipientRefused(550, "550 5.7.26 Unauthenticated email rejected")))
+    }
+
+    @Test
+    fun `of - Takes a mail server that closed the connection before it answered as unwell, at every stage`() {
+        val greeting = MessagingException(
+            "Got bad greeting from SMTP host: mail.example.org, port: 25, response: [EOF]"
+        )
+        assertEquals(MailServerUnwell("connection_closed"), of(greeting))
+        assertEquals(MailServerUnwell("connection_closed"), of(recipientRefused(-1, "[EOF]")))
+        assertEquals(
+            MailServerUnwell("connection_closed"),
+            of(SMTPSendFailedException(".", -1, "[EOF]", null, null, null, null))
+        )
     }
 
     @Test

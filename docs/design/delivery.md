@@ -32,9 +32,10 @@ beside it.
 
 **Every instance also looks for what is due, every `advanced.queue.poll-interval`.** That picks up
 what an instance left when it died, a retry whose time has come, and an item whose nudge never
-came: the stored item is what is safe, and a missed nudge costs it one poll. An instance holds at
-most `advanced.queue.batch-size` items from its polls, so the rest of a backlog stays for the other
-instances, and a destination that never answers holds at most that many attempts on one of them.
+came: the stored item is what is safe, and a missed nudge costs it one poll. An instance attempts
+at most `advanced.queue.batch-size` items of one destination at once, nudged or polled, so the rest
+of a backlog stays for the other instances, and a destination that never answers holds at most that
+many attempts on one of them. A nudge finding them all taken leaves its item to the next poll.
 
 **A server that reports itself unready does not poll.** Configuration is read once, so it stays
 unready until it restarts, and an item sent from a server answering errors points its reader at
@@ -93,11 +94,14 @@ committed it, on its nudge, or another on its poll — attempts it. Between two 
 holds it.
 
 **A lease on an item lasts as long as its attempt, and is kept alive the way a job's lease is**:
-renewed for as long as the instance holding it is alive, and taken by the next poll once that
-instance has been silent for a job lease's grace period, as [the locking
-standard](../standards/locking-standard.md#the-lease) has a lease expire. Nobody guesses how long an
-attempt takes. [The design FAQ](design-faq.md#is-an-item-leased-or-is-the-backlog) holds the leases
-that lost.
+renewed while the attempt runs, and taken by the next poll once it has gone a job lease's grace
+period unrenewed, as [the locking standard](../standards/locking-standard.md#the-lease) has a lease
+expire. Nobody guesses how long an attempt takes. [The design
+FAQ](design-faq.md#is-an-item-leased-or-is-the-backlog) holds the leases that lost.
+
+**An attempt that fails for a reason of this server's own hands its item back**, due as it was, so
+that the next poll takes it again: the database not answering mid-attempt costs the item a poll, not
+the lease. An item whose hand-back fails too is no longer renewed, and its lease lapses.
 
 **An instance shutting down stops taking items, lets the attempts under way finish for
 `advanced.queue.shutdown-grace`, and hands back what it still holds**, so another instance takes

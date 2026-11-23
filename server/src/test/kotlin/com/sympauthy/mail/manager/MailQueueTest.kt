@@ -7,9 +7,9 @@ import com.sympauthy.queue.manager.QueueManager
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
-import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -22,11 +22,16 @@ class MailQueueTest {
     @MockK
     lateinit var queueManager: QueueManager
 
+    @MockK
+    lateinit var mailDeliverer: MailDeliverer
+
     private val queuedMailMapper = QueuedMailMapper(ObjectMapper.getDefault())
 
     @Test
     fun `send - Queues nothing when no mail server is configured`() = runTest {
-        MailQueue(mailSender = null, queueManager = queueManager, queuedMailMapper = queuedMailMapper)
+        every { mailDeliverer.enabled } returns false
+
+        MailQueue(mailDeliverer = mailDeliverer, queueManager = queueManager, queuedMailMapper = queuedMailMapper)
             .send(Mail.CLAIM_VALIDATION, Locale.US, "person@example.com", emptyMap())
 
         coVerify(exactly = 0) { queueManager.enqueue(any(), any(), any(), any()) }
@@ -41,7 +46,9 @@ class MailQueueTest {
             queueManager.enqueue(MailDeliverer.DESTINATION, "password_reset_code", payload, Duration.ofMinutes(10))
         } returns Unit
 
-        MailQueue(mailSender = mockk(), queueManager = queueManager, queuedMailMapper = queuedMailMapper)
+        every { mailDeliverer.enabled } returns true
+
+        MailQueue(mailDeliverer = mailDeliverer, queueManager = queueManager, queuedMailMapper = queuedMailMapper)
             .send(
                 Mail.PASSWORD_RESET_CODE,
                 Locale.US,

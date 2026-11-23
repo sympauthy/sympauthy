@@ -2118,9 +2118,10 @@ paused, is that feature's to keep.
 
 ### Which failures of a mail are retried?
 
-**Decision:** A mail server that is unwell or refuses this server's own sending, and a temporary
-refusal of a recipient or of the mail, until the mail expires. A recipient refused for good, a full
-mailbox and a mail that cannot be built are given up at once.
+**Decision:** A mail server that is unwell or refuses this server's own session or sender, and a
+temporary refusal of a recipient or of the mail, until the mail expires. A recipient or a mail
+refused for good, whatever its status, a full mailbox and a mail that cannot be built are given up
+at once.
 
 **Options considered:**
 
@@ -2130,6 +2131,7 @@ mailbox and a mail that cannot be built are given up at once.
 - **Retrying a full mailbox.**
 - **A temporary refusal counted as `refused` on `sympauthy.mail.sends`.**
 - **Every policy status, `x.7.x`, taken as this server's sending.**
+- **A recipient's permanent policy status, `5.7.x`, taken as this server's sending.**
 
 **Rationale:**
 
@@ -2139,7 +2141,11 @@ up an unreachable mail server loses every code sent during an outage of any leng
 relay that is refused, and the operator would never see a broken mail setup. A full mailbox stays
 full for longer than a code lives, and a notice with no expiry would be tried for ever. `refused` is
 kept for what the caller caused, and recovers the condition as a success does. A greylisting reply
-is often `4.7.1`, so only a permanent policy status is read as a refusal of this server's sending.
+is often `4.7.1`, so a temporary policy status is not this server's sending. A permanent one at a
+recipient is not either: a domain rejecting under its own policy, `5.7.26` for DMARC, would retry
+that mail for good — a notice with no expiry included — under a condition degraded by one
+recipient, while a relay this server may not use is a refusal every mail meets the same way, which
+the operator sees from the sends refused under `5.7.1`.
 
 ---
 

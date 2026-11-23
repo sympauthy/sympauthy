@@ -1,6 +1,7 @@
 package com.sympauthy.queue.manager
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
+import com.sympauthy.business.manager.lock.JobLeaseManager.Companion.GRACE_PERIOD
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
@@ -18,12 +19,15 @@ import com.sympauthy.server.BackgroundScope
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.context.event.ShutdownEvent
 import io.micronaut.core.order.Ordered
+import io.micronaut.discovery.event.ServiceReadyEvent
+import io.micronaut.runtime.event.annotation.EventListener
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
@@ -33,10 +37,12 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -45,8 +51,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * What it promises, and why, is `docs/design/delivery.md`.
  *
  * **An item is attempted under a lease on its row**, held by [JobLeaseManager.holder] and renewed with the job
- * leases for as long as this instance is alive, so no other instance attempts it meanwhile and one that died leaves
- * it to be taken once the lease lapses. Between two attempts nobody holds it.
+ * leases for as long as its attempt runs, so no other instance attempts it meanwhile and one that died leaves it to
+ * be taken once the lease lapses. Between two attempts nobody holds it.
  *
  * **An item is attempted as soon as its commit returns**, on the [nudge] the queue gives, and otherwise by the poll
  * every instance runs every `advanced.queue.poll-interval`: what an instance left when it died, a retry whose time
@@ -79,10 +85,16 @@ open class QueueDelivery(
     )
 
     /**
-     * How many items of each destination this instance holds from its polls, which `advanced.queue.batch-size`
-     * bounds per destination.
+     * How many items of each destination this instance is attempting, nudged or polled, which
+     * `advanced.queue.batch-size` bounds per destination.
      */
-    private val heldFromPolls: Map<String, AtomicInteger> = deliverers.associate { it.destination to AtomicInteger() }
+    private val held: Map<String, AtomicInteger> = deliverers.associate { it.destination to AtomicInteger() }
+
+    /**
+     * The items this instance is attempting, whose leases alone [renewLeases] pushes back: a lease lasts as long as
+     * its attempt, and one this instance failed to hand back lapses rather than being renewed for good.
+     */
+    private val attempting: MutableSet<UUID> = ConcurrentHashMap.newKeySet()
 
     @Volatile
     private var poll: Job? = null
@@ -97,14 +109,23 @@ open class QueueDelivery(
         get() = deliverers.filter { it.enabled }
 
     /**
-     * Start the poll on this instance, unless no deliverer delivers or the server reports itself unready.
+     * How many items of one destination this instance attempts at once: `advanced.queue.batch-size`, or one
+     * where the configuration is not usable and this instance attempts only what it was nudged for.
+     */
+    private val batchSize: Int
+        get() = (uncheckedAdvancedConfig as? EnabledAdvancedConfig)?.queue?.batchSize ?: 1
+
+    /**
+     * Start the poll on this instance once the server is ready, unless no deliverer delivers or the server reports
+     * itself unready.
      *
      * Configuration is read once, so an unready server stays unready until it restarts, and the poll is not
      * started at all: the items waiting stay where they are, since one sent from a server answering errors points
      * its reader at it. That is said once, as `docs/standards/config-layer-code-standard.md` has work that obeys
      * readiness say it.
      */
-    fun startPolling() {
+    @EventListener
+    fun startPolling(@Suppress("UNUSED_PARAMETER") event: ServiceReadyEvent) {
         if (enabledDeliverers.isEmpty()) return
         poll = backgroundScope.launch { pollUntilStopped() }
     }
@@ -129,52 +150,61 @@ open class QueueDelivery(
     }
 
     /**
-     * Attempt the item [id] written for [destination] now, on this instance, once the commit that wrote it has
-     * returned.
+     * Attempt [item] now, on this instance, once the commit that wrote it has returned.
      *
      * It takes the item only where nobody has, and never attempted it: an item whose transaction rolled back is
-     * found by nothing, and one another instance's poll took first is that instance's.
+     * found by nothing, and one another instance's poll took first is that instance's. Where this instance already
+     * attempts as many items of its destination as `advanced.queue.batch-size` allows, it leaves the item to the
+     * next poll.
      *
      * It is not `suspend`: a connection's synchronization calls it, from no coroutine.
      */
-    fun nudge(destination: String, id: UUID) {
+    fun nudge(item: QueueItem) {
         if (stopping) return
-        val deliverer = enabledDeliverers.firstOrNull { it.destination == destination } ?: return
+        val deliverer = enabledDeliverers.firstOrNull { it.destination == item.destination } ?: return
+        val count = held.getValue(deliverer.destination)
+        if (!count.tryIncrementBelow(batchSize)) return
         attempts.launch {
-            reportingFailure("attempt item $id") {
-                val now = queueItemRepository.now()
-                if (queueItemRepository.takeUnattempted(id, holder, now.plus(JobLeaseManager.GRACE_PERIOD)) == 1) {
-                    queueItemRepository.findById(id)?.let { attempt(deliverer, queueItemMapper.toQueueItem(it)) }
+            try {
+                reportingFailure("attempt item ${item.id}") {
+                    val now = queueItemRepository.now()
+                    if (queueItemRepository.takeUnattempted(item.id, holder, now.plus(GRACE_PERIOD)) == 1) {
+                        attemptHeld(deliverer, item)
+                    }
                 }
+            } finally {
+                count.decrementAndGet()
             }
         }
     }
 
     /**
-     * Publish the backlog, then claim for each destination as many due items as this instance's polls leave room
-     * for, and attempt each.
+     * Publish the backlog, then claim for each destination as many due items as this instance's attempts leave
+     * room for, and attempt each. The backlog is read apart, so that a gauge failing to read delays no item.
      */
     internal suspend fun pollOnce(config: QueueConfig) {
-        reportingFailure("poll the queue") {
+        reportingFailure("read the queue's backlog") {
             queueMetrics.recordBacklog(readBacklog())
-            enabledDeliverers.forEach { deliverer ->
-                if (stopping) return@reportingFailure
+        }
+        for (deliverer in enabledDeliverers) {
+            if (stopping) return
+            reportingFailure("poll the queue for ${deliverer.destination}") {
                 claimFor(deliverer, config)
             }
         }
     }
 
     private suspend fun claimFor(deliverer: QueueItemDeliverer, config: QueueConfig) {
-        val held = heldFromPolls.getValue(deliverer.destination)
-        val free = config.batchSize - held.get()
+        val count = held.getValue(deliverer.destination)
+        val free = config.batchSize - count.get()
         if (free <= 0) return
         claimDue(deliverer.destination, free).forEach { item ->
-            held.incrementAndGet()
+            count.incrementAndGet()
             attempts.launch {
                 try {
-                    reportingFailure("attempt item ${item.id}") { attempt(deliverer, item) }
+                    attemptHeld(deliverer, item)
                 } finally {
-                    held.decrementAndGet()
+                    count.decrementAndGet()
                 }
             }
         }
@@ -196,19 +226,44 @@ open class QueueDelivery(
             ids = claimed.map(QueueItem::id),
             holder = holder,
             now = now,
-            expiresAt = now.plus(JobLeaseManager.GRACE_PERIOD)
+            expiresAt = now.plus(GRACE_PERIOD)
         )
         return claimed
     }
 
     /**
-     * Push back every lease this instance holds on an item, as [JobLeaseManager.renewLeases] does a job's.
+     * Push back the lease on every item this instance is attempting, as [JobLeaseManager.renewLeases] does a job's.
      */
     suspend fun renewLeases() {
-        if (enabledDeliverers.isEmpty()) return
+        val ids = attempting.toList()
+        if (ids.isEmpty()) return
         reportingFailure("renew the queue's leases") {
             val now = queueItemRepository.now()
-            queueItemRepository.renew(holder, now, now.plus(JobLeaseManager.GRACE_PERIOD))
+            queueItemRepository.renew(ids, holder, now, now.plus(GRACE_PERIOD))
+        }
+    }
+
+    /**
+     * Attempt [item], which this instance holds, and hand it back where the attempt fails for a reason of this
+     * server's own — the database not answering it — so that the next poll takes it again rather than the lease
+     * holding it until it lapses. A hand-back that fails too leaves the lease to lapse, since only an item being
+     * attempted is renewed.
+     */
+    private suspend fun attemptHeld(deliverer: QueueItemDeliverer, item: QueueItem) {
+        attempting.add(item.id)
+        try {
+            attempt(deliverer, item)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            report(failure, "attempt item ${item.id}")
+            withContext(NonCancellable) {
+                reportingFailure("hand back item ${item.id}") {
+                    queueItemRepository.releaseHeld(item.id, holder)
+                }
+            }
+        } finally {
+            attempting.remove(item.id)
         }
     }
 
@@ -305,12 +360,16 @@ open class QueueDelivery(
         stopping = true
         val grace = (uncheckedAdvancedConfig as? EnabledAdvancedConfig)?.queue?.shutdownGrace ?: Duration.ZERO
         runBlocking {
-            poll?.cancelAndJoin()
             withTimeoutOrNull(grace.toMillis()) {
+                poll?.cancelAndJoin()
                 attempts.coroutineContext.job.children.toList().joinAll()
             }
-            reportingFailure("hand back the items this instance holds") {
-                queueItemRepository.release(holder)
+            // Bounded as BackgroundScope bounds its own stop: a database that stopped answering would otherwise
+            // hold the shutdown for good.
+            withTimeoutOrNull(BackgroundScope.STOP_TIMEOUT.toMillis()) {
+                reportingFailure("hand back the items this instance holds") {
+                    queueItemRepository.release(holder)
+                }
             }
         }
     }
@@ -325,9 +384,13 @@ open class QueueDelivery(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            if (!conditionMonitor.absorb(failure)) {
-                logger.warn(failure) { "Queue: failed to $action." }
-            }
+            report(failure, action)
+        }
+    }
+
+    private fun report(failure: Exception, action: String) {
+        if (!conditionMonitor.absorb(failure)) {
+            logger.warn(failure) { "Queue: failed to $action." }
         }
     }
 
@@ -346,5 +409,16 @@ open class QueueDelivery(
             }
             return minOf(delay, config.retryMaxDelay)
         }
+    }
+}
+
+/**
+ * Add one where that keeps this below [limit], and answer whether it did.
+ */
+private fun AtomicInteger.tryIncrementBelow(limit: Int): Boolean {
+    while (true) {
+        val current = get()
+        if (current >= limit) return false
+        if (compareAndSet(current, current + 1)) return true
     }
 }

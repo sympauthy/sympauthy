@@ -26,6 +26,7 @@ import jakarta.mail.SendFailedException
 import jakarta.mail.internet.InternetAddress
 import kotlinx.coroutines.test.runTest
 import org.eclipse.angus.mail.smtp.SMTPAddressFailedException
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -126,6 +127,16 @@ class MailDelivererTest {
     }
 
     @Test
+    fun `attempt - Retries a mail the mail server closed the connection on, and degrades its condition`() = runTest {
+        sendingFails(EmailException(SMTPSendFailedException(".", -1, "[EOF]", null, null, null, null)))
+
+        assertEquals(DeliveryAttempt.Retry, deliverer().attempt(item()))
+
+        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
+        assertEquals(1, recordedCall("error", "connection_closed"))
+    }
+
+    @Test
     fun `attempt - Answers a full mailbox as refused whatever its reply code`() = runTest {
         sendingFails(EmailException(refusedWith(recipientRefused(452, "452 4.2.2 Mailbox full"))))
 
@@ -139,7 +150,7 @@ class MailDelivererTest {
         sendingFails(EmailException(FileNotFoundException("validation_code.ftlh")))
 
         assertEquals(
-            DeliveryAttempt.Failed(Outcome.Error(EmailException::class.java.name)),
+            DeliveryAttempt.Failed(Outcome.Error(FileNotFoundException::class.java.name)),
             deliverer().attempt(item())
         )
 

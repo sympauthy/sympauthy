@@ -6,6 +6,7 @@ import io.micronaut.email.EmailSender
 import io.micronaut.email.javamail.sender.JavaMailConfiguration
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,8 +26,18 @@ class MailSender(
 ) {
 
     suspend fun send(builder: Email.Builder) {
-        withContext(Dispatchers.IO) {
+        withContext(SENDING) {
             sender.send(builder)
         }
+    }
+
+    private companion object {
+
+        /**
+         * The threads a send blocks: a view of [Dispatchers.IO] of its own, which the rest of the server's blocking
+         * calls do not share, so that a mail server that hangs holds none of their threads. How many sends run at
+         * once is bounded before this, by `advanced.queue.batch-size`.
+         */
+        val SENDING: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(64)
     }
 }

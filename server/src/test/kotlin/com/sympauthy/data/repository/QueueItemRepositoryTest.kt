@@ -169,20 +169,40 @@ class QueueItemRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Database::class)
-    fun `renew - Pushes back the leases its holder still holds, and passes over a lapsed one`(
+    fun `renew - Pushes back the leases its holder still holds on the items named, and passes over a lapsed one`(
         database: Database
     ) = withFixture(database) {
         val items = repository<QueueItemRepository>()
         val live = saveItem(holder = holder, leaseExpirationDate = BASE_DATE.plusMinutes(1))
         val lapsed = saveItem(holder = holder, leaseExpirationDate = BASE_DATE.minusMinutes(1))
+        val unnamed = saveItem(holder = holder, leaseExpirationDate = BASE_DATE.plusMinutes(1))
         val others = saveItem(holder = otherHolder, leaseExpirationDate = BASE_DATE.plusMinutes(1))
 
-        assertEquals(1, items.renew(holder, BASE_DATE, BASE_DATE.plusMinutes(3)))
+        assertEquals(1, items.renew(listOf(live, lapsed, others), holder, BASE_DATE, BASE_DATE.plusMinutes(3)))
 
         assertEquals(BASE_DATE.plusMinutes(3), items.findById(live)!!.leaseExpirationDate)
         assertEquals(BASE_DATE.minusMinutes(1), items.findById(lapsed)!!.leaseExpirationDate)
+        assertEquals(BASE_DATE.plusMinutes(1), items.findById(unnamed)!!.leaseExpirationDate)
         assertEquals(BASE_DATE.plusMinutes(1), items.findById(others)!!.leaseExpirationDate)
     }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `releaseHeld - Hands back the item its holder holds, as it stands, and only that one`(database: Database) =
+        withFixture(database) {
+            val items = repository<QueueItemRepository>()
+            val mine = saveItem(holder = holder, leaseExpirationDate = BASE_DATE.plusMinutes(3), attemptCount = 1)
+            val others = saveItem(holder = otherHolder, leaseExpirationDate = BASE_DATE.plusMinutes(3))
+
+            assertEquals(1, items.releaseHeld(mine, holder))
+            assertEquals(0, items.releaseHeld(others, holder))
+
+            val released = items.findById(mine)!!
+            assertNull(released.holder)
+            assertNull(released.leaseExpirationDate)
+            assertEquals(1, released.attemptCount)
+            assertEquals(otherHolder, items.findById(others)!!.holder)
+        }
 
     @ParameterizedTest
     @EnumSource(Database::class)

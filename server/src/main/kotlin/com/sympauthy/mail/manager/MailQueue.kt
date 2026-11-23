@@ -13,20 +13,19 @@ import java.util.*
  * Where a mail this server sends is queued, together with the change it reports, for [MailDeliverer] to deliver
  * once that change has committed. What the queue promises is `docs/design/delivery.md`.
  *
- * When mail sending is not configured (no [MailSender] available), the queue is disabled and [send] is a no-op.
+ * When mail sending is not configured, the queue is disabled and [send] is a no-op.
  */
 @Singleton
 class MailQueue(
-    @Inject private val mailSender: MailSender?,
+    @Inject private val mailDeliverer: MailDeliverer,
     @Inject private val queueManager: QueueManager,
     @Inject private val queuedMailMapper: QueuedMailMapper
 ) {
 
     /**
-     * Whether the mail queue is enabled. The queue is enabled when a [MailSender] is available,
-     * which requires the JavaMail configuration to be present.
+     * Whether the mail queue is enabled: whether [MailDeliverer] delivers, which needs a mail server configured.
      */
-    val enabled: Boolean get() = mailSender != null
+    val enabled: Boolean get() = mailDeliverer.enabled
 
     /**
      * Queue the [mail] to [receiver], drawn in [locale] with [parameters], in the transaction the caller runs in, as

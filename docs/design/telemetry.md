@@ -153,9 +153,9 @@ kinds are `Mail`'s values. A send is one attempt, counted by how that attempt en
 [retried](mail.md#what-the-mail-server-answers-decides-whether-a-mail-is-tried-again) is counted
 once per attempt, a temporary refusal as `error` under its reply code — the mail server answered,
 so its call is `refused` and its condition stays well — and a refusal for good as `refused`. A mail
-that never reached the mail server, because it could not be built, is no send. A row a previous
-build queued under a template this build draws no `Mail` from is sent and reported to the
-condition, and not counted, since a send is counted under the set this build ships.
+that never reached the mail server, because it could not be built, is no send. An item a previous
+build queued under a kind this build sends no `Mail` of cannot be built either, and is given up
+unsent and counted under no kind, since every kind is counted under the set this build ships.
 
 **What waits to be delivered is counted by `destination` and `kind`.** For a mail, `destination` is
 `mail` and `kind` is the value `mail` carries on a send. `sympauthy.queue.pending` and
@@ -164,7 +164,8 @@ published as it read them; every instance reads the same backlog, so a dashboard
 value across instances rather than their sum. A backlog alone degrades nothing: the destination's
 condition says when the destination is down. `sympauthy.queue.given_up` counts what no other metric
 does — an item that expired, under `error.type` `expired`, and one that could not be built or failed
-in no listed way, under the failure's class — and a mail refused for good is on its send instead. A
+in no listed way, under the class of what failed rather than of the mail sender's wrapper around it
+— and a mail refused for good is on its send instead. A
 notice with no expiry meeting temporary refusals keeps `oldest_age` growing under a condition that
 is well, which a stream of `error` sends under a `4xx` reply code tells from an outage. [The design
 FAQ](design-faq.md#is-a-mail-sent-counted-on-the-call-carrying-it) holds the shape that lost.

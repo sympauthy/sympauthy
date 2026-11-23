@@ -2,6 +2,7 @@ package com.sympauthy.queue.manager
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.config.ConfigReadiness
+import com.sympauthy.config.model.QueueConfig
 import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.shippedQueue
 import com.sympauthy.data.model.QueueItemEntity
@@ -26,6 +27,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.MockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -55,10 +57,13 @@ class QueueDeliveryTest {
 
     private val deliverer = AnsweringDeliverer()
 
-    private fun delivery(vararg deliverers: QueueItemDeliverer = arrayOf(deliverer)) = QueueDelivery(
+    private fun delivery(
+        vararg deliverers: QueueItemDeliverer = arrayOf(deliverer),
+        queue: QueueConfig = shippedQueue()
+    ) = QueueDelivery(
         deliverers = deliverers.toList(),
         configReadiness = configReadiness,
-        uncheckedAdvancedConfig = advancedConfigOf(),
+        uncheckedAdvancedConfig = advancedConfigOf(queue = queue),
         queueItemRepository = queueItemRepository,
         queueItemMapper = QueueItemMapper(),
         jobLeaseManager = jobLeaseManager,
@@ -213,6 +218,53 @@ class QueueDeliveryTest {
     }
 
     @Test
+    fun `pollOnce - Hands back an item whose attempt failed on this server's side`() = runTest {
+        val entity = entity()
+        coEvery { queueItemRepository.summarize() } returns emptyList()
+        clockReads()
+        coEvery { queueItemRepository.claimDue(DESTINATION, now, 50) } returns listOf(entity)
+        coEvery { queueItemRepository.holdClaimed(listOf(entity.id!!), holder, now, any()) } returns 1
+        coEvery { queueItemRepository.deleteHeld(entity.id!!, holder) } throws IllegalStateException("unreachable")
+        coEvery { queueItemRepository.releaseHeld(entity.id!!, holder) } returns 1
+        coEvery { queueItemRepository.release(holder) } returns 0
+        val delivery = delivery()
+
+        delivery.pollOnce(shippedQueue())
+        delivery.onApplicationEvent(shutdown())
+
+        coVerify(exactly = 1) { queueItemRepository.releaseHeld(entity.id!!, holder) }
+    }
+
+    @Test
+    fun `pollOnce - Still claims when the backlog cannot be read`() = runTest {
+        coEvery { queueItemRepository.summarize() } throws IllegalStateException("unreachable")
+        clockReads()
+        coEvery { queueItemRepository.claimDue(DESTINATION, now, 50) } returns emptyList()
+
+        delivery().pollOnce(shippedQueue())
+    }
+
+    @Test
+    fun `nudge - Leaves the item to the poll while the batch size is taken`() = runTest {
+        val blocking = BlockingDeliverer()
+        val first = item()
+        val second = item()
+        clockReads()
+        coEvery { queueItemRepository.takeUnattempted(first.id, holder, any()) } returns 1
+        coEvery { queueItemRepository.deleteHeld(first.id, holder) } returns 1
+        coEvery { queueItemRepository.release(holder) } returns 0
+        val delivery = delivery(blocking, queue = shippedQueue().copy(batchSize = 1))
+
+        delivery.nudge(first)
+        blocking.started.await()
+        delivery.nudge(second)
+        blocking.finish.complete(DeliveryAttempt.Delivered)
+        delivery.onApplicationEvent(shutdown())
+
+        coVerify(exactly = 0) { queueItemRepository.takeUnattempted(second.id, any(), any()) }
+    }
+
+    @Test
     fun `pollUntilStopped - Does not poll while the server reports itself unready`() = runTest {
         coEvery { configReadiness.getConfigurationErrors() } returns listOf(Exception("Invalid provider"))
 
@@ -238,13 +290,30 @@ class QueueDeliveryTest {
     }
 
     @Test
-    fun `renewLeases - Pushes back the leases this instance holds`() = runTest {
+    fun `renewLeases - Pushes back the lease of each item being attempted, and of no other`() = runTest {
+        val blocking = BlockingDeliverer()
+        val item = item()
         clockReads()
-        coEvery { queueItemRepository.renew(holder, now, now.plus(Duration.ofMinutes(3))) } returns 1
+        coEvery { queueItemRepository.takeUnattempted(item.id, holder, any()) } returns 1
+        coEvery {
+            queueItemRepository.renew(listOf(item.id), holder, now, now.plus(Duration.ofMinutes(3)))
+        } returns 1
+        coEvery { queueItemRepository.deleteHeld(item.id, holder) } returns 1
+        coEvery { queueItemRepository.release(holder) } returns 0
+        val delivery = delivery(blocking)
 
+        delivery.nudge(item)
+        blocking.started.await()
+        delivery.renewLeases()
+        blocking.finish.complete(DeliveryAttempt.Delivered)
+        delivery.onApplicationEvent(shutdown())
+    }
+
+    @Test
+    fun `renewLeases - Renews nothing while nothing is attempted`() = runTest {
         delivery().renewLeases()
 
-        coVerify(exactly = 1) { queueItemRepository.renew(holder, now, now.plus(Duration.ofMinutes(3))) }
+        coVerify(exactly = 0) { queueItemRepository.renew(any(), any(), any(), any()) }
     }
 
     private fun shutdown() = mockk<ShutdownEvent>()
@@ -283,6 +352,23 @@ class QueueDeliveryTest {
         override suspend fun attempt(item: QueueItem): DeliveryAttempt {
             attempted.add(item)
             return answer
+        }
+    }
+
+    /**
+     * A deliverer whose attempt says it [started] and then waits to be told how to [finish].
+     */
+    private class BlockingDeliverer : QueueItemDeliverer {
+        override val destination = DESTINATION
+        override val kinds = setOf(KIND)
+        override val enabled = true
+
+        val started = CompletableDeferred<QueueItem>()
+        val finish = CompletableDeferred<DeliveryAttempt>()
+
+        override suspend fun attempt(item: QueueItem): DeliveryAttempt {
+            started.complete(item)
+            return finish.await()
         }
     }
 
