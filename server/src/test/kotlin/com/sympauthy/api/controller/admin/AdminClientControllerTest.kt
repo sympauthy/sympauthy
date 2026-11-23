@@ -10,7 +10,7 @@ import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.collection.ClientCollectionManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.page.Page

@@ -3,11 +3,11 @@ package com.sympauthy.business.manager.token
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.ClientGrantScopesResult
-import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.user.ClaimAclManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.grant.GrantManager
+import com.sympauthy.business.manager.scope.ScopeManager
+import com.sympauthy.business.manager.scope.granting.ClientGrantScopesResult
+import com.sympauthy.business.manager.scope.granting.ClientScopeGrantingManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client

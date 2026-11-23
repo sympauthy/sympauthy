@@ -11,9 +11,9 @@ import com.sympauthy.api.controller.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.controller.oauth2.util.getRequiredParam
 import com.sympauthy.api.resource.oauth2.IntrospectionResource
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.token.TokenManager
-import com.sympauthy.business.manager.user.ClaimAclManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.claim.ClaimAclContext

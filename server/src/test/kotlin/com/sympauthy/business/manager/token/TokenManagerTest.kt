@@ -3,8 +3,8 @@ package com.sympauthy.business.manager.token
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.ActorGrantValidator
-import com.sympauthy.business.manager.auth.GrantManager
+import com.sympauthy.business.manager.grant.ActorGrantValidator
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.PUBLIC_KEY

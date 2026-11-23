@@ -1,6 +1,7 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.claim.CollectedClaimManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.audience.Audience

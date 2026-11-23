@@ -16,10 +16,10 @@ import com.sympauthy.api.util.FLOW_HEADER_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.claim.ConsentAwareClaimManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
-import com.sympauthy.business.manager.user.ConsentAwareClaimManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull

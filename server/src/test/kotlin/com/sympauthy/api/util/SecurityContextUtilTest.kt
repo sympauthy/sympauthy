@@ -1,9 +1,9 @@
 package com.sympauthy.api.util
 
-import com.sympauthy.business.manager.security.AkamaiEdge
-import com.sympauthy.business.manager.security.CloudflareEdge
-import com.sympauthy.business.manager.security.GcpEdge
-import com.sympauthy.business.manager.security.NginxEdge
+import com.sympauthy.business.manager.securitycontext.edge.AkamaiEdge
+import com.sympauthy.business.manager.securitycontext.edge.CloudflareEdge
+import com.sympauthy.business.manager.securitycontext.edge.GcpEdge
+import com.sympauthy.business.manager.securitycontext.edge.NginxEdge
 import com.sympauthy.business.model.security.CALLER_IP
 import com.sympauthy.business.model.security.FORGED_IP
 import com.sympauthy.business.model.security.GeoProvider

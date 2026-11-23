@@ -10,9 +10,9 @@ import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
-import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria

@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimDataType

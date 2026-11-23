@@ -39,7 +39,7 @@ does not cover. If you end a deferral, say there why.
 MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml \
   MICRONAUT_ENVIRONMENTS=default,admin ./gradlew :server:run
 
-./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
+./gradlew test --tests 'com.sympauthy.business.manager.scope.ScopeManagerTest'
 ```
 
 Integration tests never run in `build`/`check`/`test`. They point at an image tag, not at your

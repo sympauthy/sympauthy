@@ -23,8 +23,8 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.auth.GrantManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.model.grant.GrantRevocationCriteria
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.oauth2.AdminScopeId

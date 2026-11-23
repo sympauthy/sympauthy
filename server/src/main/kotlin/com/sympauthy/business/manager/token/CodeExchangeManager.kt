@@ -3,12 +3,12 @@ package com.sympauthy.business.manager.token
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.exception.withRefusalAs
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
-import com.sympauthy.business.manager.auth.oauth2.PkceManager
+import com.sympauthy.business.manager.authorization.AuthorizationCodeManager
+import com.sympauthy.business.manager.authorization.PkceManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.grant.Grant

@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.audience.AudienceManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client

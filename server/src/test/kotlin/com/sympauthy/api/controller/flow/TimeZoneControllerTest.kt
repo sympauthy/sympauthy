@@ -5,8 +5,8 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.mapper.flow.TimeZoneResourceMapper
 import com.sympauthy.api.resource.provider.TimeZoneResource
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.user.TimeZoneClaimValueProvider
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.TimeZoneClaimValueProvider
 import com.sympauthy.business.model.flow.InteractiveFlow
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.security.observedRequestOf

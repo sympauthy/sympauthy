@@ -4,12 +4,12 @@ import com.sympauthy.api.controller.OPENID_SURFACE
 import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.InvalidJwtException
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.client.ClientManager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
+import com.sympauthy.business.manager.scope.ScopeManager
+import com.sympauthy.business.manager.token.DpopManager
 import com.sympauthy.business.manager.token.TokenManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client

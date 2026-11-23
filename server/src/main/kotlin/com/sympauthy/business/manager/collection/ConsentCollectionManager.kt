@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.manager.AudienceManager
-import com.sympauthy.business.manager.CLIENT_FIELD_KEY
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.audience.AudienceManager
+import com.sympauthy.business.manager.client.CLIENT_FIELD_KEY
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.ClientReference

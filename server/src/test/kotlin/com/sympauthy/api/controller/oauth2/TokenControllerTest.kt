@@ -5,7 +5,7 @@ import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.mapper.TokenResourceMapper
-import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.token.DpopManager
 import com.sympauthy.business.manager.token.TokenRequestManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType

@@ -10,10 +10,10 @@ import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.manager.user.ClaimAclManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.security.SecurityRule.IS_USER

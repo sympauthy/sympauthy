@@ -64,7 +64,7 @@ sealed class LockKey(
      * because that is the spelling the check compares on and not the one the row publishes. Two spellings
      * of one address are one value by then, so the writers claiming it take one stripe and are ordered
      * against each other rather than passing. A caller holding the business value asks
-     * [com.sympauthy.business.manager.user.CollectedClaimManager] for that spelling before naming it here.
+     * [com.sympauthy.business.manager.claim.CollectedClaimManager] for that spelling before naming it here.
      */
     class IdentifierValue(value: String) : LockKey("identifier_value", value)
 

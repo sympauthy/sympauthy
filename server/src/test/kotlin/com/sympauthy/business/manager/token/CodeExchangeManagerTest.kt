@@ -4,13 +4,13 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
-import com.sympauthy.business.manager.auth.oauth2.PkceManager
+import com.sympauthy.business.manager.authorization.AuthorizationCodeManager
+import com.sympauthy.business.manager.authorization.PkceManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType

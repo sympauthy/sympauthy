@@ -5,10 +5,10 @@ import com.sympauthy.api.mapper.CollectedClaimUpdateMapper
 import com.sympauthy.api.mapper.user.UserClaimResourceMapper
 import com.sympauthy.api.resource.user.UserClaimResource
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.manager.user.ClaimAclManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client

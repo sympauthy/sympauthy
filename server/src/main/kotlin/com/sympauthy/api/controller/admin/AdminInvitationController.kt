@@ -26,7 +26,7 @@ import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.parseInvitationExpiresAt
-import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.audience.AudienceManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.invitation.InvitationCreatedBy

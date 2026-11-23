@@ -21,7 +21,7 @@ import com.sympauthy.api.util.FLOW_ONGOING_SESSION_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordResetManager
 import com.sympauthy.business.manager.flow.reset.InteractiveFlowSessionPasswordResetManager
 import com.sympauthy.business.model.security.ObservedRequest

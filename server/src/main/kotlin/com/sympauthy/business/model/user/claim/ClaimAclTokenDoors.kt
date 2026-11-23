@@ -23,7 +23,7 @@ class ClaimAclTokenDoors internal constructor(private val evaluate: (ClaimAclExp
      * Return true if the person may write [claim] through their own access token.
      *
      * A caller refused here owes the client the challenges
-     * [com.sympauthy.business.manager.user.ClaimAclManager.getPersonWriteChallenges] answers rather than a
+     * [com.sympauthy.business.manager.claim.ClaimAclManager.getPersonWriteChallenges] answers rather than a
      * bare refusal.
      */
     fun canBeWrittenByPerson(claim: EnabledClaim): Boolean = isOpen(claim.acl.writableByPerson)

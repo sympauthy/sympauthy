@@ -2,9 +2,9 @@ package com.sympauthy.business.manager.invitation
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.user.ClaimValueValidator
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimValueValidator
+import com.sympauthy.business.manager.claim.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.audience.Audience

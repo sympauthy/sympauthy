@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.collection
 
 import com.sympauthy.api.util.criteriaOf
-import com.sympauthy.business.manager.AudienceManager
-import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.audience.AudienceManager
+import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.oauth2.ConsentableUserScope
 import com.sympauthy.business.model.oauth2.DisabledScope

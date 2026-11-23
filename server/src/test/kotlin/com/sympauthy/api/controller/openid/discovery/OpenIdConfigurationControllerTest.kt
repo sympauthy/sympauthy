@@ -1,8 +1,8 @@
 package com.sympauthy.api.controller.openid.discovery
 
 import com.sympauthy.api.resource.openid.OpenIdConfigurationResource
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod

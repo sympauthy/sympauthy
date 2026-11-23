@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN

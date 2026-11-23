@@ -2,13 +2,13 @@ package com.sympauthy.business.manager.collection
 
 import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.util.criteriaOf
-import com.sympauthy.business.manager.AudienceManager
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.GrantManager
+import com.sympauthy.business.manager.audience.AudienceManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.grant.GrantManager
+import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType

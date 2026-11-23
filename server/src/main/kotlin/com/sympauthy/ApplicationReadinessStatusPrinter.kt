@@ -1,11 +1,11 @@
 package com.sympauthy
 
 import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ScopeManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.rule.ScopeGrantingRuleManager
+import com.sympauthy.business.manager.scope.ScopeManager
+import com.sympauthy.business.manager.scope.granting.ScopeGrantingRuleManager
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import com.sympauthy.business.model.oauth2.isAdmin
 import com.sympauthy.business.model.user.claim.ClaimKind

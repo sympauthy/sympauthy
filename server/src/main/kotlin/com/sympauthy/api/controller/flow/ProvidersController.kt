@@ -8,7 +8,7 @@ import com.sympauthy.api.util.FLOW_FAILURE_SEE_OTHER_DESCRIPTION
 import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_SEE_OTHER_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager
+import com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionOAuth2ProviderManager
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.getUri

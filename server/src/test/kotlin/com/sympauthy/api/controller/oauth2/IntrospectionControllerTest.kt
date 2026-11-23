@@ -3,9 +3,9 @@ package com.sympauthy.api.controller.oauth2
 import com.sympauthy.api.controller.oauth2.util.ClientAuthenticationUtil
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.manager.token.TokenManager
-import com.sympauthy.business.manager.user.ClaimAclManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST

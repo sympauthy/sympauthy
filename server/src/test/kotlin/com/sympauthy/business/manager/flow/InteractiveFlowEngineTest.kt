@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.security.UserSecurityContextManager
+import com.sympauthy.business.manager.securitycontext.UserSecurityContextManager
 import com.sympauthy.business.manager.user.ProvisionalAccountManager
 import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession

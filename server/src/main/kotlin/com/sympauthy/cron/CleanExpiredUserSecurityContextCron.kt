@@ -2,7 +2,7 @@ package com.sympauthy.cron
 
 import com.sympauthy.business.manager.lock.JobLeaseManager
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
-import com.sympauthy.business.manager.security.UserSecurityContextCleaner
+import com.sympauthy.business.manager.securitycontext.UserSecurityContextCleaner
 import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled

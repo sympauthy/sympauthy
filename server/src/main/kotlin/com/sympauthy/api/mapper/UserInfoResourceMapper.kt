@@ -2,7 +2,7 @@ package com.sympauthy.api.mapper
 
 import com.sympauthy.api.resource.openid.AddressResource
 import com.sympauthy.api.resource.openid.UserInfoResource
-import com.sympauthy.business.manager.GeneratedClaimsManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimGroup
 import com.sympauthy.business.model.user.claim.ClaimPublicationPlace

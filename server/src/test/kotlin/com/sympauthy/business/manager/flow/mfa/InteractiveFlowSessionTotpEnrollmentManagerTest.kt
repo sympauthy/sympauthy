@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.flow.mfa
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.CollectedClaim

@@ -10,7 +10,7 @@ import com.sympauthy.api.resource.admin.AdminUserProviderResource
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
 import com.sympauthy.business.manager.collection.UserProviderCollectionManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine

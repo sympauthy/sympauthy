@@ -7,9 +7,9 @@ import com.sympauthy.api.controller.oauth2.TokenController.Companion.OAUTH2_TOKE
 import com.sympauthy.api.controller.openid.OpenIdUserInfoController.Companion.OPENID_USERINFO_ENDPOINT
 import com.sympauthy.api.controller.openid.discovery.PublicKeySetController.Companion.OPENID_JWKS_ENDPOINT
 import com.sympauthy.api.resource.openid.OpenIdConfigurationResource
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.scope.ScopeManager
+import com.sympauthy.business.manager.token.DpopManager
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.ResponseType

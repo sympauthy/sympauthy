@@ -2,11 +2,11 @@ package com.sympauthy.business.manager.collection
 
 import com.sympauthy.api.util.criteriaOf
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
 import com.sympauthy.business.model.client.ClientReference

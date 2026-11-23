@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.flow.reset
 
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.password.PasswordManager.PasswordReplacement
 import com.sympauthy.business.manager.password.PasswordResetMessageSender
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionPasswordReset

@@ -10,12 +10,12 @@ import com.sympauthy.api.util.PARAMETER_MALFORMED_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.manager.consent.ConsentManager
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.manager.user.ClientUserManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.model.user.claim.Claim
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import com.sympauthy.security.clientAuthentication

@@ -1,7 +1,8 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.ClaimValueMapper

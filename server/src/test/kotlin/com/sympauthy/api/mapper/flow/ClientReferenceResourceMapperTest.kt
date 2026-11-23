@@ -1,6 +1,6 @@
 package com.sympauthy.api.mapper.flow
 
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import io.mockk.coEvery

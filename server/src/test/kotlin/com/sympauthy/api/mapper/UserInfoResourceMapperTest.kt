@@ -1,6 +1,6 @@
 package com.sympauthy.api.mapper
 
-import com.sympauthy.business.manager.GeneratedClaimsManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.claim.ClaimAcl
 import com.sympauthy.business.model.user.claim.ClaimAclExpression

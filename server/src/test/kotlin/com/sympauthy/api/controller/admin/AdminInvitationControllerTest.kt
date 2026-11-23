@@ -10,7 +10,7 @@ import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
-import com.sympauthy.business.manager.AudienceManager
+import com.sympauthy.business.manager.audience.AudienceManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.model.audience.Audience

@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.flow.auth
 
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.util.coAssertThrowsBusinessException
 import com.sympauthy.business.manager.validationcode.ValidationCodeManager
 import com.sympauthy.business.model.audience.Audience

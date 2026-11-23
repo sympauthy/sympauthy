@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.manager.AudienceManager
-import com.sympauthy.business.manager.CLIENT_FIELD_KEY
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
+import com.sympauthy.business.manager.audience.AudienceManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.client.CLIENT_FIELD_KEY
+import com.sympauthy.business.manager.client.ClientManager
+import com.sympauthy.business.manager.grant.GrantManager
+import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType

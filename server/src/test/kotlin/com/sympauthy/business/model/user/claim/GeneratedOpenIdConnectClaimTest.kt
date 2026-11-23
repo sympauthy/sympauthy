@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.user.claim
 
-import com.sympauthy.business.manager.user.ClaimAclManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
 import io.mockk.mockk

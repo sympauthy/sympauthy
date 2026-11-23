@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.manager.CLIENT_FIELD_KEY
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.client.CLIENT_FIELD_KEY
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
 import com.sympauthy.business.model.client.ClientReference

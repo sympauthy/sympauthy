@@ -1,8 +1,8 @@
 package com.sympauthy.api.mapper
 
 import com.sympauthy.api.exception.LocalizedHttpException
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.user.ClaimValueValidator
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimValueValidator
 import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.exception.LocalizedException

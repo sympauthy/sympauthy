@@ -1,7 +1,7 @@
 package com.sympauthy.api.controller.oauth2.util
 
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST

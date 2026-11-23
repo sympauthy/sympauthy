@@ -1,0 +1,71 @@
+package com.sympauthy.business.manager.claim
+
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.user.claim.EnabledClaim
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+
+/**
+ * Provides access to claim definitions filtered by the end-user's consented scopes.
+ *
+ * Unlike [ClaimManager] which provides unrestricted access to all claim definitions
+ * (for admin, configuration, discovery, and internal use), this manager filters claims
+ * based on what the end-user has consented to during the authorization flow.
+ *
+ * Use this manager when listing claims to present to the end-user during the authorization flow.
+ * Use [ClaimManager] directly for admin endpoints, OpenID discovery, configuration,
+ * entity-to-model mapping, and any context where scope filtering is not applicable.
+ */
+@Singleton
+class ConsentAwareClaimManager(
+    @Inject private val claimManager: ClaimManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val claimAclManager: ClaimAclManager,
+) {
+
+    /**
+     * Return the list of [Claim] that should be presented to the end-user for collection
+     * during the authorization flow associated to the [session].
+     *
+     * This excludes:
+     * - Claims the flow does not collect (generated, or an application's to write).
+     * - Identifier claims (e.g. email used for sign-in), which require separate validation.
+     * - Claims outside the end-user's consented scopes.
+     * - Claims restricted to an audience other than the one the session's authorization is for.
+     */
+    suspend fun listClaimsCollectedInFlowBySession(session: InteractiveFlowSession): List<EnabledClaim> {
+        return when (session) {
+            is FailedInteractiveFlowSession, is CancelledInteractiveFlowSession -> emptyList()
+            is OnGoingInteractiveFlowSession, is CompletedInteractiveFlowSession -> {
+                val oauth2 = oauth2Manager.fetchOAuth2(session)
+                val consentedScopes = oauth2.consentedScopes ?: return emptyList()
+                listClaimsCollectedInFlowWithScopes(oauth2Manager.getClient(oauth2), consentedScopes)
+            }
+        }
+    }
+
+    /**
+     * Return the list of [Claim] that should be presented to the end-user for collection, in a flow the
+     * [client] started and given the [consentedScopes].
+     *
+     * This excludes:
+     * - Claims the flow does not collect (generated, or an application's to write).
+     * - Identifier claims (e.g. email used for sign-in), which require separate validation.
+     * - Claims outside the provided [consentedScopes].
+     * - Claims restricted to another audience than the [client]'s, which it has no business asking a person for.
+     */
+    fun listClaimsCollectedInFlowWithScopes(client: Client, consentedScopes: List<String>): List<EnabledClaim> {
+        val identifierClaims = claimManager.listIdentifierClaims()
+        val doors = claimAclManager.getFlowDoors(client, consentedScopes)
+        return claimManager.listClaimsCollectedInFlow()
+            .filter { it !in identifierClaims }
+            .filter { it.belongsToAudience(client.audience.id) && doors.isCollectedInFlow(it) }
+    }
+}

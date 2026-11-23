@@ -20,13 +20,13 @@ import com.sympauthy.api.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordManager
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordResetManager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.password.PasswordManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.manager.provider.ProviderManager

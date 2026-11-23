@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.consent
 
-import com.sympauthy.business.manager.auth.GrantManager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager

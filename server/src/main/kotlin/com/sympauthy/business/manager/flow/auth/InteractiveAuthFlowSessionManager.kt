@@ -2,13 +2,12 @@ package com.sympauthy.business.manager.flow.auth
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.oauth2.RequestedClaimsManager
+import com.sympauthy.business.manager.authorization.RequestedClaimsManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.client.ClientRedirectUriManager
-import com.sympauthy.business.manager.flow.AuthorizationFlowManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
+import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType

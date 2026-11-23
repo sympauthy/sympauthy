@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.token
 
 import com.sympauthy.api.exception.withRefusalAs
-import com.sympauthy.business.manager.ScopeManager
-import com.sympauthy.business.manager.auth.ClientScopeGrantingManager
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.user.ClaimAclManager
+import com.sympauthy.business.manager.claim.ClaimAclManager
+import com.sympauthy.business.manager.grant.GrantManager
+import com.sympauthy.business.manager.scope.ScopeManager
+import com.sympauthy.business.manager.scope.granting.ClientScopeGrantingManager
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_SCOPE
 import com.sympauthy.business.model.token.EncodedAuthenticationToken

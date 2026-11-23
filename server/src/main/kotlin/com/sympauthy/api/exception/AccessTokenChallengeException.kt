@@ -1,7 +1,7 @@
 package com.sympauthy.api.exception
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.oauth2.DpopManager.Companion.SUPPORTED_ALGORITHMS
+import com.sympauthy.business.manager.token.DpopManager.Companion.SUPPORTED_ALGORITHMS
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_SCOPE
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INSUFFICIENT_USER_AUTHENTICATION
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF

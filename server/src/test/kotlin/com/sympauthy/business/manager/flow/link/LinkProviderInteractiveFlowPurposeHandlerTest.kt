@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.flow.link
 
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
+import com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionLinkProvider

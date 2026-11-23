@@ -1,7 +1,7 @@
 package com.sympauthy.api.mapper.flow
 
 import com.sympauthy.api.resource.flow.ClientReferenceResource
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

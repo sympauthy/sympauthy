@@ -14,7 +14,7 @@ import java.util.*
  *
  * Holds the parameters the client provided to the authorize endpoint, plus the consent and grant
  * decisions taken during the flow. Keyed by [sessionId] and fetched via
- * [com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager], never carried on the session
+ * [com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager], never carried on the session
  * itself.
  */
 data class InteractiveFlowSessionOAuth2(

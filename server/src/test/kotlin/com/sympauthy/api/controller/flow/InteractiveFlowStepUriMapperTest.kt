@@ -1,9 +1,9 @@
 package com.sympauthy.api.controller.flow
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
+import com.sympauthy.business.manager.authorization.AuthorizationCodeManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession

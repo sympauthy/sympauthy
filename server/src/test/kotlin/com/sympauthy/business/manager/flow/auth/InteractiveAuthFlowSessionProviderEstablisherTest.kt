@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.flow.auth
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimValueValidator
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.lock.HeldStripes
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
-import com.sympauthy.business.manager.user.ClaimValueValidator
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.TakenIdentifier
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.provider.EnabledProvider

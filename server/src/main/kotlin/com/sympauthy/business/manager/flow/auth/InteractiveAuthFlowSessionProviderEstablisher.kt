@@ -2,16 +2,16 @@ package com.sympauthy.business.manager.flow.auth
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.flow.ProviderUserEstablisher
-import com.sympauthy.business.manager.flow.ProviderUserEstablishment
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimValueValidator
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.provider.ProviderUserEstablisher
+import com.sympauthy.business.manager.flow.provider.ProviderUserEstablishment
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
-import com.sympauthy.business.manager.user.ClaimValueValidator
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.CreateOrAssociateResult
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
@@ -36,7 +36,7 @@ import kotlin.jvm.optionals.getOrNull
  * ([com.sympauthy.business.model.flow.InteractiveFlowPurpose.OAUTH2_AUTHORIZE]): it enforces the sign-up
  * rules, creates or associates the [User] (honoring `auth.user-merging-enabled` and the configured
  * identifier claims), and applies the claims any invitation carries. The generic
- * [com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager] owns the provider
+ * [com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionOAuth2ProviderManager] owns the provider
  * protocol and delegates this outcome here.
  */
 @Singleton

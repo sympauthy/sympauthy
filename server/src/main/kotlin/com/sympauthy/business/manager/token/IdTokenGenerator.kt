@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.token
 
-import com.sympauthy.business.manager.GeneratedClaimsManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.manager.jwt.JwtManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
 import com.sympauthy.business.mapper.EncodedAuthenticationTokenMapper
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.GrantType

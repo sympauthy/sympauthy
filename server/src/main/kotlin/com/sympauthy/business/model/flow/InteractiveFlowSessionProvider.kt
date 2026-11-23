@@ -8,7 +8,7 @@ import java.util.*
  *
  * Present only while the user is being authenticated through an external OAuth2 / OpenID Connect
  * provider. Keyed by [sessionId] and fetched via
- * [com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager], never carried on the
+ * [com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionProviderManager], never carried on the
  * session itself. Upserted when the user picks (or switches) the provider they authenticate with.
  */
 data class InteractiveFlowSessionProvider(
@@ -25,7 +25,7 @@ data class InteractiveFlowSessionProvider(
     /**
      * The random part (jti) of the nonce JWT sent to the OIDC provider in the authorization request.
      * Only the jti is stored; the full nonce JWT can be reconstructed using
-     * [com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager.buildProviderNonceOrNull].
+     * [com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionProviderManager.buildProviderNonceOrNull].
      */
     val providerNonceJsonWebTokenId: UUID? = null,
 )

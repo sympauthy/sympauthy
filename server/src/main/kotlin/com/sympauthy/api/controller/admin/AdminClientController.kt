@@ -17,7 +17,7 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.ClientManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.collection.ClientCollectionManager
 import com.sympauthy.business.model.oauth2.AdminScopeId
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ

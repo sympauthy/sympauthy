@@ -1,7 +1,8 @@
 package com.sympauthy.business.manager.flow.link
 
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionProviderManager
+import com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionOAuth2ProviderManager
+import com.sympauthy.business.manager.flow.provider.InteractiveFlowSessionProviderManager
 import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -19,7 +20,7 @@ import jakarta.inject.Singleton
  * resolved once the durable link exists — i.e. the target provider is linked to the session user.
  *
  * The link itself is created in the provider callback
- * ([com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider]),
+ * ([InteractiveFlowSessionOAuth2ProviderManager.signInOrSignUpUsingProvider]),
  * next to claim resolution and behind the conflict checks — mirroring how the re-authentication gate confirms
  * in the callback (the resolved provider claims exist only there). This handler stays pure: it only reads the
  * durable link state, and has no terminal effect.

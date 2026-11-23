@@ -2,7 +2,7 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.util.wireName

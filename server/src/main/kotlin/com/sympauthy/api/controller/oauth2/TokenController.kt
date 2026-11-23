@@ -11,7 +11,7 @@ import com.sympauthy.api.controller.oauth2.util.getRequiredParam
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.mapper.TokenResourceMapper
 import com.sympauthy.api.resource.oauth2.TokenResource
-import com.sympauthy.business.manager.auth.oauth2.DpopManager
+import com.sympauthy.business.manager.token.DpopManager
 import com.sympauthy.business.manager.token.TokenRequestManager
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.DpopBoundRequest

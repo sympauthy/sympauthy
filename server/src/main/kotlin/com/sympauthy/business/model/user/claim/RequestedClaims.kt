@@ -7,7 +7,7 @@ package com.sympauthy.business.model.user.claim
  *
  * **Both sets hold claim ids and are sanitized.** A name matching no claim this server serves is dropped
  * where the parameter is parsed, so nothing downstream re-reads a document or carries a name that can
- * fail to resolve. [com.sympauthy.business.manager.auth.oauth2.RequestedClaimsManager.parseRequestedClaims]
+ * fail to resolve. [com.sympauthy.business.manager.authorization.RequestedClaimsManager.parseRequestedClaims]
  * is that parse.
  */
 data class RequestedClaims(

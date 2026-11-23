@@ -12,7 +12,7 @@ import com.sympauthy.business.manager.flow.InteractiveFlowEngine
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.flow.SuccessVerifyEncodedStateResult
 import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.security.UserSecurityContextManager
+import com.sympauthy.business.manager.securitycontext.UserSecurityContextManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.CONCURRENT_MODIFICATION_DETAILS_ID
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession

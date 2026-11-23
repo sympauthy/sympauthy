@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.collection
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.collection.CollectionCapabilities

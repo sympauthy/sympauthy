@@ -24,7 +24,7 @@ import kotlinx.coroutines.coroutineScope
  * dependencies.
  *
  * The authorization code a session completed with is not one of them: it outlives the session, and
- * [com.sympauthy.business.manager.auth.GrantCleaner] collects it.
+ * [com.sympauthy.business.manager.grant.GrantCleaner] collects it.
  *
  * Neither is the account an expired session was signing up: deleting the session is what marks it
  * abandoned, and [com.sympauthy.business.manager.user.ProvisionalAccountManager.deleteAbandoned] collects it

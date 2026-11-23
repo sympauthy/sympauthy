@@ -6,7 +6,7 @@ import com.sympauthy.business.model.oauth2.GrantedBy
 /**
  * Result containing all granted/declined scopes be the application of a scope granting method.
  *
- * @see [com.sympauthy.business.manager.rule.ScopeGrantingRuleManager.applyScopeGrantingRules]
+ * @see [com.sympauthy.business.manager.scope.granting.ScopeGrantingRuleManager.applyScopeGrantingRules]
  */
 data class ScopeGrantingMethodResult(
     /**

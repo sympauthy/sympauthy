@@ -7,7 +7,7 @@ import java.util.*
  * One place an [InteractiveFlowSession] was driven from, as the row attached to that session holds it.
  *
  * Keyed by [sessionId] like the other attached records, but written and consumed by
- * [com.sympauthy.business.manager.security.UserSecurityContextManager] rather than by a purpose: a row is
+ * [com.sympauthy.business.manager.securitycontext.UserSecurityContextManager] rather than by a purpose: a row is
  * opened where the session is created and at every request that resolves it while it is still running,
  * bumped where that place was already seen, and every one of them is deleted as the completing flow folds
  * the proven one into that person's own record. **A session holds one row per distinct place.** See

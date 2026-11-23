@@ -10,9 +10,9 @@ import com.sympauthy.api.util.DEFAULT_PAGE
 import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.business.manager.claim.CollectedClaimManager
 import com.sympauthy.business.manager.collection.UserCollectionManager
 import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria

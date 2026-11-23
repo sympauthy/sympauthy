@@ -78,9 +78,9 @@ schema is one set of migrations.
 | `queue` | `business`, `config`, `data`, `monitoring`, `server`, the Micronaut framework, the JDK | `api`, `view`, `mail` |
 | `monitoring` | logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
 
-**`business` may import `api` in exactly one case**: a manager in `business.manager.auth` or
-`business.manager.token` throws the protocol's own error type, which lives in `api` because an
-OAuth2 error code is a wire format. [The exception standard](exception-code-standard.md) argues that
+**`business` may import `api` in exactly one case**: a manager in `business.manager.grant`,
+`business.manager.authorization` or `business.manager.token` throws the protocol's own error type,
+which lives in `api` because an OAuth2 error code is a wire format. [The exception standard](exception-code-standard.md) argues that
 carve-out, and nothing else uses it.
 
 **`config` may import `business.model`.** A validated configuration is a domain value, and these two

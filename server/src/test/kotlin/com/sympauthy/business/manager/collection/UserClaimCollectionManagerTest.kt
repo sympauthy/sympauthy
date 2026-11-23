@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.collection
 
 import com.sympauthy.api.util.criteriaOf
-import com.sympauthy.business.manager.ClaimManager
-import com.sympauthy.business.manager.GeneratedClaimsManager
+import com.sympauthy.business.manager.claim.ClaimManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
 import com.sympauthy.business.manager.collection.UserClaimCollectionManager.GeneratedUserClaim
-import com.sympauthy.business.manager.user.CollectedClaimManager
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User

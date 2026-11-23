@@ -22,7 +22,7 @@ enum class GeneratedOpenIdConnectClaim(
     val scope: String? = null,
     /**
      * Whether this claim has a value for an account, which
-     * [GeneratedClaimsManager][com.sympauthy.business.manager.GeneratedClaimsManager] can compute from
+     * [GeneratedClaimsManager][com.sympauthy.business.manager.claim.GeneratedClaimsManager] can compute from
      * a user id alone: true for the claims that describe the account, false for one that describes a
      * single authorization, which the surfaces listing what is known about somebody leave out.
      */

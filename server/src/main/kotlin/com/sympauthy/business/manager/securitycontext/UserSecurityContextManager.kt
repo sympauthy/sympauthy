@@ -1,0 +1,297 @@
+package com.sympauthy.business.manager.securitycontext
+
+import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
+import com.sympauthy.business.model.security.ObservedRequest
+import com.sympauthy.business.model.security.SecurityContextKey
+import com.sympauthy.business.model.security.securityContextKey
+import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
+import com.sympauthy.data.model.UserSecurityContextEntity
+import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
+import com.sympauthy.data.repository.UserSecurityContextRepository
+import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.util.isRowAlreadyThere
+import io.micronaut.transaction.annotation.Transactional
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
+import java.time.LocalDateTime
+import java.util.*
+
+/**
+ * Keeps the places a person signs in from: records every place a session is driven from against that
+ * session, marks the one a credential was proven at, and folds that one into the person's record once
+ * their flow completes.
+ *
+ * **One manager owns both tables, which departs from the manager-per-attached-record the five other
+ * `interactive_flow_session_*` records follow.** Recording and folding are one rule with two halves —
+ * what is recorded is only ever read by the fold, and the fold only ever reads what was recorded — and
+ * splitting them would put that rule in two packages where neither states it.
+ *
+ * **None of it may fail a flow.** A person signing in must not be answered with an error because a row
+ * nothing yet reads could not be written, so recording, marking and folding each catch what they cannot
+ * finish and say so in the log instead. That is the cost of recording history beside a credential check
+ * rather than inside it.
+ *
+ * **A cancellation is not one of those failures.** It says the request this was recording for is gone, so
+ * it travels on rather than being logged as a database that would not answer.
+ */
+@Singleton
+open class UserSecurityContextManager(
+    @Inject private val userManager: UserManager,
+    @Inject private val sessionRepository: InteractiveFlowSessionSecurityContextRepository,
+    @Inject private val contextRepository: UserSecurityContextRepository,
+    @Inject private val conditionMonitor: ConditionMonitor
+) {
+
+    private val logger = loggerForClass()
+
+    /**
+     * Record that [sessionId] was driven from [observedRequest], having proven nothing.
+     *
+     * **Call this where a request creates an interactive flow session, and where one still running is
+     * resolved from the state a request carried.** Nothing about it is gated: [fold] takes what [markProven]
+     * stamped and is blind to the rest, as `docs/design/security-context.md` has it.
+     */
+    suspend fun observe(sessionId: UUID, observedRequest: ObservedRequest) {
+        record(sessionId, observedRequest)
+    }
+
+    /**
+     * Stamp the place [observedRequest] came from as one where the person behind [sessionId] proved who
+     * they are.
+     *
+     * **Call this only where a credential has verified *and* resolved this session's user**, the condition
+     * `docs/design/security.md` places on the authentication time too. A call placed at the verification
+     * rather than at the resolution lets anybody holding the session's state write their own address into
+     * somebody else's record.
+     *
+     * **It stamps rather than records.** The request making this call came through the helper every flow
+     * handler goes through, which already recorded the place it came from — so one request is one row,
+     * counted once. A place that is not there is a sighting lost rather than a row opened: the fold reads
+     * a stamp as a proof, and this is not where one would be established.
+     *
+     * It stamps the moment of the proof rather than replacing what an earlier step of the same flow
+     * recorded, and the fold reads the latest stamp — so a flow proving a credential twice still folds
+     * the place the person last proved who they were.
+     */
+    suspend fun markProven(sessionId: UUID, observedRequest: ObservedRequest) {
+        val fingerprint = observedRequest.securityContextKey().fingerprint
+        try {
+            if (sessionRepository.markProven(sessionId, fingerprint, LocalDateTime.now()) == 0) {
+                // DEBUG at most: whoever holds a session's state can roll its places out at will.
+                logger.debug {
+                    "Session $sessionId proved a credential at a place it no longer holds, so nothing " +
+                        "will be folded into that person's record."
+                }
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not record where session $sessionId proved a credential." }
+            }
+        }
+    }
+
+    /**
+     * The one write every request makes: bump the place [observedRequest] names, or open it where this
+     * session has room for another.
+     *
+     * **A session at its bound rolls the place least recently seen out rather than refusing the new one,
+     * and a place a credential was proven at is the last to go.** `docs/design/security-context.md` is why.
+     */
+    private suspend fun record(sessionId: UUID, observedRequest: ObservedRequest) {
+        val key = observedRequest.securityContextKey()
+        val now = LocalDateTime.now()
+        try {
+            if (writePlace(sessionId, key, observedRequest, now) == 0) {
+                // DEBUG at most: whoever holds a session's state provokes it at will, by presenting user agents.
+                logger.debug {
+                    "Session $sessionId has been driven from more than $MAX_OBSERVATIONS_PER_SESSION " +
+                        "distinct places. The one least recently seen makes room for this one."
+                }
+                sessionRepository.deleteLeastRecentPlace(sessionId)
+                // Once more, and once only: a second empty answer means a concurrent request took the room
+                // this one just made, and the line above already says a session is presenting too many.
+                writePlace(sessionId, key, observedRequest, now)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            if (!conditionMonitor.absorb(failure)) {
+                logger.warn(failure) { "Could not record where session $sessionId was observed from." }
+            }
+        }
+    }
+
+    /**
+     * The upsert itself, answering how many rows it moved — zero where the session holds as many distinct
+     * places as it may and [key] names none of them.
+     */
+    private suspend fun writePlace(
+        sessionId: UUID,
+        key: SecurityContextKey,
+        observedRequest: ObservedRequest,
+        observedAt: LocalDateTime
+    ): Int = sessionRepository.observe(
+        sessionId = sessionId,
+        fingerprint = key.fingerprint,
+        ip = key.ip,
+        userAgent = key.userAgent,
+        countryCode = observedRequest.geo?.countryCode,
+        regionCode = observedRequest.geo?.regionCode,
+        region = observedRequest.geo?.region,
+        city = observedRequest.geo?.city,
+        timeZone = observedRequest.geo?.timeZone,
+        observedDate = observedAt,
+        maxPlaces = MAX_OBSERVATIONS_PER_SESSION
+    )
+
+    /**
+     * Fold what the completed [session] observed into the places its user is known to sign in from, and
+     * answer nothing.
+     *
+     * **Driven by a proven row rather than by the session carrying a user.** A session may hold a user
+     * from the moment it was created without anybody having proven who they are — an enrollment an
+     * operator started is exactly that, and so is every row written by the mere fact of a request — so a
+     * session nothing was proven on records nothing, by construction rather than by a rule somebody has
+     * to remember.
+     *
+     * **Called once the completion transaction has committed, never inside it.** The insert can violate
+     * the unique index over `(user_id, fingerprint)`, and inside that transaction the violation would
+     * roll back the promotion, the terminal effects and the completion write — answering a person whose
+     * sign-in succeeded with a `500`, over a history row. A transaction of its own is also what lets the
+     * loser of that race re-read and update, which on PostgreSQL an aborted transaction could not.
+     */
+    suspend fun fold(session: CompletedInteractiveFlowSession) {
+        val sessionId = session.id
+        repeat(ATTEMPTS) { attempt ->
+            try {
+                foldObservation(sessionId, session.userId)
+                return
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (!failure.isPlaceAlreadyRecorded()) {
+                    if (!conditionMonitor.absorb(failure)) {
+                        logger.warn(failure) { "Could not fold the place session $sessionId was observed from." }
+                    }
+                    return
+                }
+                // Another completion inserted this same place between the read and the insert. The row is
+                // there now, so the attempt after this one takes the update path rather than the insert.
+                if (attempt == ATTEMPTS - 1) {
+                    logger.warn(failure) { "Gave up folding the place session $sessionId was observed from." }
+                }
+            }
+        }
+    }
+
+    /**
+     * One attempt at the fold: read what this session observed, bump the place its latest proof names or
+     * insert it, and consume every row the session holds.
+     *
+     * Consuming them is what makes a second call do nothing rather than count the same sighting twice, and
+     * it is what leaves the cleaner only the observations of flows that never finished. The places nothing
+     * was proven at go with them: they are what a session knew about itself, and the session is over.
+     *
+     * The place and the consumption of the session's rows commit together, so a delete that fails leaves
+     * nothing folded rather than a bumped count beside rows the next fold would count again. A transaction per
+     * attempt is also what the retry needs: on PostgreSQL the insert losing to another completion aborts the
+     * transaction it ran in, and only a fresh one can re-read and update.
+     *
+     * **The sighting is dated when the credential was presented, not when the flow finished.** A flow with
+     * an MFA step or a claim to collect completes minutes after the person was observed, and the retention
+     * is measured from the sighting — so the proof's own stamp is the one that answers for it.
+     *
+     * The location is overwritten rather than kept, because a place seen again should say where that
+     * address is now and not where an edge's database put it the first time. The count is read and
+     * written rather than incremented in place, so two folds racing on one row may lose an increment —
+     * a stale count on a history row, which is not worth a raw statement of its own.
+     *
+     * Throws whatever `user.not_promoted` [UserManager.checkPromoted] raises, which cannot happen from
+     * the engine's own call: the promotion committed in the transaction before this one.
+     */
+    @Transactional
+    internal open suspend fun foldObservation(sessionId: UUID, userId: UUID) {
+        val observations = sessionRepository.findBySessionId(sessionId)
+        if (observations.isEmpty()) {
+            return
+        }
+        val latestProof = observations
+            .mapNotNull { observation -> observation.provenDate?.let { observation to it } }
+            .maxByOrNull { (_, provenAt) -> provenAt }
+        latestProof?.let { (proven, provenAt) -> foldProvenObservation(proven, provenAt, userId) }
+        sessionRepository.deleteBySessionIdIn(listOf(sessionId))
+    }
+
+    /**
+     * Bump the place [proven] names among [userId]'s, or open it where they have not been seen there,
+     * dating the sighting [provenAt].
+     */
+    private suspend fun foldProvenObservation(
+        proven: InteractiveFlowSessionSecurityContextEntity,
+        provenAt: LocalDateTime,
+        userId: UUID
+    ) {
+        userManager.checkPromoted(userId)
+
+        val existing = contextRepository.findByUserIdAndFingerprint(userId, proven.fingerprint)
+        val moved = existing?.let {
+            contextRepository.updateLastSeenDate(
+                id = it.id!!,
+                lastSeenDate = provenAt,
+                observationCount = it.observationCount + 1,
+                countryCode = proven.countryCode,
+                regionCode = proven.regionCode,
+                region = proven.region,
+                city = proven.city,
+                timeZone = proven.timeZone
+            )
+        } ?: 0
+        // An update that moved nothing means the sweep deleted that place between the read and it, which
+        // is precisely the sign-in that should have kept it alive — so it is opened again rather than lost.
+        if (moved == 0) {
+            contextRepository.save(
+                UserSecurityContextEntity(
+                    userId = userId,
+                    fingerprint = proven.fingerprint,
+                    ip = proven.ip,
+                    userAgent = proven.userAgent,
+                    countryCode = proven.countryCode,
+                    regionCode = proven.regionCode,
+                    region = proven.region,
+                    city = proven.city,
+                    timeZone = proven.timeZone,
+                    firstSeenDate = provenAt,
+                    lastSeenDate = provenAt
+                )
+            )
+        }
+    }
+
+    /**
+     * Whether this is the unique index over `(user_id, fingerprint)` refusing a second row for one place.
+     * A refusal this did not recognise would silently turn the retry into a lost sighting.
+     */
+    private fun Throwable.isPlaceAlreadyRecorded(): Boolean = isRowAlreadyThere()
+
+    private companion object {
+
+        /**
+         * How many distinct places one session may hold at once. Generous for a person whose address
+         * changes mid-flow — a train, a phone leaving wifi — and short enough that a caller varying the
+         * user agent they choose cannot mint a row per request out of a session whose state they hold.
+         * Past it a place is rolled out rather than the session growing.
+         */
+        const val MAX_OBSERVATIONS_PER_SESSION = 10
+
+        /**
+         * The insert and, where it lost the race for one place, the update that follows it. A third
+         * attempt would be a second loser of a race only two writers can enter.
+         */
+        const val ATTEMPTS = 2
+    }
+}

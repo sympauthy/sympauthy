@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.collection
 
-import com.sympauthy.business.manager.AudienceManager
-import com.sympauthy.business.manager.ClaimManager
+import com.sympauthy.business.manager.audience.AudienceManager
+import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria

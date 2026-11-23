@@ -8,9 +8,9 @@ import com.sympauthy.api.resource.client.ClientInvitationResource
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
+import com.sympauthy.business.manager.claim.ClaimAclManager
 import com.sympauthy.business.manager.collection.InvitationCollectionManager
 import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.manager.user.ClaimAclManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.invitation.Invitation

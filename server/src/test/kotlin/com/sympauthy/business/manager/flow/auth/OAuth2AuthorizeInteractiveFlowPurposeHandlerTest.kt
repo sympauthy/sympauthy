@@ -2,19 +2,19 @@ package com.sympauthy.business.manager.flow.auth
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.ClientManager
-import com.sympauthy.business.manager.auth.GrantManager
-import com.sympauthy.business.manager.auth.UserGrantScopesResult
-import com.sympauthy.business.manager.auth.UserScopeGrantingManager
-import com.sympauthy.business.manager.auth.oauth2.AuthorizationCodeManager
+import com.sympauthy.business.manager.authorization.AuthorizationCodeManager
+import com.sympauthy.business.manager.claim.CollectedClaimManager
+import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.manager.password.PasswordManager
-import com.sympauthy.business.manager.user.CollectedClaimManager
-import com.sympauthy.business.manager.user.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.manager.scope.granting.UserGrantScopesResult
+import com.sympauthy.business.manager.scope.granting.UserScopeGrantingManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.audience.Audience
