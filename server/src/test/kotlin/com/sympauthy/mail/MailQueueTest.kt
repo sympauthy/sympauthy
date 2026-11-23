@@ -1,261 +1,150 @@
 package com.sympauthy.mail
 
-import com.sympauthy.business.manager.lock.JobLeaseManager
-import com.sympauthy.business.manager.lock.LeasedJob.MAIL_BACKLOG
-import com.sympauthy.config.ConfigReadiness
-import com.sympauthy.data.model.MailQueueEntity
-import com.sympauthy.data.repository.MailQueueRepository
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor.Companion.REMOTE_CALL_DURATION
-import com.sympauthy.monitoring.telemetry.InMemoryMetrics
-import com.sympauthy.monitoring.telemetry.MailMetrics
-import com.sympauthy.monitoring.telemetry.MailMetrics.Companion.MAIL_SENDS
-import com.sympauthy.monitoring.telemetry.attributes
-import io.micronaut.email.EmailException
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.impl.annotations.MockK
-import io.mockk.junit5.MockKExtension
-import jakarta.mail.AuthenticationFailedException
-import jakarta.mail.MessagingException
-import jakarta.mail.SendFailedException
-import jakarta.mail.internet.AddressException
+import com.sympauthy.data.Database
+import com.sympauthy.data.RepositoryFixture
+import com.sympauthy.data.bean
+import com.sympauthy.data.repository.QueueItemRepository
+import com.sympauthy.data.withFixture
+import io.micronaut.serde.ObjectMapper
+import io.micronaut.transaction.annotation.Transactional
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import jakarta.inject.Singleton
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
-import java.io.FileNotFoundException
-import java.net.ConnectException
-import java.time.Instant
-import java.time.LocalDateTime
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.util.*
+import java.util.concurrent.CopyOnWriteArrayList
 
-@ExtendWith(MockKExtension::class)
+/**
+ * Where a mail is written, and when this instance is told to attempt it, against a real transaction of every
+ * dialect: what is under test is when the database lets the queue know the change it reports has ended, which a
+ * double would decide by itself.
+ */
 class MailQueueTest {
 
-    @MockK
-    lateinit var mailSender: MailSender
+    private val receiver = "mail-queue-test@example.org"
 
-    @MockK
-    lateinit var configReadiness: ConfigReadiness
+    @Test
+    fun `send - Writes nothing when no mail server is configured`() = runTest {
+        val repository = mockk<QueueItemRepository>()
+        val delivery = mockk<MailDelivery>()
 
-    @MockK(relaxed = true)
-    lateinit var mailBuilderFactory: TemplatedMailBuilderFactory
+        MailQueue(mailSender = null, queueItemRepository = repository, objectMapper = mockk(), mailDelivery = delivery)
+            .send(Mail.CLAIM_VALIDATION, Locale.US, receiver, emptyMap())
 
-    @MockK
-    lateinit var mailQueueRepository: MailQueueRepository
-
-    @MockK
-    lateinit var jobLeaseManager: JobLeaseManager
-
-    private val conditionMonitor = ConditionMonitor()
-
-    private val metrics = InMemoryMetrics()
-
-    private val first = mail("first@example.com")
-    private val second = mail("second@example.com")
-
-    /** The subject is built per test: whether a sender is configured is what enables the queue. */
-    private fun queue(sender: MailSender? = mailSender) = MailQueue(
-        mailSender = sender,
-        configReadiness = configReadiness,
-        mailBuilderFactory = mailBuilderFactory,
-        mailQueueRepository = mailQueueRepository,
-        jobLeaseManager = jobLeaseManager,
-        remoteCallMonitor = RemoteCallMonitor(conditionMonitor, metrics.openTelemetry),
-        mailMetrics = MailMetrics(metrics.openTelemetry)
-    )
-
-    private fun sendingFirstFails(failure: Throwable) {
-        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
-        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(first)
-        coEvery { mailQueueRepository.deleteById(any()) } returns 1
-        coEvery { mailSender.send(any()) } throws failure
+        verify(exactly = 0) { delivery.nudge(any()) }
     }
 
-    private fun recordedSend(outcome: String, errorType: String? = null) = metrics.count(
-        REMOTE_CALL_DURATION,
-        if (errorType == null) {
-            attributes("condition" to "mail", "operation" to "send", "outcome" to outcome)
-        } else {
-            attributes("condition" to "mail", "operation" to "send", "outcome" to outcome, "error.type" to errorType)
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `send - Nudges once the transaction writing the mail has committed`(database: Database) =
+        withFixture(database) {
+            val nudges = Nudges()
+            val writer = database.bean<TransactionalMailWriter>()
+
+            val id = writer.writeThen(queue(nudges), receiver) { nudges.bodyReturned = true }
+            deleteOnEnd { repository<QueueItemRepository>().deleteById(id) }
+
+            assertEquals(listOf(id to true), nudges.received, "The nudge came before the transaction ended.")
+            assertNotNull(repository<QueueItemRepository>().findById(id))
         }
-    )
 
-    private fun countedSend(mail: String, outcome: String, errorType: String? = null) = metrics.value(
-        MAIL_SENDS,
-        if (errorType == null) {
-            attributes("mail" to mail, "outcome" to outcome)
-        } else {
-            attributes("mail" to mail, "outcome" to outcome, "error.type" to errorType)
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `send - Takes the mail back with a transaction that rolls back`(database: Database) =
+        withFixture(database) {
+            val nudges = Nudges()
+            val writer = database.bean<TransactionalMailWriter>()
+
+            assertThrows<IllegalStateException> {
+                writer.writeThen(queue(nudges), receiver) { error("the change failed") }
+            }
+
+            // The nudge comes all the same, and finds nothing to take.
+            val (id, _) = nudges.received.single()
+            assertNull(repository<QueueItemRepository>().findById(id))
         }
-    )
 
-    private fun holdingTheLease() {
-        coEvery { jobLeaseManager.withLease(MAIL_BACKLOG, any()) } coAnswers {
-            secondArg<suspend () -> Unit>().invoke()
-            true
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `send - Nudges at once a mail written outside any transaction`(database: Database) =
+        withFixture(database) {
+            val nudges = Nudges()
+
+            queue(nudges).send(Mail.CLAIM_VALIDATION, Locale.US, receiver, emptyMap())
+
+            val (id, _) = nudges.received.single()
+            deleteOnEnd { repository<QueueItemRepository>().deleteById(id) }
+            assertTrue(repository<QueueItemRepository>().existsById(id))
         }
+
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `send - Writes the mail as an item of its kind, its payload holding what it was sent for`(
+        database: Database
+    ) = withFixture(database) {
+        val nudges = Nudges()
+
+        queue(nudges).send(Mail.PASSWORD_RESET_CODE, Locale.US, receiver, mapOf("code" to "123456"))
+
+        val (id, _) = nudges.received.single()
+        deleteOnEnd { repository<QueueItemRepository>().deleteById(id) }
+        val stored = repository<QueueItemRepository>().findById(id)!!
+        assertEquals(MailDelivery.DESTINATION, stored.destination)
+        assertEquals(Mail.PASSWORD_RESET_CODE, Mail.ofKindOrNull(stored.kind))
+        assertEquals(
+            MailPayload(receiver = receiver, locale = "en-US", parameters = mapOf("code" to "123456")),
+            database.bean<ObjectMapper>().readValue(stored.payload, MailPayload::class.java)
+        )
     }
 
-    private fun expectNoReplay() {
-        coVerify(exactly = 0) {
-            mailQueueRepository.deleteByExpirationDateBefore(any())
-            mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any())
-        }
+    private fun RepositoryFixture.queue(nudges: Nudges): MailQueue {
+        val delivery = mockk<MailDelivery>()
+        every { delivery.nudge(any()) } answers { nudges.received.add(firstArg<UUID>() to nudges.bodyReturned) }
+        return MailQueue(
+            mailSender = mockk(),
+            queueItemRepository = repository(),
+            objectMapper = database.bean(),
+            mailDelivery = delivery
+        )
     }
 
-    @Test
-    fun `replayBacklog - Replays the queue when the configuration has no error`() = runTest {
-        holdingTheLease()
-        coEvery { configReadiness.getConfigurationErrors() } returns emptyList()
-        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
-        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns emptyList()
+    /**
+     * Every mail nudged, beside whether the transaction's body had returned by then.
+     */
+    private class Nudges {
+        val received = CopyOnWriteArrayList<Pair<UUID, Boolean>>()
 
-        queue().replayBacklog()
-
-        coVerify {
-            mailQueueRepository.deleteByExpirationDateBefore(any())
-            mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any())
-        }
+        @Volatile
+        var bodyReturned = false
     }
+}
 
-    @Test
-    fun `replayBacklog - Replays nothing when the configuration has errors`() = runTest {
-        coEvery { configReadiness.getConfigurationErrors() } returns listOf(Exception("Invalid provider"))
+/**
+ * A change writing a mail and then going on, in one transaction.
+ *
+ * It is a bean rather than a method of the test because what is under test is the transaction the container
+ * wraps the write in, and nothing a test body does opens one.
+ */
+@Singleton
+open class TransactionalMailWriter(
+    private val queueItemRepository: QueueItemRepository
+) {
 
-        queue().replayBacklog()
-
-        coVerify(exactly = 0) { jobLeaseManager.withLease(any(), any()) }
-        expectNoReplay()
+    @Transactional
+    open suspend fun writeThen(queue: MailQueue, receiver: String, rest: () -> Unit): UUID {
+        queue.send(Mail.CLAIM_VALIDATION, Locale.US, receiver, emptyMap())
+        val id = queueItemRepository.findAll().toList().single { receiver in it.payload }.id!!
+        rest()
+        return id
     }
-
-    @Test
-    fun `replayBacklog - Reads no configuration when mail sending is not configured`() = runTest {
-        queue(sender = null).replayBacklog()
-
-        coVerify(exactly = 0) { configReadiness.getConfigurationErrors() }
-        expectNoReplay()
-    }
-
-    @Test
-    fun `replayBacklog - Replays nothing when another instance holds the lease`() = runTest {
-        coEvery { configReadiness.getConfigurationErrors() } returns emptyList()
-        coEvery { jobLeaseManager.withLease(MAIL_BACKLOG, any()) } returns false
-
-        queue().replayBacklog()
-
-        expectNoReplay()
-    }
-
-    @Test
-    fun `replayUnsentMails - Sends every unsent mail and deletes the row it was read from`() = runTest {
-        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
-        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns
-            listOf(first, second)
-        coEvery { mailQueueRepository.deleteById(any()) } returns 1
-        coEvery { mailSender.send(any()) } returns Unit
-
-        queue().replayUnsentMails()
-
-        coVerify(exactly = 2) { mailSender.send(any()) }
-        coVerify(exactly = 1) { mailQueueRepository.deleteById(first.id!!) }
-        coVerify(exactly = 1) { mailQueueRepository.deleteById(second.id!!) }
-        assertEquals(2, countedSend("claim_validation", "success"))
-    }
-
-    @Test
-    fun `replayUnsentMails - Counts no send of a template this build draws no mail from`() = runTest {
-        val unknown = mail("first@example.com", template = "mails/retired_mail")
-        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 0
-        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns listOf(unknown)
-        coEvery { mailQueueRepository.deleteById(any()) } returns 1
-        coEvery { mailSender.send(any()) } returns Unit
-
-        queue().replayUnsentMails()
-
-        assertFalse(metrics.isRecorded(MAIL_SENDS))
-        assertEquals(1, recordedSend("success"))
-    }
-
-    @Test
-    fun `replayUnsentMails - Discards the mails that expired unsent before delivering the rest`() = runTest {
-        coEvery { mailQueueRepository.deleteByExpirationDateBefore(any()) } returns 3
-        coEvery { mailQueueRepository.findByExpirationDateIsNullOrExpirationDateAfter(any()) } returns
-            emptyList()
-
-        queue().replayUnsentMails()
-
-        coVerify(exactly = 0) { mailSender.send(any()) }
-    }
-
-    @Test
-    fun `replayUnsentMails - Degrades the mail sender's condition when its server cannot be reached`() = runTest {
-        sendingFirstFails(EmailException(MessagingException("Couldn't connect", ConnectException("Refused"))))
-
-        queue().replayUnsentMails()
-
-        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
-        assertEquals(1, recordedSend("error", "connection"))
-        assertEquals(1, countedSend("claim_validation", "error", "connection"))
-        coVerify(exactly = 1) { mailQueueRepository.deleteById(first.id!!) }
-    }
-
-    @Test
-    fun `replayUnsentMails - Types a server refusing this server's credentials as authentication`() = runTest {
-        sendingFirstFails(EmailException(AuthenticationFailedException("535 Authentication failed")))
-
-        queue().replayUnsentMails()
-
-        assertTrue(conditionMonitor.isDegraded(Condition.Mail))
-        assertEquals(1, recordedSend("error", "authentication"))
-    }
-
-    @Test
-    fun `replayUnsentMails - Counts a mail the server refused as its answer`() = runTest {
-        conditionMonitor.reportFailure(Condition.Mail)
-        sendingFirstFails(EmailException(SendFailedException("Invalid Addresses")))
-
-        queue().replayUnsentMails()
-
-        assertEquals(1, recordedSend("refused", SendFailedException::class.java.name))
-        assertEquals(1, countedSend("claim_validation", "refused", SendFailedException::class.java.name))
-        // The refusal started the quiet period, which a failure would have reset.
-        conditionMonitor.endQuietPeriods(Instant.now().plus(ConditionMonitor.QUIET_PERIOD))
-        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
-    }
-
-    @Test
-    fun `replayUnsentMails - Reports no call for a mail that failed to build`() = runTest {
-        sendingFirstFails(EmailException(AddressException("Illegal address", "not an address")))
-
-        queue().replayUnsentMails()
-
-        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
-        assertFalse(metrics.isRecorded(REMOTE_CALL_DURATION))
-        assertFalse(metrics.isRecorded(MAIL_SENDS), "a mail that never reached the mail server is no send")
-    }
-
-    @Test
-    fun `replayUnsentMails - Leaves the mail sender's condition alone when a template cannot be read`() = runTest {
-        sendingFirstFails(EmailException(FileNotFoundException("validation-code.ftl")))
-
-        queue().replayUnsentMails()
-
-        assertFalse(conditionMonitor.isDegraded(Condition.Mail))
-    }
-
-    private fun mail(receiver: String, template: String = Mail.CLAIM_VALIDATION.templatePath) = MailQueueEntity(
-        template = template,
-        locale = "en",
-        receiver = receiver,
-        subjectKey = "subject",
-        parameters = emptyMap(),
-        creationDate = LocalDateTime.of(2026, 1, 1, 12, 0, 0),
-        expirationDate = null
-    ).apply { id = UUID.randomUUID() }
 }

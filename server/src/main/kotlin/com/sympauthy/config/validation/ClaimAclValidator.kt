@@ -96,7 +96,7 @@ class ClaimAclValidator {
         terms.consentedScopes.forEach { validateConsentedScope(ctx, it, configKey, scopesById) }
         terms.grantedScopes.forEach { validateGrantedScope(ctx, it, configKey, scopesById) }
         // Every age is checked before any is acted on, so a file writing two bad ones is told about both.
-        val ages = terms.authenticationAges.map { validateLifetime(ctx, configKey, it) }
+        val ages = terms.authenticationAges.map { validatePositiveDuration(ctx, configKey, it) }
         if (null in ages) return null
         return ClaimAclExpression(
             expression = expression,

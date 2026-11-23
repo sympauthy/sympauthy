@@ -56,7 +56,7 @@ change to this table before it is a class.
 | `data` | Micronaut Data, `monitoring` and the JDK | `business`, `api` |
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
 | `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
-| `mail` | `business`, `config`, `data`, `client`, `monitoring`, the Micronaut framework, the JDK | `api`, `view` |
+| `mail` | `business`, `config`, `data`, `client`, `monitoring`, `server`, the Micronaut framework, the JDK | `api`, `view` |
 | `monitoring` | logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
 
 **`business` may import `api` in exactly one case**: a manager in `business.manager.auth` or
@@ -79,6 +79,9 @@ manager, no mapper and no business exception reaches `config`.
 **`business` never imports `mail`.** A manager reaches a mail through an interface `business`
 declares and `mail` implements, as `ValidationCodeMediaSender` is, so a use case says that a message
 goes out without depending on how it is composed, drawn or delivered.
+
+**`mail` imports `server` for the scope its delivery runs in.** What it attempts in the background has
+to stop when the server does, and `BackgroundScope` is the one scope the server cancels then.
 
 **`mail` may import `view` in exactly one case**: the path of a route a mail links to, so that the
 address a mail carries and the route answering it are one constant.
@@ -153,9 +156,12 @@ the top level of the file that owns the concept — a downcast off an authentica
 caused it.
 
 **Retries and circuit breaking on outbound calls.** A third-party provider being down surfaces as a
-failed flow. What is fetched once at startup and nothing else would ever resolve — a provider's
-discovery document, a brand image — is tried again until it answers, as
-[logging](../design/logging.md#what-implements-it) describes.
+failed flow, which the person in it can retry. What is fetched once at startup and nothing else would
+ever resolve — a provider's discovery document, a brand image — is tried again until it answers, as
+[logging](../design/logging.md#what-implements-it) describes. A mail is retried, because it is a
+promise to somebody who is not waiting on the call and cannot retry it themselves — how is
+[delivery](../design/delivery.md)'s. Circuit breaking stays open for every call, a delivery's
+included.
 
 **Caching.** What the configuration determines, or the server fetched once at startup, is held until
 a restart. Nothing a request fetches from a third party is memoised, a provider's key set included.

@@ -1986,23 +1986,160 @@ Skipping the challenge would make the inbox enough for both factors.
 
 ### When is the mail saying a password changed sent?
 
-**Decision:** Once the completion has committed, by the request that committed it, from the part of
-the terminal effect the engine runs after the commit.
+**Decision:** Written inside the completion transaction, beside the writes it reports, and attempted
+once that transaction has committed, by the request that committed it.
 
 **Options considered:**
 
-- **Queued inside the completion transaction, beside the writes it reports.**
+- **Queued inside the completion transaction, and handed to the sender at once.**
 - **Its queue row written inside the transaction, and handed to the sender after the commit.**
-- **The whole of it after the commit.**
+- **The whole of it after the commit**, from a part of the terminal effect the engine ran after the
+  commit.
 
 **Rationale:**
 
-Inside the transaction, the queue hands the mail to its sender at once, so a completion that rolls
-back — the request that lost the version check — still tells the person their password changed. A
-row written with the completion and dispatched after it would survive the process dying between the
-commit and the queue, which the chosen option does not; it costs every mail sender a second call,
-one to queue and one to dispatch, for a window of one round trip. The mail is the last thing the
-reset does, and a person who never gets it still has the password they chose.
+Handed to the sender at once, a completion that rolls back — the request that lost the version
+check — still tells the person their password changed. Queued whole after the commit, it was lost
+to a process dying between the commit and the queue, a window of one round trip that was weighed
+against a second call per sender while a mail was one attempt and then forgotten. Once a mail is
+retried until it is delivered, the notice is a promise the server keeps, and the window is the one
+way left to break it; and the second call went away, since [the queue nudges its own
+mail](delivery.md#what-implements-it) when the transaction's connection closes, so the engine no
+longer runs anything after the commit.
+
+---
+
+## Delivery
+
+### Is an item written inside the transaction of the change it reports?
+
+**Decision:** Always, whoever queues it, and it leaves only once that transaction has committed.
+
+**Options considered:**
+
+- **Queued after the commit**, as the password reset request and the notice that a password changed
+  were.
+- **A code in its own commit, and its mail right after it**, which kept a code drawn twice out of a
+  transaction that aborts on it.
+- **Inside or after the commit, chosen per kind of item.**
+- **Inside the transaction, every time.**
+
+**Rationale:**
+
+After the commit, a process dying before the hand-off loses what it was about to send, and a code
+committed alone reopens that window between the code and its mail. Choosing per kind gives a caller
+a guarantee that depends on what it queues, and two answers to one question is how a validation
+code came to be queued inside a transaction while a mail handed to its sender at once was attempted
+before that transaction decided anything — the code sent, then the row it wrote sent again on the
+next startup. Inside, always, an item nobody committed is never seen by a delivery. It waited on a
+code drawn twice being drawn again inside the transaction rather than aborting it, which the
+validation code's insert now does.
+
+### Is an item attempted on a nudge, or only by the poll?
+
+**Decision:** Both. The instance that committed an item attempts it as soon as the commit returns,
+and every instance polls for what is due.
+
+**Options considered:**
+
+- **A poll alone.**
+- **PostgreSQL `LISTEN/NOTIFY` waking the instances.**
+- **A nudge, and a poll behind it.**
+
+**Rationale:**
+
+A poll alone has a person wait up to a poll for their code. `LISTEN/NOTIFY` has no H2 counterpart,
+and both are supported. The nudge is what is fast and the stored item is what is safe, so a nudge
+that never came costs one poll, and nothing else has to be reliable.
+
+### Is an item leased, or is the backlog?
+
+**Decision:** Each item, while it is attempted, renewed while its instance lives, and written held
+by nobody.
+
+**Options considered:**
+
+- **One instance delivering the backlog at startup under a job lease**, as the mail queue did.
+- **An item written already held by the instance writing it.**
+- **A lease on an item of a fixed length.**
+- **A lease on each item, renewed while its instance lives, written held by nobody.**
+
+**Rationale:**
+
+A lease over the backlog lasts as long as the backlog takes to drain, so an instance that froze
+holding it and then woke can send any mail of it a second time; leased one by one, that narrows to
+the item it was attempting, and a lease over the backlog would then only stop the instances sharing
+the work. Written already held, an item whose nudge never came waits for that hold to lapse rather
+than for the next poll. A fixed length shorter than a slow attempt lets a second instance send the
+item, and a longer one makes a dead instance's items wait; renewed, it follows how long an instance
+may go silent, as a job's lease does, and nobody guesses an attempt's length.
+
+### Is the queue one table, or a table per destination?
+
+**Decision:** One table for every destination. What the delivery reads is columns, and what only
+one destination's deliverer reads is a JSON payload.
+
+**Options considered:**
+
+- **A table per destination**, each with the columns its items carry.
+- **One table, every field of every kind a column.**
+- **One table, the delivery's own fields columns and the rest a JSON payload.**
+
+**Rationale:**
+
+The claim, the lease, the retry and the gauges read none of what a mail carries. A table per
+destination copies all of them per destination, and the second copy would have been written with
+the client events, against a schema already released. A column per field of every kind leaves
+every row mostly null and grows the table with each kind. The payload loses the database's checks
+on a mail's fields, which one class writes and one reads. What a table per destination gave for
+free, a slow destination unable to take another's slots, is a cap per destination in the claim,
+left until a second destination arrives.
+
+### Does the delivery guarantee an order?
+
+**Decision:** No. Items go oldest due first where they can, and a retried item may arrive after one
+queued later.
+
+**Options considered:**
+
+- **An order per destination.**
+- **No order.**
+
+**Rationale:**
+
+An order needs one reader per destination, and one item that keeps failing blocks every one behind
+it. None of the specifications the client events follow asks for one: RFC 8417 defines no means of
+ordering SETs, and the one order OpenID Shared Signals asks for, events held while a stream is
+paused, is that feature's to keep.
+
+---
+
+## Mail
+
+### Which failures of a mail are retried?
+
+**Decision:** A mail server that is unwell or refuses this server's own sending, and a temporary
+refusal of a recipient or of the mail, until the mail expires. A recipient refused for good, a full
+mailbox and a mail that cannot be built are given up at once.
+
+**Options considered:**
+
+- **Every failure, until the mail expires.**
+- **Only a temporary refusal**, giving up a mail server that cannot be reached.
+- **Giving up every `5xx`.**
+- **Retrying a full mailbox.**
+- **A temporary refusal counted as `refused` on `sympauthy.mail.sends`.**
+- **Every policy status, `x.7.x`, taken as this server's sending.**
+
+**Rationale:**
+
+A permanent refusal and a template that cannot be drawn fail the same way at every attempt. Giving
+up an unreachable mail server loses every code sent during an outage of any length. Giving up every
+`5xx` would give up every mail at DEBUG under a healthy condition when it is this server's sender or
+relay that is refused, and the operator would never see a broken mail setup. A full mailbox stays
+full for longer than a code lives, and a notice with no expiry would be tried for ever. `refused` is
+kept for what the caller caused, and recovers the condition as a success does. A greylisting reply
+is often `4.7.1`, so only a permanent policy status is read as a refusal of this server's sending.
 
 ---
 

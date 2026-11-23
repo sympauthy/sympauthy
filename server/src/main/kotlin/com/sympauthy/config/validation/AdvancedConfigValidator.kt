@@ -8,6 +8,7 @@ import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.config.model.PaginationConfig
+import com.sympauthy.config.model.QueueConfig
 import com.sympauthy.config.model.SecurityContextConfig
 import com.sympauthy.config.model.SecurityContextGeoConfig
 import com.sympauthy.config.model.SecurityContextGeoHeadersConfig
@@ -17,6 +18,7 @@ import com.sympauthy.config.parsing.ParsedAdvancedConfig
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
+import com.sympauthy.config.parsing.ParsedQueueConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextIpConfig
@@ -26,6 +28,8 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties.Compani
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.QueueConfigurationProperties.Companion.QUEUE_KEY
+import com.sympauthy.config.properties.QueueRetryConfigurationProperties.Companion.QUEUE_RETRY_KEY
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties.Companion.GEO_HEADERS_KEY
@@ -52,6 +56,7 @@ class AdvancedConfigValidator {
         )
         val paginationConfig = validatePaginationConfig(ctx, parsed.pagination)
         val securityContextConfig = validateSecurityContextConfig(ctx, parsed.securityContext)
+        val queueConfig = validateQueueConfig(ctx, parsed.queue)
 
         if (ctx.hasErrors) return null
         return EnabledAdvancedConfig(
@@ -64,7 +69,8 @@ class AdvancedConfigValidator {
             validationCode = validationCodeConfig!!,
             authorizationWebhook = webhookConfig,
             pagination = paginationConfig!!,
-            securityContext = securityContextConfig!!
+            securityContext = securityContextConfig!!,
+            queue = queueConfig!!
         )
     }
 
@@ -128,7 +134,7 @@ class AdvancedConfigValidator {
      * not a lifetime.
      */
     private fun validateKnownUserRetention(ctx: ConfigParsingContext, parsed: Duration?): Duration? {
-        return validateLifetime(
+        return validatePositiveDuration(
             ctx, "$SECURITY_CONTEXT_KEY.known-user-retention", parsed ?: DEFAULT_KNOWN_USER_RETENTION
         )
     }
@@ -243,6 +249,54 @@ class AdvancedConfigValidator {
         )
     }
 
+    /**
+     * The queue's timings, each greater than zero, and ordered as the retries need them: a poll no longer than
+     * the first retry, which waits for one, and a first retry no longer than the longest.
+     */
+    private fun validateQueueConfig(
+        ctx: ConfigParsingContext,
+        parsed: ParsedQueueConfig
+    ): QueueConfig? {
+        val subCtx = ctx.child()
+        val pollInterval = validatePositiveDuration(subCtx, "$QUEUE_KEY.poll-interval", parsed.pollInterval)
+        val shutdownGrace = validatePositiveDuration(subCtx, "$QUEUE_KEY.shutdown-grace", parsed.shutdownGrace)
+        val firstDelay = validatePositiveDuration(subCtx, "$QUEUE_RETRY_KEY.first-delay", parsed.retryFirstDelay)
+        val maxDelay = validatePositiveDuration(subCtx, "$QUEUE_RETRY_KEY.max-delay", parsed.retryMaxDelay)
+
+        if (parsed.batchSize != null && parsed.batchSize <= 0) {
+            subCtx.addError(
+                configExceptionOf("$QUEUE_KEY.batch-size", "config.advanced.queue.invalid_batch_size")
+            )
+        }
+        if (firstDelay != null && maxDelay != null && firstDelay > maxDelay) {
+            subCtx.addError(
+                configExceptionOf("$QUEUE_RETRY_KEY.first-delay", "config.advanced.queue.first_delay_exceeds_max")
+            )
+        }
+        if (pollInterval != null && firstDelay != null && pollInterval > firstDelay) {
+            subCtx.addError(
+                configExceptionOf(
+                    "$QUEUE_KEY.poll-interval",
+                    "config.advanced.queue.poll_interval_exceeds_first_delay"
+                )
+            )
+        }
+
+        ctx.merge(subCtx)
+        if (subCtx.hasErrors || pollInterval == null || parsed.batchSize == null || shutdownGrace == null ||
+            firstDelay == null || maxDelay == null
+        ) {
+            return null
+        }
+        return QueueConfig(
+            pollInterval = pollInterval,
+            batchSize = parsed.batchSize,
+            shutdownGrace = shutdownGrace,
+            retryFirstDelay = firstDelay,
+            retryMaxDelay = maxDelay
+        )
+    }
+
     private fun validateHashConfig(
         ctx: ConfigParsingContext,
         configKeyPrefix: String,
@@ -318,8 +372,8 @@ class AdvancedConfigValidator {
             )
         }
 
-        validateLifetime(subCtx, "$INVITATION_KEY.default-expiration", parsed.defaultExpiration)
-        validateLifetime(subCtx, "$INVITATION_KEY.max-expiration", parsed.maxExpiration)
+        validatePositiveDuration(subCtx, "$INVITATION_KEY.default-expiration", parsed.defaultExpiration)
+        validatePositiveDuration(subCtx, "$INVITATION_KEY.max-expiration", parsed.maxExpiration)
         if (parsed.defaultExpiration != null && parsed.maxExpiration != null
             && parsed.defaultExpiration > parsed.maxExpiration
         ) {
@@ -352,7 +406,7 @@ class AdvancedConfigValidator {
         ctx: ConfigParsingContext,
         parsed: ParsedValidationCodeConfig
     ): ValidationCodeConfig? {
-        validateLifetime(ctx, "$VALIDATION_CODE_KEY.expiration", parsed.expiration)
+        validatePositiveDuration(ctx, "$VALIDATION_CODE_KEY.expiration", parsed.expiration)
         if (parsed.length != null && parsed.length <= 0) {
             ctx.addError(
                 configExceptionOf(

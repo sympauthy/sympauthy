@@ -98,7 +98,8 @@ dependencies {
 
     // Mail sending (SMTP)
     implementation("io.micronaut.email:micronaut-email-javamail")
-    runtimeOnly("org.eclipse.angus:angus-mail")
+    // The SMTP reply a refusal carries is read off its own exceptions, to tell a retry from a give-up.
+    implementation("org.eclipse.angus:angus-mail")
 
     // Serialization/Deserialization
     ksp("io.micronaut.serde:micronaut-serde-processor")

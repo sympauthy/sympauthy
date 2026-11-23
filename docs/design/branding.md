@@ -8,8 +8,9 @@ changes.
 
 The keys are written up for an operator in [the public
 documentation](https://sympauthy.github.io/technical/configuration/). How an outage is reported is
-[logging](logging.md#when-the-server-is-not-fully-operational)'s, and the options that lost are in
-[the design FAQ](design-faq.md#branding).
+[logging](logging.md#when-the-server-is-not-fully-operational)'s, how a mail shows the brand is
+[mail](mail.md#mails-are-drawn-in-the-brand)'s, and the options that lost are in [the design
+FAQ](design-faq.md#branding).
 
 ## The brand is answered outside the apps
 
@@ -94,8 +95,8 @@ a `429` or a `5xx` is an outage: the image's condition starts degraded, it is re
 period, and it recovers once an attempt succeeds. Any other answer that is not an SVG or a PNG
 within the limit, an empty body or any other `4xx` included, is one ERROR: the host answered, so its
 condition recovers, and the image stays unresolved until a restart. Until it resolves, an image's
-page path answers as if it were not configured, and its [mail path](#mails-are-drawn-in-the-brand)
-answers nothing.
+page path answers as if it were not configured, and its [mail
+path](mail.md#mails-are-drawn-in-the-brand) answers nothing.
 
 **A `408` and a `429` are outages here and nowhere else.** Elsewhere a `4xx` answers what was sent,
 and is worth no retry. Here both say the host will not answer yet, and a rate limit met once at
@@ -111,45 +112,6 @@ will not change a local file, and a wrong path is fixed by correcting the deploy
 no-cache`.** A browser revalidates and gets a `304` when nothing changed, and two instances holding
 the same bytes answer the same tag. The paths never change, so a long `max-age` would keep showing
 the old logo for days.
-
-## Mails are drawn in the brand
-
-**A mail is the flow's auth card page drawn for a mail client**: the brand header, one card of at
-most 480px and the footer, on `ground`. `views/mails/kit.ftl` holds the pieces every mail is
-assembled from, and a mail template only orders them; its strings are the mail bundle's.
-
-**A mail reads colours as values, not variables.** A mail client applies no stylesheet it fetches
-and reads no CSS variable, so `MailBrandResolver` resolves each of the stylesheet's colours to its
-value, an alias to the colour of the token it names, and the kit inlines each value. A dark alias
-takes the dark colour of that token, or its light one where the dark theme does not carry it, as the
-variable does in the stylesheet. The dark roles the kit paints are repainted by a
-`prefers-color-scheme` rule where the client honours one, and left out under `dark-mode: "off"`.
-Status colours stay SympAuthy's, as on the pages.
-
-**A mail shows a PNG logo, or the name alone.** A mail client draws no SVG. `/branding/logo.png`
-and `/branding/logo-dark.png` answer the deployment's logo where it resolved to a PNG, SympAuthy's
-PNG where it configured none, and nothing where it configured an SVG or an image not resolved yet,
-so that its mails show its name rather than SympAuthy's mark. A mail links them by absolute address
-under `urls.root`, versioned by their content so that a client's image proxy does not keep the
-previous logo, and links none where no root URL is configured.
-
-**A root URL with a local host links no logo**: a name of a single label or one reserved for a local
-network, or a loopback, unspecified, private, shared or link-local address, IPv4 or IPv6. A mail is
-read through its provider, whose image proxy fetches the logo from the internet, so a link there
-draws a broken image where the name alone would do. The host is judged as it is written and never
-resolved, since a deployment's name may resolve to a private address inside its own network and to
-a public one outside it.
-
-**A mail names the deployment in its subject, its header and its footer, and in a sentence that
-speaks of the deployment itself.** The subject is read in the inbox before the header is, and the
-footer says why the reader got the mail, from whom. The header shows the name above everything else,
-so the preview text, which the inbox shows beside the subject, does not repeat it, and neither does a
-sentence of the card unless the deployment is what it is about: the sign-in page a code is entered
-on, or that it never asks for one.
-
-**The brand is read when the mail is sent, not when it is queued.** A queued mail holds what it was
-sent for, a code; the brand, the name it is signed under and the minutes a code has left are read
-when the queue delivers it.
 
 ## What implements it
 

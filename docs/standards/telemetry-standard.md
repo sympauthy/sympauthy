@@ -134,7 +134,8 @@ is not always reached by a call, so a metric about calls is named for the calls.
 
 **A scheduled job runs through `JobLeaseManager`, and a run never throws.** A run is recorded as
 it ended, and a failure is reported the way the logging standard reports one about to be written
-at WARN.
+at WARN. Work every instance repeats, such as the delivery's poll, is no job: it takes no lease and
+records no run, and reports a failure the same way.
 
 ## Traces
 

@@ -7,7 +7,8 @@ import java.time.LocalDateTime
  * What tells a person about a reset of their password: the code proving it, the notices answering a reset that
  * sends none, and the notice that one changed the password. Every message goes to an email [address].
  *
- * Depending on the implementation, each method may queue the sending and return immediately.
+ * Depending on the implementation, each method may queue the sending and return immediately. A message queued is
+ * written in the transaction the caller runs in, and leaves only once it has committed.
  */
 interface PasswordResetMessageSender {
 

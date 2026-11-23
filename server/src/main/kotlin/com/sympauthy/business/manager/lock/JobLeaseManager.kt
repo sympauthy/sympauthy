@@ -47,8 +47,11 @@ class JobLeaseManager(
      * It identifies the process for the length of its life and nothing longer: what a lease has to
      * distinguish is a run of this server from a run of the one beside it, and a restart is a different
      * holder of no interest to the row it left behind.
+     *
+     * The mails this instance holds while it attempts them are held under the same name, so that the renewal
+     * saying this instance is alive says it for both.
      */
-    private val holder = UUID.randomUUID().toString()
+    internal val holder = UUID.randomUUID().toString()
 
     /**
      * Run [block] under the lease [job] holds, and answer whether this instance was the one that ran it.

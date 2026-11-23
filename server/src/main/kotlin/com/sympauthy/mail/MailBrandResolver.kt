@@ -23,7 +23,7 @@ import kotlin.math.roundToInt
  * [BrandTokenResolver] answers the stylesheet under `/branding` with, resolved to values, and the PNG
  * `/branding/logo.png` answers, by absolute address. A deployment whose logo is an SVG, whose root URL is not
  * configured, or whose root URL is local ([EnabledUrlsConfig.isRootLocal]) has mails showing its name alone. Why
- * a mail reads each of them that way is `docs/design/branding.md`.
+ * a mail reads each of them that way is `docs/design/mail.md`.
  */
 @Singleton
 class MailBrandResolver(

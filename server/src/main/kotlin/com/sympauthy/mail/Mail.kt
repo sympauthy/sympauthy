@@ -28,7 +28,7 @@ enum class Mail(
     PASSWORD_CHANGED("password_changed");
 
     /**
-     * Path of the template, as the queue records it.
+     * Path of the template the mail is drawn from.
      */
     val templatePath: String
         get() = "mails/$template"
@@ -40,16 +40,16 @@ enum class Mail(
         get() = "mail.$template.subject"
 
     /**
-     * Value of the `mail` attribute a send is counted under.
+     * Value of the `mail` attribute a send is counted under, and the kind its queue item is written with.
      */
     val metricName: String
         get() = name.lowercase()
 
     companion object {
         /**
-         * The mail drawn from the template at [templatePath], or null where this build draws none from it: a
-         * row a previous build queued.
+         * The mail whose queue items are of [kind], or null where this build sends none of it: an item a previous
+         * build queued.
          */
-        fun ofTemplatePathOrNull(templatePath: String): Mail? = entries.firstOrNull { it.templatePath == templatePath }
+        fun ofKindOrNull(kind: String): Mail? = entries.firstOrNull { it.metricName == kind }
     }
 }

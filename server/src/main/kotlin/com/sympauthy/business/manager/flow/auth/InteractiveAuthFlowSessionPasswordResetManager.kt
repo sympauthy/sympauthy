@@ -101,13 +101,13 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * `flow.password.reset.disabled` where [flow] offers no reset. A session whose user is already established
      * is answered unchanged: asking for a code no longer applies there.
      *
-     * It is not one transaction, because the mail queue hands a mail to its sender as soon as it is queued: one
-     * queued inside a transaction is sent before the transaction has decided anything, and its queue row, written
-     * by that transaction, outlives the sender's deletion of it to be sent again on the next startup. So the mail
-     * goes last, once the reset is recorded. Every write before it belongs to the session, and a gate with no
-     * record resolves with nothing to apply, so a request failing part way sends nothing and resets nothing.
+     * It is one transaction: the gate it inserts, the record of the reset, the code where there is one, and the
+     * mail commit together. The record is what the next request's delay counts from, whatever it sent, so a mail
+     * leaving without it would let the next request send another at once; and a code stored without its mail, or
+     * a mail carrying a code never stored, holds the person to a code nobody can type.
      */
-    suspend fun requestCode(
+    @Transactional
+    open suspend fun requestCode(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow,
         login: String?
@@ -155,9 +155,10 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * where [session] has no reset, one whose code has proven the account already, or one whose user is
      * established otherwise: the reset is resolved there, and a code would prove nothing.
      *
-     * The mail goes last and outside any transaction, for the reason [requestCode] gives.
+     * It is one transaction, for the reason [requestCode] gives.
      */
-    suspend fun resendCode(
+    @Transactional
+    open suspend fun resendCode(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow
     ): ResendResult {

@@ -15,6 +15,8 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.PaginationConfigurationProperties
+import com.sympauthy.config.properties.QueueConfigurationProperties
+import com.sympauthy.config.properties.QueueRetryConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties
@@ -46,6 +48,8 @@ class AdvancedConfigFactory(
         securityContextIpProperties: SecurityContextIpConfigurationProperties,
         securityContextGeoProperties: SecurityContextGeoConfigurationProperties,
         securityContextGeoHeadersProperties: SecurityContextGeoHeadersConfigurationProperties,
+        queueProperties: QueueConfigurationProperties,
+        queueRetryProperties: QueueRetryConfigurationProperties,
     ): AdvancedConfig {
         val ctx = ConfigParsingContext()
         val parsed = advancedParser.parse(
@@ -56,7 +60,8 @@ class AdvancedConfigFactory(
             securityContextProperties,
             securityContextIpProperties, securityContextGeoProperties, securityContextGeoHeadersProperties,
             publishedImplementationReader.read(IpProvider::class),
-            publishedImplementationReader.read(GeoProvider::class)
+            publishedImplementationReader.read(GeoProvider::class),
+            queueProperties, queueRetryProperties
         )
         val config = advancedValidator.validate(ctx, parsed)
         return config ?: DisabledAdvancedConfig(ctx.errors)

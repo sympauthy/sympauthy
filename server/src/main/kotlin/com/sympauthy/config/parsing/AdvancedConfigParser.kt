@@ -16,6 +16,8 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties.Compani
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties.Companion.INVITATION_HASH_KEY
 import com.sympauthy.config.properties.JwtConfigurationProperties.Companion.JWT_KEY
 import com.sympauthy.config.properties.PaginationConfigurationProperties.Companion.PAGINATION_KEY
+import com.sympauthy.config.properties.QueueConfigurationProperties.Companion.QUEUE_KEY
+import com.sympauthy.config.properties.QueueRetryConfigurationProperties.Companion.QUEUE_RETRY_KEY
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties.Companion.SECURITY_CONTEXT_KEY
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties.Companion.SECURITY_CONTEXT_GEO_KEY
@@ -35,7 +37,8 @@ data class ParsedAdvancedConfig(
     val validationCode: ParsedValidationCodeConfig,
     val webhookTimeout: Duration?,
     val pagination: ParsedPaginationConfig,
-    val securityContext: ParsedSecurityContextConfig
+    val securityContext: ParsedSecurityContextConfig,
+    val queue: ParsedQueueConfig
 )
 
 data class ParsedSecurityContextConfig(
@@ -96,6 +99,14 @@ data class ParsedPaginationConfig(
     val maxSize: Int?
 )
 
+data class ParsedQueueConfig(
+    val pollInterval: Duration?,
+    val batchSize: Int?,
+    val shutdownGrace: Duration?,
+    val retryFirstDelay: Duration?,
+    val retryMaxDelay: Duration?
+)
+
 data class ParsedValidationCodeConfig(
     val expiration: Duration?,
     val length: Int?,
@@ -122,7 +133,9 @@ class AdvancedConfigParser(
         geoProperties: SecurityContextGeoConfigurationProperties,
         geoHeadersProperties: SecurityContextGeoHeadersConfigurationProperties,
         ipProviders: PublishedImplementations<IpProvider>,
-        geoProviders: PublishedImplementations<GeoProvider>
+        geoProviders: PublishedImplementations<GeoProvider>,
+        queueProperties: QueueConfigurationProperties,
+        queueRetryProperties: QueueRetryConfigurationProperties
     ): ParsedAdvancedConfig {
         val keysGenerationStrategy = ctx.parse {
             parser.getImplementationOrThrow(
@@ -185,7 +198,54 @@ class AdvancedConfigParser(
             validationCode = validationCode,
             webhookTimeout = webhookTimeout,
             pagination = pagination,
-            securityContext = securityContext
+            securityContext = securityContext,
+            queue = parseQueueConfig(ctx, queueProperties, queueRetryProperties)
+        )
+    }
+
+    private fun parseQueueConfig(
+        ctx: ConfigParsingContext,
+        properties: QueueConfigurationProperties,
+        retryProperties: QueueRetryConfigurationProperties
+    ): ParsedQueueConfig {
+        val subCtx = ctx.child()
+        val pollInterval = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$QUEUE_KEY.poll-interval",
+                QueueConfigurationProperties::pollInterval
+            )
+        }
+        val batchSize = subCtx.parse {
+            parser.getIntOrThrow(
+                properties, "$QUEUE_KEY.batch-size",
+                QueueConfigurationProperties::batchSize
+            )
+        }
+        val shutdownGrace = subCtx.parse {
+            parser.getDurationOrThrow(
+                properties, "$QUEUE_KEY.shutdown-grace",
+                QueueConfigurationProperties::shutdownGrace
+            )
+        }
+        val retryFirstDelay = subCtx.parse {
+            parser.getDurationOrThrow(
+                retryProperties, "$QUEUE_RETRY_KEY.first-delay",
+                QueueRetryConfigurationProperties::firstDelay
+            )
+        }
+        val retryMaxDelay = subCtx.parse {
+            parser.getDurationOrThrow(
+                retryProperties, "$QUEUE_RETRY_KEY.max-delay",
+                QueueRetryConfigurationProperties::maxDelay
+            )
+        }
+        ctx.merge(subCtx)
+        return ParsedQueueConfig(
+            pollInterval = pollInterval,
+            batchSize = batchSize,
+            shutdownGrace = shutdownGrace,
+            retryFirstDelay = retryFirstDelay,
+            retryMaxDelay = retryMaxDelay
         )
     }
 

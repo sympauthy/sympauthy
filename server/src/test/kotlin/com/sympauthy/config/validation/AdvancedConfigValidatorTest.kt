@@ -11,6 +11,7 @@ import com.sympauthy.config.parsing.ParsedGeoProvider
 import com.sympauthy.config.parsing.ParsedHashConfig
 import com.sympauthy.config.parsing.ParsedInvitationConfig
 import com.sympauthy.config.parsing.ParsedPaginationConfig
+import com.sympauthy.config.parsing.ParsedQueueConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoConfig
 import com.sympauthy.config.parsing.ParsedSecurityContextGeoHeaders
@@ -227,7 +228,7 @@ class AdvancedConfigValidatorTest {
 
         assertEquals(
             listOf(
-                "advanced.security-context.known-user-retention" to "config.lifetime.not_positive"
+                "advanced.security-context.known-user-retention" to "config.duration.not_positive"
             ),
             ctx.errors.map { it.key to it.messageId }
         )
@@ -241,7 +242,7 @@ class AdvancedConfigValidatorTest {
 
         assertEquals(
             listOf(
-                "advanced.security-context.known-user-retention" to "config.lifetime.not_positive"
+                "advanced.security-context.known-user-retention" to "config.duration.not_positive"
             ),
             ctx.errors.map { it.key to it.messageId }
         )
@@ -267,7 +268,85 @@ class AdvancedConfigValidatorTest {
                 "advanced.invitation.max-expiration",
                 "advanced.validation-code.expiration"
             ),
-            ctx.errors.filter { it.messageId == "config.lifetime.not_positive" }.map { it.key }
+            ctx.errors.filter { it.messageId == "config.duration.not_positive" }.map { it.key }
+        )
+    }
+
+    @Test
+    fun `validate - Keep the queue's timings`() {
+        val ctx = ConfigParsingContext()
+
+        val queue = validator.validate(ctx, parsedConfig())?.queue
+
+        assertNotNull(queue)
+        assertEquals(Duration.ofSeconds(5), queue!!.pollInterval)
+        assertEquals(50, queue.batchSize)
+        assertEquals(Duration.ofSeconds(5), queue.shutdownGrace)
+        assertEquals(Duration.ofSeconds(10), queue.retryFirstDelay)
+        assertEquals(Duration.ofMinutes(2), queue.retryMaxDelay)
+    }
+
+    @Test
+    fun `validate - Refuse a queue timing that is not greater than zero`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(queue = shippedQueue.copy(pollInterval = Duration.ZERO, shutdownGrace = Duration.ZERO))
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf(
+                "advanced.queue.poll-interval" to "config.duration.not_positive",
+                "advanced.queue.shutdown-grace" to "config.duration.not_positive"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Refuse a queue batch size below one`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(ctx, parsedConfig(queue = shippedQueue.copy(batchSize = 0)))
+
+        assertNull(config)
+        assertEquals(
+            listOf("advanced.queue.batch-size" to "config.advanced.queue.invalid_batch_size"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Refuse a first retry delay longer than the maximum`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(queue = shippedQueue.copy(retryFirstDelay = Duration.ofMinutes(3)))
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("advanced.queue.retry.first-delay" to "config.advanced.queue.first_delay_exceeds_max"),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
+    @Test
+    fun `validate - Refuse a poll interval longer than the first retry delay`() {
+        val ctx = ConfigParsingContext()
+
+        val config = validator.validate(
+            ctx,
+            parsedConfig(queue = shippedQueue.copy(pollInterval = Duration.ofSeconds(20)))
+        )
+
+        assertNull(config)
+        assertEquals(
+            listOf("advanced.queue.poll-interval" to "config.advanced.queue.poll_interval_exceeds_first_delay"),
+            ctx.errors.map { it.key to it.messageId }
         )
     }
 
@@ -281,7 +360,8 @@ class AdvancedConfigValidatorTest {
         knownUserRetention: Duration? = null,
         invitationDefaultExpiration: Duration = Duration.ofDays(7),
         invitationMaxExpiration: Duration = Duration.ofDays(30),
-        validationCodeExpiration: Duration = Duration.ofMinutes(10)
+        validationCodeExpiration: Duration = Duration.ofMinutes(10),
+        queue: ParsedQueueConfig = shippedQueue
     ): ParsedAdvancedConfig {
         val hash = ParsedHashConfig(
             costParameter = 16_384,
@@ -326,7 +406,16 @@ class AdvancedConfigValidatorTest {
                         timeZone = null
                     )
                 )
-            )
+            ),
+            queue = queue
         )
     }
+
+    private val shippedQueue = ParsedQueueConfig(
+        pollInterval = Duration.ofSeconds(5),
+        batchSize = 50,
+        shutdownGrace = Duration.ofSeconds(5),
+        retryFirstDelay = Duration.ofSeconds(10),
+        retryMaxDelay = Duration.ofMinutes(2)
+    )
 }

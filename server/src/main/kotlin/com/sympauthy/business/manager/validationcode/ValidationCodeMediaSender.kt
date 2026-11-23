@@ -28,7 +28,8 @@ interface ValidationCodeMediaSender {
     /**
      * Send the [validationCode] to the [user].
      *
-     * Depending on the implementation, this method may queue the sending and return immediately.
+     * Depending on the implementation, this method may queue the sending and return immediately. A message queued
+     * is written in the transaction the caller runs in, and leaves only once it has committed.
      */
     suspend fun sendValidationCode(
         user: User,

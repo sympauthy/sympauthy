@@ -14,6 +14,8 @@ import com.sympauthy.config.properties.InvitationConfigurationProperties
 import com.sympauthy.config.properties.InvitationHashConfigurationProperties
 import com.sympauthy.config.properties.JwtConfigurationProperties
 import com.sympauthy.config.properties.PaginationConfigurationProperties
+import com.sympauthy.config.properties.QueueConfigurationProperties
+import com.sympauthy.config.properties.QueueRetryConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoConfigurationProperties
 import com.sympauthy.config.properties.SecurityContextGeoHeadersConfigurationProperties
@@ -211,6 +213,42 @@ class AdvancedConfigParserTest {
         assertNull(parse(ctx).securityContext.knownUserRetention)
     }
 
+    @Test
+    fun `parse - Read the queue's timings`() {
+        val ctx = ConfigParsingContext()
+
+        val queue = parse(ctx).queue
+
+        assertEquals(
+            ParsedQueueConfig(
+                pollInterval = Duration.ofSeconds(5),
+                batchSize = 50,
+                shutdownGrace = Duration.ofSeconds(5),
+                retryFirstDelay = Duration.ofSeconds(10),
+                retryMaxDelay = Duration.ofMinutes(2)
+            ),
+            queue
+        )
+        assertEquals(emptyList<Pair<String, String>>(), ctx.errors.map { it.key to it.messageId })
+    }
+
+    @Test
+    fun `parse - Report a queue timing missing or not a duration`() {
+        val ctx = ConfigParsingContext()
+
+        val queue = parse(ctx, pollInterval = "fast", shutdownGrace = null).queue
+
+        assertNull(queue.pollInterval)
+        assertNull(queue.shutdownGrace)
+        assertEquals(
+            listOf(
+                "advanced.queue.poll-interval" to "config.invalid_duration",
+                "advanced.queue.shutdown-grace" to "config.missing"
+            ),
+            ctx.errors.map { it.key to it.messageId }
+        )
+    }
+
     private fun parse(
         ctx: ConfigParsingContext,
         keysGenerationStrategy: String? = "auto-increment",
@@ -219,7 +257,9 @@ class AdvancedConfigParserTest {
         autoDetect: String? = null,
         geoProviders: List<String>? = null,
         geoHeaders: SecurityContextGeoHeadersConfigurationProperties = noGeoHeaders,
-        knownUserRetention: String? = null
+        knownUserRetention: String? = null,
+        pollInterval: String? = "5s",
+        shutdownGrace: String? = "5s"
     ) = parser.parse(
         ctx = ctx,
         properties = advancedProperties(keysGenerationStrategy),
@@ -244,7 +284,16 @@ class AdvancedConfigParserTest {
         },
         geoHeadersProperties = geoHeaders,
         ipProviders = publishedIpProviders,
-        geoProviders = publishedGeoProviders
+        geoProviders = publishedGeoProviders,
+        queueProperties = object : QueueConfigurationProperties {
+            override val pollInterval = pollInterval
+            override val batchSize = "50"
+            override val shutdownGrace = shutdownGrace
+        },
+        queueRetryProperties = object : QueueRetryConfigurationProperties {
+            override val firstDelay = "10s"
+            override val maxDelay = "2m"
+        }
     )
 
     /**

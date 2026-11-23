@@ -153,16 +153,13 @@ class PasswordResetInteractiveFlowPurposeHandlerTest {
 
             effect.apply()
 
+            // The mail is written with the change it reports, inside the completion transaction.
             coVerifyOrder {
                 passwordManager.replacePasswords(user, newPassword)
                 oauth2Manager.setPasswordId(session, newPasswordId)
                 grantManager.revokeGrantsByPasswords(userId, replacedIds, any())
+                messageSender.sendPasswordChanged("person@example.com", any())
             }
-            coVerify(exactly = 0) { messageSender.sendPasswordChanged(any(), any()) }
-
-            effect.afterCommit()
-
-            coVerify(exactly = 1) { messageSender.sendPasswordChanged("person@example.com", any()) }
         }
 
     @Test

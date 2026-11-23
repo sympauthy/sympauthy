@@ -14,9 +14,9 @@ import java.util.*
 /**
  * Sends the mails of a password reset.
  *
- * A notice stays worth sending for as long as the code it stands in for would have, so a person reading their inbox
- * once the server restarts is not told about a request they made long before. The notice that the password changed
- * never expires: it is the one way a person learns of a reset they did not make.
+ * A notice stays worth sending for as long as the code it stands in for would have, so a person whose mail was held
+ * up by an outage is not told, long after, about a request they made. The notice that the password changed never
+ * expires: it is the one way a person learns of a reset they did not make, and is tried until it is delivered.
  */
 @Singleton
 class PasswordResetMailSender(

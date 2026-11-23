@@ -112,7 +112,7 @@ class AuthConfigValidatorTest {
                 "auth.interactive-flow.expiration",
                 "auth.grant.expiration"
             ),
-            ctx.errors.filter { it.messageId == "config.lifetime.not_positive" }.map { it.key }
+            ctx.errors.filter { it.messageId == "config.duration.not_positive" }.map { it.key }
         )
     }
 
@@ -143,7 +143,7 @@ class AuthConfigValidatorTest {
 
         assertEquals(
             listOf("auth.token.access-expiration"),
-            ctx.errors.filter { it.messageId == "config.lifetime.not_positive" }.map { it.key }
+            ctx.errors.filter { it.messageId == "config.duration.not_positive" }.map { it.key }
         )
     }
 
