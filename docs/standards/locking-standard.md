@@ -172,9 +172,9 @@ attempt waits on — a mail server, a client's endpoint — would otherwise hold
 length of somebody else's outage. [Delivery](../design/delivery.md) is the case.
 
 **The lease is two columns of the row, the holder and its expiry, and is timed, renewed and named
-as a job's is.** The holder is the instance's name `JobLeaseManager` mints, so the renewal saying an
-instance is alive renews both kinds of lease, and a row's lease expires on how long its instance may
-go silent rather than on how long an attempt takes.
+as a job's is.** The holder is the instance's name `JobLeaseManager` mints and the renewal runs on
+the period a job lease's does, so a row's lease expires on how long its instance may go silent
+rather than on how long an attempt takes.
 
 **A renewal names the rows the instance is attempting, never every row it holds.** A row whose
 attempt ended without its release committing is then left to lapse, rather than renewed for as long

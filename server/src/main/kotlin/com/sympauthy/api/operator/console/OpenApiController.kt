@@ -1,5 +1,6 @@
 package com.sympauthy.api.operator.console
 
+import com.sympauthy.api.OpenAPI
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.operator.console.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.config.model.UrlsConfig

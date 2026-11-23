@@ -2795,7 +2795,10 @@ A sweep runs a domain's work, and a job is to the scheduler what a controller is
 why `cron` has its own row in [the general standard's
 table](../standards/general-code-standard.md#what-a-feature-is-made-of). The lease renewal and the
 condition monitor run no domain's work: they are part of the mechanism they keep running, and a
-reader changing how a lease is renewed opens `platform.lock`.
+reader changing how a lease is renewed opens `platform.lock`. A job keeping two mechanisms running
+is two jobs, one in each: the queue's leases are renewed by `RenewQueueItemLeaseCron` in
+`platform.queue`, because one job renewing both, in either package, would have `platform.lock` and
+`platform.queue` import each other.
 
 ### Is there a port per repository, or a use-case layer between the controllers and the managers?
 

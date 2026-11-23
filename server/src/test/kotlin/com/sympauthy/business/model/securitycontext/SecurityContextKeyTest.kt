@@ -1,8 +1,6 @@
-package com.sympauthy.business.model.securitycontext.edge
+package com.sympauthy.business.model.securitycontext
 
-import com.sympauthy.business.model.securitycontext.MAX_IP_LENGTH
-import com.sympauthy.business.model.securitycontext.MAX_USER_AGENT_LENGTH
-import com.sympauthy.business.model.securitycontext.securityContextKey
+import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull

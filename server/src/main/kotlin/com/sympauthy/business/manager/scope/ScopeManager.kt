@@ -4,7 +4,6 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.model.claim.Claim
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.scope.ClientScope
 import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.business.model.scope.Scope

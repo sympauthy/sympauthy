@@ -14,6 +14,7 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.toOutcome
 import com.sympauthy.platform.monitoring.model.Outcome
 import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
@@ -259,7 +260,7 @@ open class InteractiveFlowSessionManager(
     @Transactional
     open suspend fun markAsFailedIfNotRecoverable(
         session: OnGoingInteractiveFlowSession,
-        error: BusinessException
+        error: LocalizedException
     ): InteractiveFlowSession {
         if (error.recoverable) return session
 

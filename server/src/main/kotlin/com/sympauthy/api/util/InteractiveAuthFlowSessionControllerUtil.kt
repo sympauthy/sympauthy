@@ -22,6 +22,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.interactiveFlowSessionAlreadyCompletedExceptionOf
 import com.sympauthy.business.model.securitycontext.ObservedRequest
 import com.sympauthy.business.model.user.User
+import com.sympauthy.exception.LocalizedException
 import com.sympauthy.platform.monitoring.model.Outcome
 import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
 import io.micronaut.http.HttpStatus
@@ -70,14 +71,14 @@ class InteractiveAuthFlowSessionControllerUtil(
     /**
      * Resolve the current [InteractiveFlowStep] of the [session], running any completion transition.
      *
-     * A [BusinessException] moving the flow forward is handled as one thrown by the work before it, because
+     * A [LocalizedException] moving the flow forward is handled as one thrown by the work before it, because
      * completing the session is the last part of that work: a promotion finding an identifier taken fails the
      * session, and a completion that lost to a concurrent request is routed by the session that request left.
      */
     private suspend fun advance(session: InteractiveFlowSession): InteractiveFlowStepResult {
         return try {
             engine.advance(session)
-        } catch (e: BusinessException) {
+        } catch (e: LocalizedException) {
             engine.advance(handleException(session, e))
         }
     }
@@ -128,8 +129,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * It expects the [run] to either return a value if the [User] is expected to perform an action to complete the step
      * or return null if the [User] is expected to be redirected to a different step.
      *
-     * [BusinessException] thrown by the [run] function will be caught and handled differently:
-     * - if recoverable, the [BusinessException] will be simply thrown to be handled by the exception handler.
+     * [LocalizedException] thrown by the [run] function will be caught and handled differently:
+     * - if recoverable, the [LocalizedException] will be simply thrown to be handled by the exception handler.
      * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
      *   the error page.
      */
@@ -157,7 +158,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         val (runResult, runException) = if (onGoingSession != null) {
             try {
                 run(onGoingSession, flow) to null
-            } catch (e: BusinessException) {
+            } catch (e: LocalizedException) {
                 null to e
             }
         } else {
@@ -189,8 +190,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * It expects the [run] to either return a value if the [User] is expected to perform an action to complete the step
      * or return null if the [User] is expected to be redirected to a different step.
      *
-     * [BusinessException] thrown by the [run] function will be caught and handled differently:
-     * - if recoverable, the [BusinessException] will be simply thrown to be handled by the exception handler.
+     * [LocalizedException] thrown by the [run] function will be caught and handled differently:
+     * - if recoverable, the [LocalizedException] will be simply thrown to be handled by the exception handler.
      * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
      *   the error page.
      */
@@ -219,7 +220,7 @@ class InteractiveAuthFlowSessionControllerUtil(
                 // A session with no user to read runs nothing, and the engine redirects the end-user to the step
                 // that provides one: ex. the claims validation step reached before signing in.
                 sessionManager.getUserOrNull(onGoingSession)?.let { run(onGoingSession, flow, it) } to null
-            } catch (e: BusinessException) {
+            } catch (e: LocalizedException) {
                 null to e
             }
         } else {
@@ -244,8 +245,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * [state]. Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be redirected
      * to continue the authorization flow.
      *
-     * [BusinessException] thrown by the [update] function will be caught and handled differently:
-     * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
+     * [LocalizedException] thrown by the [update] function will be caught and handled differently:
+     * - if recoverable, the [LocalizedException] will be presented as BAD_REQUEST with
      * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
      *   the error page.
      *
@@ -278,7 +279,7 @@ class InteractiveAuthFlowSessionControllerUtil(
             try {
                 afterUpdateSession = update(onGoingSession, flow)
                 null
-            } catch (e: BusinessException) {
+            } catch (e: LocalizedException) {
                 e
             }
         } else null
@@ -297,8 +298,8 @@ class InteractiveAuthFlowSessionControllerUtil(
      * the [state]. Return the result of [mapRedirectUriToResource] containing the URI where the end-user must be
      * redirected to continue the authorization flow.
      *
-     * [BusinessException] thrown by the [update] function will be caught and handled differently:
-     * - if recoverable, the [BusinessException] will be presented as BAD_REQUEST with
+     * [LocalizedException] thrown by the [update] function will be caught and handled differently:
+     * - if recoverable, the [LocalizedException] will be presented as BAD_REQUEST with
      * - if unrecoverable, the [InteractiveFlowSession] will be marked as failed and the end-user will be redirected to
      *   the error page.
      *
@@ -334,7 +335,7 @@ class InteractiveAuthFlowSessionControllerUtil(
                     afterUpdateSession = update(onGoingSession, flow, user)
                 }
                 null
-            } catch (e: BusinessException) {
+            } catch (e: LocalizedException) {
                 e
             }
         } else null
@@ -439,7 +440,7 @@ class InteractiveAuthFlowSessionControllerUtil(
         val leftSession = if (session is OnGoingInteractiveFlowSession && session.handBack != null) {
             try {
                 sessionManager.markAsCancelled(session)
-            } catch (e: BusinessException) {
+            } catch (e: LocalizedException) {
                 handleException(session, e)
             }
         } else session
@@ -579,7 +580,7 @@ class InteractiveAuthFlowSessionControllerUtil(
      */
     internal suspend fun handleException(
         session: InteractiveFlowSession,
-        exception: BusinessException?
+        exception: LocalizedException?
     ): InteractiveFlowSession {
         if (exception == null) {
             return session

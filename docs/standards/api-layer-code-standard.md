@@ -28,9 +28,9 @@ in `mapper` and its utilities in `util`**, each where it has one. A filter apply
 sits at that surface's root.
 
 **What every surface shares stays at the root of `api`**: the error handlers with the error
-resources and their mappers, the exceptions, the filters every request passes, and a resource, a
-mapper or a utility more than one surface uses. So does a route no surface owns, such as
-`/branding`.
+resources and their mappers, the exceptions, the filters every request passes, the definition of
+the OpenAPI document, and a resource, a mapper or a utility more than one surface uses. So does a
+route no surface owns, such as `/branding`.
 
 **A route on a surface is declared in that surface's package.** `SurfaceGateTest` fails on one that
 is not, unless it lists the route outside the surfaces, as it does the console's routes and the

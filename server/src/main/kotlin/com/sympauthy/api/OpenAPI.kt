@@ -1,4 +1,4 @@
-package com.sympauthy.api.operator.console
+package com.sympauthy.api
 
 import com.sympauthy.api.protocol.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.protocol.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT

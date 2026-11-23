@@ -2,6 +2,7 @@ package com.sympauthy
 
 import io.micronaut.context.ApplicationContextBuilder
 import io.micronaut.context.ApplicationContextConfigurer
+import io.micronaut.inject.QualifiedBeanType
 
 /**
  * Leaves the server's scheduled jobs out of every context a test starts, for the reason
@@ -19,11 +20,22 @@ import io.micronaut.context.ApplicationContextConfigurer
 class UnscheduledJobsConfigurer : ApplicationContextConfigurer {
 
     override fun configure(builder: ApplicationContextBuilder) {
-        builder.beansPredicate { bean -> !bean.name.endsWith(JOB_SUFFIX) }
+        builder.beansPredicate { bean -> !bean.isJob() }
+    }
+
+    /**
+     * A job wrapped by an advice, such as a transaction, is wired as the subclass generated for it, whose name
+     * is not the job's, so that one is recognised by the class it extends.
+     */
+    private fun QualifiedBeanType<*>.isJob(): Boolean = when {
+        name.endsWith(JOB_SUFFIX) -> true
+        name.endsWith(INTERCEPTED_SUFFIX) -> beanType.superclass.name.endsWith(JOB_SUFFIX)
+        else -> false
     }
 
     private companion object {
 
         const val JOB_SUFFIX = "Cron"
+        const val INTERCEPTED_SUFFIX = "\$Intercepted"
     }
 }

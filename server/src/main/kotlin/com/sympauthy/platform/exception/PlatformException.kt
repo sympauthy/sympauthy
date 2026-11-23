@@ -38,3 +38,16 @@ fun platformExceptionOf(
     detailsId = detailsId,
     values = mapOf(*values)
 )
+
+/**
+ * Factory method to create a [PlatformException], keeping the [throwable] that caused it for the log.
+ */
+fun platformExceptionOf(
+    detailsId: String,
+    throwable: Throwable?,
+    vararg values: Pair<String, String>
+) = PlatformException(
+    detailsId = detailsId,
+    values = mapOf(*values),
+    throwable = throwable
+)

@@ -2,7 +2,6 @@ package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminScopeResource
 import com.sympauthy.business.model.claim.Claim
-import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.scope.Scope
 import com.sympauthy.business.model.scope.ScopeType
 import com.sympauthy.business.model.scope.isEnabled

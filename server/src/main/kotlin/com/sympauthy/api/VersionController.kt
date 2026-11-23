@@ -1,7 +1,6 @@
 package com.sympauthy.api
 
 import com.sympauthy.api.exception.httpExceptionOf
-import com.sympauthy.api.operator.console.OpenAPI
 import com.sympauthy.api.resource.VersionResource
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.annotation.Controller

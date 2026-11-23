@@ -27,6 +27,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
+import com.sympauthy.platform.exception.platformExceptionOf
 import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -183,6 +184,29 @@ class InteractiveAuthFlowSessionControllerUtilTest {
                 state = "encoded-state",
                 observedRequest = observed,
                 update = { _, _ -> updated },
+                mapRedirectUriToResource = { it }
+            )
+
+            assertEquals(errorUri, result)
+        }
+
+    @Test
+    fun `fetchOnGoingSessionThenUpdateAndRedirect - Fails the session where a mechanism it rests on fails`() =
+        runTest {
+            val errorUri = URI.create("https://flow.example.com/error?state=encoded-state")
+            val session = ongoingInFlow(UUID.randomUUID())
+            val failed = mockk<FailedInteractiveFlowSession>()
+            val flow = mockk<InteractiveFlow>()
+            val failure = platformExceptionOf("lock.second")
+            stubFlowOf(session, flow)
+            coEvery { sessionManager.markAsFailedIfNotRecoverable(session, failure) } returns failed
+            coEvery { engine.advance(failed) } returns InteractiveFlowStepResult(failed, InteractiveFlowStep.Error)
+            coEvery { stepUriMapper.toRedirectUri(failed, flow, InteractiveFlowStep.Error) } returns errorUri
+
+            val result = util.fetchOnGoingSessionThenUpdateAndRedirect(
+                state = "encoded-state",
+                observedRequest = observed,
+                update = { _, _ -> throw failure },
                 mapRedirectUriToResource = { it }
             )
 

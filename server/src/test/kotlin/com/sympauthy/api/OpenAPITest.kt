@@ -1,4 +1,4 @@
-package com.sympauthy.api.operator.console
+package com.sympauthy.api
 
 import com.sympauthy.business.model.scope.AdminScope
 import com.sympauthy.business.model.scope.BuiltInClientScope

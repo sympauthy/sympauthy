@@ -5,7 +5,6 @@ import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.oauth2.*
 import com.sympauthy.business.model.scope.BuiltInGrantableScope
 import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.business.model.scope.GrantableUserScope
