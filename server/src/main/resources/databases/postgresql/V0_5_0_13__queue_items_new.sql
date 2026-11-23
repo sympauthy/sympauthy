@@ -5,7 +5,7 @@ CREATE TABLE queue_items
     kind                  text      NOT NULL,
     payload               json      NOT NULL,
     creation_date         timestamp NOT NULL,
-    expiration_date       timestamp,
+    expiration_date       timestamp NOT NULL,
     attempt_count         integer   NOT NULL DEFAULT 0,
     next_attempt_date     timestamp NOT NULL,
     holder                text,

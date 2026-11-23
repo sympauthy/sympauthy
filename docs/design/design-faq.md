@@ -1998,11 +1998,11 @@ once that transaction has committed, by the request that committed it.
 
 **Rationale:**
 
-Handed to the sender at once, a completion that rolls back — the request that lost the version
-check — still tells the person their password changed. Queued whole after the commit, it was lost
-to a process dying between the commit and the queue, a window of one round trip that was weighed
-against a second call per sender while a mail was one attempt and then forgotten. Once a mail is
-retried until it is delivered, the notice is a promise the server keeps, and the window is the one
+Handed to the sender at once, a completion that rolls back — the request that lost the version check
+— still tells the person their password changed. Queued whole after the commit, it was lost to a
+process dying between the commit and the queue, a window of one round trip that was weighed against
+a second call per sender while a mail was one attempt and then forgotten. Once a mail is retried for
+as long as it is worth sending, the notice is a promise the server keeps, and the window is the one
 way left to break it; and the second call went away, since [the queue nudges its own
 mail](delivery.md#what-implements-it) when the transaction's connection closes, so the engine no
 longer runs anything after the commit.
@@ -2139,13 +2139,33 @@ A permanent refusal and a template that cannot be drawn fail the same way at eve
 up an unreachable mail server loses every code sent during an outage of any length. Giving up every
 `5xx` would give up every mail at DEBUG under a healthy condition when it is this server's sender or
 relay that is refused, and the operator would never see a broken mail setup. A full mailbox stays
-full for longer than a code lives, and a notice with no expiry would be tried for ever. `refused` is
-kept for what the caller caused, and recovers the condition as a success does. A greylisting reply
-is often `4.7.1`, so a temporary policy status is not this server's sending. A permanent one at a
-recipient is not either: a domain rejecting under its own policy, `5.7.26` for DMARC, would retry
-that mail for good — a notice with no expiry included — under a condition degraded by one
-recipient, while a relay this server may not use is a refusal every mail meets the same way, which
-the operator sees from the sends refused under `5.7.1`.
+full for longer than a code lives, and the notice that a password changed would be tried for a week.
+`refused` is kept for what the caller caused, and recovers the condition as a success does. A
+greylisting reply is often `4.7.1`, so a temporary policy status is not this server's sending. A
+permanent one at a recipient is not either: a domain rejecting under its own policy, `5.7.26` for
+DMARC, would retry that mail until it expired — a week, for the notice that a password changed —
+under a condition degraded by one recipient, while a relay this server may not use is a refusal
+every mail meets the same way, which the operator sees from the sends refused under `5.7.1`.
+
+---
+
+### How long is the notice that a password changed worth sending?
+
+**Decision:** A week.
+
+**Options considered:**
+
+- **For ever**, tried until the mail server takes it.
+- **As long as the reset's code**, as the other notices of a reset are.
+- **A week.**
+
+**Rationale:**
+
+The notice is the one way a person learns of a reset they did not make, so a code's minutes would
+lose it to any outage longer than they are. Kept for ever, it waited for good on a mail server that
+was removed, uncounted, and reached the person whenever one was configured again, which is the late
+notice no mail is queued without a mail server to avoid; a full mailbox or a recipient's policy
+refusal would also have retried it for good. A week outlasts a mail server down over a weekend.
 
 ---
 

@@ -23,7 +23,8 @@ interface QueueItemDeliverer {
     val kinds: Set<String>
 
     /**
-     * Whether this delivers at all. The items of a deliverer that does not are not polled.
+     * Whether this delivers at all. The items of a deliverer that does not are attempted by nobody, and given up as
+     * they expire.
      */
     val enabled: Boolean
 

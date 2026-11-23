@@ -32,7 +32,7 @@ class MailQueueTest {
         every { mailDeliverer.enabled } returns false
 
         MailQueue(mailDeliverer = mailDeliverer, queueManager = queueManager, queuedMailMapper = queuedMailMapper)
-            .send(Mail.CLAIM_VALIDATION, Locale.US, "person@example.com", emptyMap())
+            .send(Mail.CLAIM_VALIDATION, Locale.US, "person@example.com", emptyMap(), Duration.ofMinutes(10))
 
         coVerify(exactly = 0) { queueManager.enqueue(any(), any(), any(), any()) }
     }

@@ -165,9 +165,9 @@ value across instances rather than their sum. A backlog alone degrades nothing: 
 condition says when the destination is down. `sympauthy.queue.given_up` counts what no other metric
 does — an item that expired, under `error.type` `expired`, and one that could not be built or failed
 in no listed way, under the class of what failed rather than of the mail sender's wrapper around it
-— and a mail refused for good is on its send instead. A
-notice with no expiry meeting temporary refusals keeps `oldest_age` growing under a condition that
-is well, which a stream of `error` sends under a `4xx` reply code tells from an outage. [The design
+— and a mail refused for good is on its send instead. The notice that a password changed, meeting
+temporary refusals for its week, keeps `oldest_age` growing under a condition that is well, which a
+stream of `error` sends under a `4xx` reply code tells from an outage. [The design
 FAQ](design-faq.md#is-a-mail-sent-counted-on-the-call-carrying-it) holds the shape that lost.
 
 **A use case is counted by its manager, never by a controller**, so that it is counted whichever

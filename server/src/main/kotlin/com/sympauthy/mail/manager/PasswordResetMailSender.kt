@@ -16,8 +16,8 @@ import java.util.*
  * Sends the mails of a password reset.
  *
  * A notice stays worth sending for as long as the code it stands in for would have, so a person whose mail was held
- * up by an outage is not told, long after, about a request they made. The notice that the password changed never
- * expires: it is the one way a person learns of a reset they did not make, and is tried until it is delivered.
+ * up by an outage is not told, long after, about a request they made. The notice that the password changed is
+ * worth sending for [PASSWORD_CHANGED_MAX_AGE]: it is the one way a person learns of a reset they did not make.
  */
 @Singleton
 class PasswordResetMailSender(
@@ -55,14 +55,14 @@ class PasswordResetMailSender(
             mail = Mail.PASSWORD_CHANGED,
             address = address,
             parameters = mapOf("changedAt" to CHANGED_AT_FORMAT.format(changedAt)),
-            maxAge = null
+            maxAge = PASSWORD_CHANGED_MAX_AGE
         )
     }
 
     private val noticeMaxAge: Duration
         get() = uncheckedAdvancedConfig.orThrow().validationCode.expiration
 
-    private suspend fun send(mail: Mail, address: String, parameters: Map<String, String>, maxAge: Duration?) {
+    private suspend fun send(mail: Mail, address: String, parameters: Map<String, String>, maxAge: Duration) {
         mailQueue.send(
             mail = mail,
             locale = LOCALE,
@@ -82,6 +82,12 @@ class PasswordResetMailSender(
          * What the names of several providers are joined with, in [LOCALE].
          */
         const val PROVIDER_SEPARATOR = " or "
+
+        /**
+         * How long the notice that a password changed stays worth sending: long enough for a mail server down over a
+         * weekend to come back and take it, and short enough that a person is not told of a change a month after it.
+         */
+        val PASSWORD_CHANGED_MAX_AGE: Duration = Duration.ofDays(7)
 
         /**
          * When the password changed, in [LOCALE] and in UTC, the zone this server runs in.

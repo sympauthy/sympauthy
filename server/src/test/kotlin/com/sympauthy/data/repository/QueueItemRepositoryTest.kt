@@ -123,6 +123,35 @@ class QueueItemRepositoryTest {
             assertEquals(listOf(older), claimed.map { it.id })
         }
 
+    @ParameterizedTest
+    @EnumSource(Database::class)
+    fun `claimExpired - Takes what expired and is free, and what a lapsed lease holds`(database: Database) =
+        withFixture(database) {
+            val items = repository<QueueItemRepository>()
+            val expired = saveItem(nextAttemptDate = longAgo, expirationDate = longAgo)
+            val lapsed = saveItem(
+                nextAttemptDate = longAgo, expirationDate = longAgo, holder = otherHolder, leaseExpirationDate = longAgo
+            )
+            val unexpired = saveItem(nextAttemptDate = longAgo, expirationDate = longAgo.plusDays(2))
+            val held = saveItem(
+                nextAttemptDate = longAgo,
+                expirationDate = longAgo,
+                holder = otherHolder,
+                leaseExpirationDate = longAgo.plusDays(2)
+            )
+            val elsewhere = saveItem(
+                destination = "$destination-elsewhere", nextAttemptDate = longAgo, expirationDate = longAgo
+            )
+
+            val claimed = items.claimExpired(destination, longAgo.plusDays(1), limit = 1_000).map { it.id }
+
+            assertTrue(expired in claimed, "An expired item nobody held was not claimed.")
+            assertTrue(lapsed in claimed, "An expired item whose holder's lease lapsed was not claimed.")
+            assertFalse(unexpired in claimed, "An item not yet expired was claimed.")
+            assertFalse(held in claimed, "An item another instance holds was claimed.")
+            assertFalse(elsewhere in claimed, "An item of another destination was claimed.")
+        }
+
     /**
      * `FOR UPDATE SKIP LOCKED` is what lets two instances poll at once without either waiting, so the other poll
      * is driven over a connection of its own and its transaction stays open.
@@ -297,6 +326,7 @@ class QueueItemRepositoryTest {
         destination: String = this@QueueItemRepositoryTest.destination,
         creationDate: LocalDateTime = BASE_DATE,
         nextAttemptDate: LocalDateTime = creationDate,
+        expirationDate: LocalDateTime = BASE_DATE.plusYears(100),
         attemptCount: Int = 0,
         holder: String? = null,
         leaseExpirationDate: LocalDateTime? = null
@@ -308,7 +338,7 @@ class QueueItemRepositoryTest {
                 kind = "claim_validation",
                 payload = payload,
                 creationDate = creationDate,
-                expirationDate = null,
+                expirationDate = expirationDate,
                 attemptCount = attemptCount,
                 nextAttemptDate = nextAttemptDate,
                 holder = holder,

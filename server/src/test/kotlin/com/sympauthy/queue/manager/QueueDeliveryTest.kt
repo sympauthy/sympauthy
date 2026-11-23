@@ -72,7 +72,7 @@ class QueueDeliveryTest {
         queueMetrics = QueueMetrics(metrics.openTelemetry)
     )
 
-    /** What a retry, and the expiry checked before an attempt, read the time off. */
+    /** What a retry, the expiry checked before an attempt, and the backlog's age read the time off. */
     private fun clockReads() {
         coEvery { queueItemRepository.now() } returns now
     }
@@ -86,6 +86,7 @@ class QueueDeliveryTest {
 
     @Test
     fun `attempt - Deletes the item its destination took`() = runTest {
+        clockReads()
         val item = item()
         deliverer.answer = DeliveryAttempt.Delivered
         coEvery { queueItemRepository.deleteHeld(item.id, holder) } returns 1
@@ -110,6 +111,7 @@ class QueueDeliveryTest {
 
     @Test
     fun `attempt - Gives up an item refused for good, counting nothing the deliverer did not`() = runTest {
+        clockReads()
         val item = item()
         deliverer.answer = DeliveryAttempt.Refused
         coEvery { queueItemRepository.deleteHeld(item.id, holder) } returns 1
@@ -122,6 +124,7 @@ class QueueDeliveryTest {
 
     @Test
     fun `attempt - Gives up an item that cannot be delivered, and counts it given up`() = runTest {
+        clockReads()
         val item = item()
         deliverer.answer = DeliveryAttempt.Failed(Outcome.Error("broken"))
         coEvery { queueItemRepository.deleteHeld(item.id, holder) } returns 1
@@ -133,6 +136,7 @@ class QueueDeliveryTest {
 
     @Test
     fun `attempt - Counts no give-up of a kind its deliverer does not deliver`() = runTest {
+        clockReads()
         val item = item(kind = "retired_kind")
         deliverer.answer = DeliveryAttempt.Failed(Outcome.Error("broken"))
         coEvery { queueItemRepository.deleteHeld(item.id, holder) } returns 1
@@ -178,8 +182,8 @@ class QueueDeliveryTest {
     fun `pollOnce - Claims its own destination's items, and publishes the backlog of every kind it delivers`() =
         runTest {
             coEvery { queueItemRepository.summarize() } returns listOf(
-                QueueItemSummaryEntity(DESTINATION, KIND, 3, LocalDateTime.now().minusSeconds(90)),
-                QueueItemSummaryEntity("another_destination", OTHER_KIND, 5, LocalDateTime.now())
+                QueueItemSummaryEntity(DESTINATION, KIND, 3, now.minusSeconds(90)),
+                QueueItemSummaryEntity("another_destination", OTHER_KIND, 5, now)
             )
             clockReads()
             coEvery { queueItemRepository.claimDue(DESTINATION, now, 50) } returns emptyList()
@@ -187,8 +191,9 @@ class QueueDeliveryTest {
             delivery().pollOnce(shippedQueue())
 
             assertEquals(3, metrics.value(QUEUE_PENDING, attributes("destination" to DESTINATION, "kind" to KIND)))
-            assertTrue(
-                metrics.value(QUEUE_OLDEST_AGE, attributes("destination" to DESTINATION, "kind" to KIND)) >= 90
+            assertEquals(
+                90,
+                metrics.value(QUEUE_OLDEST_AGE, attributes("destination" to DESTINATION, "kind" to KIND))
             )
             assertEquals(
                 0,
@@ -234,6 +239,28 @@ class QueueDeliveryTest {
 
         coVerify(exactly = 1) { queueItemRepository.releaseHeld(entity.id!!, holder) }
     }
+
+    @Test
+    fun `pollOnce - Gives up the expired items of a destination whose deliverer is disabled, handing it none`() =
+        runTest {
+            val disabled = AnsweringDeliverer(enabled = false)
+            val entity = entity(expirationDate = now.minusSeconds(1))
+            coEvery { queueItemRepository.summarize() } returns emptyList()
+            clockReads()
+            coEvery { queueItemRepository.claimExpired(DESTINATION, now, 50) } returns listOf(entity)
+            coEvery { queueItemRepository.holdClaimed(listOf(entity.id!!), holder, now, any()) } returns 1
+            coEvery { queueItemRepository.deleteHeld(entity.id!!, holder) } returns 1
+            coEvery { queueItemRepository.release(holder) } returns 0
+            val delivery = delivery(disabled)
+
+            delivery.pollOnce(shippedQueue())
+            delivery.onApplicationEvent(shutdown())
+
+            assertTrue(disabled.attempted.isEmpty(), "An item was handed to a disabled deliverer.")
+            assertEquals(1, countedGiveUp("error", QueueMetrics.EXPIRED))
+            assertEquals(0, metrics.value(QUEUE_PENDING, attributes("destination" to DESTINATION, "kind" to KIND)))
+            coVerify(exactly = 0) { queueItemRepository.claimDue(any(), any(), any()) }
+        }
 
     @Test
     fun `pollOnce - Still claims when the backlog cannot be read`() = runTest {
@@ -283,8 +310,8 @@ class QueueDeliveryTest {
     }
 
     @Test
-    fun `onApplicationEvent - Touches nothing when no deliverer delivers`() {
-        delivery(AnsweringDeliverer(enabled = false)).onApplicationEvent(shutdown())
+    fun `onApplicationEvent - Touches nothing when no destination is delivered to`() {
+        delivery(*emptyArray()).onApplicationEvent(shutdown())
 
         coVerify(exactly = 0) { queueItemRepository.release(any()) }
     }
@@ -321,7 +348,7 @@ class QueueDeliveryTest {
     private fun item(
         kind: String = KIND,
         attemptCount: Int = 0,
-        expirationDate: LocalDateTime? = null
+        expirationDate: LocalDateTime = now.plusDays(1)
     ) = QueueItem(
         id = UUID.randomUUID(),
         destination = DESTINATION,
@@ -332,11 +359,12 @@ class QueueDeliveryTest {
         attemptCount = attemptCount
     )
 
-    private fun entity() = QueueItemEntity(
+    private fun entity(expirationDate: LocalDateTime = now.plusDays(1)) = QueueItemEntity(
         destination = DESTINATION,
         kind = KIND,
         payload = "{}",
-        creationDate = now
+        creationDate = now,
+        expirationDate = expirationDate
     ).apply { id = UUID.randomUUID() }
 
     /**

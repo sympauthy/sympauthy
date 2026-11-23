@@ -8,7 +8,6 @@ import io.micronaut.data.connection.ConnectionSynchronization
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration
-import java.time.LocalDateTime
 
 /**
  * Where an item is written, together with the change it reports, for [QueueDelivery] to deliver once that change
@@ -33,17 +32,18 @@ class QueueManager(
      * back; after a rollback, it finds nothing.
      *
      * [maxAge] is how long the item stays worth delivering: an item whose next attempt would come later than that is
-     * given up rather than reaching a recipient for whom it no longer means anything. A null [maxAge] never
-     * expires, and is attempted until it is delivered.
+     * given up rather than reaching a recipient for whom it no longer means anything.
+     *
+     * Its dates are read off the database's clock, the one every instance's claim compares them with.
      */
-    suspend fun enqueue(destination: String, kind: String, payload: String, maxAge: Duration?) {
-        val now = LocalDateTime.now()
+    suspend fun enqueue(destination: String, kind: String, payload: String, maxAge: Duration) {
+        val now = queueItemRepository.now()
         val entity = QueueItemEntity(
             destination = destination,
             kind = kind,
             payload = payload,
             creationDate = now,
-            expirationDate = maxAge?.let { now.plus(it) }
+            expirationDate = now.plus(maxAge)
         )
         val item = queueItemMapper.toQueueItem(queueItemRepository.save(entity))
         val connection = currentConnectionOrNull()

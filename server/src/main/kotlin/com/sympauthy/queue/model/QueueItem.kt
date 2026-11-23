@@ -16,6 +16,6 @@ data class QueueItem(
     val kind: String,
     val payload: String,
     val creationDate: LocalDateTime,
-    val expirationDate: LocalDateTime?,
+    val expirationDate: LocalDateTime,
     val attemptCount: Int
 )

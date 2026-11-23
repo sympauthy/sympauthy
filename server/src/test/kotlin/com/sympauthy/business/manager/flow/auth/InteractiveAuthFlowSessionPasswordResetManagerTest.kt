@@ -186,6 +186,10 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
         coEvery { userManager.findByAnyIdentifierClaimValue(folded) } returns found
     }
 
+    private fun noProviderIsEnabled() {
+        coEvery { providerManager.listEnabledProviders() } returns emptyList()
+    }
+
     private fun expectGate() {
         coEvery {
             sessionManager.insertPurposeBefore(
@@ -227,6 +231,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Sends a code to the proven address of an account holding a password`() = runTest {
+        noProviderIsEnabled()
         loginResolvesTo(user)
         coEvery { collectedClaimManager.findVerifiedEmailOrNull(userId) } returns address
         coEvery { passwordManager.hasPassword(user, includesExpired = true) } returns true
@@ -251,6 +256,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Sends nothing where the reset could not be recorded`() = runTest {
+        noProviderIsEnabled()
         loginResolvesTo(user)
         coEvery { collectedClaimManager.findVerifiedEmailOrNull(userId) } returns address
         coEvery { passwordManager.hasPassword(user, includesExpired = true) } returns true
@@ -270,6 +276,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Tells an email address no account uses, as an account would hold it`() = runTest {
+        noProviderIsEnabled()
         loginResolvesTo(null)
         every { collectedClaimManager.getIdentifierCleanedValueOrNull("email", login) } returns "cleaned@example.com"
         expectGateAndRecord(sentTo = null)
@@ -282,6 +289,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Sends nothing for a username no account holds`() = runTest {
+        noProviderIsEnabled()
         loginResolvesTo(null, folded = mapOf("preferred_username" to login))
         every { collectedClaimManager.getIdentifierCleanedValueOrNull("email", login) } returns null
         expectGateAndRecord(sentTo = null)
@@ -314,6 +322,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Sends nothing to an account whose address is not proven`() = runTest {
+        noProviderIsEnabled()
         loginResolvesTo(user)
         coEvery { collectedClaimManager.findVerifiedEmailOrNull(userId) } returns null
         expectGateAndRecord(sentTo = null)
@@ -326,6 +335,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Sends nothing to a disabled account`() = runTest {
+        noProviderIsEnabled()
         loginResolvesTo(user.copy(status = UserStatus.DISABLED))
         expectGateAndRecord(sentTo = null)
 
@@ -337,6 +347,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Puts the gate in front of the authorization only once`() = runTest {
+        noProviderIsEnabled()
         every { session.purposes } returns
             listOf(InteractiveFlowPurpose.PASSWORD_RESET, InteractiveFlowPurpose.OAUTH2_AUTHORIZE)
         loginResolvesTo(null)
@@ -352,6 +363,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
     @Test
     fun `requestCode - Sends nothing, and keeps the reset, where the same identifier is asked again too soon`() =
         runTest {
+            noProviderIsEnabled()
             expectGate()
             coEvery { passwordResetManager.fetchPasswordResetOrNull(gated) } returns reset()
 
@@ -365,6 +377,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
     @Test
     fun `requestCode - Sends nothing to another identifier asked too soon, and records it for the resend`() =
         runTest {
+            noProviderIsEnabled()
             val requestedDate = LocalDateTime.now().minusSeconds(10)
             expectGate()
             coEvery { passwordResetManager.fetchPasswordResetOrNull(gated) } returns
@@ -380,6 +393,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Refuses a blank login`() = runTest {
+        noProviderIsEnabled()
         val exception = assertThrows<BusinessException> { manager.requestCode(session, flow, " ") }
 
         assertEquals("flow.password.reset.missing_login", exception.detailsId)
@@ -398,6 +412,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `requestCode - Leaves a session whose user is established unchanged`() = runTest {
+        noProviderIsEnabled()
         every { session.userId } returns userId
 
         assertSame(session, manager.requestCode(session, flow, login))
@@ -496,6 +511,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `resendCode - Asks for nothing before the resend delay has passed`() = runTest {
+        noProviderIsEnabled()
         coEvery { passwordResetManager.fetchPasswordResetOrNull(session) } returns reset()
 
         val result = manager.resendCode(session, flow)
@@ -506,6 +522,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `resendCode - Asks for nothing once the session signed in otherwise`() = runTest {
+        noProviderIsEnabled()
         every { session.userId } returns userId
         coEvery { passwordResetManager.fetchPasswordResetOrNull(session) } returns
             reset(requestedDate = LocalDateTime.now().minusMinutes(2))
@@ -518,6 +535,7 @@ class InteractiveAuthFlowSessionPasswordResetManagerTest {
 
     @Test
     fun `resendCode - Asks again once the resend delay has passed, whoever holds the login`() = runTest {
+        noProviderIsEnabled()
         coEvery { passwordResetManager.fetchPasswordResetOrNull(session) } returns
             reset(userId = null, requestedDate = LocalDateTime.now().minusMinutes(2))
         loginResolvesTo(null)

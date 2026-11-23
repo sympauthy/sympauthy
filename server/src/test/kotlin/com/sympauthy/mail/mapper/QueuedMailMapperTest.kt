@@ -55,7 +55,7 @@ class QueuedMailMapperTest {
         kind = kind,
         payload = payload,
         creationDate = LocalDateTime.of(2026, 1, 1, 12, 0, 0),
-        expirationDate = null,
+        expirationDate = LocalDateTime.of(2026, 1, 1, 12, 10, 0),
         attemptCount = 0
     )
 }

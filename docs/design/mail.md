@@ -30,8 +30,12 @@ FAQ](design-faq.md#when-is-the-mail-saying-a-password-changed-sent) holds the mo
 **A reset's notice expires when the code it stands in for would have**, so a person whose mail an
 outage held up is not told, long after, about a request they made.
 
-**The notice that a password changed never expires**, and is tried until the mail server takes it:
-it is the one way a person learns of a reset they did not make.
+**The notice that a password changed expires after a week.** It is the one way a person learns of a
+reset they did not make, so it is given time for a mail server down over a weekend to come back. It
+expires all the same, so that it neither waits for good on a mail server that was removed nor
+reaches the person long after the change. [The design
+FAQ](design-faq.md#how-long-is-the-notice-that-a-password-changed-worth-sending) holds the ages that
+lost.
 
 ## What the mail server answers decides whether a mail is tried again
 
@@ -59,9 +63,10 @@ DEBUG: anybody can type an address a mail server refuses.
 waits for ever without them, and a mail server that stops reading mid-message would hold its
 attempt, and the mail, for good.
 
-**Where no mail server is configured, no mail is queued**, and the delivery does not poll. Mails
-would otherwise pile up for a mail server that does not exist, and a notice with no expiry would go
-out, long after the event, the day one is configured.
+**Where no mail server is configured, no mail is queued.** Mails would otherwise pile up for a mail
+server that does not exist, and go out the day one is configured. One queued before the mail server
+was removed waits for it until it expires, as [any destination that stops
+delivering](delivery.md#an-item-is-tried-until-it-goes-through-or-expires) keeps its items.
 
 ## Mails are drawn in the brand
 

@@ -34,14 +34,14 @@ class MailQueue(
      *
      * If the queue is not [enabled], this method is a no-op.
      *
-     * [maxAge] is how long the mail stays worth sending, and a null [maxAge] never expires.
+     * [maxAge] is how long the mail stays worth sending.
      */
     suspend fun send(
         mail: Mail,
         locale: Locale,
         receiver: String,
         parameters: Map<String, String>,
-        maxAge: Duration? = null
+        maxAge: Duration
     ) {
         if (!enabled) return
         val queuedMail = QueuedMail(mail = mail, receiver = receiver, locale = locale, parameters = parameters)

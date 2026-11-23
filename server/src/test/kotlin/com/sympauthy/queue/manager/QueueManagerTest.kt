@@ -119,7 +119,7 @@ open class TransactionalQueueWriter(
 
     @Transactional
     open suspend fun writeThen(manager: QueueManager, destination: String, payload: String, rest: () -> Unit): UUID {
-        manager.enqueue(destination, "a_kind", payload, maxAge = null)
+        manager.enqueue(destination, "a_kind", payload, maxAge = Duration.ofMinutes(10))
         val id = queueItemRepository.findAll().toList().single { it.payload == payload }.id!!
         rest()
         return id

@@ -23,6 +23,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionPasswordReset
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -101,18 +102,35 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * `flow.password.reset.disabled` where [flow] offers no reset. A session whose user is already established
      * is answered unchanged: asking for a code no longer applies there.
      *
-     * It is one transaction: the gate it inserts, the record of the reset, the code where there is one, and the
-     * mail commit together. The record is what the next request's delay counts from, whatever it sent, so a mail
-     * leaving without it would let the next request send another at once; and a code stored without its mail, or
-     * a mail carrying a code never stored, holds the person to a code nobody can type.
+     * The gate it inserts, the record of the reset, the code where there is one, and the mail commit together, as
+     * [startReset] says. The providers a notice may name are listed before that transaction opens: listing one
+     * waits on its discovery document until it first resolves, and a transaction held across that wait holds
+     * its locks for as long as a remote server takes to answer.
      */
-    @Transactional
     open suspend fun requestCode(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow,
         login: String?
     ): InteractiveFlowSession {
         checkOffered(flow)
+        return startReset(session, login, providerManager.listEnabledProviders())
+    }
+
+    /**
+     * What [requestCode] does once [flow] is known to offer a reset, naming in a notice only the providers of
+     * [enabledProviders].
+     *
+     * It is one transaction: the gate it inserts, the record of the reset, the code where there is one, and the
+     * mail commit together. The record is what the next request's delay counts from, whatever it sent, so a mail
+     * leaving without it would let the next request send another at once; and a code stored without its mail, or
+     * a mail carrying a code never stored, holds the person to a code nobody can type.
+     */
+    @Transactional
+    internal open suspend fun startReset(
+        session: OnGoingInteractiveFlowSession,
+        login: String?,
+        enabledProviders: List<EnabledProvider>
+    ): InteractiveFlowSession {
         if (session.userId != null) return session
         if (login.isNullOrBlank()) {
             throw recoverableBusinessExceptionOf(
@@ -136,7 +154,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
             }
             return gated
         }
-        val mail = prepareResetMail(gated, login)
+        val mail = prepareResetMail(gated, login, enabledProviders)
         passwordResetManager.savePasswordReset(gated, login, mail.userId)
         sendResetMail(mail)
         return gated
@@ -155,14 +173,28 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * where [session] has no reset, one whose code has proven the account already, or one whose user is
      * established otherwise: the reset is resolved there, and a code would prove nothing.
      *
-     * It is one transaction, for the reason [requestCode] gives.
+     * The providers a notice may name are listed before its transaction opens, for the reason [requestCode]
+     * gives.
      */
-    @Transactional
     open suspend fun resendCode(
         session: OnGoingInteractiveFlowSession,
         flow: InteractiveFlow
     ): ResendResult {
         checkOffered(flow)
+        return restartReset(session, providerManager.listEnabledProviders())
+    }
+
+    /**
+     * What [resendCode] does once its flow is known to offer a reset, naming in a notice only the providers of
+     * [enabledProviders].
+     *
+     * It is one transaction, for the reason [startReset] gives.
+     */
+    @Transactional
+    internal open suspend fun restartReset(
+        session: OnGoingInteractiveFlowSession,
+        enabledProviders: List<EnabledProvider>
+    ): ResendResult {
         val passwordReset = passwordResetManager.fetchPasswordResetOrNull(session)
         if (
             passwordReset == null ||
@@ -172,7 +204,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
         ) {
             return ResendResult(resent = false, passwordReset = passwordReset)
         }
-        val mail = prepareResetMail(session, passwordReset.login)
+        val mail = prepareResetMail(session, passwordReset.login, enabledProviders)
         val saved = passwordResetManager.savePasswordReset(session, passwordReset.login, mail.userId)
         sendResetMail(mail)
         return ResendResult(resent = true, passwordReset = saved)
@@ -317,12 +349,16 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      *
      * - An account that is enabled, has a proven email address and holds a password is sent a code there.
      * - An account that is enabled, has a proven email address and holds no password is told there that it signs
-     *   in through its providers.
+     *   in through its providers, those of [enabledProviders].
      * - An email address no account uses is told that none does.
      * - Anything else is sent nothing: an account disabled or without a proven address, and an identifier that
      *   is not an email address.
      */
-    internal suspend fun prepareResetMail(session: OnGoingInteractiveFlowSession, login: String): ResetMail {
+    internal suspend fun prepareResetMail(
+        session: OnGoingInteractiveFlowSession,
+        login: String,
+        enabledProviders: List<EnabledProvider>
+    ): ResetMail {
         val folded = collectedClaimManager.getIdentifierFoldedValuesOf(login)
         val user = userManager.findByAnyIdentifierClaimValue(folded)
         if (user == null) {
@@ -336,7 +372,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
         val address = collectedClaimManager.findVerifiedEmailOrNull(user.id) ?: return ResetMail.None
         // An expired password is still one to replace, and the account it locks out the one a reset is for.
         if (!passwordManager.hasPassword(user, includesExpired = true)) {
-            return ResetMail.NoPassword(address, listLinkedProviderNames(user))
+            return ResetMail.NoPassword(address, listLinkedProviderNames(user, enabledProviders))
         }
         val code = validationCodeGenerator.generateValidationCode(
             user = user,
@@ -356,9 +392,9 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
         }
     }
 
-    private suspend fun listLinkedProviderNames(user: User): List<String> {
+    private suspend fun listLinkedProviderNames(user: User, enabledProviders: List<EnabledProvider>): List<String> {
         val linkedProviderIds = providerClaimsManager.findByUserId(user.id).map { it.providerId }.toSet()
-        return providerManager.listEnabledProviders()
+        return enabledProviders
             .filter { it.id in linkedProviderIds }
             .map { it.name }
     }

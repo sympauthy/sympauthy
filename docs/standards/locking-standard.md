@@ -146,9 +146,9 @@ migration.** A test holds the enum and the seeded rows equal, on every dialect.
 proves its run stopped with it, so a run whose instance falls silent goes on beside the one that
 takes the lease next — the lease saves the work, it does not own it.
 
-**A lease is timed by the database's clock, never by an instance's.** Read the clock back and add
-the duration in Kotlin: it is the one clock every instance shares, and no dialect spells adding a
-bound interval to `LOCALTIMESTAMP` the way the others do.
+**A lease, and every date a claim compares, is timed by the database's clock, never by an
+instance's.** Read the clock back and add the duration in Kotlin: it is the one clock every instance
+shares, and no dialect spells adding a bound interval to `LOCALTIMESTAMP` the way the others do.
 
 **A lease is taken and released around the block, never as a transaction the block runs inside.**
 Both statements stand alone and commit on their own; a job's own writes are its own transactions.

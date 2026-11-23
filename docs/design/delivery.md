@@ -55,10 +55,10 @@ minutes.
 
 **An item is given up as soon as its next attempt would fall after its expiry.** The expiry is set
 by whoever queues it, because only they know how long it stays worth sending, as
-[mail](mail.md#a-mail-is-worth-sending-for-as-long-as-what-it-carries) sets each mail's. An item may
-have none, and is then tried every `advanced.queue.retry.max-delay` until it goes through. A
-give-up by expiry is written at DEBUG: an expiry during an outage is the outage's, which [costs two
-lines however long it lasts](logging.md).
+[mail](mail.md#a-mail-is-worth-sending-for-as-long-as-what-it-carries) sets each mail's. Every item
+has one, so none is tried for ever, and none goes out long after anybody wanted it. A give-up by
+expiry is written at DEBUG: an expiry during an outage is the outage's, which [costs two lines
+however long it lasts](logging.md).
 
 **An item holds what it was queued for, and each attempt builds what it sends anew**, so what is
 read at the attempt — [a mail's brand and the minutes its code has
@@ -71,6 +71,11 @@ FAQ](design-faq.md#does-the-delivery-guarantee-an-order) holds the rest.
 
 **An item delivered or given up is deleted.** The queue is a hand-off and keeps no record; a
 given-up item leaves its count.
+
+**A destination that stops delivering keeps its items until each expires, and the poll gives them
+up then.** Its deliverer is disabled — for mail, no mail server is configured — so nothing of it is
+attempted. What was queued before waits, and is counted while it does: given up only at its expiry,
+an item outlasts a destination turned off for a moment, and still never goes out long after.
 
 ## A failed attempt is retried while its destination may yet take the item
 

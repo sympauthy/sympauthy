@@ -27,8 +27,8 @@ class QueueItemEntity(
     val kind: String,
     @MappedProperty(type = DataType.JSON)
     val payload: String,
-    val creationDate: LocalDateTime = LocalDateTime.now(),
-    val expirationDate: LocalDateTime? = null,
+    val creationDate: LocalDateTime,
+    val expirationDate: LocalDateTime,
     val attemptCount: Int = 0,
     val nextAttemptDate: LocalDateTime = creationDate,
     val holder: String? = null,

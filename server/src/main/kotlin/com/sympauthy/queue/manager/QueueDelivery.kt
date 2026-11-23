@@ -40,7 +40,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Duration
-import java.time.LocalDateTime
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -57,6 +56,9 @@ import java.util.concurrent.atomic.AtomicInteger
  * **An item is attempted as soon as its commit returns**, on the [nudge] the queue gives, and otherwise by the poll
  * every instance runs every `advanced.queue.poll-interval`: what an instance left when it died, a retry whose time
  * has come, a nudge that never came. A nudge's attempt never waits behind the poll's.
+ *
+ * **A destination whose deliverer is disabled delivers nothing, and its items are given up as they expire**, by the
+ * same poll, so that what was queued before it stopped delivering neither waits for good nor goes out long after.
  *
  * Every coroutine it starts reports its own failure: they are launched in [BackgroundScope], which installs no
  * handler.
@@ -105,9 +107,6 @@ open class QueueDelivery(
     private val holder: String
         get() = jobLeaseManager.holder
 
-    private val enabledDeliverers: List<QueueItemDeliverer>
-        get() = deliverers.filter { it.enabled }
-
     /**
      * How many items of one destination this instance attempts at once: `advanced.queue.batch-size`, or one
      * where the configuration is not usable and this instance attempts only what it was nudged for.
@@ -116,8 +115,8 @@ open class QueueDelivery(
         get() = (uncheckedAdvancedConfig as? EnabledAdvancedConfig)?.queue?.batchSize ?: 1
 
     /**
-     * Start the poll on this instance once the server is ready, unless no deliverer delivers or the server reports
-     * itself unready.
+     * Start the poll on this instance once the server is ready, unless no destination is delivered to or the server
+     * reports itself unready.
      *
      * Configuration is read once, so an unready server stays unready until it restarts, and the poll is not
      * started at all: the items waiting stay where they are, since one sent from a server answering errors points
@@ -126,7 +125,7 @@ open class QueueDelivery(
      */
     @EventListener
     fun startPolling(@Suppress("UNUSED_PARAMETER") event: ServiceReadyEvent) {
-        if (enabledDeliverers.isEmpty()) return
+        if (deliverers.isEmpty()) return
         poll = backgroundScope.launch { pollUntilStopped() }
     }
 
@@ -161,7 +160,7 @@ open class QueueDelivery(
      */
     fun nudge(item: QueueItem) {
         if (stopping) return
-        val deliverer = enabledDeliverers.firstOrNull { it.destination == item.destination } ?: return
+        val deliverer = deliverers.firstOrNull { it.enabled && it.destination == item.destination } ?: return
         val count = held.getValue(deliverer.destination)
         if (!count.tryIncrementBelow(batchSize)) return
         attempts.launch {
@@ -179,14 +178,15 @@ open class QueueDelivery(
     }
 
     /**
-     * Publish the backlog, then claim for each destination as many due items as this instance's attempts leave
-     * room for, and attempt each. The backlog is read apart, so that a gauge failing to read delays no item.
+     * Publish the backlog, then claim for each destination as many items as this instance's attempts leave room
+     * for, and attempt each: those that are due where its deliverer is enabled, and only those that expired where it
+     * is not. The backlog is read apart, so that a gauge failing to read delays no item.
      */
     internal suspend fun pollOnce(config: QueueConfig) {
         reportingFailure("read the queue's backlog") {
             queueMetrics.recordBacklog(readBacklog())
         }
-        for (deliverer in enabledDeliverers) {
+        for (deliverer in deliverers) {
             if (stopping) return
             reportingFailure("poll the queue for ${deliverer.destination}") {
                 claimFor(deliverer, config)
@@ -198,7 +198,7 @@ open class QueueDelivery(
         val count = held.getValue(deliverer.destination)
         val free = config.batchSize - count.get()
         if (free <= 0) return
-        claimDue(deliverer.destination, free).forEach { item ->
+        claim(deliverer, free).forEach { item ->
             count.incrementAndGet()
             attempts.launch {
                 try {
@@ -211,16 +211,21 @@ open class QueueDelivery(
     }
 
     /**
-     * Claim up to [limit] items for [destination] that are due and held by nobody, or by an instance whose lease
-     * lapsed, and hold them for this instance.
+     * Claim up to [limit] items for the destination of [deliverer] that are held by nobody, or by an instance whose
+     * lease lapsed, and hold them for this instance: items that are due where [deliverer] is enabled, and items that
+     * expired, for it to give up, where it is not.
      *
      * The claim and the hold are one transaction: outside one, the rows the claim locks are released by the
      * autocommit that took them, and an instance polling at the same moment claims the same items.
      */
     @Transactional
-    internal open suspend fun claimDue(destination: String, limit: Int): List<QueueItem> {
+    internal open suspend fun claim(deliverer: QueueItemDeliverer, limit: Int): List<QueueItem> {
         val now = queueItemRepository.now()
-        val claimed = queueItemRepository.claimDue(destination, now, limit).map(queueItemMapper::toQueueItem)
+        val claimed = if (deliverer.enabled) {
+            queueItemRepository.claimDue(deliverer.destination, now, limit)
+        } else {
+            queueItemRepository.claimExpired(deliverer.destination, now, limit)
+        }.map(queueItemMapper::toQueueItem)
         if (claimed.isEmpty()) return claimed
         queueItemRepository.holdClaimed(
             ids = claimed.map(QueueItem::id),
@@ -272,8 +277,7 @@ open class QueueDelivery(
      * up. An item past its expiry is given up without being handed.
      */
     internal suspend fun attempt(deliverer: QueueItemDeliverer, item: QueueItem) {
-        val expirationDate = item.expirationDate
-        if (expirationDate != null && expirationDate.isBefore(queueItemRepository.now())) {
+        if (item.expirationDate.isBefore(queueItemRepository.now())) {
             giveUpExpired(deliverer, item)
             return
         }
@@ -298,8 +302,7 @@ open class QueueDelivery(
         val now = queueItemRepository.now()
         val config = (uncheckedAdvancedConfig as? EnabledAdvancedConfig)?.queue
         val nextAttemptDate = config?.let { now.plus(retryDelay(attemptCount, it)) } ?: now
-        val expirationDate = item.expirationDate
-        if (expirationDate != null && nextAttemptDate.isAfter(expirationDate)) {
+        if (nextAttemptDate.isAfter(item.expirationDate)) {
             giveUpExpired(deliverer, item)
             return
         }
@@ -322,12 +325,12 @@ open class QueueDelivery(
     }
 
     /**
-     * How many items wait, and for how long the oldest has, for every kind each deliverer delivers.
+     * How many items wait, and for how long the oldest has, for every kind each deliverer delivers, enabled or not.
      */
     private suspend fun readBacklog(): List<QueueMetrics.Backlog> {
-        val now = LocalDateTime.now()
+        val now = queueItemRepository.now()
         val summaries = queueItemRepository.summarize().associateBy { it.destination to it.kind }
-        return enabledDeliverers.flatMap { deliverer ->
+        return deliverers.flatMap { deliverer ->
             deliverer.kinds.map { kind ->
                 val summary = summaries[deliverer.destination to kind]
                 QueueMetrics.Backlog(
@@ -356,7 +359,7 @@ open class QueueDelivery(
      * is a second copy.
      */
     override fun onApplicationEvent(event: ShutdownEvent) {
-        if (enabledDeliverers.isEmpty()) return
+        if (deliverers.isEmpty()) return
         stopping = true
         val grace = (uncheckedAdvancedConfig as? EnabledAdvancedConfig)?.queue?.shutdownGrace ?: Duration.ZERO
         runBlocking {

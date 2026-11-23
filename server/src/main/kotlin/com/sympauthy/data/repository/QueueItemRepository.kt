@@ -11,7 +11,7 @@ import java.util.*
  * Repository for [QueueItemEntity], the items waiting to be delivered.
  *
  * An item is held under a lease while an instance attempts it, as `docs/standards/locking-standard.md` has a work
- * row leased across transactions: every statement but [claimDue] stands on its own, and every one that ends an
+ * row leased across transactions: every statement but the claims stands on its own, and every one that ends an
  * attempt names its holder, so an instance whose lease lapsed and was taken elsewhere changes nothing.
  */
 interface QueueItemRepository : CoroutineCrudRepository<QueueItemEntity, UUID> {
@@ -27,7 +27,7 @@ interface QueueItemRepository : CoroutineCrudRepository<QueueItemEntity, UUID> {
      * it, and answer 1 when this instance got it.
      *
      * It is what the instance that committed an item attempts it through, so it asks nothing of the item's due
-     * date: one written by this instance's clock may read as not yet due by the database's.
+     * date: an item is written due.
      */
     @Query(
         """
@@ -58,8 +58,25 @@ interface QueueItemRepository : CoroutineCrudRepository<QueueItemEntity, UUID> {
     suspend fun claimDue(destination: String, now: LocalDateTime, limit: Int): List<QueueItemEntity>
 
     /**
-     * Hold the items [ids] [claimDue] claimed on behalf of [holder] until [expiresAt], re-asserting what the claim
-     * selected them by.
+     * Claim, earliest expired first, up to [limit] items for [destination] that expired before [now] and that nobody
+     * holds or whose holder's lease has lapsed. A claim, as [claimDue] is, and held through [holdClaimed]: an
+     * item past its expiry is past its last attempt too.
+     */
+    @Query(
+        """
+        SELECT * FROM queue_items
+        WHERE destination = :destination
+          AND expiration_date < :now AND (holder IS NULL OR lease_expiration_date <= :now)
+        ORDER BY expiration_date
+        LIMIT :limit
+        FOR UPDATE SKIP LOCKED
+        """
+    )
+    suspend fun claimExpired(destination: String, now: LocalDateTime, limit: Int): List<QueueItemEntity>
+
+    /**
+     * Hold the items [ids] [claimDue] or [claimExpired] claimed on behalf of [holder] until [expiresAt],
+     * re-asserting that each is due and held by nobody whose lease still runs.
      */
     @Query(
         """
