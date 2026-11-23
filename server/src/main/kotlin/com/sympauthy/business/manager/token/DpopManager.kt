@@ -207,7 +207,7 @@ class DpopManager(
      * Uses nimbus JOSE library which correctly handles JWS signature formats
      * (including ECDSA R||S encoding).
      */
-    internal suspend fun verifySignature(signedJwt: SignedJWT, jwk: JWK) {
+    private suspend fun verifySignature(signedJwt: SignedJWT, jwk: JWK) {
         try {
             val verifier: JWSVerifier = when (jwk) {
                 is RSAKey -> RSASSAVerifier(jwk)

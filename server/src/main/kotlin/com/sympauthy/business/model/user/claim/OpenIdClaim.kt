@@ -1,8 +1,8 @@
 package com.sympauthy.business.model.user.claim
 
 import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
-import com.sympauthy.expression.ScopeIsConsentedFunction
-import com.sympauthy.expression.ScopeIsGrantedFunction
+import com.sympauthy.expression.manager.ScopeIsConsentedFunction
+import com.sympauthy.expression.manager.ScopeIsGrantedFunction
 
 /**
  * Generated OpenID Connect claims whose values are managed by the authorization server.

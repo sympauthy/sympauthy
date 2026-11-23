@@ -15,7 +15,7 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.ObjectLockRepository
-import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify

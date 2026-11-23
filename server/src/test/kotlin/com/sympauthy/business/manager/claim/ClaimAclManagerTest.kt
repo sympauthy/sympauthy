@@ -20,10 +20,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.time.Duration
 import java.time.LocalDateTime
-import com.sympauthy.expression.AuthenticationIsYoungerThanFunction.Companion.FUNCTION_NAME as AUTHENTICATION_IS_YOUNGER_THAN
-import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
-import com.sympauthy.expression.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
-import com.sympauthy.expression.TokenIsBoundFunction.Companion.FUNCTION_NAME as TOKEN_IS_BOUND
+import com.sympauthy.expression.manager.AuthenticationIsYoungerThanFunction.Companion.FUNCTION_NAME as AUTHENTICATION_IS_YOUNGER_THAN
+import com.sympauthy.expression.manager.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
+import com.sympauthy.expression.manager.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
+import com.sympauthy.expression.manager.TokenIsBoundFunction.Companion.FUNCTION_NAME as TOKEN_IS_BOUND
 
 class ClaimAclManagerTest {
 

@@ -15,10 +15,10 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.FlowMetrics
-import com.sympauthy.monitoring.telemetry.Outcome
-import com.sympauthy.monitoring.telemetry.nanosToSeconds
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.FlowMetrics
+import com.sympauthy.monitoring.telemetry.manager.nanosToSeconds
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

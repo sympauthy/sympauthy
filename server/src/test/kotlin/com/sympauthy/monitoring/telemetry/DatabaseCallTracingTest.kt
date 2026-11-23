@@ -1,5 +1,6 @@
 package com.sympauthy.monitoring.telemetry
 
+import com.sympauthy.monitoring.telemetry.manager.attributes
 import io.micronaut.core.async.propagation.ReactorPropagation
 import io.micronaut.tracing.opentelemetry.OpenTelemetryPropagationContext
 import io.mockk.every

@@ -9,7 +9,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
 import io.micronaut.data.exceptions.EntityExistsException
 import io.mockk.CapturingSlot
 import io.mockk.coEvery

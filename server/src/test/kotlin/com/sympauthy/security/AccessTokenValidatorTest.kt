@@ -21,8 +21,8 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.business.model.token.AuthenticationToken
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.core.async.propagation.KotlinCoroutinePropagation

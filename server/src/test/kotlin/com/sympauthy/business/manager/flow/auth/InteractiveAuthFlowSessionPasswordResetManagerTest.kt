@@ -29,10 +29,10 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.ValidationCodeConfig
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
-import com.sympauthy.monitoring.telemetry.InMemoryMetrics
-import com.sympauthy.monitoring.telemetry.attributes
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.manager.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.manager.attributes
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify

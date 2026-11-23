@@ -16,7 +16,7 @@ import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
-import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coVerify

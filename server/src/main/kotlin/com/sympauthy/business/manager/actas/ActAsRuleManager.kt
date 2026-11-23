@@ -9,7 +9,7 @@ import com.sympauthy.business.model.rule.ActAsRuleBehavior.DENY
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ActAsRulesConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.expression.InvalidRuleExpressionException
+import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.flow.Flow

@@ -58,7 +58,7 @@ class AudienceCollectionManager(
         return audience.withClientCount(clientManager.countClientsByAudienceId())
     }
 
-    internal fun Audience.withClientCount(
+    private fun Audience.withClientCount(
         clientCountsByAudienceId: Map<String, Int>
     ) = AudienceWithClientCount(this, clientCountsByAudienceId[id] ?: 0)
 

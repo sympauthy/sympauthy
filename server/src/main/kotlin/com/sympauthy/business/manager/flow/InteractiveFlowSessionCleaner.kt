@@ -11,8 +11,8 @@ import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepos
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
-import com.sympauthy.monitoring.telemetry.FlowMetrics
-import com.sympauthy.monitoring.telemetry.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.FlowMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

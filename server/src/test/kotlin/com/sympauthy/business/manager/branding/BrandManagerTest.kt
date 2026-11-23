@@ -14,9 +14,9 @@ import com.sympauthy.config.model.LocalBrandImage
 import com.sympauthy.config.model.RemoteBrandImage
 import com.sympauthy.config.model.ThemeConfig
 import com.sympauthy.config.model.UIConfig
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus

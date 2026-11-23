@@ -33,9 +33,9 @@ import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.ObjectLockRepository
-import com.sympauthy.monitoring.telemetry.LockMetrics
-import com.sympauthy.monitoring.telemetry.SpanReference
-import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
+import com.sympauthy.monitoring.telemetry.manager.SpanReference
+import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
 import io.micronaut.data.exceptions.DataIntegrityViolationException
 import io.micronaut.data.exceptions.EntityExistsException
 import io.micronaut.data.repository.jpa.criteria.PredicateSpecification

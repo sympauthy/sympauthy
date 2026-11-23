@@ -166,8 +166,8 @@ them.
 
 The same test puts the failure root and its mapper beside the layers — `business` and `api` both
 throw and neither may depend on the other, which [the exception
-standard](../standards/exception-code-standard.md) holds — and it puts the health indicators there
-too, since configuration must not depend on the thing that publishes its verdict.
+standard](../standards/exception-code-standard.md) holds — and it puts the health indicators in
+`monitoring`, since configuration must not depend on the thing that publishes its verdict.
 
 ## One schema, more than one database
 
@@ -211,8 +211,7 @@ sympauthy/
 │   │   ├── security/           the authentications and the token validator
 │   │   ├── client/             outbound HTTP, one package per protocol
 │   │   ├── exception/          LocalizedException and its mapper
-│   │   ├── expression/         the rule language, shared by config and business
-│   │   ├── health/             what the server reports about itself
+│   │   ├── expression/         manager/ model/ exception/ — the rule language
 │   │   ├── mail/               manager/ model/ mapper/ — the mails a manager sends
 │   │   ├── queue/              manager/ model/ mapper/ — what is delivered after the commit
 │   │   ├── cron/ server/ util/ view/

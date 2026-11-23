@@ -5,12 +5,12 @@ import com.sympauthy.mail.mapper.QueuedMailMapper
 import com.sympauthy.mail.model.Mail
 import com.sympauthy.mail.model.MailFailure
 import com.sympauthy.mail.model.QueuedMail
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.MailMetrics
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.MailMetrics
 import com.sympauthy.queue.manager.QueueItemDeliverer
 import com.sympauthy.queue.model.DeliveryAttempt
 import com.sympauthy.queue.model.QueueItem

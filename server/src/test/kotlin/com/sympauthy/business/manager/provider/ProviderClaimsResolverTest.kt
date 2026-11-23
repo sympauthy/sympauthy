@@ -8,8 +8,8 @@ import com.sympauthy.business.model.provider.config.ProviderOAuth2Config
 import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.client.UserInfoEndpointClient
-import com.sympauthy.monitoring.RemoteCallMonitor
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Outcome
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.client.exceptions.HttpClientResponseException

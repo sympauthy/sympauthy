@@ -10,9 +10,9 @@ import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClaimAcl
-import com.sympauthy.expression.ClaimAclExpressionTerms
-import com.sympauthy.expression.ClaimAclExpressions
-import com.sympauthy.expression.InvalidRuleExpressionException
+import com.sympauthy.expression.exception.InvalidRuleExpressionException
+import com.sympauthy.expression.manager.ClaimAclExpressions
+import com.sympauthy.expression.model.ClaimAclExpressionTerms
 import jakarta.inject.Singleton
 
 /**

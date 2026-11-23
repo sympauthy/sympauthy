@@ -12,8 +12,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.FlowMetrics
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.FlowMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

@@ -27,10 +27,10 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PASSWORD
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_IN
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SIGN_UP
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.PASSWORD
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.SIGN_IN
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.SIGN_UP
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

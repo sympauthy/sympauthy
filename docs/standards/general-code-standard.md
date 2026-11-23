@@ -43,6 +43,7 @@ does with its own components is a standard per layer:
 | `config` | factory | `…ConfigFactory` | assembling the validated model |
 | `config` | readiness | *none* | whether the configuration as a whole is usable, and the keys it left unbound |
 | `cron` | job | `…Cron` | when a leased job runs, handing the work to a manager |
+| a subject's root | wiring | its framework role — `…Appender`, `…Customizer`, `…Factory`, `…HealthIndicator` | what the framework calls to put the subject in place |
 
 **A feature is built from the rows above that it needs.** A component fitting none of them is a
 change to this table before it is a class.
@@ -61,6 +62,10 @@ for the subject — `mail`, `queue`. It sits beside `business` rather than insid
 [The `business` layer standard](business-layer-code-standard.md) holds its components as it holds
 `business`'s.
 
+**A class the framework calls to put a subject in place sits at the root of the subject's
+package.** A logback appender, an SDK customizer, a bean factory and a health indicator neither
+model the subject nor run one of its use cases, so none of them goes in `manager`.
+
 **`api` and `data` keep their organization.** A subject's routes are controllers in `api` and its
 tables are entities and repositories in `data`, so that every surface is gated in one tree and every
 schema is one set of migrations.
@@ -76,7 +81,7 @@ schema is one set of migrations.
 | `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
 | `mail` | `business`, `config`, `client`, `monitoring`, `queue`, `server`, the Micronaut framework, the JDK | `api`, `view` |
 | `queue` | `business`, `config`, `data`, `monitoring`, `server`, the Micronaut framework, the JDK | `api`, `view`, `mail` |
-| `monitoring` | logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
+| `monitoring` | `config`, `server`, `util`, logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | `business`, `data`, `api` |
 
 **`business` may import `api` in exactly one case**: a manager in `business.manager.grant`,
 `business.manager.authorization` or `business.manager.token` throws the protocol's own error type,
@@ -98,6 +103,9 @@ manager, no mapper and no business exception reaches `config`.
 **`business` never imports `mail`.** A manager reaches a mail through an interface `business`
 declares and `mail` implements, as `ValidationCodeMediaSender` is, so a use case says that a message
 goes out without depending on how it is composed, drawn or delivered.
+
+**`monitoring` imports `config` for one thing: the verdict on the configuration** its readiness
+indicator publishes.
 
 **`queue` imports `server` for the scope its delivery runs in.** What it attempts in the background
 has to stop when the server does, and `BackgroundScope` is the one scope the server cancels then.

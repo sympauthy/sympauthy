@@ -3,10 +3,10 @@ package com.sympauthy.business.manager.lock
 import com.sympauthy.business.manager.lock.JobLeaseManager.Companion.GRACE_PERIOD
 import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.data.repository.JobLeaseRepository
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.telemetry.JobMetrics
-import com.sympauthy.monitoring.telemetry.JobMetrics.JobRunOutcome
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics.JobRunOutcome
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.InjectMockKs

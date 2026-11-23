@@ -19,7 +19,7 @@ import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -102,7 +102,7 @@ open class TokenRefreshManager(
      * Once the grant is found to be the [client]'s, the request is marked as acting on the interactive flow session
      * it came from, where one did.
      */
-    internal suspend fun refreshHeldToken(
+    private suspend fun refreshHeldToken(
         client: Client,
         decodedToken: DecodedJwt,
         dpopJkt: String?

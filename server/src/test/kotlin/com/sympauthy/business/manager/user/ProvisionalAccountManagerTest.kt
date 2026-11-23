@@ -19,8 +19,8 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.monitoring.telemetry.JobMetrics
-import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder

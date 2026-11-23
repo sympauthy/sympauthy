@@ -17,7 +17,7 @@ import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
 import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
 import io.micronaut.serde.ObjectMapper
 import io.mockk.coEvery

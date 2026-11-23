@@ -1,6 +1,6 @@
 package com.sympauthy.queue.model
 
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.model.Outcome
 
 /**
  * How an attempt at a [QueueItem] ended, as its deliverer reads its destination's answer, and so what becomes of

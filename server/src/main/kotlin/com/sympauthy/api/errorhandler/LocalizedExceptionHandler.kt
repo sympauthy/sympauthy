@@ -15,8 +15,8 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.config.model.isInvalidConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
-import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.manager.ConditionMonitor
 import com.sympauthy.security.SecurityRule
 import com.sympauthy.util.orDefault
 import io.micronaut.http.HttpRequest

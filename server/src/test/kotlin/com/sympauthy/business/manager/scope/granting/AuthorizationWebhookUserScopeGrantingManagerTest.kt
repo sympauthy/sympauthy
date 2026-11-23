@@ -16,9 +16,9 @@ import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResponse
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.mockk.coEvery

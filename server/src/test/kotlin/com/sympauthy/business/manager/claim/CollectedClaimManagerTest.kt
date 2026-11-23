@@ -16,7 +16,7 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.ObjectLockRepository
-import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

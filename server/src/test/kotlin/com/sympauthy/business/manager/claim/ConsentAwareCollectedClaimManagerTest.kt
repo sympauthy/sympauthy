@@ -23,8 +23,8 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.util.*
-import com.sympauthy.expression.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
-import com.sympauthy.expression.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
+import com.sympauthy.expression.manager.ScopeIsConsentedFunction.Companion.FUNCTION_NAME as SCOPE_IS_CONSENTED
+import com.sympauthy.expression.manager.ScopeIsGrantedFunction.Companion.FUNCTION_NAME as SCOPE_IS_GRANTED
 
 @ExtendWith(MockKExtension::class)
 class ConsentAwareCollectedClaimManagerTest {

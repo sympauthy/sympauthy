@@ -18,7 +18,7 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

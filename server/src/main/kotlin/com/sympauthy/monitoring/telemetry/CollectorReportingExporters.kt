@@ -1,7 +1,7 @@
 package com.sympauthy.monitoring.telemetry
 
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Condition
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.common.export.MemoryMode
 import io.opentelemetry.sdk.logs.data.LogRecordData

@@ -22,8 +22,8 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.interactiveFlowSessionAlreadyCompletedExceptionOf
 import com.sympauthy.business.model.security.ObservedRequest
 import com.sympauthy.business.model.user.User
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
 import io.micronaut.http.HttpStatus
 import io.micronaut.security.authentication.Authentication
 import jakarta.inject.Inject

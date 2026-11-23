@@ -291,7 +291,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * Throws the non-recoverable `flow.authorization_flow.complete.password_replaced` where the password the session
      * proved has been replaced since, by a reset in another session. See `docs/design/grants.md`.
      */
-    internal suspend fun recordAuthorization(
+    private suspend fun recordAuthorization(
         session: OnGoingInteractiveFlowSession,
         userId: UUID,
         audience: Audience,

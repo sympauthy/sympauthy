@@ -4,7 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.model.flow.*
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
-import com.sympauthy.monitoring.telemetry.SpanReference
+import com.sympauthy.monitoring.telemetry.manager.SpanReference
 import jakarta.inject.Singleton
 import java.net.URI
 import java.time.LocalDateTime

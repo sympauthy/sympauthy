@@ -6,7 +6,7 @@ import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.UserSecurityContextRepository
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

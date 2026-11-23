@@ -26,8 +26,8 @@ import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.findMatching
-import com.sympauthy.monitoring.telemetry.SpanReference
-import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.manager.SpanReference
+import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
 import com.sympauthy.util.isRowAlreadyThere
 import com.sympauthy.util.wireName
 import io.micronaut.transaction.TransactionDefinition

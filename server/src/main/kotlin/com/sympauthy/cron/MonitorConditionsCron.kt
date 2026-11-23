@@ -1,8 +1,8 @@
 package com.sympauthy.cron
 
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.ConsoleQueueAppender
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Condition
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

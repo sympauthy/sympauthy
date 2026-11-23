@@ -183,9 +183,9 @@ so a condition recovers up to a second after its quiet period has run out.
 **The conditions live in `monitoring/`, beside the layers.** `business` reports the dependencies its
 managers call, `data` reports the database from the connection factory every repository obtains its
 connections from, and the console's appender reports itself, so by [the architecture's
-test](architecture.md#beside-the-layers) they belong to none of them. The health indicator in
-`health/` reads them, the way it reads the configuration's verdict, and Micronaut's own R2DBC
-indicator is turned off: it answers `503` when the database cannot be reached, and publishes the
+test](architecture.md#beside-the-layers) they belong to none of them. The health indicator at the
+root of `monitoring/` reads them, the way it reads the configuration's verdict, and Micronaut's own
+R2DBC indicator is turned off: it answers `503` when the database cannot be reached, and publishes the
 exception. A call the managers make outside the process reaches its condition through
 `RemoteCallMonitor`, which times it as [telemetry](telemetry.md#what-an-authorization-server-counts)
 says; `ConditionMonitor` holds the conditions alone.

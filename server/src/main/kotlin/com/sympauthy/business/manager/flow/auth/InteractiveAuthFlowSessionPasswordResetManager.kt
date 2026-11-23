@@ -30,9 +30,9 @@ import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.PASSWORD
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.RESET
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.PASSWORD
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.RESET
 import com.sympauthy.util.min
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
@@ -218,7 +218,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
         return uncheckedAdvancedConfig.orThrow().validationCode.resendDelay?.let(passwordReset.requestedDate::plus)
     }
 
-    internal fun canResend(
+    private fun canResend(
         session: OnGoingInteractiveFlowSession,
         passwordReset: InteractiveFlowSessionPasswordReset
     ): Boolean {
@@ -297,7 +297,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * Return the account [passwordReset] sent a code to where [code] is one of the codes it was sent in [session]
      * and has not expired, and where the account may still be reset. Otherwise, return null.
      */
-    internal suspend fun findProvenUserOrNull(
+    private suspend fun findProvenUserOrNull(
         session: OnGoingInteractiveFlowSession,
         passwordReset: InteractiveFlowSessionPasswordReset,
         code: String?
@@ -354,7 +354,7 @@ open class InteractiveAuthFlowSessionPasswordResetManager(
      * - Anything else is sent nothing: an account disabled or without a proven address, and an identifier that
      *   is not an email address.
      */
-    internal suspend fun prepareResetMail(
+    private suspend fun prepareResetMail(
         session: OnGoingInteractiveFlowSession,
         login: String,
         enabledProviders: List<EnabledProvider>

@@ -24,9 +24,9 @@ import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
-import com.sympauthy.monitoring.telemetry.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.monitoring.telemetry.manager.InMemoryMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

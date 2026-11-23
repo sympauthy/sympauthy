@@ -21,7 +21,7 @@ import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.config.model.TokenConfig
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
 import io.mockk.CapturingSlot
 import io.mockk.coEvery
 import io.mockk.every

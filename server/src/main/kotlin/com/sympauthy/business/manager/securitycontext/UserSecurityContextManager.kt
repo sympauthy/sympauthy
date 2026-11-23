@@ -9,8 +9,8 @@ import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.manager.ConditionMonitor
 import com.sympauthy.util.isRowAlreadyThere
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject

@@ -5,7 +5,7 @@ import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.oauth2.ConsentedBy
 import com.sympauthy.business.model.oauth2.GrantedBy
 import com.sympauthy.business.model.user.claim.RequestedClaims
-import com.sympauthy.monitoring.telemetry.SpanReference
+import com.sympauthy.monitoring.telemetry.manager.SpanReference
 import java.time.LocalDateTime
 import java.util.*
 

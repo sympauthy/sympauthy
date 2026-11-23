@@ -15,7 +15,7 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.monitoring.telemetry.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
@@ -187,7 +187,7 @@ open class ProvisionalAccountManager(
      * was taken and who won it are named for an operator only; every purpose has resolved by here, so the
      * end-user's half of the failure has no step to send them back to and says nothing about either.
      */
-    internal suspend fun checkIdentifierClaimsStillFree(
+    private suspend fun checkIdentifierClaimsStillFree(
         userId: UUID,
         claimIds: List<String>,
         identifierValues: Map<String, String>
@@ -208,7 +208,7 @@ open class ProvisionalAccountManager(
      * One statement per link rather than one over them all: the failure names the provider whose identity
      * was taken, and a single query over every subject could not say which of them lost.
      */
-    internal suspend fun checkProviderSubjectsStillFree(links: List<ProvisionalLink>) {
+    private suspend fun checkProviderSubjectsStillFree(links: List<ProvisionalLink>) {
         links.forEach { link ->
             val committed = providerUserInfoRepository.findByProviderIdAndSubjectAndSessionIdIsNull(
                 providerId = link.providerId,

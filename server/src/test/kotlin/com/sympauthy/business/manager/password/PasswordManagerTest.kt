@@ -11,7 +11,7 @@ import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.PasswordEntity
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.data.repository.PasswordRepository
-import com.sympauthy.monitoring.telemetry.LockMetrics
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.every

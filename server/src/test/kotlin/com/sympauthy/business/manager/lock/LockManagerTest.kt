@@ -2,8 +2,8 @@ package com.sympauthy.business.manager.lock
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.data.repository.ObjectLockRepository
-import com.sympauthy.monitoring.telemetry.LockMetrics
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder

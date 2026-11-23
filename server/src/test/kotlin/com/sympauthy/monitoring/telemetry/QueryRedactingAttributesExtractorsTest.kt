@@ -1,6 +1,7 @@
 package com.sympauthy.monitoring.telemetry
 
 import com.sympauthy.api.controller.FLOW_SURFACE
+import com.sympauthy.monitoring.telemetry.manager.attributes
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MutableHttpRequest
 import io.mockk.mockk

@@ -138,7 +138,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * to be stable and not be affected by changes from the third party in the future.
      * Otherwise, an update from a provider may break our uniqueness and cause uncontrolled side effects.
      */
-    internal suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
+    private suspend fun createOrAssociateUserByIdentifierClaimsWithProviderUserInfo(
         sessionId: UUID,
         identifierClaims: Map<String, Pair<EnabledClaim, Any>>,
         provider: EnabledProvider,
@@ -170,7 +170,7 @@ open class InteractiveAuthFlowSessionProviderEstablisher(
      * question only merging asks; the one this branch asks is whether the values are free, which
      * [createUserWithIdentifierClaims] answers and which refuses strictly more.
      */
-    internal suspend fun createUserWithProviderUserInfo(
+    private suspend fun createUserWithProviderUserInfo(
         sessionId: UUID,
         identifierClaims: Map<String, Pair<EnabledClaim, Any>>,
         provider: EnabledProvider,

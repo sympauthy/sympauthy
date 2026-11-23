@@ -21,7 +21,7 @@ import com.sympauthy.business.model.token.AuthenticationTokenType.ACCESS
 import com.sympauthy.business.model.token.AuthenticationTokenType.REFRESH
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import com.sympauthy.monitoring.telemetry.TokenMetrics
+import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify

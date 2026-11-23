@@ -272,7 +272,7 @@ open class CollectedClaimManager(
      * It answers what is committed *now*, which is only worth asking under the lock its caller holds over
      * those values.
      */
-    internal suspend fun checkIdentifierValuesFree(user: User, identifierValues: Map<String, String>) {
+    private suspend fun checkIdentifierValuesFree(user: User, identifierValues: Map<String, String>) {
         val claimIds = claimManager.listIdentifierClaims().map(Claim::id)
         val taken = userManager.findTakenIdentifierOrNull(user.id, claimIds, identifierValues) ?: return
         throw businessExceptionOf(

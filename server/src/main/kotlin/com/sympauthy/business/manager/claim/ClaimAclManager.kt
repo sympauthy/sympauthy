@@ -10,9 +10,9 @@ import com.sympauthy.business.model.user.claim.ClaimAclExpression
 import com.sympauthy.business.model.user.claim.ClaimAclFlowDoors
 import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.expression.ClaimAclExpressions
-import com.sympauthy.expression.InvalidRuleExpressionException
-import com.sympauthy.expression.evaluateRuleExpression
+import com.sympauthy.expression.exception.InvalidRuleExpressionException
+import com.sympauthy.expression.manager.ClaimAclExpressions
+import com.sympauthy.expression.manager.evaluateRuleExpression
 import jakarta.inject.Singleton
 import java.time.Duration
 import java.time.LocalDateTime

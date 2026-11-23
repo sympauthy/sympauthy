@@ -2,7 +2,7 @@ package com.sympauthy.business.model.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.Expirable
-import com.sympauthy.monitoring.telemetry.SpanReference
+import com.sympauthy.monitoring.telemetry.manager.SpanReference
 import java.time.LocalDateTime
 import java.util.*
 

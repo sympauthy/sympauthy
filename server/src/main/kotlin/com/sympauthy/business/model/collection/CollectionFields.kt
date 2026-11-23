@@ -59,7 +59,7 @@ class CollectionFields<T> internal constructor(
     /**
      * The order a page is read in: the caller's keys, then the key this collection is unique by.
      */
-    internal fun comparatorOf(criteria: CollectionCriteria): Comparator<T> = criteria.sort
+    private fun comparatorOf(criteria: CollectionCriteria): Comparator<T> = criteria.sort
         .fold(Comparator<T> { _, _ -> 0 }) { order, key ->
             val byKey = Comparator<T> { left, right -> compareOn(key.field, left, right) }
             order.then(if (key.descending) byKey.reversed() else byKey)

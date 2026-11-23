@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.lock
 
 import com.sympauthy.data.repository.JobLeaseRepository
-import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.JobMetrics
-import com.sympauthy.monitoring.telemetry.JobMetrics.JobRunOutcome
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics.JobRunOutcome
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException

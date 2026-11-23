@@ -7,11 +7,11 @@ import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.QueueConfig
 import com.sympauthy.data.repository.QueueItemRepository
-import com.sympauthy.monitoring.ConditionMonitor
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.Outcome
-import com.sympauthy.monitoring.telemetry.QueueMetrics
-import com.sympauthy.monitoring.telemetry.QueueMetrics.Companion.EXPIRED
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.QueueMetrics
+import com.sympauthy.monitoring.telemetry.manager.QueueMetrics.Companion.EXPIRED
 import com.sympauthy.queue.mapper.QueueItemMapper
 import com.sympauthy.queue.model.DeliveryAttempt
 import com.sympauthy.queue.model.QueueItem

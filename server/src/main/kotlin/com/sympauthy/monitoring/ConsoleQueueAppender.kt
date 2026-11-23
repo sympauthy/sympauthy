@@ -2,6 +2,8 @@ package com.sympauthy.monitoring
 
 import ch.qos.logback.classic.AsyncAppender
 import ch.qos.logback.classic.spi.ILoggingEvent
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Condition
 import java.util.concurrent.atomic.AtomicLong
 
 /**

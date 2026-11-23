@@ -18,10 +18,10 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
 import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.Outcome
-import com.sympauthy.monitoring.telemetry.TokenMetrics
-import com.sympauthy.monitoring.telemetry.measureOutcome
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.monitoring.telemetry.manager.measureOutcome
 import com.sympauthy.monitoring.telemetry.traceCoroutineContext
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP

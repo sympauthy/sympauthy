@@ -7,7 +7,7 @@ import com.sympauthy.business.model.key.KeyAlgorithm
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CryptoKeysRepository
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.traceCoroutineContext
 import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Single
@@ -68,12 +68,12 @@ class CryptoKeysManager(
         }
     }
 
-    internal fun getOrGenerateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
+    private fun getOrGenerateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
         return getStoredKey(name, algorithm)
             .switchIfEmpty(generateKey(name, algorithm))
     }
 
-    internal fun getStoredKey(name: String, algorithm: KeyAlgorithm): Maybe<CryptoKeys> {
+    private fun getStoredKey(name: String, algorithm: KeyAlgorithm): Maybe<CryptoKeys> {
         return rxMaybe(traceCoroutineContext()) {
             val existingKey = keysRepository.findByName(name)
             if (existingKey != null) {
@@ -85,7 +85,7 @@ class CryptoKeysManager(
         }.map(keysMapper::toCryptoKeys)
     }
 
-    internal fun generateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
+    private fun generateKey(name: String, algorithm: KeyAlgorithm): Single<CryptoKeys> {
         return rxSingle(traceCoroutineContext()) {
             customSpanTracer.generateSigningKey(name) {
                 advancedConfig.orThrow().keysGenerationStrategy

@@ -17,11 +17,11 @@ import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.LocalBrandImage
 import com.sympauthy.config.model.RemoteBrandImage
 import com.sympauthy.config.model.UIConfig
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.monitoring.model.Outcome
 import com.sympauthy.util.configName
 import io.micronaut.context.annotation.Context
 import io.micronaut.core.io.ResourceResolver

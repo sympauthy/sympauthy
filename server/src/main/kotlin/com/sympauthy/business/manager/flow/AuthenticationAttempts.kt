@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.flow
 
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.Outcome
-import com.sympauthy.monitoring.telemetry.measureOutcome
+import com.sympauthy.monitoring.model.Outcome
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.measureOutcome
 
 /**
  * Run [block] as an authentication attempt with [method], through the provider [providerId] names where the method

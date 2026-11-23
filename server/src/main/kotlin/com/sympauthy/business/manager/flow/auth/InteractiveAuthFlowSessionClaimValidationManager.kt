@@ -18,7 +18,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

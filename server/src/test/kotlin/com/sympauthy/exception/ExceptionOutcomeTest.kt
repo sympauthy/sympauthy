@@ -7,7 +7,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.model.Outcome
 import io.micronaut.http.HttpStatus
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

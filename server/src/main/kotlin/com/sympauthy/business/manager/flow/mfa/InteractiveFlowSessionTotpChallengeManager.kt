@@ -7,9 +7,9 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.SECOND_FACTOR
-import com.sympauthy.monitoring.telemetry.AuthenticationMetrics.Companion.TOTP
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.SECOND_FACTOR
+import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.TOTP
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

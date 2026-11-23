@@ -29,7 +29,7 @@ import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

@@ -30,8 +30,8 @@ import com.sympauthy.config.model.Config
 import com.sympauthy.config.model.invalidConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Condition
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.SecurityRule.IS_USER

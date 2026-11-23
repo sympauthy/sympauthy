@@ -1,7 +1,7 @@
 package com.sympauthy.monitoring.telemetry
 
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.model.Condition
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

@@ -3,10 +3,10 @@ package com.sympauthy.business.manager.grant
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.GrantRepository
-import com.sympauthy.monitoring.telemetry.InMemoryMetrics
-import com.sympauthy.monitoring.telemetry.JobMetrics
-import com.sympauthy.monitoring.telemetry.JobMetrics.Companion.JOB_DELETIONS
-import com.sympauthy.monitoring.telemetry.attributes
+import com.sympauthy.monitoring.telemetry.manager.InMemoryMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.monitoring.telemetry.manager.JobMetrics.Companion.JOB_DELETIONS
+import com.sympauthy.monitoring.telemetry.manager.attributes
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs

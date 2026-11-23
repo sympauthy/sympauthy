@@ -143,7 +143,7 @@ class ClaimValueValidator(
      * refused, as `docs/design/claims.md` has it. An empty object is a value; only null clears the claim.
      * Nothing is cleaned inside the document.
      */
-    internal fun validateJsonForClaim(value: Any): Optional<Any> {
+    private fun validateJsonForClaim(value: Any): Optional<Any> {
         if (value !is Map<*, *>) {
             throw recoverableBusinessExceptionOf(
                 "user.claim_value_validator.invalid_json",
@@ -159,7 +159,7 @@ class ClaimValueValidator(
      * It is measured on the form [ClaimValueMapper.toEntity] stores, which is also the form a response
      * publishes, so the cap bounds what the column holds and what a reader is handed alike.
      */
-    internal fun validateSizeForClaim(maxSize: Int, value: Any) {
+    private fun validateSizeForClaim(maxSize: Int, value: Any) {
         val size = claimValueMapper.toEntity(value)?.toByteArray(Charsets.UTF_8)?.size ?: 0
         if (size > maxSize) {
             throw recoverableBusinessExceptionOf(

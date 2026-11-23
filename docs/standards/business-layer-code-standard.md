@@ -4,6 +4,8 @@ description: What the `business` layer contributes — the model, the mapper, an
 paths:
   - "server/src/main/kotlin/com/sympauthy/business/**"
   - "server/src/main/kotlin/com/sympauthy/mail/**"
+  - "server/src/main/kotlin/com/sympauthy/monitoring/**"
+  - "server/src/main/kotlin/com/sympauthy/expression/**"
   - "server/src/main/kotlin/com/sympauthy/queue/**"
 ---
 

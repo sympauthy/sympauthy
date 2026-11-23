@@ -11,10 +11,10 @@ import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject
@@ -155,7 +155,7 @@ open class ProviderManager(
      * Resolve the provider [config] declares, fetching its discovery document as a call to its condition where it
      * is an OpenID Connect provider.
      */
-    internal suspend fun resolveProvider(config: ProviderConfig): EnabledProvider {
+    private suspend fun resolveProvider(config: ProviderConfig): EnabledProvider {
         val auth = when (val input = config.auth) {
             is ProviderOAuth2InputConfig -> ProviderOAuth2Config(
                 clientId = input.clientId,

@@ -14,8 +14,8 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.interactiveFlowSessionConcurrentModificationExceptionOf
-import com.sympauthy.monitoring.telemetry.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.FlowMetrics.SessionEnding.COMPLETED
+import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.monitoring.telemetry.manager.FlowMetrics.SessionEnding.COMPLETED
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder

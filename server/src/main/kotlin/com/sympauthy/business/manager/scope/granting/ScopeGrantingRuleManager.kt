@@ -13,7 +13,7 @@ import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.expression.InvalidRuleExpressionException
+import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import jakarta.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -93,7 +93,7 @@ class ScopeGrantingRuleManager(
      *
      * @see [ScopeGrantingRule.getApplicableScopes]
      */
-    internal fun findApplicableScopeGrantingRulesAccordingToScopes(
+    private fun findApplicableScopeGrantingRulesAccordingToScopes(
         rules: List<ScopeGrantingRule>,
         requestedScopes: List<EnabledScope>,
     ): List<ApplicableScopeGrantingRule> {

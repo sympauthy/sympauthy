@@ -11,8 +11,8 @@ import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
 import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.UserInfoEndpointClient
 import com.sympauthy.client.remoteOutcome
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.RemoteCallMonitor
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException

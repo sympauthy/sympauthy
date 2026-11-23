@@ -13,10 +13,10 @@ import com.sympauthy.client.authorization.webhook.AuthorizationWebhookClient
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.client.remoteErrorType
-import com.sympauthy.monitoring.Condition
-import com.sympauthy.monitoring.RemoteCallMonitor
 import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.monitoring.model.Outcome
 import jakarta.inject.Inject
 import jakarta.inject.Provider
 import jakarta.inject.Singleton
