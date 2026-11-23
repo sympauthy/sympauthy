@@ -1,9 +1,9 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.model
 
 /**
  * A mail this server sends, by the template it is drawn from.
  *
- * Each is counted under its own value on `sympauthy.mail.sends`, the lowercased name, the notices included —
+ * Each is counted under its own value on `sympauthy.mail.sends`, its [kind], the notices included —
  * see `docs/design/telemetry.md`.
  */
 enum class Mail(
@@ -40,9 +40,9 @@ enum class Mail(
         get() = "mail.$template.subject"
 
     /**
-     * Value of the `mail` attribute a send is counted under, and the kind its queue item is written with.
+     * The kind its queue item is written with, and the value of the `mail` attribute a send is counted under.
      */
-    val metricName: String
+    val kind: String
         get() = name.lowercase()
 
     companion object {
@@ -50,6 +50,6 @@ enum class Mail(
          * The mail whose queue items are of [kind], or null where this build sends none of it: an item a previous
          * build queued.
          */
-        fun ofKindOrNull(kind: String): Mail? = entries.firstOrNull { it.metricName == kind }
+        fun ofKindOrNull(kind: String): Mail? = entries.firstOrNull { it.kind == kind }
     }
 }

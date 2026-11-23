@@ -1,9 +1,9 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.model
 
-import com.sympauthy.mail.MailFailure.MailServerUnwell
-import com.sympauthy.mail.MailFailure.PermanentRefusal
-import com.sympauthy.mail.MailFailure.TemporaryRefusal
-import com.sympauthy.mail.MailFailure.Unclassified
+import com.sympauthy.mail.model.MailFailure.MailServerUnwell
+import com.sympauthy.mail.model.MailFailure.PermanentRefusal
+import com.sympauthy.mail.model.MailFailure.TemporaryRefusal
+import com.sympauthy.mail.model.MailFailure.Unclassified
 import io.micronaut.email.EmailException
 import jakarta.mail.AuthenticationFailedException
 import jakarta.mail.MessagingException

@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import com.sympauthy.server.MailMessages
 import io.micronaut.context.MessageSource

@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import com.sympauthy.business.manager.validationcode.ValidationCodeMediaSender
 import com.sympauthy.business.model.code.ValidationCode
@@ -7,6 +7,7 @@ import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.mail.model.Mail
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration

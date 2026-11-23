@@ -124,6 +124,30 @@ model whether an administrator asked for it or the person did, so managers are d
 — user, client, consent, token, flow — never by caller. An `admin/` package below the HTTP boundary
 would be a second copy of the domain, and the two copies would drift.
 
+### A subject that is not authentication
+
+**`business` is authentication, and every other subject the server needs is a package of its own
+at the top of the tree.** Composing and delivering a mail, or holding a promise until somebody
+outside takes it, is work the server cannot sign anybody in without, and none of it is what the
+server is for. Kept out of `business`, it leaves `business` reading as the domain a deployment
+chose SympAuthy for, and a reader looking for how a mail is retried does not have to know which
+manager first sent one.
+
+**A subject's package is laid out as `business` is** — `manager/`, `model/`, `mapper/`,
+`exception/` — because it is the same kind of code: use cases over a model of its own, translated
+from the rows it keeps. Its rows are still `data`'s and its routes still `api`'s, so that a schema
+is one set of migrations and a surface is gated in one tree. [The general
+standard](../standards/general-code-standard.md#where-a-package-goes) holds the rules, and which
+way each depends.
+
+- **`mail/`** — the mails a manager sends: drawing one in the brand, and delivering it to the mail
+  server. A manager decides that a message goes out through an interface `business` declares, and
+  `mail` implements it, as [mail](mail.md) describes.
+- **`queue/`** — what the server promised somebody not waiting on the request: writing an item with
+  the change it reports, and delivering it through the deliverer its destination's package
+  implements, as [delivery](delivery.md) describes. It knows no destination: `mail` hands it a
+  payload and reads it back.
+
 ### Beside the layers
 
 Some packages sit next to the three rather than inside one of them, and the test is the same in
@@ -143,11 +167,7 @@ them.
 The same test puts the failure root and its mapper beside the layers — `business` and `api` both
 throw and neither may depend on the other, which [the exception
 standard](../standards/exception-code-standard.md) holds — and it puts the health indicators there
-too, since configuration must not depend on the thing that publishes its verdict. It puts `mail/`
-there as well: a manager decides that a message goes out, and composing the mail, drawing it in the
-brand and delivering it to the mail server is rendering and communication, not a use case. [The
-general standard](../standards/general-code-standard.md#dependency-rules) holds which way the two
-depend.
+too, since configuration must not depend on the thing that publishes its verdict.
 
 ## One schema, more than one database
 
@@ -193,7 +213,8 @@ sympauthy/
 │   │   ├── exception/          LocalizedException and its mapper
 │   │   ├── expression/         the rule language, shared by config and business
 │   │   ├── health/             what the server reports about itself
-│   │   ├── mail/               drawing the mails a manager sends, and delivering them
+│   │   ├── mail/               manager/ model/ mapper/ — the mails a manager sends
+│   │   ├── queue/              manager/ model/ mapper/ — what is delivered after the commit
 │   │   ├── cron/ server/ util/ view/
 │   │   └── Application.kt
 │   └── src/main/resources/

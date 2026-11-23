@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import com.sympauthy.business.manager.branding.BrandManager
 import com.sympauthy.business.manager.branding.BrandTokenResolver

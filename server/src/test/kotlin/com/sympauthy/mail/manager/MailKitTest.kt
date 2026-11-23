@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import com.sympauthy.business.manager.branding.BrandManager
 import com.sympauthy.business.manager.branding.BrandTokenResolver
@@ -10,6 +10,7 @@ import com.sympauthy.config.model.DisabledUrlsConfig
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.ThemeConfig
+import com.sympauthy.mail.model.Mail
 import freemarker.template.Configuration
 import io.micronaut.context.i18n.ResourceBundleMessageSource
 import io.micronaut.core.io.ResourceResolver

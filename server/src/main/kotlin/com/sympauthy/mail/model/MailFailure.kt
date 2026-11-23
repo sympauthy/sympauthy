@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.model
 
 import com.sympauthy.client.remoteErrorType
 import jakarta.mail.AuthenticationFailedException

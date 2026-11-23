@@ -1,9 +1,10 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import com.sympauthy.business.manager.password.PasswordResetMessageSender
 import com.sympauthy.business.model.code.ValidationCode
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
+import com.sympauthy.mail.model.Mail
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration

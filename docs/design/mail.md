@@ -108,11 +108,13 @@ template under `views/mails`, and its strings are keyed by that template in
 
 **`ValidationCodeMailSender` and `PasswordResetMailSender` are where a mail is queued**, behind the
 interfaces `business` declares for them, and each sets the expiry of the mails it queues.
-`MailQueue` writes the mail into the caller's transaction, as an item of the `Mail` it is and a
-`MailPayload` holding what it was sent for.
+`MailQueue` writes the mail into the caller's transaction as a queue item whose kind is the `Mail`
+it is, and `QueuedMailMapper` is the one writer and reader of what its payload holds.
 
-**`TemplatedMailBuilderFactory` draws a mail at its attempt**, writing what is read then over what
-was queued, and `MailBrandResolver` is the brand it draws in.
+**`MailDeliverer` is the mail server's deliverer**, which [the
+queue](delivery.md#what-implements-it) hands each mail to attempt. `TemplatedMailBuilderFactory`
+draws the mail then, writing what is read at the attempt over what was queued, and
+`MailBrandResolver` is the brand it draws in.
 
 **`MailFailure` is the authority on how a failed attempt is read off what JavaMail raised**, and its
 KDoc on each case.

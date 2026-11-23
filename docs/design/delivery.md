@@ -107,13 +107,16 @@ is sent twice.
 
 ## What implements it
 
-**`MailQueue.send` writes an item in the caller's transaction, and gives the nudge when that
+**`QueueManager.enqueue` writes an item in the caller's transaction, and gives the nudge when that
 transaction's connection closes.** A connection closes once its transaction has committed or
 rolled back, so the nudge needs nothing from the caller, and after a rollback it finds nothing to
 take. A caller outside a transaction commits the item on its own, and is nudged at once.
 
-**`MailDelivery` is everything after the write**: the poll, an attempt, the retry or the give-up,
-the lease, the hand-back at shutdown.
+**`QueueDelivery` is everything after the write**: the poll, the claim and the lease, the retry or
+the give-up at expiry, the hand-back at shutdown. It hands each item to the `QueueItemDeliverer`
+its destination's package implements, which reads the payload, makes the attempt and answers it as
+a `DeliveryAttempt`; that sealed type is the authority on what becomes of an item for each answer.
+The mail server's deliverer is [mail](mail.md#what-implements-it)'s.
 
 **An item is a row of `queue_items`, whatever its destination.** What the delivery reads of it is
 columns: the destination and the kind it is counted under, its dates and where its retries stand.

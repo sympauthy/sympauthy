@@ -4,7 +4,7 @@ description: How two instances take turns — the lock a transaction holds over 
 paths:
   - "server/src/main/kotlin/com/sympauthy/business/manager/lock/**"
   - "server/src/main/kotlin/com/sympauthy/cron/**"
-  - "server/src/main/kotlin/com/sympauthy/mail/MailDelivery.kt"
+  - "server/src/main/kotlin/com/sympauthy/queue/manager/QueueDelivery.kt"
 ---
 
 # Locking standard

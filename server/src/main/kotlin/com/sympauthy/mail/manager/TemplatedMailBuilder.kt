@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import com.sympauthy.util.renderOrNull
 import freemarker.template.TemplateMethodModelEx
@@ -60,7 +60,7 @@ class TemplatedMailBuilder(
 
     fun set(key: String, value: Any) = this.apply { this.model[key] = value }
 
-    internal fun localizeMessage(messageKey: String): String? {
+    private fun localizeMessage(messageKey: String): String? {
         return messageSource.renderOrNull(messageKey, locale, model)
     }
 

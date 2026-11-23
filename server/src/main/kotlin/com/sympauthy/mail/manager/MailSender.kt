@@ -1,4 +1,4 @@
-package com.sympauthy.mail
+package com.sympauthy.mail.manager
 
 import io.micronaut.context.annotation.Requires
 import io.micronaut.email.Email
