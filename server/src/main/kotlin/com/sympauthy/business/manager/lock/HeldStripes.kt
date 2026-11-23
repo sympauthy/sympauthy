@@ -1,10 +1,9 @@
 package com.sympauthy.business.manager.lock
 
-import io.micronaut.core.async.propagation.KotlinCoroutinePropagation
+import com.sympauthy.data.currentConnectionOrNull
 import io.micronaut.data.connection.ConnectionStatus
 import io.micronaut.data.connection.ConnectionSynchronization
 import jakarta.inject.Singleton
-import kotlinx.coroutines.currentCoroutineContext
 import java.util.Collections
 import java.util.WeakHashMap
 
@@ -38,7 +37,7 @@ class HeldStripes {
         Collections.synchronizedMap(WeakHashMap())
 
     /** The stripes the transaction this coroutine runs in already holds, in the order it took them. */
-    suspend fun held(): List<Int> = connection()?.let(byConnection::get).orEmpty()
+    suspend fun held(): List<Int> = currentConnectionOrNull()?.let(byConnection::get).orEmpty()
 
     /**
      * Record [stripe] as held by the transaction this coroutine runs in, until that transaction's
@@ -49,7 +48,7 @@ class HeldStripes {
      * either rows no record names, or a record naming rows nothing ever locked.
      */
     suspend fun hold(stripe: Int) {
-        val connection = connection() ?: return
+        val connection = currentConnectionOrNull() ?: return
         val held = byConnection.compute(connection) { _, alreadyHeld -> alreadyHeld.orEmpty() + stripe }
         if (held?.size == 1) {
             connection.registerSynchronization(object : ConnectionSynchronization {
@@ -59,15 +58,4 @@ class HeldStripes {
             })
         }
     }
-
-    /**
-     * The connection the transaction running this coroutine is open on, and null where there is none.
-     *
-     * Read from the coroutine's own context rather than from the thread the same propagated context is
-     * bound to, so that the answer does not turn on which thread the database resumed the caller on.
-     */
-    private suspend fun connection(): ConnectionStatus<*>? =
-        KotlinCoroutinePropagation.findPropagatedContext(currentCoroutineContext())
-            ?.find(ConnectionStatus::class.java)
-            ?.orElse(null)
 }

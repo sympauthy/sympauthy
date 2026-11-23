@@ -12,14 +12,11 @@ import com.sympauthy.business.model.flow.InteractiveFlowStep
 import com.sympauthy.business.model.flow.InteractiveFlowStepResult
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PreparedTerminalEffect
-import com.sympauthy.monitoring.ConditionMonitor
-import com.sympauthy.monitoring.loggerForClass
 import com.sympauthy.monitoring.telemetry.CustomSpanTracer
 import com.sympauthy.monitoring.telemetry.FlowMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
-import kotlinx.coroutines.CancellationException
 
 /**
  * Advances the purposes of an [InteractiveFlowSession] to the single abstract step the end-user must go
@@ -36,11 +33,8 @@ open class InteractiveFlowEngine(
     @Inject private val sessionManager: InteractiveFlowSessionManager,
     @Inject private val provisionalAccountManager: ProvisionalAccountManager,
     @Inject private val userSecurityContextManager: UserSecurityContextManager,
-    @Inject private val customSpanTracer: CustomSpanTracer,
-    @Inject private val conditionMonitor: ConditionMonitor
+    @Inject private val customSpanTracer: CustomSpanTracer
 ) {
-
-    private val logger = loggerForClass()
 
     /**
      * Advance [session] to the next [InteractiveFlowStep] the end-user must go through, running any insertion
@@ -189,34 +183,12 @@ open class InteractiveFlowEngine(
         }
         val completed = commitCompletion(session, effects)
         sessionManager.recordEnded(completed, completed.completeDate, FlowMetrics.SessionEnding.COMPLETED)
-        effects.forEach { runAfterCommit(completed, it) }
         // Once that transaction has committed, in one of its own. The account is real by then, so nothing
         // in user_security_contexts ever names one the abandoned-account sweep may delete — and a write
         // that can violate a unique index is kept out of a transaction whose rollback would answer a
         // person whose sign-in succeeded with a failure. It fails quietly for the same reason.
         userSecurityContextManager.fold(completed)
         return InteractiveFlowStepResult(completed, InteractiveFlowStep.Complete)
-    }
-
-    /**
-     * Run what [effect] does once the completion of [session] has committed, failing quietly.
-     *
-     * The session is completed by then, so a failure answered to the end-user would tell a person whose flow
-     * succeeded that it did not, and the next effect's work would be skipped for nothing.
-     */
-    private suspend fun runAfterCommit(
-        session: CompletedInteractiveFlowSession,
-        effect: PreparedTerminalEffect.Apply
-    ) {
-        try {
-            effect.afterCommit()
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (failure: Exception) {
-            if (!conditionMonitor.absorb(failure)) {
-                logger.warn(failure) { "Could not run a terminal effect of session ${session.id} after its commit." }
-            }
-        }
     }
 
     /**

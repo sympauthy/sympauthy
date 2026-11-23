@@ -20,6 +20,19 @@ features:
 
 javamail:
   enabled: true
+  # In milliseconds, as JavaMail reads them; JavaMail itself waits for ever without them, and a mail
+  # server that stops answering, or stops reading mid-message, would then hold its attempt for good.
+  # JavaMail reads them under the protocol's own name, so smtps is given the same.
+  properties:
+    mail:
+      smtp:
+        connectiontimeout: 10000
+        timeout: 30000
+        writetimeout: 30000
+      smtps:
+        connectiontimeout: 10000
+        timeout: 30000
+        writetimeout: 30000
 
 auth:
   user-merging-enabled: true

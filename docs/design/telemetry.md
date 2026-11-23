@@ -118,6 +118,8 @@ counts each kind of event an operator watches with a metric of its own.
 | `sympauthy.condition.degraded` | what `/health` reports, as a number an alert can watch |
 | `sympauthy.remote_call.duration` | a slow or failing provider, authorization webhook or mail server |
 | `sympauthy.mail.sends` | which mails go out, and a sweep of addresses through the password reset |
+| `sympauthy.queue.pending`, `.oldest_age` | a destination that is not keeping up with what is queued for it |
+| `sympauthy.queue.given_up` | what was promised and never delivered, because it expired or could not be built |
 | `sympauthy.job.run.duration`, `sympauthy.job.deletions` | a cleanup job that fails or never runs; how fast its tables grow |
 | `sympauthy.lock.wait.duration` | contention on the lock a change to one account takes |
 | `netty.eventexecutor.tasks.pending` | a Netty event loop falling behind, on the server's side or the database's |
@@ -147,10 +149,25 @@ password the rules refuse.
 under `condition` as it answers a provider's. The mail is this server's own event: `mail` says
 which one went out, the notices of the password reset each under a value of their own, so that a
 burst of notices to addresses no account uses shows rather than folding into the codes. The mail
-kinds are `Mail`'s values; a mail that never reached the mail server, discarded at startup or never
-built, is no send. A row a previous build queued under a template this build draws no `Mail` from is
-sent and reported to the condition, and not counted, since a send is counted under the set this
-build ships. [The design
+kinds are `Mail`'s values. A send is one attempt, counted by how that attempt ended: a mail
+[retried](mail.md#what-the-mail-server-answers-decides-whether-a-mail-is-tried-again) is counted
+once per attempt, a temporary refusal as `error` under its reply code — the mail server answered,
+so its call is `refused` and its condition stays well — and a refusal for good as `refused`. A mail
+that never reached the mail server, because it could not be built, is no send. An item a previous
+build queued under a kind this build sends no `Mail` of cannot be built either, and is given up
+unsent and counted under no kind, since every kind is counted under the set this build ships.
+
+**What waits to be delivered is counted by `destination` and `kind`.** For a mail, `destination` is
+`mail` and `kind` is the value `mail` carries on a send. `sympauthy.queue.pending` and
+`sympauthy.queue.oldest_age`, in seconds and `0` when nothing waits, are read by each poll and
+published as it read them; every instance reads the same backlog, so a dashboard takes the largest
+value across instances rather than their sum. A backlog alone degrades nothing: the destination's
+condition says when the destination is down. `sympauthy.queue.given_up` counts what no other metric
+does — an item that expired, under `error.type` `expired`, and one that could not be built or failed
+in no listed way, under the class of what failed rather than of the mail sender's wrapper around it
+— and a mail refused for good is on its send instead. The notice that a password changed, meeting
+temporary refusals for its week, keeps `oldest_age` growing under a condition that is well, which a
+stream of `error` sends under a `4xx` reply code tells from an outage. [The design
 FAQ](design-faq.md#is-a-mail-sent-counted-on-the-call-carrying-it) holds the shape that lost.
 
 **A use case is counted by its manager, never by a controller**, so that it is counted whichever
@@ -539,7 +556,7 @@ collector, or are held until its queue fills. Nothing in the server refreshes it
 **The database's connection pool.** The server opens none, so `db.client.connection.*` waits for
 one.
 
-**The metrics left for later.** Consents and grants opened, the mail queue's depth, signing times,
+**The metrics left for later.** Consents and grants opened, signing times,
 refused claim writes, invitations, and the introspection and revocation endpoints.
 
 **A metric of query duration.** No hook could time a query without wrapping the connection factory,

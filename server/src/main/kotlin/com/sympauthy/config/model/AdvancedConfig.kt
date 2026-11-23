@@ -30,6 +30,7 @@ data class EnabledAdvancedConfig(
     val authorizationWebhook: AuthorizationWebhookAdvancedConfig,
     val pagination: PaginationConfig,
     val securityContext: SecurityContextConfig,
+    val queue: QueueConfig,
 ) : AdvancedConfig()
 
 class DisabledAdvancedConfig(
@@ -96,6 +97,33 @@ data class PaginationConfig(
      * Largest size a caller may ask for.
      */
     val maxSize: Int,
+)
+
+/**
+ * How the queue delivering what this server promised somebody — a mail today — looks for what is due, and how
+ * long it waits between two attempts at one item. `docs/design/delivery.md` is what they bound.
+ */
+data class QueueConfig(
+    /**
+     * How often each instance looks for the items that are due.
+     */
+    val pollInterval: Duration,
+    /**
+     * The most items one instance holds from its polls at once.
+     */
+    val batchSize: Int,
+    /**
+     * How long an instance shutting down lets its attempts under way finish before it hands back what it holds.
+     */
+    val shutdownGrace: Duration,
+    /**
+     * How long an item waits after its first attempt ended, each later wait being twice the one before.
+     */
+    val retryFirstDelay: Duration,
+    /**
+     * The longest an item waits between two attempts.
+     */
+    val retryMaxDelay: Duration,
 )
 
 data class AuthorizationWebhookAdvancedConfig(

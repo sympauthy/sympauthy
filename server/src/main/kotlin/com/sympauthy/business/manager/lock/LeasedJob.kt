@@ -1,8 +1,7 @@
 package com.sympauthy.business.manager.lock
 
 /**
- * A job one instance of this server doing it is enough for, whether it comes round on a schedule or
- * happens once at startup.
+ * A scheduled job one instance of this server doing it is enough for.
  *
  * Every value has a row in `job_leases`, seeded by the migration that created the table;
  * `JobLeaseRepositoryTest` holds the two sets equal, because a job whose row is missing takes no lease
@@ -20,13 +19,7 @@ enum class LeasedJob {
      * Deleting the tokens and codes that are done with, and then the grants left with neither — see
      * `docs/design/grants.md`.
      */
-    CLEAN_FINISHED_GRANTS,
-
-    /**
-     * Delivering the mails a previous run of this server persisted and did not send, which happens once
-     * when an instance becomes ready rather than on a schedule.
-     */
-    MAIL_BACKLOG;
+    CLEAN_FINISHED_GRANTS;
 
     /** The `job_leases` row this job takes, spelled the way the migration seeded it. */
     val leaseName: String

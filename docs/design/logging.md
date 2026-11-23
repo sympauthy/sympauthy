@@ -41,7 +41,7 @@ is where somebody arriving later reads the state.
 | Level | What it carries |
 | --- | --- |
 | WARN | one operation failed for a reason the server names, and an operator would act on it |
-| INFO | the server's lifecycle: startup, a recovery, a backlog replayed |
+| INFO | the server's lifecycle: startup, a recovery |
 | DEBUG | the decisions an operator turns on to investigate |
 
 **What a caller caused is not logged.** A wrong password, a refused grant, a stale `state`: the

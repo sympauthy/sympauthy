@@ -76,9 +76,9 @@ class PasswordResetInteractiveFlowPurposeHandler(
      * grants the replaced ones opened, and tell the account's proven address its password changed.
      *
      * Its writes are applied before the authorization's own, since this gate stands in front of it: the grant the
-     * authorization opens records the new password, and is not among those revoked. The mail is sent only once the
-     * completion has committed. Nothing is applied for a reset that did not get as far as a new password for the
-     * session's user.
+     * authorization opens records the new password, and is not among those revoked. The mail is written with them,
+     * so it leaves only once the completion has committed, and only for the request that committed it. Nothing is
+     * applied for a reset that did not get as far as a new password for the session's user.
      */
     override suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect {
         val passwordReset = passwordResetManager.fetchPasswordResetOrNull(session)
@@ -91,16 +91,11 @@ class PasswordResetInteractiveFlowPurposeHandler(
         val user = userManager.findById(userId)
         val address = collectedClaimManager.findVerifiedEmailOrNull(userId)
         val changedAt = LocalDateTime.now()
-        return object : PreparedTerminalEffect.Apply {
-            override suspend fun apply() {
-                val replacement = passwordManager.replacePasswords(user, newPassword)
-                oauth2Manager.setPasswordId(session, replacement.passwordId)
-                grantManager.revokeGrantsByPasswords(user.id, replacement.replacedPasswordIds, changedAt)
-            }
-
-            override suspend fun afterCommit() {
-                address?.let { messageSender.sendPasswordChanged(it, changedAt) }
-            }
+        return PreparedTerminalEffect.Apply {
+            val replacement = passwordManager.replacePasswords(user, newPassword)
+            oauth2Manager.setPasswordId(session, replacement.passwordId)
+            grantManager.revokeGrantsByPasswords(user.id, replacement.replacedPasswordIds, changedAt)
+            address?.let { messageSender.sendPasswordChanged(it, changedAt) }
         }
     }
 }

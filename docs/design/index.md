@@ -33,6 +33,11 @@ to change it, and why it was settled that way. The rules a change is held to are
 - **[The security context](security-context.md)** — the address, the user agent and the location a
   request is believed to carry: which proxy a deployment names, what naming one promises and what it
   does not, and how long a place somebody signs in from is kept.
+- **[Delivery](delivery.md)** — what the server promised somebody not waiting on the request: when
+  an item leaves, how long it is retried against its destination, how the instances share the work,
+  and what an operator sees of it.
+- **[Mail](mail.md)** — the mails the server sends: what each commits with and how long it stays
+  worth sending, what the mail server's answers mean for one, and how a mail is drawn in the brand.
 - **[Branding](branding.md)** — what a deployment's sign-in pages and admin show of it: the colours,
   images and name it configures, what `/branding` answers for them, and what an image host being
   down costs.

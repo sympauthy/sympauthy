@@ -148,8 +148,7 @@ handler, whether it still needs a step:
    purpose the gate was protecting.
 3. When every purpose has resolved, the engine has each handler prepare its terminal effect, in
    order, then moves the session to completed and applies them all — or fails it on the first
-   that refuses, without applying any. Once that has committed, it runs what each effect left for
-   after the commit.
+   that refuses, without applying any.
 
 It returns an `InteractiveFlowStepResult`: the session as it now stands, and the step to send the
 person to.
@@ -184,13 +183,11 @@ what it hands the engine is the writes alone. The decision travels to those writ
 than through the session: two requests completing one session each decide, and only the one that
 commits applies what it decided.
 
-**What a rollback could not take back waits for the commit.** A mail queued inside the transaction
-is on its way before the transaction has decided anything, and a completion that then rolls back —
-the request that lost the version check, a sign-up whose identifier was taken — would have told a
-person about a change that did not happen. So an effect hands the engine a second part, run only
-once the completion has committed, and only by the request that committed it. The flow has
-succeeded by then: a failure there is logged rather than answered to the person, and nothing
-retries it.
+**A mail an effect sends is one of its writes.** It is written inside the completion transaction
+and leaves only once that has committed, so a completion that rolls back — the request that lost the
+version check, a sign-up whose identifier was taken — takes it back with the rest, and nobody is
+told about a change that did not happen. When it leaves and how long it is tried is
+[delivery](delivery.md)'s.
 
 ## The handlers
 

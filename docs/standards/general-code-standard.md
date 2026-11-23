@@ -47,6 +47,24 @@ does with its own components is a standard per layer:
 **A feature is built from the rows above that it needs.** A component fitting none of them is a
 change to this table before it is a class.
 
+## Where a package goes
+
+**`business` holds authentication**: the accounts and their claims, the clients and what they were
+granted, the tokens, and the flows a person signs in through.
+
+**A subject the server needs that is not authentication is a top-level package of its own**, named
+for the subject — `mail`, `queue`. It sits beside `business` rather than inside it, so that
+`business` stays the one place a reader looks for what the server is for.
+
+**Such a package is laid out as `business` is**, with a `manager`, a `model`, a `mapper` and an
+`exception` package, each where it has one, and contributes the `business` rows of the table above.
+[The `business` layer standard](business-layer-code-standard.md) holds its components as it holds
+`business`'s.
+
+**`api` and `data` keep their organization.** A subject's routes are controllers in `api` and its
+tables are entities and repositories in `data`, so that every surface is gated in one tree and every
+schema is one set of migrations.
+
 ## Dependency rules
 
 | From | May import | Never |
@@ -56,7 +74,8 @@ change to this table before it is a class.
 | `data` | Micronaut Data, `monitoring` and the JDK | `business`, `api` |
 | `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
 | `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
-| `mail` | `business`, `config`, `data`, `client`, `monitoring`, the Micronaut framework, the JDK | `api`, `view` |
+| `mail` | `business`, `config`, `client`, `monitoring`, `queue`, `server`, the Micronaut framework, the JDK | `api`, `view` |
+| `queue` | `business`, `config`, `data`, `monitoring`, `server`, the Micronaut framework, the JDK | `api`, `view`, `mail` |
 | `monitoring` | logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
 
 **`business` may import `api` in exactly one case**: a manager in `business.manager.auth` or
@@ -79,6 +98,13 @@ manager, no mapper and no business exception reaches `config`.
 **`business` never imports `mail`.** A manager reaches a mail through an interface `business`
 declares and `mail` implements, as `ValidationCodeMediaSender` is, so a use case says that a message
 goes out without depending on how it is composed, drawn or delivered.
+
+**`queue` imports `server` for the scope its delivery runs in.** What it attempts in the background
+has to stop when the server does, and `BackgroundScope` is the one scope the server cancels then.
+
+**`queue` never imports the package of a destination it delivers to.** That package implements
+`QueueItemDeliverer`, which the queue is handed by injection, so an item's payload is read only by
+the package that wrote it.
 
 **`mail` may import `view` in exactly one case**: the path of a route a mail links to, so that the
 address a mail carries and the route answering it are one constant.
@@ -153,9 +179,12 @@ the top level of the file that owns the concept — a downcast off an authentica
 caused it.
 
 **Retries and circuit breaking on outbound calls.** A third-party provider being down surfaces as a
-failed flow. What is fetched once at startup and nothing else would ever resolve — a provider's
-discovery document, a brand image — is tried again until it answers, as
-[logging](../design/logging.md#what-implements-it) describes.
+failed flow, which the person in it can retry. What is fetched once at startup and nothing else
+would ever resolve — a provider's discovery document, a brand image — is tried again until it
+answers, as [logging](../design/logging.md#what-implements-it) describes. A mail is retried, because
+it is a promise to somebody who is not waiting on the call and cannot retry it themselves — how is
+[delivery](../design/delivery.md)'s. Circuit breaking stays open for every call, a delivery's
+included.
 
 **Caching.** What the configuration determines, or the server fetched once at startup, is held until
 a restart. Nothing a request fetches from a third party is memoised, a provider's key set included.

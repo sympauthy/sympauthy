@@ -159,7 +159,7 @@ class ClaimAclValidatorTest {
 
         assertNull(result.writableByPerson)
         assertEquals(
-            listOf("claims.test.acl.writable-by-person" to "config.lifetime.not_positive"),
+            listOf("claims.test.acl.writable-by-person" to "config.duration.not_positive"),
             ctx.errors.map { it.key to it.messageId }
         )
     }
@@ -169,9 +169,9 @@ class ClaimAclValidatorTest {
         val zeroAge = """AUTHENTICATION_IS_YOUNGER_THAN("0s")"""
         assertEquals(
             listOf(
-                "claims.test.acl.writable-by-person" to "config.lifetime.not_positive",
-                "claims.test.acl.writable-by-person" to "config.lifetime.not_positive",
-                "claims.test.acl.readable-by-client" to "config.lifetime.not_positive"
+                "claims.test.acl.writable-by-person" to "config.duration.not_positive",
+                "claims.test.acl.writable-by-person" to "config.duration.not_positive",
+                "claims.test.acl.readable-by-client" to "config.duration.not_positive"
             ),
             errorsOf(
                 parsedAcl(

@@ -62,10 +62,11 @@ return an intermediate type whose fields are all nullable.
 **The validator only decides.** Check ranges, consistency between two values, and whether a
 referenced audience or scope exists, recording each error rather than throwing it.
 
-**A lifetime is refused unless it is greater than zero, through `validateLifetime`.** An expiration,
-a retention, a maximum age: zero reads as no lifetime and means the opposite, whatever the key bounds
-ending as soon as it began, so every lifetime is held to it and an operator reads
-`config.lifetime.not_positive` whichever key they wrote.
+**A duration that must be positive is refused unless it is greater than zero, through
+`validatePositiveDuration`.** An expiration, a retention, a maximum age, an interval, a delay: zero
+reads as no duration and means the opposite — what the key bounds ending as soon as it began, or
+coming round without pause — so every one is held to it and an operator reads
+`config.duration.not_positive` whichever key they wrote.
 
 **A cross-domain reference is passed in already resolved**, as a map the validator can look into.
 The factory resolves it and hands it over.
@@ -153,9 +154,11 @@ operator gets one signal.
 
 **Errors are accumulated and reported together.** A file with four mistakes reports four mistakes.
 
-**Startup work asks readiness before it runs.** A credential minted at startup, a queue replayed
-there: each asks `ConfigReadiness` first, and says in the log that it did not run, because silence
-is indistinguishable from having had nothing to do. The signal is for the server to obey and not
+**Work started at startup asks readiness before it runs, and so does what it then repeats.** A
+credential minted at startup, a queue polled from then on: each asks `ConfigReadiness` first, and
+says in the log that it did not run — once, and not at every repeat, since configuration is read once
+and the answer does not change — because silence is indistinguishable from having had nothing to
+do. The signal is for the server to obey and not
 only to publish. Serving a request is a different matter — there, the configuration a request needs
 throws where it is read.
 

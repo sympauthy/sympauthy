@@ -13,7 +13,8 @@ import java.time.Duration
  */
 fun advancedConfigOf(
     pagination: PaginationConfig = PaginationConfig(defaultSize = 20, maxSize = 100),
-    securityContext: SecurityContextConfig = trustlessSecurityContext()
+    securityContext: SecurityContextConfig = trustlessSecurityContext(),
+    queue: QueueConfig = shippedQueue()
 ): EnabledAdvancedConfig {
     val hashConfig = HashConfig(
         costParameter = 16_384,
@@ -43,9 +44,21 @@ fun advancedConfigOf(
             timeout = Duration.ofSeconds(5)
         ),
         pagination = pagination,
-        securityContext = securityContext
+        securityContext = securityContext,
+        queue = queue
     )
 }
+
+/**
+ * The queue's timings as the `default` environment ships them.
+ */
+fun shippedQueue() = QueueConfig(
+    pollInterval = Duration.ofSeconds(5),
+    batchSize = 50,
+    shutdownGrace = Duration.ofSeconds(5),
+    retryFirstDelay = Duration.ofSeconds(10),
+    retryMaxDelay = Duration.ofMinutes(2)
+)
 
 /**
  * What a deployment that configured nothing has: no proxy named for the address, no edge read for a

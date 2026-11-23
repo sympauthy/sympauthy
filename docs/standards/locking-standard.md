@@ -1,9 +1,10 @@
 ---
 description: How two instances take turns — the lock a transaction holds over an object, the batch
-  a run claims, and the lease a scheduled job takes.
+  a run claims, and the lease a scheduled job or a row of work takes.
 paths:
   - "server/src/main/kotlin/com/sympauthy/business/manager/lock/**"
   - "server/src/main/kotlin/com/sympauthy/cron/**"
+  - "server/src/main/kotlin/com/sympauthy/queue/manager/QueueDelivery.kt"
 ---
 
 # Locking standard
@@ -22,6 +23,7 @@ the queries are [the `data` layer standard](data-layer-code-standard.md).
 | a check-then-act over more than one table, or over a value no row holds yet | a named lock |
 | a bounded batch of rows a run is about to write | a claim |
 | a scheduled job that should run once per tick across the deployment | a lease |
+| a row of work an instance attempts outside any transaction | a claim, then a lease on the row |
 
 **A uniqueness one column can express is a constraint, not a lock.** Add the unique index and
 translate the violation in the manager that writes the row.
@@ -144,9 +146,9 @@ migration.** A test holds the enum and the seeded rows equal, on every dialect.
 proves its run stopped with it, so a run whose instance falls silent goes on beside the one that
 takes the lease next — the lease saves the work, it does not own it.
 
-**A lease is timed by the database's clock, never by an instance's.** Read the clock back and add
-the duration in Kotlin: it is the one clock every instance shares, and no dialect spells adding a
-bound interval to `LOCALTIMESTAMP` the way the others do.
+**A lease, and every date a claim compares, is timed by the database's clock, never by an
+instance's.** Read the clock back and add the duration in Kotlin: it is the one clock every instance
+shares, and no dialect spells adding a bound interval to `LOCALTIMESTAMP` the way the others do.
 
 **A lease is taken and released around the block, never as a transaction the block runs inside.**
 Both statements stand alone and commit on their own; a job's own writes are its own transactions.
@@ -158,13 +160,31 @@ lease already expired and was taken elsewhere ends its run without freeing someb
 renewed for as long as the instance holding it is alive, so no job carries a duration of its own and
 nobody has to guess one.
 
-**A job that runs once rather than on a schedule holds its lease over the work, not over the reading
-of it.** The mail backlog is the case: a lease released once the rows were read leaves them for the
-next instance to become ready, which reads the same rows and sends them a second time.
-
 **A renewal names its holder and passes over a lease that has already expired.** A lease past its
 expiry may have been taken in the meantime, and pulling it back takes the job from the instance now
 running it.
+
+## Leasing a row of work
+
+**A row an instance attempts across transactions is claimed, then held under a lease of its own.**
+The claim and the write of the lease are one transaction, and the attempt runs outside it: what the
+attempt waits on — a mail server, a client's endpoint — would otherwise hold a row lock for the
+length of somebody else's outage. [Delivery](../design/delivery.md) is the case.
+
+**The lease is two columns of the row, the holder and its expiry, and is timed, renewed and named
+as a job's is.** The holder is the instance's name `JobLeaseManager` mints, so the renewal saying an
+instance is alive renews both kinds of lease, and a row's lease expires on how long its instance may
+go silent rather than on how long an attempt takes.
+
+**A renewal names the rows the instance is attempting, never every row it holds.** A row whose
+attempt ended without its release committing is then left to lapse, rather than renewed for as long
+as the instance lives.
+
+**Every statement ending an attempt names the holder.** An instance whose lease lapsed and was taken
+elsewhere then changes nothing of the row, as a job's release frees nobody else's lease.
+
+**A row is written held by nobody.** Whoever takes it first attempts it; a row written already held
+would wait for that hold to lapse if its holder never came back to it.
 
 ## Tests
 
@@ -183,9 +203,6 @@ why.
 
 **A lock held across requests.** The interactive flow session serialises its own steps with a
 version-guarded update, and [the interactive flow](../design/interactive-flow.md) owns that.
-
-**A work row leased across transactions.** Nothing yet claims a row, commits, and takes minutes to
-finish it; a queue whose delivery outlives its transaction would need a lease column of its own.
 
 **Fairness.** Nothing queues, and an instance that loses a lock or a lease has no claim on the next
 one.

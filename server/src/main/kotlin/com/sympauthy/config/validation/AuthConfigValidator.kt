@@ -62,12 +62,12 @@ class AuthConfigValidator {
             )
         }
 
-        validateLifetime(ctx, "$TOKEN_KEY.access-expiration", parsed.accessExpiration)
-        validateLifetime(ctx, "$TOKEN_KEY.id-expiration", parsed.idExpiration)
-        validateLifetime(ctx, "$TOKEN_KEY.refresh-expiration", parsed.refreshExpiration)
-        validateLifetime(ctx, "$AUTHORIZATION_CODE_KEY.expiration", parsed.authorizationCodeExpiration)
-        validateLifetime(ctx, "$INTERACTIVE_FLOW_KEY.expiration", parsed.interactiveFlowExpiration)
-        validateLifetime(ctx, "$GRANT_KEY.expiration", parsed.grantExpiration)
+        validatePositiveDuration(ctx, "$TOKEN_KEY.access-expiration", parsed.accessExpiration)
+        validatePositiveDuration(ctx, "$TOKEN_KEY.id-expiration", parsed.idExpiration)
+        validatePositiveDuration(ctx, "$TOKEN_KEY.refresh-expiration", parsed.refreshExpiration)
+        validatePositiveDuration(ctx, "$AUTHORIZATION_CODE_KEY.expiration", parsed.authorizationCodeExpiration)
+        validatePositiveDuration(ctx, "$INTERACTIVE_FLOW_KEY.expiration", parsed.interactiveFlowExpiration)
+        validatePositiveDuration(ctx, "$GRANT_KEY.expiration", parsed.grantExpiration)
 
         if (ctx.hasErrors) return null
         return EnabledAuthConfig(

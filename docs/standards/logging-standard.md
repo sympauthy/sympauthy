@@ -36,7 +36,7 @@ a request this server composed alone — a client's authorization webhook — is
 | Level | The line says |
 | --- | --- |
 | WARN | one operation failed for a reason the server names, and an operator would act on it |
-| INFO | the server's lifecycle: startup, a recovery, a backlog replayed |
+| INFO | the server's lifecycle: startup, a recovery |
 | DEBUG | a decision an operator turns on to investigate |
 
 **An outcome the caller caused is not logged.** The response carries it.

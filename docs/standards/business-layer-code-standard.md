@@ -1,14 +1,17 @@
 ---
 description: What the `business` layer contributes — the model, the mapper, and the manager that
-  owns the transaction.
+  owns the transaction — and every package laid out as it is.
 paths:
   - "server/src/main/kotlin/com/sympauthy/business/**"
+  - "server/src/main/kotlin/com/sympauthy/mail/**"
+  - "server/src/main/kotlin/com/sympauthy/queue/**"
 ---
 
 # The `business` layer code standard
 
 One of the [code standards](general-code-standard.md). This one covers the components the
-`business` layer contributes: the model, the mapper, and the manager.
+`business` layer contributes: the model, the mapper, and the manager. A package [laid out as
+`business` is](general-code-standard.md#where-a-package-goes) is held to it too.
 
 ## The model
 
@@ -132,11 +135,15 @@ have the assertion call it.
 | Visibility | For |
 | --- | --- |
 | public | the manager's API, what other managers and controllers call |
-| `internal` | a helper that exists to keep a public method readable |
+| `private` | a helper that exists to keep a public method readable |
+| `internal` | a helper another class or a test reuses, or is meant to |
 | `open` | public, and transactional |
 | `internal open` | a helper that is its own transaction |
 
-**A helper is `internal` rather than `private`**, so the test in the same module can reach it.
+**A helper is `private` unless it is reused, or meant to be.** A test driving it directly reuses
+it, and so does a second class; widen it to `internal` when one does, rather than ahead of one. A
+helper that is its own transaction is `internal open` whoever calls it, since the proxy that opens
+the transaction cannot reach a `private` one.
 
 ### Composition
 

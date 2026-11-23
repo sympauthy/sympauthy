@@ -28,6 +28,15 @@ advanced:
   pagination:
     default-size: 20
     max-size: 100
+  queue:
+    poll-interval: 5s
+    batch-size: 50
+    shutdown-grace: 5s
+    retry:
+      first-delay: 10s
+      # Two minutes rather than five, so a ten-minute validation code is tried eight times and outlasts
+      # an outage of about eight and a half minutes, where five would cover about five.
+      max-delay: 2m
   security-context:
     known-user-retention: 180d
     # Empty because naming a proxy promises this server is only reachable through it, and no file
