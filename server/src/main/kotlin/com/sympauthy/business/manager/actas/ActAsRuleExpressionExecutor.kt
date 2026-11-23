@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.actas
 
 import com.ezylang.evalex.config.ExpressionConfiguration
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.expression.manager.ActAsRuleExpressions
 import com.sympauthy.expression.manager.evaluateRuleExpression
 import jakarta.inject.Singleton

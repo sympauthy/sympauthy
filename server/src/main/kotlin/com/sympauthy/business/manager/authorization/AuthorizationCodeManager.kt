@@ -2,19 +2,19 @@ package com.sympauthy.business.manager.authorization
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
+import com.sympauthy.business.model.authorization.AuthorizationCode
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.oauth2.AuthorizationCode
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
+import com.sympauthy.platform.random.RandomGenerator
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime

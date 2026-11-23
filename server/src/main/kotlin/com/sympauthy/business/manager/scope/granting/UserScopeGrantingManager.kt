@@ -1,12 +1,16 @@
 package com.sympauthy.business.manager.scope.granting
 
 import com.sympauthy.business.manager.scope.ScopeManager
-import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.scope.BuiltInGrantableScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.GrantableUserScope
+import com.sympauthy.business.model.scope.granting.GrantedBy
+import com.sympauthy.business.model.scope.granting.ScopeGrantingMethodResult
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject

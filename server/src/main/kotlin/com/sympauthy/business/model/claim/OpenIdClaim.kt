@@ -1,0 +1,184 @@
+package com.sympauthy.business.model.claim
+
+import com.sympauthy.business.model.scope.BuiltInClientScopeId
+import com.sympauthy.expression.manager.ScopeIsConsentedFunction
+import com.sympauthy.expression.manager.ScopeIsGrantedFunction
+
+/**
+ * Generated OpenID Connect claims whose values are managed by the authorization server.
+ *
+ * These claims are always enabled and read-only, and a deployment configures nothing about them: every
+ * key `claims.<id>` accepts is refused where it is written. What they are is held here, and nowhere else.
+ * [computedPerAccount] is where they part. See `docs/design/claims.md`.
+ */
+enum class GeneratedOpenIdConnectClaim(
+    val id: String,
+    val verifiedId: String? = null,
+    val dataType: ClaimDataType,
+    val group: ClaimGroup? = null,
+    /**
+     * The consentable scope agreeing to which opens this claim, or null where nothing gates it.
+     */
+    val scope: String? = null,
+    /**
+     * Whether this claim has a value for an account, which
+     * [GeneratedClaimsManager][com.sympauthy.business.manager.claim.GeneratedClaimsManager] can compute from
+     * a user id alone: true for the claims that describe the account, false for one that describes a
+     * single authorization, which the surfaces listing what is known about somebody leave out.
+     */
+    val computedPerAccount: Boolean = true,
+    /**
+     * The places this claim already reaches, which no deployment decides. Nothing filters on it, since
+     * no place reads a generated claim out of the collected claims; the administration API and the
+     * discovery document are answered off it. See `docs/design/claims.md`.
+     */
+    val publishedIn: Set<ClaimPublicationPlace>
+) {
+    SUBJECT(
+        id = OpenIdConnectClaimId.SUB,
+        dataType = ClaimDataType.STRING,
+        scope = "profile",
+        publishedIn = setOf(
+            ClaimPublicationPlace.ID_TOKEN,
+            ClaimPublicationPlace.USERINFO,
+            ClaimPublicationPlace.DISCOVERY
+        )
+    ),
+
+    /**
+     * Carried by `/userinfo` alone: the id token carries the issue time of the token rather than the
+     * date this person's claims were last collected, and never claimed `updated_at`.
+     */
+    UPDATED_AT(
+        id = OpenIdConnectClaimId.UPDATED_AT,
+        dataType = ClaimDataType.NUMBER,
+        scope = "profile",
+        publishedIn = setOf(ClaimPublicationPlace.USERINFO, ClaimPublicationPlace.DISCOVERY)
+    ),
+
+    /**
+     * When the person proved a credential of their account, which the id token claims for itself out of
+     * the authorization rather than reading it off the account. Nothing gates it on consent. See
+     * `docs/design/security.md`.
+     */
+    AUTHENTICATION_TIME(
+        id = OpenIdConnectClaimId.AUTH_TIME,
+        dataType = ClaimDataType.NUMBER,
+        publishedIn = setOf(
+            ClaimPublicationPlace.ID_TOKEN,
+            ClaimPublicationPlace.ACCESS_TOKEN,
+            ClaimPublicationPlace.INTROSPECTION,
+            ClaimPublicationPlace.DISCOVERY
+        ),
+        computedPerAccount = false
+    );
+
+    /**
+     * Who may read this claim, which is the same for every generated claim but the scope above: the person
+     * on consent to that scope, and a client on that consent or on `users:claims:read`. Where the claim
+     * names no scope, both doors are open to everybody.
+     *
+     * The client's door opens on `users:claims:read` because that is the scope a backend reads a person's
+     * claims under whatever they agreed to, which is the door the shipped `application` template opens. A
+     * file cannot open either door further, since no key of `claims.<id>` is accepted for a generated claim.
+     */
+    val acl: ClaimAcl
+        get() {
+            val consentScope = scope ?: return ClaimAcl.SHUT.copy(
+                readableByPerson = ClaimAclExpression(expression = "true"),
+                readableByClient = ClaimAclExpression(expression = "true")
+            )
+            // A departure from the dependency rules, which forbid `business.model` to import `expression`: the
+            // functions are named through their constants so that renaming one breaks the compile here, rather
+            // than shutting every generated claim's read doors at the first request.
+            val consented = "${ScopeIsConsentedFunction.FUNCTION_NAME}(\"$consentScope\")"
+            val granted = "${ScopeIsGrantedFunction.FUNCTION_NAME}(\"${BuiltInClientScopeId.USERS_CLAIMS_READ}\")"
+            return ClaimAcl.SHUT.copy(
+                readableByPerson = ClaimAclExpression(expression = consented, consentedScopes = setOf(consentScope)),
+                readableByClient = ClaimAclExpression(
+                    expression = "$consented || $granted",
+                    consentedScopes = setOf(consentScope)
+                )
+            )
+        }
+
+    companion object {
+
+        /** The ids of every generated claim, which is what a claim written in a file is held against. */
+        val ids: Set<String> = entries.mapTo(mutableSetOf(), GeneratedOpenIdConnectClaim::id)
+
+        /**
+         * The ids of the generated claims that describe an account, which is the set every per-person
+         * surface answers for. One this server computes per authorization is absent, so nothing lists
+         * it against somebody or answers null for it.
+         */
+        val idsComputedPerAccount: Set<String> = entries
+            .filter(GeneratedOpenIdConnectClaim::computedPerAccount)
+            .mapTo(mutableSetOf(), GeneratedOpenIdConnectClaim::id)
+    }
+}
+
+/**
+ * Identifiers of all OpenID Connect claims supported by this application.
+ *
+ * Used to determine the [ClaimOrigin] of a claim: if its ID is listed here,
+ * the claim originates from the OpenID Connect specification.
+ *
+ * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims">Standard claims</a>
+ */
+object OpenIdConnectClaimId {
+    /**
+     * When the person proved a credential of their account, which OpenID Connect Core §2 defines and
+     * RFC 9068 §2.2.1 places in a JWT access token as well.
+     *
+     * **A deployment may not declare a claim under this name**: it is a
+     * [GeneratedOpenIdConnectClaim], so `ClaimsConfigValidator` refuses every key written under
+     * `claims.auth_time`.
+     */
+    const val AUTH_TIME = "auth_time"
+
+    /**
+     * The composite claim OpenID Connect Core §5.1.1 defines, whose members are the claims of
+     * [ClaimGroup.ADDRESS] rather than claims of their own, and [FORMATTED] the one member no claim
+     * carries.
+     *
+     * **Both are deliberately absent from [ALL]**, which is the set a claim's [ClaimOrigin] is read
+     * against: no deployment declares a claim under either name, and every place that publishes an
+     * address assembles the object out of the claims that do carry its members.
+     */
+    const val ADDRESS = "address"
+
+    const val FORMATTED = "formatted"
+
+    const val SUB = "sub"
+    const val NAME = "name"
+    const val GIVEN_NAME = "given_name"
+    const val FAMILY_NAME = "family_name"
+    const val MIDDLE_NAME = "middle_name"
+    const val NICKNAME = "nickname"
+    const val PREFERRED_USERNAME = "preferred_username"
+    const val PROFILE = "profile"
+    const val PICTURE = "picture"
+    const val WEBSITE = "website"
+    const val EMAIL = "email"
+    const val EMAIL_VERIFIED = "email_verified"
+    const val GENDER = "gender"
+    const val BIRTHDATE = "birthdate"
+    const val ZONEINFO = "zoneinfo"
+    const val LOCALE = "locale"
+    const val PHONE_NUMBER = "phone_number"
+    const val PHONE_NUMBER_VERIFIED = "phone_number_verified"
+    const val UPDATED_AT = "updated_at"
+    const val STREET_ADDRESS = "street_address"
+    const val LOCALITY = "locality"
+    const val REGION = "region"
+    const val POSTAL_CODE = "postal_code"
+    const val COUNTRY = "country"
+
+    val ALL: Set<String> = setOf(
+        AUTH_TIME, SUB, NAME, GIVEN_NAME, FAMILY_NAME, MIDDLE_NAME, NICKNAME,
+        PREFERRED_USERNAME, PROFILE, PICTURE, WEBSITE, EMAIL, EMAIL_VERIFIED,
+        GENDER, BIRTHDATE, ZONEINFO, LOCALE, PHONE_NUMBER, PHONE_NUMBER_VERIFIED,
+        UPDATED_AT, STREET_ADDRESS, LOCALITY, REGION, POSTAL_CODE, COUNTRY
+    )
+}

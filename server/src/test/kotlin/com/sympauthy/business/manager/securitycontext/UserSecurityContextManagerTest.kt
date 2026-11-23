@@ -2,14 +2,14 @@ package com.sympauthy.business.manager.securitycontext
 
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.security.SecurityContextGeo
-import com.sympauthy.business.model.security.observedRequestOf
-import com.sympauthy.business.model.security.securityContextKey
+import com.sympauthy.business.model.securitycontext.SecurityContextGeo
+import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
+import com.sympauthy.business.model.securitycontext.securityContextKey
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
 import io.micronaut.data.exceptions.EntityExistsException
 import io.mockk.CapturingSlot
 import io.mockk.coEvery

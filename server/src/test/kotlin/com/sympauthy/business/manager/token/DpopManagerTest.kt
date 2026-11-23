@@ -9,13 +9,13 @@ import com.nimbusds.jose.jwk.ECKey
 import com.nimbusds.jose.jwk.KeyUse
 import com.nimbusds.jwt.JWTClaimsSet
 import com.nimbusds.jwt.SignedJWT
-import com.sympauthy.api.controller.OAUTH2_SURFACE
-import com.sympauthy.api.controller.OPENID_SURFACE
+import com.sympauthy.api.OAUTH2_SURFACE
+import com.sympauthy.api.OPENID_SURFACE
 import com.sympauthy.api.exception.OAuth2Exception
-import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
 import com.sympauthy.business.model.token.AuthenticationToken
+import com.sympauthy.business.model.token.DpopBoundRequest
 import com.sympauthy.config.model.EnabledUrlsConfig
 import io.mockk.every
 import io.mockk.junit5.MockKExtension

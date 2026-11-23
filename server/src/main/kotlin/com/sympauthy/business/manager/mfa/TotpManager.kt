@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.mfa
 
-import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.manager.mfa.TotpManager.Companion.CLOCK_SKEW_STEPS
 import com.sympauthy.business.mapper.TotpEnrollmentMapper
 import com.sympauthy.business.model.mfa.MfaMethodType
@@ -8,6 +7,7 @@ import com.sympauthy.business.model.mfa.TotpEnrollment
 import com.sympauthy.business.model.user.User
 import com.sympauthy.data.model.TotpEnrollmentEntity
 import com.sympauthy.data.repository.TotpEnrollmentRepository
+import com.sympauthy.platform.random.RandomGenerator
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URLEncoder

@@ -1,8 +1,8 @@
 package com.sympauthy.api.filter
 
-import com.sympauthy.api.controller.OAUTH2_SURFACE
-import com.sympauthy.api.controller.OPENID_SURFACE
-import com.sympauthy.api.controller.USER_SURFACE
+import com.sympauthy.api.OAUTH2_SURFACE
+import com.sympauthy.api.OPENID_SURFACE
+import com.sympauthy.api.USER_SURFACE
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest

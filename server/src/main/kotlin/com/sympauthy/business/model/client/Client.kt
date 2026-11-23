@@ -2,7 +2,7 @@ package com.sympauthy.business.model.client
 
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.scope.EnabledScope
 
 data class Client(
     val id: String,

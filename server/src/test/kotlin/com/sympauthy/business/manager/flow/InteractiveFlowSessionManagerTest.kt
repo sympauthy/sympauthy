@@ -15,8 +15,8 @@ import com.sympauthy.business.model.jwt.DecodedJwt
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.manager.FlowMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.monitoring.telemetry.manager.FlowMetrics
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify

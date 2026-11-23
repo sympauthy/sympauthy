@@ -1,8 +1,8 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.authorization.AuthorizationCode
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import jakarta.inject.Singleton
 

@@ -11,6 +11,7 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.grant.GrantOpenedForResult
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
@@ -19,7 +20,6 @@ import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TARGET
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.TokenRequest
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

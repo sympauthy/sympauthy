@@ -89,8 +89,8 @@ unwinds them in order.
 port and arrives programmatically; a context started without either has no repository bean at all.
 
 **No context a test starts schedules anything.** A job scheduled at startup sweeps against the live
-clock inside whichever test started the context, so `UnscheduledJobsConfigurer` leaves the `cron`
-package out of every context a test JVM builds and `application-test.yml` turns off the framework's
+clock inside whichever test started the context, so `UnscheduledJobsConfigurer` leaves every
+`…Cron` out of every context a test JVM builds and `application-test.yml` turns off the framework's
 own. A sweep is proved by calling the manager that does the work.
 
 **No test in `server/src/test` starts the server.** A context closed while the suite runs leaves

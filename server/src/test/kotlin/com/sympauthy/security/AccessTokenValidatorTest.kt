@@ -1,6 +1,6 @@
 package com.sympauthy.security
 
-import com.sympauthy.api.controller.OPENID_SURFACE
+import com.sympauthy.api.OPENID_SURFACE
 import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.business.exception.InvalidJwtException
@@ -14,15 +14,15 @@ import com.sympauthy.business.manager.token.TokenManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.jwt.DecodedJwt
-import com.sympauthy.business.model.oauth2.DpopBoundRequest
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_DPOP_PROOF
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_TOKEN
-import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidDpopProof
-import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.business.model.token.AuthenticationToken
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.business.model.token.DpopBoundRequest
+import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InvalidDpopProof
+import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.monitoring.telemetry.manager.TokenMetrics
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP
 import io.micronaut.core.async.propagation.KotlinCoroutinePropagation

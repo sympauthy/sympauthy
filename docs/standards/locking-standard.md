@@ -2,9 +2,9 @@
 description: How two instances take turns — the lock a transaction holds over an object, the batch
   a run claims, and the lease a scheduled job or a row of work takes.
 paths:
-  - "server/src/main/kotlin/com/sympauthy/business/manager/lock/**"
+  - "server/src/main/kotlin/com/sympauthy/platform/lock/**"
   - "server/src/main/kotlin/com/sympauthy/cron/**"
-  - "server/src/main/kotlin/com/sympauthy/queue/manager/QueueDelivery.kt"
+  - "server/src/main/kotlin/com/sympauthy/platform/queue/manager/QueueDelivery.kt"
 ---
 
 # Locking standard
@@ -196,7 +196,7 @@ held before the lock existed.
 splits every deployment mid-upgrade.
 
 **A job's sweep is proved by calling the manager, never by starting a context.** No context a test
-starts carries the `cron` package, and [the testing standard](testing-standard.md#unit-tests) says
+starts carries a `…Cron`, and [the testing standard](testing-standard.md#unit-tests) says
 why.
 
 ## What this standard does not cover

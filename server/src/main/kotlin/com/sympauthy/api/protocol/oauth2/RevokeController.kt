@@ -1,0 +1,103 @@
+package com.sympauthy.api.protocol.oauth2
+
+import com.sympauthy.api.OAUTH2_SURFACE
+import com.sympauthy.api.protocol.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
+import com.sympauthy.api.protocol.oauth2.util.CLIENT_ID_PARAMETER_DESCRIPTION
+import com.sympauthy.api.protocol.oauth2.util.CLIENT_SECRET_PARAMETER_DESCRIPTION
+import com.sympauthy.api.protocol.oauth2.util.ClientAuthenticationUtil
+import com.sympauthy.api.protocol.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION
+import com.sympauthy.api.protocol.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
+import com.sympauthy.api.protocol.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
+import com.sympauthy.api.protocol.oauth2.util.getRequiredParam
+import com.sympauthy.business.manager.token.TokenManager
+import io.micronaut.http.HttpRequest
+import io.micronaut.http.HttpResponse
+import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED
+import io.micronaut.http.annotation.Controller
+import io.micronaut.http.annotation.Part
+import io.micronaut.http.annotation.Post
+import io.micronaut.security.annotation.Secured
+import io.micronaut.security.rules.SecurityRule
+import io.swagger.v3.oas.annotations.ExternalDocumentation
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
+import jakarta.inject.Inject
+
+@Controller(OAUTH2_REVOKE_ENDPOINT)
+class RevokeController(
+    @Inject private val tokenManager: TokenManager,
+    @Inject private val clientAuthenticationUtil: ClientAuthenticationUtil
+) {
+
+    @Operation(
+        description = "Revoke a token issued to the client, RFC 7009 §2. A confidential client authenticates with " +
+            "HTTP Basic authentication or with `client_id` and `client_secret` in the body, and a public client " +
+            "sends `client_id` alone. Revoking a token revokes the grant it was issued under, whether it is an " +
+            "access token or a refresh token: every token issued for the same authorization, and every token " +
+            "a token exchange obtained from one of them.",
+        tags = ["oauth2"],
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Empty body. Answered as well when the token does not validate, is already revoked " +
+                    "or was issued to another client, which leaves it as it is."
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = TOKEN_BAD_REQUEST_DESCRIPTION + "\n" +
+                    "- `invalid_client`: no client credentials are sent, or the ones sent in the body do not " +
+                    "authenticate a client."
+            ),
+            ApiResponse(
+                responseCode = "401",
+                description = "- `invalid_client`: the client credentials sent with HTTP Basic authentication do " +
+                    "not authenticate a client. The `WWW-Authenticate` header names the `Basic` scheme."
+            ),
+            ApiResponse(responseCode = "413", description = INVALID_REQUEST_BODY_TOO_LARGE_DESCRIPTION)
+        ],
+        externalDocs = ExternalDocumentation(
+            description = "RFC 7009",
+            url = "https://datatracker.ietf.org/doc/html/rfc7009"
+        )
+    )
+    @Secured(SecurityRule.IS_ANONYMOUS)
+    @Post(consumes = [APPLICATION_FORM_URLENCODED])
+    suspend fun revokeToken(
+        request: HttpRequest<*>,
+        @Part(TOKEN_PARAM)
+        @Schema(
+            name = TOKEN_PARAM,
+            description = "Access token or refresh token to revoke, RFC 7009 §2.1.",
+            requiredMode = Schema.RequiredMode.REQUIRED
+        )
+        token: String?,
+        @Part(TOKEN_TYPE_HINT_PARAM)
+        @Schema(
+            name = TOKEN_TYPE_HINT_PARAM,
+            description = TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION,
+            allowableValues = ["access_token", "refresh_token"]
+        )
+        tokenTypeHint: String? = null,
+        @Part("client_id")
+        @Schema(
+            name = "client_id",
+            description = CLIENT_ID_PARAMETER_DESCRIPTION + " A public client sends it alone."
+        )
+        clientId: String?,
+        @Part("client_secret")
+        @Schema(name = "client_secret", description = CLIENT_SECRET_PARAMETER_DESCRIPTION)
+        clientSecret: String?,
+    ): HttpResponse<Unit> {
+        val client = clientAuthenticationUtil.resolveClientAllowingPublic(request, clientId, clientSecret)
+        val requiredToken = getRequiredParam(token, TOKEN_PARAM)
+        tokenManager.revokeTokenByEncodedToken(client, requiredToken)
+        return HttpResponse.ok()
+    }
+
+    companion object {
+        const val OAUTH2_REVOKE_ENDPOINT = "$OAUTH2_SURFACE/revoke"
+        const val TOKEN_PARAM = "token"
+        const val TOKEN_TYPE_HINT_PARAM = "token_type_hint"
+    }
+}

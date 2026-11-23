@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.claim
 
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.claim.Claim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.ClaimsConfig
 import com.sympauthy.config.model.orThrow

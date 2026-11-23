@@ -2,15 +2,15 @@ package com.sympauthy.business.manager.scope.granting
 
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.GrantedBy
-import com.sympauthy.business.model.rule.ScopeGrantingRule
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.DECLINE
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.granting.GrantedBy
+import com.sympauthy.business.model.scope.granting.ScopeGrantingMethodResult
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRule
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRuleBehavior.DECLINE
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.expression.exception.InvalidRuleExpressionException

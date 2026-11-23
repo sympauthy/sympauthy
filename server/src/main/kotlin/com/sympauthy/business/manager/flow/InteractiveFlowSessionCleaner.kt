@@ -1,6 +1,5 @@
 package com.sympauthy.business.manager.flow
 
-import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionConfirmRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionLinkProviderRepository
@@ -11,8 +10,9 @@ import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepos
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
-import com.sympauthy.monitoring.telemetry.manager.FlowMetrics
-import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
+import com.sympauthy.platform.monitoring.telemetry.manager.FlowMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

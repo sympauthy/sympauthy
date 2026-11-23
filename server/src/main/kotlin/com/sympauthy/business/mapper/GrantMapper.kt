@@ -2,16 +2,16 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.model.authorization.RequestedClaims
 import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.model.consent.ConsentedBy
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
-import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.GrantedBy
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.scope.granting.GrantedBy
 import com.sympauthy.data.model.GrantEntity
-import com.sympauthy.monitoring.telemetry.manager.SpanReference
-import com.sympauthy.util.enumValueOfWireNameOrNull
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.monitoring.telemetry.manager.SpanReference
+import com.sympauthy.platform.util.enumValueOfWireNameOrNull
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 
 @Singleton

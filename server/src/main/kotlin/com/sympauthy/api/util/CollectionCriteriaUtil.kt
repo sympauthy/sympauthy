@@ -12,8 +12,8 @@ import com.sympauthy.business.model.collection.CollectionOperator.IN
 import com.sympauthy.business.model.collection.CollectionOperator.IS_NULL
 import com.sympauthy.business.model.collection.CollectionOperator.STARTS_WITH
 import com.sympauthy.business.model.collection.CollectionSortKey
-import com.sympauthy.util.enumValueOfWireNameOrNull
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.enumValueOfWireNameOrNull
+import com.sympauthy.platform.util.wireName
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 

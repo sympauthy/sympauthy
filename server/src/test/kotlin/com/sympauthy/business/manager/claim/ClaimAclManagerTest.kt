@@ -2,17 +2,17 @@ package com.sympauthy.business.manager.claim
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimAclContext
+import com.sympauthy.business.model.claim.ClaimAclExpression
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.claim.GeneratedClaim
+import com.sympauthy.business.model.claim.PersonalClaim
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.GeneratedClaim
-import com.sympauthy.business.model.user.claim.PersonalClaim
+import com.sympauthy.business.model.scope.ConsentableUserScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.token.WwwAuthenticateChallenge
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

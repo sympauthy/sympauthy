@@ -2,7 +2,7 @@ package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.jwt.JwtAlgorithm
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.security.GeoProvider
+import com.sympauthy.business.model.securitycontext.edge.GeoProvider
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ConfiguredImplementation

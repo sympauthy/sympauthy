@@ -1,10 +1,10 @@
 package com.sympauthy.business.model.flow
 
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
-import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
+import com.sympauthy.business.model.authorization.RequestedClaims
+import com.sympauthy.business.model.consent.ConsentedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.scope.granting.GrantedBy
 import java.time.LocalDateTime
 import java.util.*
 

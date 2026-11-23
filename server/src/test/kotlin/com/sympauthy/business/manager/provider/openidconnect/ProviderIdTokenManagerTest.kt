@@ -3,10 +3,10 @@ package com.sympauthy.business.manager.provider.openidconnect
 import com.nimbusds.jose.JWSAlgorithm
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
-import com.sympauthy.monitoring.manager.ConditionMonitor
-import com.sympauthy.monitoring.manager.RemoteCallMonitor
-import com.sympauthy.monitoring.model.Condition
-import com.sympauthy.monitoring.telemetry.manager.LibraryHttpCallTracer
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.telemetry.manager.LibraryHttpCallTracer
 import io.micronaut.core.async.propagation.KotlinCoroutinePropagation
 import io.micronaut.core.propagation.PropagatedContext
 import io.micronaut.tracing.opentelemetry.OpenTelemetryPropagationContext

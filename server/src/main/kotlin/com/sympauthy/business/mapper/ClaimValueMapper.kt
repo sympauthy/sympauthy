@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimDataType.BOOLEAN
 import io.micronaut.json.tree.JsonNode
 import io.micronaut.serde.ObjectMapper
 import jakarta.inject.Inject

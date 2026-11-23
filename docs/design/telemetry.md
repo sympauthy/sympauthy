@@ -243,11 +243,12 @@ FAQ](design-faq.md#are-the-runtime-metrics-read-through-opentelemetrys-runtime-i
 
 ### Where the instruments live
 
-**The instruments are in `monitoring/telemetry/manager/`, one class per subject.** They are built
-on the `OpenTelemetry` bean, OpenTelemetry's no-op while telemetry is off, so the code recording them
-has one path either way. `Throwable.toOutcome()`, in `exception/`, is the one place a failure becomes
-an `outcome` and an `error.type`; `RemoteCallMonitor`, in `monitoring/manager/`, is the one place a
-remote call is timed and reported to `ConditionMonitor`.
+**The instruments are in `platform/monitoring/telemetry/manager/`, one class per subject.** They
+are built on the `OpenTelemetry` bean, OpenTelemetry's no-op while telemetry is off, so the code
+recording them has one path either way. `Throwable.toOutcome()`, in `exception/`, is the one place a
+failure becomes an `outcome` and an `error.type`; `RemoteCallMonitor`, in
+`platform/monitoring/manager/`, is the one place a remote call is timed and reported to
+`ConditionMonitor`.
 
 ## Traces
 
@@ -465,13 +466,13 @@ listener**, from the proxy's callbacks around the factory's and the connection's
 same instrumenter and the same attributes as a query.
 
 **Every other span of the server's own is opened through `CustomSpanTracer`**, in
-`monitoring/telemetry/manager/` beside the instruments, one method per span so that its name and its
-attributes are written once. It opens a span as a child of the request's, carried on the propagated
-context the coroutine holds, so that what the stage queries and calls is under it; it marks a flow
-session on the request's local root span. The key set's fetch is opened by `LibraryHttpCallTracer`,
-on the thread the library fetches on, with the HTTP semantic conventions' own extractors. Neither is
-the framework's span annotations, which reach no private method and no call a library makes on its
-own thread.
+`platform/monitoring/telemetry/manager/` beside the instruments, one method per span so that its
+name and its attributes are written once. It opens a span as a child of the request's, carried on
+the propagated context the coroutine holds, so that what the stage queries and calls is under it; it
+marks a flow session on the request's local root span. The key set's fetch is opened by
+`LibraryHttpCallTracer`, on the thread the library fetches on, with the HTTP semantic conventions'
+own extractors. Neither is the framework's span annotations, which reach no private method and no
+call a library makes on its own thread.
 
 ## When the collector does not answer
 
@@ -516,12 +517,12 @@ change of state does.
 result to the SDK's own autoconfiguration. Every bean of it is conditioned on
 `micronaut.otel.enabled` not being `false`, and so is every bean the server adds.
 
-**What the server adds to the framework's integration is at the root of `monitoring/telemetry/`,
-in the package of the conditions it reports to.** A customizer wraps every exporter the SDK builds so that each export is
-reported to the collector's condition, and a second adds the instance's id to the resource the SDK
-builds; the signals' own additions are under each of them above. They report on the server rather
-than serve anything, which by [the architecture's test](architecture.md#beside-the-layers) puts them
-beside the layers.
+**What the server adds to the framework's integration is at the root of
+`platform/monitoring/telemetry/`, in the package of the conditions it reports to.** A customizer
+wraps every exporter the SDK builds so that each export is reported to the collector's condition,
+and a second adds the instance's id to the resource the SDK builds; the signals' own additions are
+under each of them above. They report on the server rather than serve anything, which puts them
+where [no audience sees them](architecture.md#a-mechanism-no-audience-sees).
 
 **The exporter sends over the JDK's HTTP client.** The default sender is OkHttp, a second HTTP stack
 and a second Kotlin runtime in a distroless image for one POST the JDK already makes. It speaks

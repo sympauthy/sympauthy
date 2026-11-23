@@ -1,6 +1,6 @@
 package com.sympauthy.mail.manager
 
-import com.sympauthy.server.MailMessages
+import com.sympauthy.platform.server.MailMessages
 import io.micronaut.context.MessageSource
 import io.micronaut.context.annotation.Value
 import jakarta.inject.Inject

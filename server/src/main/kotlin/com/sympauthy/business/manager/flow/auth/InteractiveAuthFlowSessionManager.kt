@@ -9,6 +9,9 @@ import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Ma
 import com.sympauthy.business.manager.invitation.InvitationManager
 import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
+import com.sympauthy.business.model.authorization.RequestedClaims
+import com.sympauthy.business.model.authorization.UncheckedAuthorizationRequest
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlow
@@ -16,7 +19,7 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.config.model.ClientTemplatesConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.DEFAULT

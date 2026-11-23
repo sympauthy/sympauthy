@@ -10,7 +10,7 @@ import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAuthorizationFlow
 import com.sympauthy.config.properties.AuthorizationFlowConfigurationProperties.Companion.AUTHORIZATION_FLOWS_KEY
-import com.sympauthy.util.mergeUri
+import com.sympauthy.platform.util.mergeUri
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Singleton
 import java.net.URI

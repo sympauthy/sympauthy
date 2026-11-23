@@ -1,0 +1,403 @@
+package com.sympauthy.api.protocol.oauth2
+
+import com.sympauthy.api.exception.OAuth2Exception
+import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
+import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.model.authorization.UncheckedAuthorizationRequest
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
+import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.UNSUPPORTED_RESPONSE_TYPE
+import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
+import io.micronaut.http.HttpStatus
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
+
+@ExtendWith(MockKExtension::class)
+class AuthorizeControllerTest {
+
+    @MockK
+    lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
+
+    @MockK
+    lateinit var engine: InteractiveFlowEngine
+
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
+    @InjectMockKs
+    lateinit var controller: AuthorizeController
+
+    private val observed = observedRequestOf()
+
+    @Test
+    fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is null`() = runTest {
+        val exception = assertThrows<OAuth2Exception> {
+            controller.authorize(
+                observedRequest = observed,
+                responseType = null,
+                uncheckedClientId = "client",
+                uncheckedRedirectUri = "https://example.com/callback",
+                uncheckedScopes = null,
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
+            )
+        }
+        assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
+        assertEquals("authorize.response_type.missing", exception.detailsId)
+    }
+
+    @Test
+    fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is blank`() = runTest {
+        val exception = assertThrows<OAuth2Exception> {
+            controller.authorize(
+                observedRequest = observed,
+                responseType = "   ",
+                uncheckedClientId = "client",
+                uncheckedRedirectUri = "https://example.com/callback",
+                uncheckedScopes = null,
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
+            )
+        }
+        assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
+        assertEquals("authorize.response_type.missing", exception.detailsId)
+    }
+
+    @Test
+    fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is token`() = runTest {
+        val exception = assertThrows<OAuth2Exception> {
+            controller.authorize(
+                observedRequest = observed,
+                responseType = "token",
+                uncheckedClientId = "client",
+                uncheckedRedirectUri = "https://example.com/callback",
+                uncheckedScopes = null,
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
+            )
+        }
+        assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
+        assertEquals("authorize.response_type.invalid", exception.detailsId)
+    }
+
+    @Test
+    fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type is unknown value`() = runTest {
+        val exception = assertThrows<OAuth2Exception> {
+            controller.authorize(
+                observedRequest = observed,
+                responseType = "id_token",
+                uncheckedClientId = "client",
+                uncheckedRedirectUri = "https://example.com/callback",
+                uncheckedScopes = null,
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
+            )
+        }
+        assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
+        assertEquals("authorize.response_type.invalid", exception.detailsId)
+    }
+
+    @Test
+    fun `authorize - Throws UNSUPPORTED_RESPONSE_TYPE when response_type has wrong casing`() = runTest {
+        val exception = assertThrows<OAuth2Exception> {
+            controller.authorize(
+                observedRequest = observed,
+                responseType = "Code",
+                uncheckedClientId = "client",
+                uncheckedRedirectUri = "https://example.com/callback",
+                uncheckedScopes = null,
+                uncheckedClientState = null,
+                uncheckedClientNonce = null,
+                uncheckedCodeChallenge = null,
+                uncheckedCodeChallengeMethod = null,
+                uncheckedInvitationToken = null,
+                uncheckedMaxAge = null,
+                uncheckedClaims = null
+            )
+        }
+        assertEquals(UNSUPPORTED_RESPONSE_TYPE, exception.errorCode)
+        assertEquals("authorize.response_type.invalid", exception.detailsId)
+    }
+
+    @Test
+    fun `authorize - Returns 303 redirect to sign-in URI on valid code request`() = runTest {
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val signInUri = URI("https://auth.example.com/sign-in?state=abc")
+
+        coEvery {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = "https://example.com/callback",
+                    scopes = "openid profile",
+                    state = "my-state",
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+        } returns (session to flow)
+
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
+
+        val result = controller.authorize(
+            observedRequest = observed,
+            responseType = "code",
+            uncheckedClientId = "client",
+            uncheckedRedirectUri = "https://example.com/callback",
+            uncheckedScopes = "openid profile",
+            uncheckedClientState = "my-state",
+            uncheckedClientNonce = null,
+            uncheckedCodeChallenge = null,
+            uncheckedCodeChallengeMethod = null,
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null,
+            uncheckedClaims = null
+        )
+
+        assertEquals(HttpStatus.SEE_OTHER, result.status)
+        assertEquals(signInUri, result.header("Location")?.let { URI(it) })
+        coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
+    }
+
+    @Test
+    fun `authorize - Passes all query parameters to startAuthorizationWith`() = runTest {
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val signInUri = URI("https://auth.example.com/sign-in?state=abc")
+
+        coEvery {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = "https://example.com/cb",
+                    scopes = "openid email",
+                    state = "my-state",
+                    nonce = "my-nonce",
+                    codeChallenge = "challenge123",
+                    codeChallengeMethod = "S256",
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+        } returns (session to flow)
+
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
+
+        controller.authorize(
+            observedRequest = observed,
+            responseType = "code",
+            uncheckedClientId = "my-client",
+            uncheckedRedirectUri = "https://example.com/cb",
+            uncheckedScopes = "openid email",
+            uncheckedClientState = "my-state",
+            uncheckedClientNonce = "my-nonce",
+            uncheckedCodeChallenge = "challenge123",
+            uncheckedCodeChallengeMethod = "S256",
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null,
+            uncheckedClaims = null
+        )
+
+        coVerify(exactly = 1) {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = "https://example.com/cb",
+                    scopes = "openid email",
+                    state = "my-state",
+                    nonce = "my-nonce",
+                    codeChallenge = "challenge123",
+                    codeChallengeMethod = "S256",
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `authorize - Passes the request object parameters to startAuthorizationWith`() = runTest {
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val signInUri = URI("https://auth.example.com/sign-in?state=abc")
+
+        coEvery {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = "eyJhbGciOiJub25lIn0.e30.",
+                    requestObjectUri = "https://client.example.com/request.jwt"
+                )
+            )
+        } returns (session to flow)
+
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
+
+        controller.authorize(
+            observedRequest = observed,
+            responseType = "code",
+            uncheckedClientId = "my-client",
+            uncheckedRedirectUri = null,
+            uncheckedScopes = null,
+            uncheckedClientState = null,
+            uncheckedClientNonce = null,
+            uncheckedCodeChallenge = null,
+            uncheckedCodeChallengeMethod = null,
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null,
+            uncheckedClaims = null,
+            uncheckedRequest = "eyJhbGciOiJub25lIn0.e30.",
+            uncheckedRequestUri = "https://client.example.com/request.jwt"
+        )
+
+        coVerify(exactly = 1) {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "my-client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = "eyJhbGciOiJub25lIn0.e30.",
+                    requestObjectUri = "https://client.example.com/request.jwt"
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `authorize - Passes null for absent optional parameters`() = runTest {
+        val session = mockk<InteractiveFlowSession>()
+        val flow = mockk<InteractiveFlow>()
+        val signInUri = URI("https://auth.example.com/sign-in?state=abc")
+
+        coEvery {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+        } returns (session to flow)
+
+        stubCurrentStep(session, flow, InteractiveFlowStep.SignIn, signInUri)
+
+        controller.authorize(
+            observedRequest = observed,
+            responseType = "code",
+            uncheckedClientId = "client",
+            uncheckedRedirectUri = null,
+            uncheckedScopes = null,
+            uncheckedClientState = null,
+            uncheckedClientNonce = null,
+            uncheckedCodeChallenge = null,
+            uncheckedCodeChallengeMethod = null,
+            uncheckedInvitationToken = null,
+            uncheckedMaxAge = null,
+            uncheckedClaims = null
+        )
+
+        coVerify(exactly = 1) {
+            interactiveAuthFlowSessionManager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+        }
+    }
+
+    private fun stubCurrentStep(
+        session: InteractiveFlowSession,
+        flow: InteractiveFlow,
+        step: InteractiveFlowStep,
+        redirectUri: URI
+    ) {
+        coEvery { engine.advance(session) } returns InteractiveFlowStepResult(session, step)
+        coEvery { stepUriMapper.toRedirectUri(session, flow, step) } returns redirectUri
+    }
+}

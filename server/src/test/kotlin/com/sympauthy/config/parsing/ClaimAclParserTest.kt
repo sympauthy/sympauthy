@@ -1,7 +1,7 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimAclExpression
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.properties.ClaimAclProperties
 import org.junit.jupiter.api.Assertions.assertEquals

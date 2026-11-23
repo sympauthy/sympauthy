@@ -11,8 +11,8 @@ import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.repository.AuthenticationTokenRepository
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime

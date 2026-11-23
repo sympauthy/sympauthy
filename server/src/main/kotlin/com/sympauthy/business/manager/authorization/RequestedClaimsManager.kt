@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.authorization
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.authorization.RequestedClaims
 import io.micronaut.json.tree.JsonNode
 import io.micronaut.serde.ObjectMapper
 import jakarta.inject.Inject

@@ -6,13 +6,13 @@ import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenClaimsExtractor
 import com.sympauthy.business.manager.provider.openidconnect.ProviderIdTokenManager
 import com.sympauthy.business.model.provider.EnabledProvider
+import com.sympauthy.business.model.provider.RawProviderClaims
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2Tokens
-import com.sympauthy.business.model.user.RawProviderClaims
 import com.sympauthy.client.UserInfoEndpointClient
 import com.sympauthy.client.remoteOutcome
-import com.sympauthy.monitoring.manager.RemoteCallMonitor
-import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Condition
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException

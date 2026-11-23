@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.grant
 
-import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_FINISHED_GRANTS
 import com.sympauthy.data.repository.AuthenticationTokenRepository
 import com.sympauthy.data.repository.AuthorizationCodeRepository
 import com.sympauthy.data.repository.GrantRepository
-import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.lock.LeasedJob.CLEAN_FINISHED_GRANTS
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration

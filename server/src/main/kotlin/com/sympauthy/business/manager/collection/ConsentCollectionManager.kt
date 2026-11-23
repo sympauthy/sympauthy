@@ -15,7 +15,7 @@ import com.sympauthy.business.model.collection.CollectionFieldType.UUID
 import com.sympauthy.business.model.collection.CollectionFields
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
-import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.consent.Consent
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map

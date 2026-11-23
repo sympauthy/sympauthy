@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.validationcode
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.ValidationCodeMapper
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia
 import com.sympauthy.business.model.flow.InteractiveFlowSession
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
+import com.sympauthy.platform.random.RandomGenerator
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

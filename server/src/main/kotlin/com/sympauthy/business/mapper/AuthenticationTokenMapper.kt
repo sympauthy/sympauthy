@@ -7,8 +7,8 @@ import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.token.AuthenticationTokenType
 import com.sympauthy.data.model.AuthenticationTokenEntity
-import com.sympauthy.util.enumValueOfWireNameOrNull
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.enumValueOfWireNameOrNull
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 
 @Singleton

@@ -14,10 +14,10 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.jwt.HashAlgorithm
 import com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig
 import com.sympauthy.client.remoteOutcome
-import com.sympauthy.monitoring.manager.RemoteCallMonitor
-import com.sympauthy.monitoring.model.Condition
-import com.sympauthy.monitoring.model.Outcome
-import com.sympauthy.monitoring.telemetry.manager.LibraryHttpCallTracer
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.model.Outcome
+import com.sympauthy.platform.monitoring.telemetry.manager.LibraryHttpCallTracer
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.Dispatchers

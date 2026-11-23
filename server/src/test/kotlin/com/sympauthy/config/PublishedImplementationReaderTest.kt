@@ -1,8 +1,8 @@
 package com.sympauthy.config
 
 import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.security.GeoProvider
-import com.sympauthy.business.model.security.IpProvider
+import com.sympauthy.business.model.securitycontext.edge.GeoProvider
+import com.sympauthy.business.model.securitycontext.edge.IpProvider
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.AdvancedConfig
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest

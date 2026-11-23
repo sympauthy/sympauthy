@@ -7,9 +7,8 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.REFRESH_KEY
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.jwt.DecodedJwt
@@ -18,8 +17,9 @@ import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
-import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

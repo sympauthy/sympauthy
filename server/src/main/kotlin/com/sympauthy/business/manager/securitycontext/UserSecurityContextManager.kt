@@ -2,16 +2,16 @@ package com.sympauthy.business.manager.securitycontext
 
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
-import com.sympauthy.business.model.security.ObservedRequest
-import com.sympauthy.business.model.security.SecurityContextKey
-import com.sympauthy.business.model.security.securityContextKey
+import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.model.securitycontext.SecurityContextKey
+import com.sympauthy.business.model.securitycontext.securityContextKey
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.manager.ConditionMonitor
-import com.sympauthy.util.isRowAlreadyThere
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.util.isRowAlreadyThere
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

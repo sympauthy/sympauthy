@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.authorization
 
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
 import jakarta.inject.Singleton
 import java.security.MessageDigest
 import java.util.*

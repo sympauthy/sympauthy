@@ -17,7 +17,7 @@
     ]
   },
   {
-    "name": "com.sympauthy.monitoring.ConsoleQueueAppender",
+    "name": "com.sympauthy.platform.monitoring.ConsoleQueueAppender",
     "methods": [
       {
         "name": "<init>",

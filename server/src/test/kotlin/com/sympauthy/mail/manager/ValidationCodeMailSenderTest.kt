@@ -1,9 +1,9 @@
 package com.sympauthy.mail.manager
 
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
-import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia.EMAIL
+import com.sympauthy.business.model.validationcode.ValidationCodeReason.EMAIL_CLAIM
 import com.sympauthy.mail.model.Mail
 import io.mockk.coEvery
 import io.mockk.coVerify

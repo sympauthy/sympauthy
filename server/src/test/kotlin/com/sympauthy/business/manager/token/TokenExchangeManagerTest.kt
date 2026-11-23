@@ -11,6 +11,8 @@ import com.sympauthy.business.manager.jwt.JwtManager
 import com.sympauthy.business.manager.jwt.JwtManager.Companion.ACCESS_KEY
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.ClaimAclContext
+import com.sympauthy.business.model.claim.ClaimAclTokenDoors
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.grant.Grant
@@ -22,9 +24,7 @@ import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
-import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.TokenMetrics
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.every

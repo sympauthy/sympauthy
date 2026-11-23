@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.invitation
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.HashConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.server.Computation
+import com.sympauthy.platform.server.Computation
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.asCoroutineDispatcher

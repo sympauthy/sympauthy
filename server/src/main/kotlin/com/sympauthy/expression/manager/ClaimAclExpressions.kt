@@ -5,8 +5,8 @@ import com.ezylang.evalex.config.ExpressionConfiguration
 import com.ezylang.evalex.parser.ASTNode
 import com.ezylang.evalex.parser.ParseException
 import com.ezylang.evalex.parser.Token.TokenType
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import com.sympauthy.expression.model.ClaimAclExpressionTerms
 import com.sympauthy.expression.model.ClaimAclOpeningTerms

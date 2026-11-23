@@ -3,7 +3,7 @@ package com.sympauthy.api.errorhandler
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
-import com.sympauthy.util.orDefault
+import com.sympauthy.platform.util.orDefault
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse

@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.securitycontext.edge
 
-import com.sympauthy.business.model.security.SecurityContextGeo
-import com.sympauthy.business.model.security.headersOf
+import com.sympauthy.business.model.securitycontext.SecurityContextGeo
+import com.sympauthy.business.model.securitycontext.edge.headersOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

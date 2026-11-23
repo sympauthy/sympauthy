@@ -1,0 +1,302 @@
+package com.sympauthy.api.application.client
+
+import com.sympauthy.api.application.client.resource.ClientMfaEnrollmentInputResource
+import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
+import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.manager.client.ClientRedirectUriManager
+import com.sympauthy.business.manager.flow.InteractiveFlowEngine
+import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
+import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.manager.token.TokenManager
+import com.sympauthy.business.manager.user.UserManager
+import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.model.flow.InteractiveFlowStep
+import com.sympauthy.business.model.flow.InteractiveFlowStepResult
+import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
+import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
+import com.sympauthy.business.model.token.AuthenticationToken
+import com.sympauthy.business.model.token.AuthenticationTokenType.ACCESS
+import com.sympauthy.business.model.user.User
+import com.sympauthy.config.model.DisabledMfaConfig
+import com.sympauthy.config.model.EnabledMfaConfig
+import com.sympauthy.config.model.MfaConfig
+import com.sympauthy.security.ClientAuthentication
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class ClientMfaEnrollmentControllerTest {
+
+    @MockK
+    lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
+
+    @MockK
+    lateinit var clientRedirectUriManager: ClientRedirectUriManager
+
+    @MockK
+    lateinit var tokenManager: TokenManager
+
+    @MockK
+    lateinit var userManager: UserManager
+
+    @MockK
+    lateinit var mfaEnrollmentManager: InteractiveFlowSessionMfaEnrollmentManager
+
+    @MockK
+    lateinit var engine: InteractiveFlowEngine
+
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
+    @MockK
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
+    private val observed = observedRequestOf()
+
+    private fun controller(mfaConfig: MfaConfig) = ClientMfaEnrollmentController(
+        interactiveAuthFlowSessionManager = interactiveAuthFlowSessionManager,
+        clientRedirectUriManager = clientRedirectUriManager,
+        tokenManager = tokenManager,
+        userManager = userManager,
+        mfaEnrollmentManager = mfaEnrollmentManager,
+        engine = engine,
+        stepUriMapper = stepUriMapper,
+        interactiveAuthFlowSessionControllerUtil = interactiveAuthFlowSessionControllerUtil,
+        sessionManager = sessionManager,
+        uncheckedMfaConfig = mfaConfig,
+    )
+
+    /** An authentication for the paths refused before they ask which client is calling. */
+    private fun clientAuthentication(): ClientAuthentication = ClientAuthentication(mockk(), mockk(), emptyList())
+
+    private fun clientAuthentication(client: Client): ClientAuthentication =
+        ClientAuthentication(mockk(), client, emptyList())
+
+    @Test
+    @Suppress("MaxLineLength")
+    fun `startEnrollment - Validates the token and return URI, starts the session, and returns state and redirect URL`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val user = mockk<User>()
+            val client = mockk<Client>()
+            val authentication = clientAuthentication(client)
+            val userToken = mockk<AuthenticationToken> {
+                every { grant } returns mockk { every { this@mockk.userId } returns userId }
+            }
+            val returnUri = URI.create("https://client.example.com/done")
+            val flow = mockk<InteractiveFlow>()
+            val session = mockk<OnGoingInteractiveFlowSession>()
+            val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+            val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
+
+            every { client.id } returns "client-id"
+            coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+            coEvery { userManager.findByIdOrNull(userId) } returns user
+            every {
+                clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/done")
+            } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
+            coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+            coEvery {
+                mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, null, flow, "client-id")
+            } returns session
+            coEvery { engine.advance(session) } returns
+                InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
+            coEvery {
+                stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.MfaSelectionForEnrollment)
+            } returns enrollUri
+            coEvery { sessionManager.encodeState(steppedSession) } returns "encoded-state"
+
+            val result = controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+
+            assertEquals("encoded-state", result.state)
+            assertEquals(enrollUri.toString(), result.redirectUrl)
+            coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
+        }
+
+    @Test
+    fun `startEnrollment - Forwards the return state`() = runTest {
+        val userId = UUID.randomUUID()
+        val user = mockk<User>()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+        val returnUri = URI.create("https://client.example.com/account")
+        val flow = mockk<InteractiveFlow>()
+        val session = mockk<OnGoingInteractiveFlowSession>()
+        val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+        val enrollUri = URI.create("https://auth.example.com/flow/mfa/enrollment?state=abc")
+
+        every { client.id } returns "client-id"
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns user
+        every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } returns returnUri
+        every { clientRedirectUriManager.parseRequestedReturnState("xyz") } returns "xyz"
+        coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+        // The stub only matches (and thus drives the redirect) when the return state is threaded through.
+        coEvery {
+            mfaEnrollmentManager.startMfaEnrollmentSession(user, returnUri, "xyz", flow, "client-id")
+        } returns session
+        coEvery { engine.advance(session) } returns
+            InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.MfaSelectionForEnrollment)
+        coEvery {
+            stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.MfaSelectionForEnrollment)
+        } returns enrollUri
+        coEvery { sessionManager.encodeState(steppedSession) } returns "encoded-state"
+
+        val result = controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+            authentication,
+            observed,
+            ClientMfaEnrollmentInputResource(accessToken = "user-access-token", returnState = "xyz")
+        )
+
+        assertEquals(enrollUri.toString(), result.redirectUrl)
+    }
+
+    @Test
+    fun `startEnrollment - Fails with the return URI refusal and starts no session`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk()
+        every { clientRedirectUriManager.parseRequestedReturnUri(client, null) } throws
+            recoverableBusinessExceptionOf("client.return_uri.missing", "description.client.return_uri.missing")
+
+        val exception = assertThrows<BusinessException> {
+            controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(accessToken = "user-access-token")
+            )
+        }
+
+        assertEquals("client.return_uri.missing", exception.detailsId)
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `startEnrollment - Fails with mfa_disabled and starts no session when MFA is disabled`() = runTest {
+        val authentication = clientAuthentication()
+
+        val exception = assertThrows<BusinessException> {
+            controller(mockk<DisabledMfaConfig>()).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals("client.mfa.enrollment.mfa_disabled", exception.detailsId)
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `startEnrollment - Fails with invalid_access_token when the token cannot be introspected`() = runTest {
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+
+        coEvery { tokenManager.introspectToken(client, "bad-token", ACCESS) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(
+                    accessToken = "bad-token",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `startEnrollment - Fails with invalid_access_token when the token is not associated with an end-user`() =
+        runTest {
+            val client = mockk<Client>()
+            val authentication = clientAuthentication(client)
+            val clientOnlyToken = mockk<AuthenticationToken> {
+                every { grant } returns mockk { every { userId } returns null }
+            }
+
+            coEvery { tokenManager.introspectToken(client, "client-token", ACCESS) } returns clientOnlyToken
+
+            val exception = assertThrows<BusinessException> {
+                controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                    authentication,
+                    observed,
+                    ClientMfaEnrollmentInputResource(
+                        accessToken = "client-token",
+                        returnUri = "https://client.example.com/done"
+                    )
+                )
+            }
+
+            assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
+            coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `startEnrollment - Fails with invalid_access_token when the account the token names is gone`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            controller(EnabledMfaConfig(totp = true, required = false)).startEnrollment(
+                authentication,
+                observed,
+                ClientMfaEnrollmentInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/done"
+                )
+            )
+        }
+
+        assertEquals("client.mfa.enrollment.invalid_access_token", exception.detailsId)
+        coVerify(exactly = 0) { mfaEnrollmentManager.startMfaEnrollmentSession(any(), any(), any(), any(), any()) }
+    }
+}

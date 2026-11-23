@@ -2,15 +2,21 @@ package com.sympauthy.business.manager.claim
 
 import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.authorization.RequestedClaims
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimAclContext
+import com.sympauthy.business.model.claim.ClaimAclExpression
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.CollectedClaimUpdate
+import com.sympauthy.business.model.claim.PersonalClaim
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.*
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs

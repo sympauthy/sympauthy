@@ -4,7 +4,7 @@ import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.mail.model.Mail
 import com.sympauthy.mail.model.QueuedMail
-import com.sympauthy.queue.model.QueueItem
+import com.sympauthy.platform.queue.model.QueueItem
 import io.micronaut.serde.ObjectMapper
 import io.micronaut.serde.annotation.Serdeable
 import jakarta.inject.Inject

@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.rule.ScopeGrantingRule
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRule
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ScopeGrantingRulesConfig(

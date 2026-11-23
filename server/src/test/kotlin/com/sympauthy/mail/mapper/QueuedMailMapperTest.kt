@@ -3,7 +3,7 @@ package com.sympauthy.mail.mapper
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.mail.model.Mail
 import com.sympauthy.mail.model.QueuedMail
-import com.sympauthy.queue.model.QueueItem
+import com.sympauthy.platform.queue.model.QueueItem
 import io.micronaut.serde.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

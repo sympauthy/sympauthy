@@ -150,7 +150,7 @@ data class BrandImageSize(
 )
 
 /**
- * The images a deployment may configure, each answered under its [com.sympauthy.util.configName].
+ * The images a deployment may configure, each answered under its [com.sympauthy.platform.util.configName].
  */
 enum class BrandImageName {
     ICON,

@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.password
 
-import com.sympauthy.business.model.code.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCode
 import java.time.LocalDateTime
 
 /**

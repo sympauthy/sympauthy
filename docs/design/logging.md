@@ -180,13 +180,13 @@ the conditions it reports to; the count it keeps is the one static bridge in the
 running every second hands it to the console's condition. That job is also what ends a quiet period,
 so a condition recovers up to a second after its quiet period has run out.
 
-**The conditions live in `monitoring/`, beside the layers.** `business` reports the dependencies its
-managers call, `data` reports the database from the connection factory every repository obtains its
-connections from, and the console's appender reports itself, so by [the architecture's
-test](architecture.md#beside-the-layers) they belong to none of them. The health indicator at the
-root of `monitoring/` reads them, the way it reads the configuration's verdict, and Micronaut's own
-R2DBC indicator is turned off: it answers `503` when the database cannot be reached, and publishes the
-exception. A call the managers make outside the process reaches its condition through
+**The conditions live in `platform/monitoring/`.** `business` reports the dependencies its managers
+call, `data` reports the database from the connection factory every repository obtains its
+connections from, and the console's appender reports itself, so they belong to none of them, and [no
+audience sees them](architecture.md#a-mechanism-no-audience-sees). The health indicator at the root
+of `platform/monitoring/` reads them, the way it reads the configuration's verdict, and Micronaut's
+own R2DBC indicator is turned off: it answers `503` when the database cannot be reached, and
+publishes the exception. A call the managers make outside the process reaches its condition through
 `RemoteCallMonitor`, which times it as [telemetry](telemetry.md#what-an-authorization-server-counts)
 says; `ConditionMonitor` holds the conditions alone.
 
@@ -214,8 +214,8 @@ the image stays unresolved until a restart, with one ERROR.
 until then.
 
 **A message is built only when its level is enabled**, because the server's own `Logger`, in
-`monitoring/`, takes a message as a lambda and nothing else. It wraps SLF4J's rather than extending
-it, so the overloads taking a built string are not there to be called.
+`platform/monitoring/`, takes a message as a lambda and nothing else. It wraps SLF4J's rather than
+extending it, so the overloads taking a built string are not there to be called.
 
 ## What this document does not settle
 

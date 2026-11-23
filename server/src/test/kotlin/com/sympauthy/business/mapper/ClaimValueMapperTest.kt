@@ -1,10 +1,10 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
-import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
-import com.sympauthy.business.model.user.claim.ClaimDataType.JSON
-import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
-import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
+import com.sympauthy.business.model.claim.ClaimDataType.BOOLEAN
+import com.sympauthy.business.model.claim.ClaimDataType.DATE
+import com.sympauthy.business.model.claim.ClaimDataType.JSON
+import com.sympauthy.business.model.claim.ClaimDataType.NUMBER
+import com.sympauthy.business.model.claim.ClaimDataType.STRING
 import io.micronaut.serde.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals

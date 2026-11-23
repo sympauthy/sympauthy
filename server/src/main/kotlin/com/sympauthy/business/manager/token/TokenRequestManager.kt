@@ -9,10 +9,10 @@ import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenIssuance
 import com.sympauthy.business.model.token.TokenRequest
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.model.Outcome
-import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
-import com.sympauthy.monitoring.telemetry.manager.measureOutcome
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.monitoring.model.Outcome
+import com.sympauthy.platform.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.measureOutcome
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

@@ -1,0 +1,49 @@
+package com.sympauthy.api.flow.resource
+
+import com.fasterxml.jackson.annotation.JsonProperty
+import com.sympauthy.api.flow.util.STEP_CANCEL_URL_DESCRIPTION
+import com.sympauthy.api.flow.util.STEP_CLIENT_DESCRIPTION
+import com.sympauthy.api.flow.util.STEP_REDIRECT_URL_DESCRIPTION
+import com.sympauthy.api.flow.util.STEP_URL_STATE_DESCRIPTION
+import io.micronaut.serde.annotation.Serdeable
+import io.swagger.v3.oas.annotations.media.Schema
+
+@Schema(
+    description = "Action the confirmation step asks the end-user to approve, or the `redirect_url` to send " +
+        "the browser to instead. " + STEP_URL_STATE_DESCRIPTION
+)
+@Serdeable
+data class ConfirmFlowResource(
+    @get:Schema(
+        description = "Action a client or an administrator asked for on the end-user's behalf. Absent when " +
+            "`redirect_url` is present.",
+        allowableValues = ["enroll_mfa", "link_provider"]
+    )
+    val action: String? = null,
+    @get:Schema(
+        name = "requires_reauthentication",
+        description = "Whether the end-user is asked to sign in again after approving, so the UI can warn them " +
+            "beforehand. `false` when `redirect_url` is present."
+    )
+    @get:JsonProperty("requires_reauthentication")
+    val requiresReauthentication: Boolean = false,
+    @get:Schema(
+        description = STEP_CLIENT_DESCRIPTION + " Absent too when `redirect_url` is present, so an action " +
+            "waiting without one was asked for by an administrator."
+    )
+    @get:JsonProperty("client")
+    val client: ClientReferenceResource? = null,
+    @get:Schema(
+        name = "cancel_url",
+        description = STEP_CANCEL_URL_DESCRIPTION + " Absent too when `redirect_url` is present."
+    )
+    @get:JsonProperty("cancel_url")
+    val cancelUrl: String? = null,
+    @get:Schema(
+        name = "redirect_url",
+        description = STEP_REDIRECT_URL_DESCRIPTION + " Absent when an action is waiting for the end-user's " +
+            "approval."
+    )
+    @get:JsonProperty("redirect_url")
+    val redirectUrl: String? = null
+)

@@ -1,6 +1,6 @@
 package com.sympauthy.security
 
-import com.sympauthy.api.controller.FLOW_SURFACE
+import com.sympauthy.api.FLOW_SURFACE
 import io.micronaut.http.HttpMethod
 import io.micronaut.http.HttpRequest
 import io.mockk.every

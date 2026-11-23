@@ -2,14 +2,14 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
-import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.PersonalClaim
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimAclExpression
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimDataType.BOOLEAN
+import com.sympauthy.business.model.claim.ClaimDataType.NUMBER
+import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.model.claim.PersonalClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.micronaut.serde.ObjectMapper

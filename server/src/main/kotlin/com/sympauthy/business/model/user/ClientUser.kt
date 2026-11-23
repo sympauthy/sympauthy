@@ -1,6 +1,7 @@
 package com.sympauthy.business.model.user
 
-import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.consent.Consent
 import com.sympauthy.business.model.provider.ProviderUserInfo
 
 /**

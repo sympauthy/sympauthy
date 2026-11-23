@@ -10,8 +10,8 @@ import com.sympauthy.data.repository.InteractiveFlowSessionReauthenticationRepos
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
 import com.sympauthy.data.repository.ValidationCodeRepository
-import com.sympauthy.monitoring.telemetry.manager.FlowMetrics
-import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.FlowMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.impl.annotations.InjectMockKs

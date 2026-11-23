@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.model.provider.ProviderUserInfo
-import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.provider.RawProviderClaims
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
 import jakarta.inject.Singleton

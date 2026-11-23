@@ -16,7 +16,7 @@ interface ObjectLockRepository : CoroutineCrudRepository<ObjectLockEntity, Int> 
      *
      * The lock belongs to the transaction this runs in and is released when it ends, so a caller outside
      * a transaction holds it only for the length of this statement.
-     * [com.sympauthy.business.manager.lock.LockManager] is what makes that a transaction worth having.
+     * [com.sympauthy.platform.lock.LockManager] is what makes that a transaction worth having.
      *
      * One stripe per call rather than an `IN` list over all of them: the caller takes them in ascending
      * order, which is what makes two overlapping sets of keys deadlock-free, and an ordering the caller

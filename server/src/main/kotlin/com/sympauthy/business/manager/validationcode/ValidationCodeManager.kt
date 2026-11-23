@@ -2,13 +2,13 @@ package com.sympauthy.business.manager.validationcode
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.mapper.ValidationCodeMapper
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia
-import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.model.validationcode.ValidationCodeReason
 import com.sympauthy.data.repository.ValidationCodeRepository
 import com.sympauthy.exception.localizedExceptionOf
 import io.micronaut.transaction.annotation.Transactional

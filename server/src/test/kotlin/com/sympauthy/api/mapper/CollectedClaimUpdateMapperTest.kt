@@ -4,7 +4,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
 import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.claim.ClaimValueValidator
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs

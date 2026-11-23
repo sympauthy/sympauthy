@@ -1,9 +1,5 @@
 package com.sympauthy.business.manager.password
 
-import com.sympauthy.business.manager.RandomGenerator
-import com.sympauthy.business.manager.lock.HeldStripes
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.password.HashedPassword
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
@@ -11,7 +7,11 @@ import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.data.model.PasswordEntity
 import com.sympauthy.data.repository.ObjectLockRepository
 import com.sympauthy.data.repository.PasswordRepository
-import com.sympauthy.monitoring.telemetry.manager.LockMetrics
+import com.sympauthy.platform.lock.HeldStripes
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.LockMetrics
+import com.sympauthy.platform.random.RandomGenerator
 import io.mockk.coEvery
 import io.mockk.coVerifyOrder
 import io.mockk.every

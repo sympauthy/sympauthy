@@ -2,15 +2,15 @@ package com.sympauthy.business.manager.scope
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.DisabledScope
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
-import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.model.scope.ClientScope
+import com.sympauthy.business.model.scope.ConsentableUserScope
+import com.sympauthy.business.model.scope.DisabledScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.GrantableUserScope
+import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.model.scope.ScopePublicationPlace.DISCOVERY
+import com.sympauthy.business.model.scope.ScopeType
 import com.sympauthy.config.model.*
 import io.mockk.coEvery
 import io.mockk.every

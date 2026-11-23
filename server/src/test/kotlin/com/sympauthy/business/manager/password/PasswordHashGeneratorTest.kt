@@ -2,8 +2,8 @@ package com.sympauthy.business.manager.password
 
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.HashConfig
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK

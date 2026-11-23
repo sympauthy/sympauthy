@@ -1,5 +1,7 @@
 package com.sympauthy.business.model.user
 
+import com.sympauthy.business.model.claim.CollectedClaim
+
 /**
  * An account named rather than merely identified, as a record held for a person embeds it.
  *

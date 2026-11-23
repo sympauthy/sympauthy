@@ -1,10 +1,10 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.model.authorization.RequestedClaims
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.token.AuthenticationTokenType
-import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.assertEquals

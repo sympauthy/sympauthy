@@ -2702,4 +2702,135 @@ its value and named there.
 
 ---
 
+## Code layout
+
+### Is the code sliced by feature, or by layer and then by concept?
+
+**Decision:** By layer, then by concept inside each layer: `api` by the audience each surface
+answers, `business` by the concept each manager serves, `data` by component.
+
+**Options considered:**
+
+- **A package per feature**, holding its controllers, managers and entities together.
+- **Grouping `business` by the audience that calls it**, as `api` is.
+- **By layer, then by concept.**
+
+**Rationale:**
+
+A feature slice would spread the admin surface over a dozen packages, and the parts most likely to
+change — the flow engine and token issuance — would cut across slices exactly as they cut across
+packages today. Grouping `business` by audience fails on its first manager: `ConsentManager` is
+called from the admin surface, the client surface, the token refresh and the authorization flow,
+and [the split stops at `api`](architecture.md#the-split-stops-at-api) because a second copy of the
+domain would drift.
+
+### Do the audiences of `api` sit under `api`, or at the top of the tree?
+
+**Decision:** Under `api`.
+
+**Options considered:**
+
+- **A top-level package per audience**, beside `business`.
+- **Under `api`.**
+
+**Rationale:**
+
+At the top of the tree, every standard scoped to `api/**` would list a path per audience, the rule
+that the HTTP boundary never imports `data` would be stated once per audience, and the top level
+would mix the edge with the domain. Under `api` the layer rule stays one rule, and the audiences
+are still the first thing `api` shows.
+
+### Does `OAuth2Exception` move into `business`, to end the carve-out?
+
+**Decision:** No. It stays in `api.exception`, and [the
+carve-out](../standards/exception-code-standard.md#the-oauth2-carve-out) with it.
+
+**Options considered:**
+
+- **Moving it into `business`.**
+- **Keeping it in `api`.**
+
+**Rationale:**
+
+It carries an HTTP status and the access token scheme, so `business` would have to import
+`security` and Micronaut's HTTP types to hold it. That is a wider breach than the carve-out it
+would remove.
+
+### Is `platform` a Gradle module, or a package?
+
+**Decision:** A package, held by its row in [the dependency
+rules](../standards/general-code-standard.md#dependency-rules).
+
+**Options considered:**
+
+- **A Gradle module**, which the compiler would hold to its dependencies.
+- **Moving `platform`'s tables into it**, entities, repositories and migrations included.
+- **A package.**
+
+**Rationale:**
+
+Kotlin keeps a sealed type's subtypes in one module, and `Condition`, `LockKey` and `LeasedJob` are
+read on both sides of the boundary. Each module also needs its own annotation processing and its
+own native-image resource metadata, and the one set of migrations would have to span modules. Its
+tables stay in `data` for the same last reason: [a schema is one set of
+migrations](architecture.md#one-schema-more-than-one-database). For one deployable, a package
+boundary held by its dependency rule is enough.
+
+### Where does a scheduled job go?
+
+**Decision:** A job keeping a mechanism of `platform` running sits beside that mechanism —
+`RenewJobLeaseCron` in `platform.lock`, `MonitorConditionsCron` in `platform.monitoring`. Every
+other job is in `cron`.
+
+**Options considered:**
+
+- **Every job in `cron`.**
+- **Every job in `platform`.**
+- **Each job beside the cleaner it calls.**
+- **Beside the mechanism it keeps alive, or in `cron`.**
+
+**Rationale:**
+
+A sweep runs a domain's work, and a job is to the scheduler what a controller is to HTTP, which is
+why `cron` has its own row in [the general standard's
+table](../standards/general-code-standard.md#what-a-feature-is-made-of). The lease renewal and the
+condition monitor run no domain's work: they are part of the mechanism they keep running, and a
+reader changing how a lease is renewed opens `platform.lock`.
+
+### Is there a port per repository, or a use-case layer between the controllers and the managers?
+
+**Decision:** Neither.
+
+**Options considered:**
+
+- **A port per persistence dependency**, the repository behind an interface `business` declares.
+- **A use-case layer** between the controllers and the managers.
+- **Managers depending on the repositories.**
+
+**Rationale:**
+
+A Micronaut Data repository is already the interface a manager depends on. The transaction
+boundaries — the inner transaction of a code exchange, a lock held to the commit, a lease taken
+outside any transaction — sit below a use case, so a layer above the managers would bring today's
+managers back under another name.
+
+### Does the SDK's wiring sit with the subject it exports, or with the server's own wiring?
+
+**Decision:** At the root of the subject's package, as every class the framework calls to put a
+subject in place does.
+
+**Options considered:**
+
+- **A top-level `telemetry` package beside `monitoring`.**
+- **Framework wiring in `platform.server`.**
+- **At the root of the subject's package.**
+
+**Rationale:**
+
+A `telemetry` package of its own would split what reports a condition from what exports one, and
+the collector's own condition is reported through both. Wiring in `platform.server` would give it a
+piece of every subject, and a reader changing how one is exported would have two trees to open.
+
+---
+
 ← [How the system works](index.md)

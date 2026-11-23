@@ -32,8 +32,8 @@ import com.sympauthy.business.model.page.map
 import com.sympauthy.business.model.user.UserWithIdentifierClaims
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
-import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException

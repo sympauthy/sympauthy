@@ -1,7 +1,7 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRuleBehavior
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf

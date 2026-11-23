@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.flow
 
-import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
 
 /**
  * The abstract, transport-agnostic step an interactive flow session must present next.

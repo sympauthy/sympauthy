@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.client
 
-import com.sympauthy.util.PublishedUnderAnotherName
+import com.sympauthy.platform.util.PublishedUnderAnotherName
 
 enum class GrantType(
     /**

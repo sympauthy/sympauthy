@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.claim
 
+import com.sympauthy.business.model.claim.ClaimAclTokenDoors
+import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.model.claim.OpenIdConnectClaimId
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.OpenIdConnectClaimId
 import com.sympauthy.data.repository.CollectedClaimRepository
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs

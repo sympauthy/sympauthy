@@ -3,8 +3,6 @@ package com.sympauthy.business.manager.user
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.claim.CollectedClaimManager
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.ClaimValueMapper
 import com.sympauthy.business.mapper.UserMapper
 import com.sympauthy.business.model.user.User
@@ -13,6 +11,8 @@ import com.sympauthy.data.model.UserEntity
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import com.sympauthy.data.repository.findCommittedClaimsMatching
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime

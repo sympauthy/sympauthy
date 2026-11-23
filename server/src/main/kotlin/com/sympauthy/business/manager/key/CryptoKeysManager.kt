@@ -7,8 +7,8 @@ import com.sympauthy.business.model.key.KeyAlgorithm
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.CryptoKeysRepository
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
-import com.sympauthy.monitoring.telemetry.traceCoroutineContext
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.monitoring.telemetry.traceCoroutineContext
 import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Single
 import jakarta.inject.Inject

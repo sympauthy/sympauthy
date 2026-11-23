@@ -2,16 +2,16 @@ package com.sympauthy.business.manager.claim
 
 import com.sympauthy.business.manager.util.assertThrowsLocalizedException
 import com.sympauthy.business.mapper.ClaimValueMapper
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimDataType.BOOLEAN
-import com.sympauthy.business.model.user.claim.ClaimDataType.DATE
-import com.sympauthy.business.model.user.claim.ClaimDataType.EMAIL
-import com.sympauthy.business.model.user.claim.ClaimDataType.JSON
-import com.sympauthy.business.model.user.claim.ClaimDataType.NUMBER
-import com.sympauthy.business.model.user.claim.ClaimDataType.PHONE_NUMBER
-import com.sympauthy.business.model.user.claim.ClaimDataType.STRING
-import com.sympauthy.business.model.user.claim.ClaimDataType.TIMEZONE
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimDataType.BOOLEAN
+import com.sympauthy.business.model.claim.ClaimDataType.DATE
+import com.sympauthy.business.model.claim.ClaimDataType.EMAIL
+import com.sympauthy.business.model.claim.ClaimDataType.JSON
+import com.sympauthy.business.model.claim.ClaimDataType.NUMBER
+import com.sympauthy.business.model.claim.ClaimDataType.PHONE_NUMBER
+import com.sympauthy.business.model.claim.ClaimDataType.STRING
+import com.sympauthy.business.model.claim.ClaimDataType.TIMEZONE
+import com.sympauthy.business.model.claim.EnabledClaim
 import io.micronaut.serde.ObjectMapper
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs

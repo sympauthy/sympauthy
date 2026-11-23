@@ -2,13 +2,13 @@ package com.sympauthy.business.manager.authorization
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.DisabledClaim
-import com.sympauthy.business.model.user.claim.PersonalClaim
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.authorization.RequestedClaims
+import com.sympauthy.business.model.claim.Claim
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimKind
+import com.sympauthy.business.model.claim.DisabledClaim
+import com.sympauthy.business.model.claim.PersonalClaim
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.EnabledClaimsConfig
 import io.micronaut.serde.ObjectMapper

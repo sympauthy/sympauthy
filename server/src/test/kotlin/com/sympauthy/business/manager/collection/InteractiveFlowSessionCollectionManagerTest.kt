@@ -9,6 +9,8 @@ import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeRegistry
 import com.sympauthy.business.mapper.InteractiveFlowSessionMapper
 import com.sympauthy.business.mapper.InteractiveFlowSessionSecurityContextMapper
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldValue
@@ -19,17 +21,15 @@ import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.UserWithIdentifierClaims
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.data.model.InteractiveFlowSessionEntity
 import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
 import com.sympauthy.data.repository.InteractiveFlowSessionRepository
 import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
-import com.sympauthy.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

@@ -7,7 +7,10 @@ import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.mapper.InteractiveFlowSessionOAuth2Mapper
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
+import com.sympauthy.business.model.authorization.RequestedClaims
 import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.model.consent.ConsentedBy
 import com.sympauthy.business.model.flow.AuthorizationFlow
 import com.sympauthy.business.model.flow.InteractiveFlowHandBack
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
@@ -16,7 +19,10 @@ import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.oauth2.*
-import com.sympauthy.business.model.user.claim.RequestedClaims
+import com.sympauthy.business.model.scope.ConsentableUserScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.model.scope.granting.GrantedBy
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import com.sympauthy.data.repository.InteractiveFlowSessionOAuth2Repository
 import io.micronaut.transaction.annotation.Transactional

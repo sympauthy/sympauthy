@@ -2,7 +2,7 @@ package com.sympauthy.business.model.flow
 
 import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.Expirable
-import com.sympauthy.monitoring.telemetry.manager.SpanReference
+import com.sympauthy.platform.monitoring.telemetry.manager.SpanReference
 import java.time.LocalDateTime
 import java.util.*
 
@@ -314,7 +314,7 @@ const val CANCELLED_DETAILS_ID = "auth.interactive_flow_session.cancelled"
 /**
  * Detail id of the failure [interactiveFlowSessionConcurrentModificationExceptionOf] builds, for the flow's
  * error handling to tell it apart (see
- * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil.handleException]).
+ * [com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil.handleException]).
  */
 const val CONCURRENT_MODIFICATION_DETAILS_ID = "auth.interactive_flow_session.concurrent_modification"
 

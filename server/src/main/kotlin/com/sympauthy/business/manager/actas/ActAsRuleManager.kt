@@ -2,11 +2,11 @@ package com.sympauthy.business.manager.actas
 
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.model.actas.ActAsRule
+import com.sympauthy.business.model.actas.ActAsRuleBehavior.ALLOW
+import com.sympauthy.business.model.actas.ActAsRuleBehavior.DENY
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.rule.ActAsRule
-import com.sympauthy.business.model.rule.ActAsRuleBehavior.ALLOW
-import com.sympauthy.business.model.rule.ActAsRuleBehavior.DENY
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.config.model.ActAsRulesConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.expression.exception.InvalidRuleExpressionException

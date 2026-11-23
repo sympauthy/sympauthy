@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.actas
 
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import io.mockk.every
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk

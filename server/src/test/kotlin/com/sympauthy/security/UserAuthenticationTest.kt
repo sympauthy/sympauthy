@@ -1,13 +1,13 @@
 package com.sympauthy.security
 
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.AdminScopeId
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.ScopePublicationPlace.DISCOVERY
+import com.sympauthy.business.model.scope.AdminScopeId
+import com.sympauthy.business.model.scope.ConsentableUserScope
+import com.sympauthy.business.model.scope.GrantableUserScope
+import com.sympauthy.business.model.scope.ScopePublicationPlace.DISCOVERY
 import com.sympauthy.business.model.token.AuthenticationToken
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_ADMIN
 import com.sympauthy.security.SecurityRule.IS_USER
 import io.micronaut.http.HttpStatus
@@ -25,8 +25,8 @@ import java.util.*
 class UserAuthenticationTest {
 
     private fun createAuthentication(
-        consentedScopes: List<com.sympauthy.business.model.oauth2.EnabledScope> = emptyList(),
-        grantedScopes: List<com.sympauthy.business.model.oauth2.EnabledScope> = emptyList()
+        consentedScopes: List<com.sympauthy.business.model.scope.EnabledScope> = emptyList(),
+        grantedScopes: List<com.sympauthy.business.model.scope.EnabledScope> = emptyList()
     ): UserAuthentication {
         return UserAuthentication(
             // Only the name of an authentication is read off its token, and nothing here asks for it.

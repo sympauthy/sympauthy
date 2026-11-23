@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.scope.granting
 
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.rule.ScopeGrantingRule
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.DECLINE
-import com.sympauthy.business.model.rule.ScopeGrantingRuleBehavior.GRANT
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRule
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRuleBehavior.DECLINE
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRuleBehavior.GRANT
 import com.sympauthy.config.model.ScopeGrantingRulesConfig
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs

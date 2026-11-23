@@ -5,6 +5,10 @@ import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.claim.GeneratedClaimsManager
 import com.sympauthy.business.mapper.CollectedClaimMapper
 import com.sympauthy.business.mapper.UserMapper
+import com.sympauthy.business.model.claim.Claim
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType
@@ -16,12 +20,8 @@ import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.repository.CollectedClaimRepository
 import com.sympauthy.data.repository.UserRepository
 import jakarta.inject.Inject

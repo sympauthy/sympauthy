@@ -4,8 +4,8 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orNull
-import com.sympauthy.server.ErrorMessages
-import com.sympauthy.util.renderOrNull
+import com.sympauthy.platform.server.ErrorMessages
+import com.sympauthy.platform.util.renderOrNull
 import io.micronaut.context.MessageSource
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

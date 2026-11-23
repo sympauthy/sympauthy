@@ -3,8 +3,8 @@ package com.sympauthy.config.validation
 import com.sympauthy.business.model.client.AuthorizationWebhook
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.scope.ClientScope
+import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAuthorizationWebhook

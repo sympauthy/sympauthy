@@ -1,10 +1,10 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
-import com.sympauthy.business.model.oauth2.ConsentedBy
-import com.sympauthy.business.model.oauth2.GrantedBy
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
+import com.sympauthy.business.model.consent.ConsentedBy
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
+import com.sympauthy.business.model.scope.granting.GrantedBy
 import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*

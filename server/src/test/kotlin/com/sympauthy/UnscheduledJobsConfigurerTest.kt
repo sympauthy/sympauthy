@@ -9,8 +9,8 @@ import org.junit.jupiter.params.provider.EnumSource
 /**
  * Holds [UnscheduledJobsConfigurer] to the jobs a context wires.
  *
- * What it catches is a job declared outside the package the configurer names, and a scheduled bean a
- * framework contributes with it.
+ * What it catches is a job not named as the configurer recognises one, and a scheduled bean a framework
+ * contributes with it.
  */
 class UnscheduledJobsConfigurerTest {
 
@@ -26,7 +26,7 @@ class UnscheduledJobsConfigurerTest {
         assertEquals(
             emptyList<String>(), scheduled,
             "These run inside whichever test starts this context, and take the rows it is still using. " +
-                "One of ours belongs in the package the configurer names; a framework's is turned off by " +
+                "One of ours is named as the configurer recognises a job; a framework's is turned off by " +
                 "its own key in application-test.yml."
         )
     }

@@ -5,13 +5,13 @@ import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.claim.CollectedClaimManager
 import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.mfa.TotpEnrollment
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.EnabledAuthConfig
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

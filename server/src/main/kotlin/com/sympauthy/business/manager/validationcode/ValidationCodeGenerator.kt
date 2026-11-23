@@ -1,18 +1,18 @@
 package com.sympauthy.business.manager.validationcode
 
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.mapper.ValidationCodeMapper
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia
-import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.model.validationcode.ValidationCodeReason
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.ValidationCodeConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.repository.ValidationCodeRepository
-import com.sympauthy.util.min
+import com.sympauthy.platform.random.RandomGenerator
+import com.sympauthy.platform.util.min
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime

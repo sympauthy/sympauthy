@@ -1,13 +1,13 @@
 package com.sympauthy.business.manager.scope.granting
 
 import com.sympauthy.business.manager.scope.ScopeManager
-import com.sympauthy.business.model.ScopeGrantingMethodResult
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.GrantableUserScope
+import com.sympauthy.business.model.scope.granting.ScopeGrantingMethodResult
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import io.mockk.coEvery
 import io.mockk.every

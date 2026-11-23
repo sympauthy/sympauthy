@@ -6,7 +6,7 @@ import com.sympauthy.business.exception.businessExceptionOf
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey
 import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.*
-import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.provider.RawProviderClaims
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime

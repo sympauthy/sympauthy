@@ -47,7 +47,7 @@ class ObservedRequestFilter(
 
         /**
          * The attribute a handler binds with `@RequestAttribute` to be given the
-         * [com.sympauthy.business.model.security.ObservedRequest] this filter read.
+         * [com.sympauthy.business.model.securitycontext.ObservedRequest] this filter read.
          */
         const val OBSERVED_REQUEST = "sympauthy.observed-request"
     }

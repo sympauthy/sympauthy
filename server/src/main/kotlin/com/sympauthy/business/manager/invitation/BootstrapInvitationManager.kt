@@ -8,7 +8,7 @@ import com.sympauthy.config.model.BootstrapInvitation
 import com.sympauthy.config.model.BootstrapInvitationsConfig
 import com.sympauthy.config.model.EnabledBootstrapInvitationsConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.loggerForClass
 import io.micronaut.context.event.ApplicationEventListener
 import io.micronaut.discovery.event.ServiceReadyEvent
 import jakarta.inject.Inject

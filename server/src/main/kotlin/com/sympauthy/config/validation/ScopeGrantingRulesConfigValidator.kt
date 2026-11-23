@@ -1,10 +1,10 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.rule.ScopeGrantingRule
+import com.sympauthy.business.model.scope.ClientScope
+import com.sympauthy.business.model.scope.ConsentableUserScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.GrantableUserScope
+import com.sympauthy.business.model.scope.granting.ScopeGrantingRule
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedScopeGrantingRule

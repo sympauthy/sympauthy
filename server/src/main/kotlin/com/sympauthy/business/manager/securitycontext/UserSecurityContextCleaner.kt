@@ -1,12 +1,12 @@
 package com.sympauthy.business.manager.securitycontext
 
-import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.lock.LeasedJob.CLEAN_EXPIRED_USER_SECURITY_CONTEXTS
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

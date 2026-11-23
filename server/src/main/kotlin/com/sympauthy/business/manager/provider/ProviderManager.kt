@@ -11,10 +11,10 @@ import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
 import com.sympauthy.client.remoteOutcome
 import com.sympauthy.config.model.*
 import com.sympauthy.exception.LocalizedException
-import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.monitoring.manager.ConditionMonitor
-import com.sympauthy.monitoring.manager.RemoteCallMonitor
-import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Condition
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import jakarta.inject.Inject

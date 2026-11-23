@@ -18,7 +18,6 @@ import com.sympauthy.business.manager.scope.granting.UserGrantScopesResult
 import com.sympauthy.business.manager.scope.granting.UserScopeGrantingManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.code.ValidationCodeReason
 import com.sympauthy.business.model.flow.InteractiveFlowPurpose
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
@@ -28,10 +27,11 @@ import com.sympauthy.business.model.flow.PreparedTerminalEffect
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.auth.OAuth2AuthorizeInteractiveFlowStatus
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.validationcode.ValidationCodeReason
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.MfaConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.UUID
@@ -275,7 +275,7 @@ class OAuth2AuthorizeInteractiveFlowPurposeHandler(
      * Every row it writes attaches to the account, so it requires the account promoted, in the transaction
      * that commits the promotion.
      *
-     * A [com.sympauthy.business.model.oauth2.Consent] is saved for the [audience] with the scopes the user
+     * A [com.sympauthy.business.model.consent.Consent] is saved for the [audience] with the scopes the user
      * consented to, merged into the active one as [ConsentManager.saveConsent] does.
      *
      * The grant every token of this authorization will be issued under is opened here, once the scopes and the

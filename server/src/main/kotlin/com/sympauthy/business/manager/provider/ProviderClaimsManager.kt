@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.provider
 import com.sympauthy.business.mapper.ProviderUserInfoMapper
 import com.sympauthy.business.model.provider.EnabledProvider
 import com.sympauthy.business.model.provider.ProviderUserInfo
-import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.provider.RawProviderClaims
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

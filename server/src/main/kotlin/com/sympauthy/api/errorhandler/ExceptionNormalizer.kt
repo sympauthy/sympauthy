@@ -5,7 +5,7 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.exception.UnsupportedMethodException
 import com.sympauthy.api.exception.httpExceptionOf
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge.InsufficientScope
+import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InsufficientScope
 import com.sympauthy.security.accessTokenSchemeOrNull
 import io.micronaut.core.bind.annotation.Bindable
 import io.micronaut.core.bind.exceptions.UnsatisfiedArgumentException

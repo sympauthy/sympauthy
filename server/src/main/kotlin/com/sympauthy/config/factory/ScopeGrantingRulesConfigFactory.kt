@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.DisabledScopeGrantingRulesConfig
 import com.sympauthy.config.model.EnabledScopeGrantingRulesConfig

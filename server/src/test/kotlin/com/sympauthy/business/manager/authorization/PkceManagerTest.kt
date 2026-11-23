@@ -1,7 +1,7 @@
 package com.sympauthy.business.manager.authorization
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

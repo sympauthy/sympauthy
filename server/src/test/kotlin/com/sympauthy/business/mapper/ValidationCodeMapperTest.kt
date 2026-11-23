@@ -1,8 +1,8 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.code.ValidationCodeMedia
-import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.model.validationcode.ValidationCodeReason
 import com.sympauthy.data.model.ValidationCodeEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.assertEquals

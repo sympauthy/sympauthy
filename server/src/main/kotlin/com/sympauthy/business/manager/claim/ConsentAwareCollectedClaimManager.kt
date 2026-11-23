@@ -2,19 +2,19 @@ package com.sympauthy.business.manager.claim
 
 import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.authorization.RequestedClaims
+import com.sympauthy.business.model.claim.ClaimAclTokenDoors
+import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.CollectedClaimUpdate
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.CancelledInteractiveFlowSession
 import com.sympauthy.business.model.flow.CompletedInteractiveFlowSession
 import com.sympauthy.business.model.flow.FailedInteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.CollectedClaimUpdate
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.RequestedClaims
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*
@@ -27,11 +27,11 @@ import java.util.*
  * three, and each has a read of its own: the interactive flow, where the person is on this server's own pages
  * having just authenticated; the person's own access token; and a client acting on their behalf. A door is
  * read by none of the others — `docs/design/claims.md` is where they are told apart,
- * [com.sympauthy.business.model.user.claim.ClaimAcl] is where each is a property, and [ClaimAclManager] is
+ * [com.sympauthy.business.model.claim.ClaimAcl] is where each is a property, and [ClaimAclManager] is
  * what evaluates one.
  *
  * A read or a write through a token takes the [ClaimAclTokenDoors] it is answered through, never the
- * [com.sympauthy.business.model.user.claim.ClaimAclContext] they are built in, so a caller answering more than
+ * [com.sympauthy.business.model.claim.ClaimAclContext] they are built in, so a caller answering more than
  * one of them from one token builds the doors once and passes the same ones to each.
  */
 @Singleton
@@ -275,7 +275,7 @@ class ConsentAwareCollectedClaimManager(
      *
      * The person's write door is the one asked, and never the flow's: the flow collects from a person on this
      * server's own pages having just authenticated, and a bearer token says nothing of the kind — see
-     * [com.sympauthy.business.model.user.claim.ClaimAcl.writableByPerson].
+     * [com.sympauthy.business.model.claim.ClaimAcl.writableByPerson].
      *
      * **An identifier claim is left out whatever the ACL says**, as [updateByClient] leaves it out.
      */

@@ -1,11 +1,11 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimDataType.*
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimDataType.*
+import com.sympauthy.business.model.claim.ClaimGroup
+import com.sympauthy.business.model.claim.ClaimKind
+import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.claim.GeneratedOpenIdConnectClaim
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf

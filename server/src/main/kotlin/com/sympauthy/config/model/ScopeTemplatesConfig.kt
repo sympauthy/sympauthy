@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.oauth2.ScopePublicationPlace
+import com.sympauthy.business.model.scope.ScopePublicationPlace
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ScopeTemplatesConfig(

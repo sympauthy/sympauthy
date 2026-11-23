@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.ClientTemplate
 import com.sympauthy.config.parsing.ParsedClientTemplate

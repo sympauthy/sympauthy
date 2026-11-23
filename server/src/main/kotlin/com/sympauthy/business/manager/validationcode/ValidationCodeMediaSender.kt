@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.validationcode
 
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.user.User
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
 import com.sympauthy.config.model.EnabledFeaturesConfig
 
 /**

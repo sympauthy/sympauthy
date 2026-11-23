@@ -1,0 +1,200 @@
+package com.sympauthy.platform.lock
+
+import com.sympauthy.data.repository.JobLeaseRepository
+import com.sympauthy.platform.lock.JobLeaseManager.Companion.GRACE_PERIOD
+import com.sympauthy.platform.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics.JobRunOutcome
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
+import io.mockk.junit5.MockKExtension
+import io.mockk.verify
+import io.opentelemetry.api.OpenTelemetry
+import io.r2dbc.spi.R2dbcNonTransientResourceException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+
+@ExtendWith(MockKExtension::class)
+class JobLeaseManagerTest {
+
+    @MockK
+    lateinit var jobLeaseRepository: JobLeaseRepository
+
+    @SpyK
+    var jobMetrics = JobMetrics(OpenTelemetry.noop())
+
+    @SpyK
+    var conditionMonitor = ConditionMonitor()
+
+    @InjectMockKs
+    lateinit var manager: JobLeaseManager
+
+    /** What the database answers when asked the time, which is the only clock this manager reads. */
+    private val databaseNow: LocalDateTime = LocalDateTime.of(2026, 1, 1, 12, 0, 0)
+
+    @BeforeEach
+    fun stubDatabaseClock() {
+        coEvery { jobLeaseRepository.now() } returns databaseNow
+    }
+
+    @Test
+    fun `withLease - Runs the block and releases the lease it took`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
+        var ran = false
+
+        val held = manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { ran = true }
+
+        assertTrue(held)
+        assertTrue(ran)
+        coVerify(exactly = 1) {
+            jobLeaseRepository.release("clean_abandoned_accounts", any())
+        }
+    }
+
+    @Test
+    fun `withLease - Times the lease by the database's clock and not by this instance's`() = runTest {
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
+        coEvery {
+            jobLeaseRepository.acquire(
+                name = "clean_abandoned_accounts",
+                holder = any(),
+                now = databaseNow,
+                expiresAt = databaseNow.plus(GRACE_PERIOD)
+            )
+        } returns 1
+
+        assertTrue(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { })
+    }
+
+    @Test
+    fun `renewLeases - Pushes every lease this instance holds one grace period further`() = runTest {
+        coEvery {
+            jobLeaseRepository.renew(any(), databaseNow, databaseNow.plus(GRACE_PERIOD))
+        } returns 2
+
+        assertEquals(2, manager.renewLeases())
+    }
+
+    @Test
+    fun `renewLeases - Renews under the holder the leases were taken by`() = runTest {
+        val takenBy = mutableListOf<String>()
+        val renewedBy = mutableListOf<String>()
+        coEvery { jobLeaseRepository.acquire(any(), capture(takenBy), any(), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
+        coEvery { jobLeaseRepository.renew(capture(renewedBy), any(), any()) } returns 1
+
+        manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
+        manager.renewLeases()
+
+        assertTrue(takenBy.single() == renewedBy.single())
+    }
+
+    @Test
+    fun `withLease - Releases the lease when the run is cancelled`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
+        var released = false
+        coEvery { jobLeaseRepository.release("clean_abandoned_accounts", any()) } coAnswers {
+            yield()
+            released = true
+            1
+        }
+        val running = CompletableDeferred<Unit>()
+
+        val run = launch {
+            manager.withLease(CLEAN_ABANDONED_ACCOUNTS) {
+                running.complete(Unit)
+                awaitCancellation()
+            }
+        }
+        running.await()
+        run.cancelAndJoin()
+
+        assertTrue(released)
+    }
+
+    @Test
+    fun `withLease - Does not run the block when another instance holds the lease`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 0
+        var ran = false
+
+        val held = manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { ran = true }
+
+        assertFalse(held)
+        assertFalse(ran)
+        coVerify(exactly = 0) { jobLeaseRepository.release(any(), any()) }
+    }
+
+    @Test
+    fun `withLease - Releases the lease when the block fails, and records the run as failed`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 1
+        coEvery { jobLeaseRepository.release(any(), any()) } returns 1
+
+        assertTrue(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { error("the run failed") })
+
+        coVerify(exactly = 1) {
+            jobLeaseRepository.release("clean_abandoned_accounts", any())
+        }
+        verify { jobMetrics.recordRun("clean_abandoned_accounts", any(), JobRunOutcome.ERROR) }
+    }
+
+    @Test
+    fun `withLease - Hands a failure of the database to its condition rather than throwing it`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } throws
+            R2dbcNonTransientResourceException("Connection refused")
+
+        assertFalse(manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { error("the run must not start") })
+
+        assertTrue(conditionMonitor.isDegraded(Condition.Database))
+        verify { jobMetrics.recordRun("clean_abandoned_accounts", any(), JobRunOutcome.ERROR) }
+    }
+
+    @Test
+    fun `withLease - Records a run another instance holds the lease for as skipped`() = runTest {
+        coEvery { jobLeaseRepository.acquire(any(), any(), any(), any()) } returns 0
+
+        manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
+
+        verify { jobMetrics.recordRun("clean_abandoned_accounts", any(), JobRunOutcome.SKIPPED) }
+    }
+
+    @Test
+    fun `renewLeases - Records a run that failed, and renews nothing`() = runTest {
+        coEvery { jobLeaseRepository.renew(any(), any(), any()) } throws
+            R2dbcNonTransientResourceException("Connection refused")
+
+        assertEquals(0, manager.renewLeases())
+
+        verify { jobMetrics.recordRun(JobLeaseManager.RENEW_JOB_LEASES, any(), JobRunOutcome.ERROR) }
+    }
+
+    @Test
+    fun `withLease - Releases under the holder that took it`() = runTest {
+        val takenBy = mutableListOf<String>()
+        val releasedBy = mutableListOf<String>()
+        coEvery {
+            jobLeaseRepository.acquire(any(), capture(takenBy), any(), any())
+        } returns 1
+        coEvery { jobLeaseRepository.release(any(), capture(releasedBy)) } returns 1
+
+        manager.withLease(CLEAN_ABANDONED_ACCOUNTS) { }
+
+        assertTrue(takenBy.single() == releasedBy.single())
+    }
+}

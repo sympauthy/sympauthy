@@ -5,7 +5,7 @@ import com.sympauthy.business.manager.provider.ProviderClaimsManager
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.provider.ProviderUserInfo
-import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.provider.RawProviderClaims
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.EnabledProvidersConfig
 import com.sympauthy.config.model.ProvidersConfig

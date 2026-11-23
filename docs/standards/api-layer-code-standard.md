@@ -11,6 +11,31 @@ One of the [code standards](general-code-standard.md). This one covers the Kotli
 made of: the resource, the mapper, the controller, and the classes that sit around them. What those
 classes turn into on the wire is [the API standard](api-standard.md).
 
+## Where a class goes
+
+**`api` is laid out by the audience its surfaces answer, and a surface keeps its own package under
+it:**
+
+| Package | Audience | Surfaces |
+| --- | --- | --- |
+| `api.protocol` | the relying parties | `oauth2`, `openid` with its `discovery` |
+| `api.application` | the applications a deployment serves | `client`, `user` |
+| `api.flow` | the person in an interactive flow | the flow, with the pages it is served from |
+| `api.operator` | the operator | `admin`, and the `console` driving it |
+
+**A surface's package holds its controllers at its root, its resources in `resource`, its mappers
+in `mapper` and its utilities in `util`**, each where it has one. A filter applying to one surface
+sits at that surface's root.
+
+**What every surface shares stays at the root of `api`**: the error handlers with the error
+resources and their mappers, the exceptions, the filters every request passes, and a resource, a
+mapper or a utility more than one surface uses. So does a route no surface owns, such as
+`/branding`.
+
+**A route on a surface is declared in that surface's package.** `SurfaceGateTest` fails on one that
+is not, unless it lists the route outside the surfaces, as it does the console's routes and the
+discovery documents.
+
 ## The resource
 
 **A resource is one surface's request or response, and its suffix says which:**
@@ -91,9 +116,9 @@ route nothing else references inline.
 **A route something below the `api` layer builds a URL for declares its constant with the concept**,
 and the controller names its route from that constant.
 
-**A route is written from its surface's prefix constant**, declared in `api/controller/Surfaces.kt`,
-and so is every filter path and test naming one. A prefix spelled in each controller is renamed in
-each, and the one that is missed is a route on no surface.
+**A route is written from its surface's prefix constant**, declared in `api/Surfaces.kt`, and so is
+every filter path and test naming one. A prefix spelled in each controller is renamed in each, and
+the one that is missed is a route on no surface.
 
 **Security is declared on the class where its routes share a gate, and on the route where they do
 not**, always naming a gate the surface admits. Take the roles and scopes from the constants in

@@ -11,9 +11,9 @@ import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.exception.toOutcome
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.ENROLLMENT
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.TOTP
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.ENROLLMENT
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.TOTP
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.net.URI

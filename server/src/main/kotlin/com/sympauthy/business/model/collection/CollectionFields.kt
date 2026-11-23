@@ -13,7 +13,7 @@ import com.sympauthy.business.model.collection.CollectionOperator.STARTS_WITH
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.orderedPage
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 
 /**
  * The fields of one collection, each bound to the value it reads off a row.

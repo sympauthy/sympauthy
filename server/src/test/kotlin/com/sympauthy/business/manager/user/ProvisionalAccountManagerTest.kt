@@ -2,13 +2,10 @@ package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.manager.lock.HeldStripes
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import com.sympauthy.data.model.ProviderUserInfoEntity
 import com.sympauthy.data.model.ProviderUserInfoEntityId
@@ -19,8 +16,11 @@ import com.sympauthy.data.repository.PasswordRepository
 import com.sympauthy.data.repository.ProviderUserInfoRepository
 import com.sympauthy.data.repository.TotpEnrollmentRepository
 import com.sympauthy.data.repository.UserRepository
-import com.sympauthy.monitoring.telemetry.manager.JobMetrics
-import com.sympauthy.monitoring.telemetry.manager.LockMetrics
+import com.sympauthy.platform.lock.HeldStripes
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder

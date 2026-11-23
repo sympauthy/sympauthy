@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.flow.auth
 
-import com.sympauthy.business.model.code.ValidationCodeMedia
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
 
 /**
  * Summary of the current progress of an ongoing OAuth2 authorization flow session.

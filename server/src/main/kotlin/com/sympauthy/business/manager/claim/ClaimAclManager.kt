@@ -2,14 +2,14 @@ package com.sympauthy.business.manager.claim
 
 import com.ezylang.evalex.config.ExpressionConfiguration
 import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.model.claim.ClaimAclContext
+import com.sympauthy.business.model.claim.ClaimAclExpression
+import com.sympauthy.business.model.claim.ClaimAclFlowDoors
+import com.sympauthy.business.model.claim.ClaimAclTokenDoors
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.WwwAuthenticateChallenge
-import com.sympauthy.business.model.user.claim.ClaimAclContext
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
-import com.sympauthy.business.model.user.claim.ClaimAclFlowDoors
-import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.token.WwwAuthenticateChallenge
 import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import com.sympauthy.expression.manager.ClaimAclExpressions
 import com.sympauthy.expression.manager.evaluateRuleExpression
@@ -59,7 +59,7 @@ class ClaimAclManager {
      * expression that a different token would have met and this one did not.
      *
      * The conditions are the ones meeting which can open the door, as
-     * [com.sympauthy.business.model.user.claim.ClaimAclExpression] holds them, so a condition under `!` is
+     * [com.sympauthy.business.model.claim.ClaimAclExpression] holds them, so a condition under `!` is
      * never one a client is told to meet. Every such condition is answered whichever operand of the expression
      * it sits in, so an expression `A || B` refused on both is answered with both, and a client meeting either
      * would have been let through. Empty where no condition bears — a door that is shut, or one refused on a

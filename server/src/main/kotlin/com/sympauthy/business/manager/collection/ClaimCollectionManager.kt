@@ -3,6 +3,12 @@ package com.sympauthy.business.manager.collection
 import com.sympauthy.business.manager.audience.AudienceManager
 import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.Claim
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimGroup
+import com.sympauthy.business.model.claim.ClaimKind
+import com.sympauthy.business.model.claim.ClaimOrigin
+import com.sympauthy.business.model.claim.isEnabled
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN
@@ -13,12 +19,6 @@ import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimOrigin
-import com.sympauthy.business.model.user.claim.isEnabled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

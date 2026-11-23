@@ -1,8 +1,8 @@
 package com.sympauthy.expression.manager
 
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

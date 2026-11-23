@@ -6,7 +6,7 @@ import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.bean
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.withFixture
-import com.sympauthy.util.isRowAlreadyThere
+import com.sympauthy.platform.util.isRowAlreadyThere
 import io.r2dbc.spi.Connection
 import io.r2dbc.spi.ConnectionFactory
 import kotlinx.coroutines.reactive.awaitFirst

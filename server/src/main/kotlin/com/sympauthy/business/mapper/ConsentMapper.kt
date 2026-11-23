@@ -2,8 +2,8 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.model.oauth2.Consent
-import com.sympauthy.business.model.oauth2.ConsentRevokedBy
+import com.sympauthy.business.model.consent.Consent
+import com.sympauthy.business.model.consent.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
 import jakarta.inject.Singleton
 

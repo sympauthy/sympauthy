@@ -1,5 +1,6 @@
 package com.sympauthy.mail.manager
 
+import com.sympauthy.api.BrandingController.Companion.BRANDING_ENDPOINT
 import com.sympauthy.business.manager.branding.BrandManager
 import com.sympauthy.business.manager.branding.BrandTokenResolver
 import com.sympauthy.business.model.branding.BrandColorValue
@@ -12,8 +13,7 @@ import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.buildUponRoot
 import com.sympauthy.config.model.getOrNull
-import com.sympauthy.util.wireName
-import com.sympauthy.view.BrandingController.Companion.BRANDING_ENDPOINT
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlin.math.roundToInt

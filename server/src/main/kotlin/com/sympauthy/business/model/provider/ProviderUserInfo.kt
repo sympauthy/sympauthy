@@ -1,6 +1,5 @@
 package com.sympauthy.business.model.provider
 
-import com.sympauthy.business.model.user.RawProviderClaims
 import java.time.LocalDateTime
 import java.util.*
 

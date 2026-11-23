@@ -2,16 +2,16 @@ package com.sympauthy.business.manager.validationcode
 
 import com.sympauthy.business.manager.util.assertThrowsLocalizedException
 import com.sympauthy.business.mapper.ValidationCodeMapper
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
-import com.sympauthy.business.model.code.ValidationCodeReason.EMAIL_CLAIM
-import com.sympauthy.business.model.code.ValidationCodeReason.PHONE_NUMBER_CLAIM
-import com.sympauthy.business.model.code.ValidationCodeReason.RESET_PASSWORD
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
-import com.sympauthy.business.model.user.CollectedClaim
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia.EMAIL
+import com.sympauthy.business.model.validationcode.ValidationCodeReason.EMAIL_CLAIM
+import com.sympauthy.business.model.validationcode.ValidationCodeReason.PHONE_NUMBER_CLAIM
+import com.sympauthy.business.model.validationcode.ValidationCodeReason.RESET_PASSWORD
 import com.sympauthy.data.model.ValidationCodeEntity
 import com.sympauthy.data.repository.ValidationCodeRepository
 import io.mockk.coEvery

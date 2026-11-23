@@ -4,7 +4,7 @@ import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.withFixture
-import com.sympauthy.util.isRowAlreadyThere
+import com.sympauthy.platform.util.isRowAlreadyThere
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull

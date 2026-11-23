@@ -8,6 +8,7 @@ import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.CollectedClaim
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.collection.CollectionCapabilities
@@ -22,13 +23,12 @@ import com.sympauthy.business.model.collection.fieldValues
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.grant.GrantStatus
 import com.sympauthy.business.model.grant.GrantWithStatus
-import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.business.model.user.UserWithIdentifierClaims
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.util.*

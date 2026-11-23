@@ -1,6 +1,6 @@
 package com.sympauthy.business.model.collection
 
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 
 /**
  * One field of a collection: what a caller may filter, order or search on, and the whole of what the

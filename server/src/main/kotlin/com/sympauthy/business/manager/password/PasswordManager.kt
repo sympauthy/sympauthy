@@ -1,14 +1,14 @@
 package com.sympauthy.business.manager.password
 
-import com.sympauthy.business.manager.RandomGenerator
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.model.password.HashedPassword
 import com.sympauthy.business.model.user.User
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.PasswordEntity
 import com.sympauthy.data.repository.PasswordRepository
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.random.RandomGenerator
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.async

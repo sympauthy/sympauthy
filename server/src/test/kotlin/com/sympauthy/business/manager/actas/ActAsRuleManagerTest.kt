@@ -1,10 +1,10 @@
 package com.sympauthy.business.manager.actas
 
+import com.sympauthy.business.model.actas.ActAsRule
+import com.sympauthy.business.model.actas.ActAsRuleBehavior
+import com.sympauthy.business.model.actas.ActAsRuleBehavior.ALLOW
+import com.sympauthy.business.model.actas.ActAsRuleBehavior.DENY
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.rule.ActAsRule
-import com.sympauthy.business.model.rule.ActAsRuleBehavior
-import com.sympauthy.business.model.rule.ActAsRuleBehavior.ALLOW
-import com.sympauthy.business.model.rule.ActAsRuleBehavior.DENY
 import com.sympauthy.config.model.EnabledActAsRulesConfig
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk

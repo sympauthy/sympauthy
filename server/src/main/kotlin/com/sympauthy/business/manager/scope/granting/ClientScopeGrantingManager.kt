@@ -1,9 +1,9 @@
 package com.sympauthy.business.manager.scope.granting
 
-import com.sympauthy.business.model.ScopeGrantingMethodResult
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.model.scope.ClientScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.granting.ScopeGrantingMethodResult
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import jakarta.inject.Inject

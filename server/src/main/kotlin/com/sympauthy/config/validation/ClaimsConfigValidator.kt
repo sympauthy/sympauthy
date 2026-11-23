@@ -1,20 +1,25 @@
 package com.sympauthy.config.validation
 
 import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.user.claim.*
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.GeneratedOpenIdConnectClaim
+import com.sympauthy.business.model.claim.ApplicationClaim
+import com.sympauthy.business.model.claim.Claim
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimKind
+import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.model.claim.DisabledClaim
+import com.sympauthy.business.model.claim.GeneratedClaim
+import com.sympauthy.business.model.claim.GeneratedOpenIdConnectClaim
+import com.sympauthy.business.model.claim.PersonalClaim
+import com.sympauthy.business.model.scope.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.normalizeClaimId
 import com.sympauthy.config.properties.ClaimConfigurationProperties.Companion.CLAIMS_KEY
-import com.sympauthy.util.configName
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.configName
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

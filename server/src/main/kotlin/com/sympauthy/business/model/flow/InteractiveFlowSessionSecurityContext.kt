@@ -19,7 +19,7 @@ import java.util.*
  * Writing is best-effort, so an absence proves nothing about what happened.
  *
  * The geo fields are the edge's words, unaltered, and every one of them is nullable on its own — see
- * [com.sympauthy.business.model.security.SecurityContextGeo], which the observation is built from.
+ * [com.sympauthy.business.model.securitycontext.SecurityContextGeo], which the observation is built from.
  *
  * **It carries no fingerprint.** That column is the key a place is deduplicated on, and it answers no
  * question a reader of the session has.
@@ -33,7 +33,7 @@ data class InteractiveFlowSessionSecurityContext(
     /**
      * The address the requests were observed coming from, under the trust model the deployment configured.
      * A deployment that named no proxy records the socket peer, which is that proxy's own address rather
-     * than anybody's — see [com.sympauthy.business.model.security.IpSource].
+     * than anybody's — see [com.sympauthy.business.model.securitycontext.IpSource].
      */
     val ip: String,
 

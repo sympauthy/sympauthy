@@ -2,10 +2,9 @@ package com.sympauthy.business.manager.grant
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.GrantMapper
+import com.sympauthy.business.model.authorization.RequestedClaims
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.flow.InteractiveFlowSession
@@ -20,16 +19,17 @@ import com.sympauthy.business.model.grant.GrantWithStatus
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.business.model.token.AuthenticationToken
 import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.claim.RequestedClaims
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.data.model.GrantEntity
 import com.sympauthy.data.repository.GrantRepository
 import com.sympauthy.data.repository.findMatching
-import com.sympauthy.monitoring.telemetry.manager.SpanReference
-import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
-import com.sympauthy.util.isRowAlreadyThere
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.SpanReference
+import com.sympauthy.platform.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.platform.util.isRowAlreadyThere
+import com.sympauthy.platform.util.wireName
 import io.micronaut.transaction.TransactionDefinition
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject

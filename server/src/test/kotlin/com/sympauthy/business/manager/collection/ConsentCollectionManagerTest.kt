@@ -7,7 +7,7 @@ import com.sympauthy.business.manager.consent.ConsentManager
 import com.sympauthy.business.model.audience.Audience
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.collection.CollectionFieldValue
-import com.sympauthy.business.model.oauth2.Consent
+import com.sympauthy.business.model.consent.Consent
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.user.User
 import io.mockk.coEvery

@@ -4,8 +4,8 @@ description: What a paged collection answers with and what a caller may ask of o
 paths:
   - "server/src/main/kotlin/com/sympauthy/business/model/collection/**"
   - "server/src/main/kotlin/com/sympauthy/business/manager/collection/**"
-  - "server/src/main/kotlin/com/sympauthy/api/controller/admin/**"
-  - "server/src/main/kotlin/com/sympauthy/api/controller/client/**"
+  - "server/src/main/kotlin/com/sympauthy/api/operator/admin/**"
+  - "server/src/main/kotlin/com/sympauthy/api/application/client/**"
 ---
 
 # Collection standard

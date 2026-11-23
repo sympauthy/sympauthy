@@ -1,14 +1,14 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.DisabledScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.user.OpenIdConnectScope
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.model.claim.ClaimAclExpression
+import com.sympauthy.business.model.scope.ClientScope
+import com.sympauthy.business.model.scope.ConsentableUserScope
+import com.sympauthy.business.model.scope.DisabledScope
+import com.sympauthy.business.model.scope.GrantableUserScope
+import com.sympauthy.business.model.scope.OpenIdConnectScope
+import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.model.scope.ScopeType
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.parsing.ParsedClaimAcl
 import org.junit.jupiter.api.Assertions.assertEquals

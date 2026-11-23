@@ -10,6 +10,9 @@ import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWit
 import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.authorization.RequestedClaims
+import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.client.ClientReference
 import com.sympauthy.business.model.client.GrantType
 import com.sympauthy.business.model.collection.CollectionCapabilities
@@ -19,14 +22,11 @@ import com.sympauthy.business.model.grant.Grant
 import com.sympauthy.business.model.grant.GrantRevokedBy
 import com.sympauthy.business.model.grant.GrantStatus
 import com.sympauthy.business.model.grant.GrantWithStatus
-import com.sympauthy.business.model.oauth2.EnabledScope
 import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.user.CollectedClaim
+import com.sympauthy.business.model.scope.EnabledScope
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.business.model.user.UserWithIdentifierClaims
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.RequestedClaims
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

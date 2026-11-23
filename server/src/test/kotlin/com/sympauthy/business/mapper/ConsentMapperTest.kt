@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.oauth2.ConsentRevokedBy
+import com.sympauthy.business.model.consent.ConsentRevokedBy
 import com.sympauthy.data.model.ConsentEntity
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import org.junit.jupiter.api.Assertions.*

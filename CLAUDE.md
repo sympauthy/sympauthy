@@ -64,11 +64,12 @@ clone.
 
 ## Architecture — `docs/design/architecture.md`, `docs/standards/general-code-standard.md`
 
-- **`api`** — HTTP boundary. Controllers, resources, mappers, filters, error handlers.
+- **`api`** — HTTP boundary, laid out by audience: `protocol`, `application`, `flow`, `operator`.
 - **`business`** — managers (use cases + transaction boundary), models, entity mappers.
 - **`data`** — R2DBC entities and repositories, with a PostgreSQL and an H2 twin for each.
 - **`config`** — properties → parser → validator → factory → model.
 - **`security`** — the authentications and the token validator.
+- **`platform`** — what every layer rests on and no audience sees: the lock, the queue, monitoring.
 
 **Every API surface is gated differently**: `/api/oauth2` and `/api/openid` by the protocol's own
 rules, `/api/v1/flow` by `ROLE_STATE`, `/api/v1/client` by a client scope — except its claim

@@ -1,21 +1,21 @@
 package com.sympauthy.business.manager.consent
 
 import com.sympauthy.business.manager.grant.GrantManager
-import com.sympauthy.business.manager.lock.HeldStripes
-import com.sympauthy.business.manager.lock.LockKey
-import com.sympauthy.business.manager.lock.LockManager
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.ConsentMapper
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.consent.Consent
+import com.sympauthy.business.model.consent.ConsentRevokedBy
 import com.sympauthy.business.model.grant.GrantRevokedBy
-import com.sympauthy.business.model.oauth2.Consent
-import com.sympauthy.business.model.oauth2.ConsentRevokedBy
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
 import com.sympauthy.data.model.ConsentEntity
 import com.sympauthy.data.repository.ConsentRepository
 import com.sympauthy.data.repository.ObjectLockRepository
-import com.sympauthy.monitoring.telemetry.manager.LockMetrics
+import com.sympauthy.platform.lock.HeldStripes
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.LockMetrics
 import io.mockk.coEvery
 import io.mockk.coJustRun
 import io.mockk.coVerify

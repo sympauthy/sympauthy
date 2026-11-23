@@ -1,11 +1,11 @@
 package com.sympauthy.security
 
 import com.sympauthy.api.exception.httpExceptionOf
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.isClientScope
+import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.model.scope.isClientScope
 import com.sympauthy.business.model.token.AuthenticationToken
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.micronaut.http.HttpStatus.FORBIDDEN
 import io.micronaut.security.authentication.Authentication

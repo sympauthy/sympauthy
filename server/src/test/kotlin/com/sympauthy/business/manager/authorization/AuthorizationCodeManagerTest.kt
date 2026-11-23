@@ -2,21 +2,21 @@ package com.sympauthy.business.manager.authorization
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.RandomGenerator
 import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.mapper.AuthorizationCodeMapper
+import com.sympauthy.business.model.authorization.AuthorizationCode
+import com.sympauthy.business.model.authorization.CodeChallengeMethod
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.flow.InteractiveFlowSession
 import com.sympauthy.business.model.flow.InteractiveFlowSessionOAuth2
 import com.sympauthy.business.model.grant.Grant
-import com.sympauthy.business.model.oauth2.AuthorizationCode
-import com.sympauthy.business.model.oauth2.CodeChallengeMethod
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_GRANT
 import com.sympauthy.config.model.AuthorizationCodeConfig
 import com.sympauthy.config.model.EnabledAuthConfig
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.repository.AuthorizationCodeRepository
-import com.sympauthy.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.TokenMetrics
+import com.sympauthy.platform.random.RandomGenerator
 import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
 import io.mockk.coEvery
 import io.mockk.coVerify

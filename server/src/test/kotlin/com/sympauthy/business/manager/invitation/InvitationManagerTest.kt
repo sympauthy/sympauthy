@@ -6,13 +6,13 @@ import com.sympauthy.business.manager.claim.ClaimValueValidator
 import com.sympauthy.business.manager.user.UserManager
 import com.sympauthy.business.mapper.InvitationMapper
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.ClaimAclTokenDoors
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.business.model.invitation.Invitation
 import com.sympauthy.business.model.invitation.InvitationCreatedBy
 import com.sympauthy.business.model.invitation.InvitationStatus
 import com.sympauthy.business.model.user.User
 import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.claim.ClaimAclTokenDoors
-import com.sympauthy.business.model.user.claim.EnabledClaim
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.InvitationAdvancedConfig
 import com.sympauthy.data.model.InvitationEntity

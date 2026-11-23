@@ -5,12 +5,12 @@ import com.sympauthy.business.manager.claim.ClaimAclManager
 import com.sympauthy.business.manager.grant.GrantManager
 import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.manager.scope.granting.ClientScopeGrantingManager
+import com.sympauthy.business.model.claim.ClaimAclContext
 import com.sympauthy.business.model.client.Client
 import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_SCOPE
 import com.sympauthy.business.model.token.EncodedAuthenticationToken
 import com.sympauthy.business.model.token.IssuedTokens
 import com.sympauthy.business.model.token.TokenRequest
-import com.sympauthy.business.model.user.claim.ClaimAclContext
 import io.micronaut.transaction.annotation.Transactional
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

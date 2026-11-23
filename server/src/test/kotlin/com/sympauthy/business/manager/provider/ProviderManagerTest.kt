@@ -6,9 +6,9 @@ import com.sympauthy.config.model.EnabledProvidersConfig
 import com.sympauthy.config.model.ProviderConfig
 import com.sympauthy.config.model.ProviderOpenIdConnectInputConfig
 import com.sympauthy.exception.LocalizedException
-import com.sympauthy.monitoring.manager.ConditionMonitor
-import com.sympauthy.monitoring.manager.RemoteCallMonitor
-import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Condition
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.mockk.coEvery

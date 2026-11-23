@@ -1,8 +1,8 @@
 package com.sympauthy.business.manager.claim
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
-import com.sympauthy.business.model.user.claim.TimeZone
-import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.model.claim.TimeZone
+import com.sympauthy.platform.monitoring.loggerForClass
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import jakarta.inject.Singleton

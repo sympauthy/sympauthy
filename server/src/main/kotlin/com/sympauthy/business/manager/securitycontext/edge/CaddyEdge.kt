@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.securitycontext.edge
 
-import com.sympauthy.business.model.security.IpProvider
+import com.sympauthy.business.model.securitycontext.edge.IpProvider
 import io.micronaut.http.HttpHeaders
 import jakarta.inject.Named
 import jakarta.inject.Singleton

@@ -5,8 +5,8 @@ import com.ezylang.evalex.data.EvaluationValue
 import com.ezylang.evalex.functions.AbstractFunction
 import com.ezylang.evalex.functions.FunctionParameter
 import com.ezylang.evalex.parser.Token
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.claim.ClaimDataType
+import com.sympauthy.business.model.claim.ClaimDataType
+import com.sympauthy.business.model.claim.CollectedClaim
 
 /**
  * Custom function returning the value of the claim as a string for the authenticating end-user.

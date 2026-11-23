@@ -2,9 +2,9 @@ package com.sympauthy.business.mapper
 
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia
-import com.sympauthy.business.model.code.ValidationCodeReason
+import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.model.validationcode.ValidationCodeReason
 import com.sympauthy.data.model.ValidationCodeEntity
 import jakarta.inject.Singleton
 

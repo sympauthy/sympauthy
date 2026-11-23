@@ -9,7 +9,7 @@ import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.flow.PurposeDebugInformation
 import com.sympauthy.business.model.flow.mfaPassedDateOrNull
 import com.sympauthy.business.model.flow.userIdOrNull
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

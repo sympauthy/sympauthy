@@ -2,9 +2,9 @@ package com.sympauthy.business.manager.password
 
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.manager.CustomSpanTracer
-import com.sympauthy.server.Computation
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.server.Computation
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.asCoroutineDispatcher

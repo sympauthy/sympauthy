@@ -3,6 +3,7 @@ package com.sympauthy.business.manager.collection
 import com.sympauthy.business.manager.audience.AudienceManager
 import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.model.claim.Claim
 import com.sympauthy.business.model.collection.CollectionCapabilities
 import com.sympauthy.business.model.collection.CollectionCriteria
 import com.sympauthy.business.model.collection.CollectionFieldType.BOOLEAN
@@ -11,13 +12,12 @@ import com.sympauthy.business.model.collection.CollectionFieldType.STRING
 import com.sympauthy.business.model.collection.CollectionFields
 import com.sympauthy.business.model.collection.collectionFields
 import com.sympauthy.business.model.collection.fieldValues
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.oauth2.isEnabled
 import com.sympauthy.business.model.page.Page
 import com.sympauthy.business.model.page.PageParams
 import com.sympauthy.business.model.page.map
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.model.scope.ScopeType
+import com.sympauthy.business.model.scope.isEnabled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

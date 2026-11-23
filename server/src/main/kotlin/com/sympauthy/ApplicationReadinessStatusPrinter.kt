@@ -1,24 +1,24 @@
 package com.sympauthy
 
-import com.sympauthy.api.controller.openapi.OpenApiController.Companion.OPENAPI_ENDPOINT
+import com.sympauthy.api.operator.console.AdminUiController.Companion.ADMIN_UI_ENDPOINT
+import com.sympauthy.api.operator.console.OpenApiController.Companion.OPENAPI_ENDPOINT
+import com.sympauthy.api.operator.console.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
 import com.sympauthy.business.manager.claim.ClaimManager
 import com.sympauthy.business.manager.client.ClientManager
 import com.sympauthy.business.manager.provider.ProviderManager
 import com.sympauthy.business.manager.scope.ScopeManager
 import com.sympauthy.business.manager.scope.granting.ScopeGrantingRuleManager
+import com.sympauthy.business.model.claim.ClaimKind
 import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
-import com.sympauthy.business.model.oauth2.isAdmin
-import com.sympauthy.business.model.user.claim.ClaimKind
+import com.sympauthy.business.model.scope.isAdmin
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.*
-import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.server.ErrorMessages
-import com.sympauthy.util.DEFAULT_ENVIRONMENT
-import com.sympauthy.util.getKeyAndLocalizedMessage
-import com.sympauthy.util.isDefaultActive
-import com.sympauthy.util.pluralize
-import com.sympauthy.view.AdminUiController.Companion.ADMIN_UI_ENDPOINT
-import com.sympauthy.view.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.server.ErrorMessages
+import com.sympauthy.platform.util.DEFAULT_ENVIRONMENT
+import com.sympauthy.platform.util.getKeyAndLocalizedMessage
+import com.sympauthy.platform.util.isDefaultActive
+import com.sympauthy.platform.util.pluralize
 import io.micronaut.context.MessageSource
 import io.micronaut.context.env.Environment
 import io.micronaut.context.event.ApplicationEventListener
@@ -135,12 +135,12 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val consentableScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ConsentableUserScope }
+        val consentableScopesCount = scopes.count { it is com.sympauthy.business.model.scope.ConsentableUserScope }
         val adminScopesCount =
-            scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && it.isAdmin }
+            scopes.count { it is com.sympauthy.business.model.scope.GrantableUserScope && it.isAdmin }
         val grantableScopesCount =
-            scopes.count { it is com.sympauthy.business.model.oauth2.GrantableUserScope && !it.isAdmin }
-        val clientScopesCount = scopes.count { it is com.sympauthy.business.model.oauth2.ClientScope }
+            scopes.count { it is com.sympauthy.business.model.scope.GrantableUserScope && !it.isAdmin }
+        val clientScopesCount = scopes.count { it is com.sympauthy.business.model.scope.ClientScope }
         logger.info {
             "- ${pluralize(scopes.size, "scope")} " +
                     "(${pluralize(consentableScopesCount, "consentable", "consentable")}, " +

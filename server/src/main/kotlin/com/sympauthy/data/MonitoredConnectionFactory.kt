@@ -1,7 +1,7 @@
 package com.sympauthy.data
 
-import com.sympauthy.monitoring.manager.ConditionMonitor
-import com.sympauthy.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.model.Condition
 import io.micronaut.context.event.BeanCreatedEvent
 import io.micronaut.context.event.BeanCreatedEventListener
 import io.r2dbc.spi.Connection

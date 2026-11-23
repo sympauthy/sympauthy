@@ -26,7 +26,7 @@
     Every level below ERROR: the caller hands the line over and moves on. What the queue drops, and when, is
     docs/design/logging.md.
     -->
-    <appender name="QUEUE" class="com.sympauthy.monitoring.ConsoleQueueAppender">
+    <appender name="QUEUE" class="com.sympauthy.platform.monitoring.ConsoleQueueAppender">
         <queueSize>1024</queueSize>
         <neverBlock>true</neverBlock>
         <maxFlushTime>1000</maxFlushTime>

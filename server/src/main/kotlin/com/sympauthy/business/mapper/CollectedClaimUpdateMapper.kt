@@ -1,7 +1,7 @@
 package com.sympauthy.business.mapper
 
-import com.sympauthy.business.model.user.CollectedClaimUpdate
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.model.claim.CollectedClaimUpdate
+import com.sympauthy.business.model.claim.EnabledClaim
 import com.sympauthy.data.model.CollectedClaimEntity
 import jakarta.inject.Singleton
 import java.time.LocalDateTime

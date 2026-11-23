@@ -1,6 +1,6 @@
 package com.sympauthy.business.manager.util
 
-import com.sympauthy.util.min
+import com.sympauthy.platform.util.min
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime

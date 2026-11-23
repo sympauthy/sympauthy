@@ -8,7 +8,7 @@ import com.sympauthy.config.model.advancedConfigOf
 import com.sympauthy.config.model.noNamedGeoHeaders
 import com.sympauthy.data.model.UserSecurityContextEntity
 import com.sympauthy.data.repository.UserSecurityContextRepository
-import com.sympauthy.monitoring.telemetry.manager.JobMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.JobMetrics
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.junit5.MockKExtension

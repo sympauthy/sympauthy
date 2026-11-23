@@ -5,10 +5,10 @@ import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
 import com.sympauthy.business.manager.mfa.TotpManager
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.user.User
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics
-import com.sympauthy.monitoring.telemetry.manager.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
-import com.sympauthy.monitoring.telemetry.manager.InMemoryMetrics
-import com.sympauthy.monitoring.telemetry.manager.attributes
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.platform.monitoring.telemetry.manager.InMemoryMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.attributes
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.impl.annotations.InjectMockKs

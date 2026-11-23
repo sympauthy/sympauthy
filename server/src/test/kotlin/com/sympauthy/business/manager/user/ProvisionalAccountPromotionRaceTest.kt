@@ -1,11 +1,11 @@
 package com.sympauthy.business.manager.user
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.lock.LockKey
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.data.Database
 import com.sympauthy.data.bean
 import com.sympauthy.data.withFixture
+import com.sympauthy.platform.lock.LockKey
 import io.mockk.every
 import io.mockk.mockk
 import io.r2dbc.spi.Connection

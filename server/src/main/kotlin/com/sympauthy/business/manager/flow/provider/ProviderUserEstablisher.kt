@@ -3,7 +3,7 @@ package com.sympauthy.business.manager.flow.provider
 import com.sympauthy.business.manager.flow.InteractiveFlowPurposeHandler
 import com.sympauthy.business.model.flow.OnGoingInteractiveFlowSession
 import com.sympauthy.business.model.provider.EnabledProvider
-import com.sympauthy.business.model.user.RawProviderClaims
+import com.sympauthy.business.model.provider.RawProviderClaims
 import java.util.UUID
 
 /**

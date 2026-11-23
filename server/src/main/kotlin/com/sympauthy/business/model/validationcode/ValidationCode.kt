@@ -1,0 +1,94 @@
+package com.sympauthy.business.model.validationcode
+
+import com.sympauthy.business.model.Expirable
+import com.sympauthy.business.model.claim.OpenIdConnectClaimId
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia.EMAIL
+import com.sympauthy.business.model.validationcode.ValidationCodeMedia.SMS
+import java.time.LocalDateTime
+import java.util.*
+
+/**
+ * A validation code sent to the end-user identified by [userId].
+ * The [reasons] why we are sending the validation code to the end-user determine the [media] we are using.
+ */
+class ValidationCode(
+    /**
+     * Uniq identifier of the code.
+     */
+    val id: UUID,
+    /**
+     * The validation code the end-user will have to enter.
+     *
+     * It is stored as a string to accommodate futur validation that may not be integer-based
+     * (ex: MFA with authenticator).
+     */
+    val code: String,
+
+    /**
+     * The identifier of the end-user we are sending the validation code to.
+     */
+    val userId: UUID,
+
+    /**
+     * The media used to send the validation code to the end-user. (ex. email)
+     */
+    val media: ValidationCodeMedia,
+
+    /**
+     * What this code validates. Every reason listed here is served by [media], since one code is sent
+     * per media rather than one per reason.
+     */
+    val reasons: List<ValidationCodeReason>,
+
+    /**
+     * Identifier of the interactive flow session that requested a validation.
+     */
+    val sessionId: UUID,
+
+    val creationDate: LocalDateTime,
+
+    /**
+     * The date at which this validation code can be resent to the user on explicit demand.
+     * If null, the validation code cannot be resent to the user.
+     */
+    val resendDate: LocalDateTime?,
+
+    /**
+     * The date when this authorization server received a matching code from the user.
+     */
+    val validationDate: LocalDateTime? = null,
+
+    override val expirationDate: LocalDateTime
+) : Expirable
+
+/**
+ * Enumeration of what we are trying to validation by using a validation code.
+ */
+enum class ValidationCodeReason(
+    val media: ValidationCodeMedia
+) {
+    /**
+     * A validation code has been sent by email to the end-user to verify its email claim.
+     */
+    EMAIL_CLAIM(EMAIL),
+
+    /**
+     * A validation code has been sent by SMS to the end-user to verify its phone number claim.
+     */
+    PHONE_NUMBER_CLAIM(SMS),
+    RESET_PASSWORD(EMAIL),
+}
+
+/**
+ * Media a validation code is sent to the end-user through.
+ */
+enum class ValidationCodeMedia(
+    /**
+     * The claim required to send the media to the end-user.
+     * ex. The OpenID ```email``` claim is required to email the end-user.
+     */
+    val claim: String
+) {
+    EMAIL(OpenIdConnectClaimId.EMAIL),
+    SMS(OpenIdConnectClaimId.PHONE_NUMBER)
+}
