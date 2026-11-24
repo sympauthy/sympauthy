@@ -1,9 +1,9 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ClaimTemplatesConfig(

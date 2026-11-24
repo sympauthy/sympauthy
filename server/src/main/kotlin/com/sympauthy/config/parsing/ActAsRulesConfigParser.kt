@@ -1,7 +1,7 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.rule.ActAsRuleBehavior
-import com.sympauthy.business.model.rule.ActAsRuleBehavior.ALLOW
+import com.sympauthy.business.actas.model.ActAsRuleBehavior
+import com.sympauthy.business.actas.model.ActAsRuleBehavior.ALLOW
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf

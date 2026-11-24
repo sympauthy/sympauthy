@@ -1,0 +1,205 @@
+package com.sympauthy.business.provider.manager
+
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.provider.config.model.ProviderOAuth2Config
+import com.sympauthy.business.provider.config.model.ProviderOpenIdConnectConfig
+import com.sympauthy.business.provider.model.DisabledProvider
+import com.sympauthy.business.provider.model.EnabledProvider
+import com.sympauthy.business.provider.model.Provider
+import com.sympauthy.client.isRemoteFailure
+import com.sympauthy.client.openidconnect.OpenIdConnectDiscoveryClient
+import com.sympauthy.client.remoteOutcome
+import com.sympauthy.config.model.*
+import com.sympauthy.exception.LocalizedException
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Condition
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import kotlinx.coroutines.*
+import java.net.URI
+import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Manager in charge of resolving providers from the validated configuration into fully usable [Provider] instances.
+ *
+ * Each provider is resolved concurrently at startup. For OAuth2 providers, this is a direct mapping.
+ * For OpenID Connect providers, this involves fetching the discovery document to resolve endpoints.
+ *
+ * A provider whose discovery cannot be fetched starts disabled and is retried until it answers, as
+ * [retryResolution] says; one that answers with something this server cannot use stays disabled until the
+ * server restarts. What each reports, and why, is `docs/design/logging.md`.
+ *
+ * Configuration validation (parsing YAML, checking required fields) is handled by
+ * [com.sympauthy.config.factory.ProvidersConfigFactory].
+ */
+@Singleton
+open class ProviderManager(
+    @Inject private val providersConfig: ProvidersConfig,
+    @Inject private val openIdConnectDiscoveryClient: OpenIdConnectDiscoveryClient,
+    @Inject private val remoteCallMonitor: RemoteCallMonitor
+) {
+
+    /**
+     * The scope a provider is resolved on, and retried on while its discovery cannot be fetched.
+     */
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    private val providers = ConcurrentHashMap<String, Deferred<Provider>>()
+
+    private val logger = loggerForClass()
+
+    @PostConstruct
+    fun init() {
+        val enabledConfig = providersConfig as? EnabledProvidersConfig ?: return
+        for (config in enabledConfig.providers) {
+            providers[config.id] = scope.async {
+                try {
+                    resolveProvider(config)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (e: Exception) {
+                    if (e.isRemoteFailure()) {
+                        retryResolution(config)
+                    } else {
+                        reportUnusable(config, e)
+                    }
+                    DisabledProvider(config.id, e.toLocalizedException(config))
+                }
+            }
+        }
+    }
+
+    @PreDestroy
+    fun close() {
+        scope.cancel()
+    }
+
+    /**
+     * Resolve the provider [config] declares again every [RESOLUTION_RETRY_INTERVAL] until it resolves, and
+     * from then on serve it like a provider that resolved at startup.
+     *
+     * Every attempt is reported to its condition by [resolveProvider]. An attempt that fetches something this
+     * server cannot use ends the retries: the provider answered, so its condition recovers, and it stays
+     * disabled with the ERROR it would have had at startup.
+     */
+    private fun retryResolution(config: ProviderConfig) = scope.launch {
+        while (true) {
+            delay(RESOLUTION_RETRY_INTERVAL.toMillis())
+            try {
+                providers[config.id] = CompletableDeferred(resolveProvider(config))
+                return@launch
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                if (!e.isRemoteFailure()) {
+                    reportUnusable(config, e)
+                    return@launch
+                }
+            }
+        }
+    }
+
+    private fun reportUnusable(config: ProviderConfig, failure: Exception) {
+        logger.error(failure) {
+            "Provider '${config.id}' answered with something this server cannot resolve it from, and stays " +
+                "disabled until the server restarts. Its configuration is the likely cause."
+        }
+    }
+
+    private fun Exception.toLocalizedException(config: ProviderConfig) = this as? LocalizedException
+        ?: LocalizedException(
+            detailsId = "provider.openid_connect.discovery_failed",
+            values = mapOf("issuer" to config.id),
+            throwable = this
+        )
+
+    /**
+     * Whether the configuration declares a provider identified by [id], resolved or not.
+     */
+    fun isDeclared(id: String): Boolean = providers.containsKey(id)
+
+    suspend fun listProviders(): List<Provider> {
+        return providers.values.awaitAll()
+    }
+
+    suspend fun listEnabledProviders(): List<EnabledProvider> {
+        return listProviders()
+            .filterIsInstance<EnabledProvider>()
+    }
+
+    /**
+     * Return the [EnabledProvider] identified by [id].
+     * Suspends until the provider has finished resolving.
+     * Throws an internal business exception if the provider does not exist or is disabled.
+     */
+    suspend fun findByIdAndCheckEnabled(id: String?): EnabledProvider {
+        val deferred = providers[id]
+            ?: throw businessExceptionOf(
+                detailsId = "provider.missing",
+                "providerId" to (id ?: "")
+            )
+        val provider = deferred.await()
+        return (provider as? EnabledProvider)
+            ?: throw businessExceptionOf(
+                detailsId = "provider.disabled",
+                "providerId" to (id ?: "")
+            )
+    }
+
+    /**
+     * Resolve the provider [config] declares, fetching its discovery document as a call to its condition where it
+     * is an OpenID Connect provider.
+     */
+    private suspend fun resolveProvider(config: ProviderConfig): EnabledProvider {
+        val auth = when (val input = config.auth) {
+            is ProviderOAuth2InputConfig -> ProviderOAuth2Config(
+                clientId = input.clientId,
+                clientSecret = input.clientSecret,
+                scopes = input.scopes,
+                authorizationUri = input.authorizationUri,
+                tokenUri = input.tokenUri
+            )
+
+            is ProviderOpenIdConnectInputConfig -> {
+                val discovery = remoteCallMonitor.observe(
+                    Condition.Provider(config.id), DISCOVERY_OPERATION, Throwable::remoteOutcome
+                ) {
+                    openIdConnectDiscoveryClient.fetchDiscovery(input.issuer)
+                }
+                ProviderOpenIdConnectConfig(
+                    clientId = input.clientId,
+                    clientSecret = input.clientSecret,
+                    scopes = input.scopes,
+                    issuer = input.issuer,
+                    authorizationUri = URI.create(discovery.authorizationEndpoint),
+                    tokenUri = URI.create(discovery.tokenEndpoint),
+                    jwksUri = URI.create(discovery.jwksUri)
+                )
+            }
+        }
+        return EnabledProvider(
+            id = config.id,
+            name = config.name,
+            userInfo = config.userInfo,
+            auth = auth
+        )
+    }
+
+    companion object {
+        /**
+         * The operation a provider's discovery is timed under.
+         */
+        private const val DISCOVERY_OPERATION = "discovery"
+
+        /**
+         * How long a provider that could not be resolved waits before it is tried again. It reuses the
+         * conditions' quiet period rather than adding a number of its own to the ones the design fixes.
+         */
+        private val RESOLUTION_RETRY_INTERVAL: Duration = ConditionMonitor.QUIET_PERIOD
+    }
+}

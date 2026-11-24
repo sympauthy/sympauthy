@@ -1,13 +1,13 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.scope.model.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.parsing.ParsedClaimTemplate
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties.Companion.TEMPLATES_CLAIMS_KEY
-import com.sympauthy.util.configName
+import com.sympauthy.platform.util.configName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

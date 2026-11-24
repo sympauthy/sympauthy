@@ -1,15 +1,15 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.client.AuthorizationWebhook
-import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
-import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.client.model.AuthorizationWebhook
+import com.sympauthy.business.client.model.AuthorizationWebhookOnFailure
+import com.sympauthy.business.client.model.GrantType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.ConfigTemplateResolver
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.properties.ClientAuthorizationWebhookProperties
-import com.sympauthy.util.enumValueOfWireNameOrNull
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.enumValueOfWireNameOrNull
+import com.sympauthy.platform.util.wireName
 import io.micronaut.http.uri.UriBuilder
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

@@ -1,8 +1,8 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace.ID_TOKEN
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace.ID_TOKEN
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledClaimTemplatesConfig

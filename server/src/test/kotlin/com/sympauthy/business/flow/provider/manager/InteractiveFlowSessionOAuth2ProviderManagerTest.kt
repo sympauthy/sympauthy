@@ -1,0 +1,767 @@
+package com.sympauthy.business.flow.provider.manager
+
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.manager.CollectedClaimManager
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.OpenIdConnectClaimId
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.flow.link.manager.InteractiveFlowSessionLinkProviderManager
+import com.sympauthy.business.flow.manager.InteractiveFlowEngine
+import com.sympauthy.business.flow.manager.InteractiveFlowSessionManager
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowSessionLinkProvider
+import com.sympauthy.business.flow.model.InteractiveFlowSessionProvider
+import com.sympauthy.business.flow.model.OnGoingInteractiveFlowSession
+import com.sympauthy.business.flow.oauth2.manager.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.flow.reauth.manager.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.provider.config.model.ProviderOAuth2Config
+import com.sympauthy.business.provider.config.model.ProviderUserInfoConfig
+import com.sympauthy.business.provider.manager.ProviderClaimsManager
+import com.sympauthy.business.provider.manager.ProviderClaimsResolver
+import com.sympauthy.business.provider.manager.ProviderManager
+import com.sympauthy.business.provider.model.EnabledProvider
+import com.sympauthy.business.provider.model.ProviderUserInfo
+import com.sympauthy.business.provider.model.RawProviderClaims
+import com.sympauthy.business.provider.oauth2.model.ProviderOAuth2Tokens
+import com.sympauthy.business.securitycontext.edge.model.observedRequestOf
+import com.sympauthy.business.securitycontext.manager.UserSecurityContextManager
+import com.sympauthy.business.user.manager.TakenIdentifier
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.client.oauth2.TokenEndpointClient
+import com.sympauthy.client.oauth2.model.TokenEndpointResponse
+import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.platform.lock.HeldStripes
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
+import com.sympauthy.platform.monitoring.model.Outcome
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.AUTHENTICATION_ATTEMPTS
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.monitoring.telemetry.manager.InMemoryMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.LockMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.attributes
+import io.micronaut.http.HttpResponse
+import io.micronaut.http.HttpStatus
+import io.micronaut.http.client.exceptions.HttpClientResponseException
+import io.micronaut.http.client.exceptions.ReadTimeoutException
+import io.mockk.*
+import io.mockk.coJustRun
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
+import io.mockk.junit5.MockKExtension
+import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class InteractiveFlowSessionOAuth2ProviderManagerTest {
+
+    @MockK
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
+    lateinit var providerManager: InteractiveFlowSessionProviderManager
+
+    @MockK
+    lateinit var reauthenticationManager: InteractiveFlowSessionReauthenticationManager
+
+    @MockK(relaxed = true)
+    lateinit var userSecurityContextManager: UserSecurityContextManager
+
+    @MockK
+    lateinit var providerConfigManager: ProviderManager
+
+    @MockK
+    lateinit var providerClaimsManager: ProviderClaimsManager
+
+    @MockK
+    lateinit var providerClaimsResolver: ProviderClaimsResolver
+
+    @MockK
+    lateinit var engine: InteractiveFlowEngine
+
+    @MockK
+    lateinit var tokenEndpointClient: TokenEndpointClient
+
+    @MockK
+    lateinit var establisher: ProviderUserEstablisher
+
+    @MockK
+    lateinit var linkProviderManager: InteractiveFlowSessionLinkProviderManager
+
+    @MockK
+    lateinit var userManager: UserManager
+
+    @MockK
+    lateinit var claimManager: ClaimManager
+
+    @MockK
+    lateinit var collectedClaimManager: CollectedClaimManager
+
+    @MockK
+    lateinit var uncheckedAuthConfig: EnabledAuthConfig
+
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
+    /**
+     * The real manager over the stripe table, so a test can say which rows a link had to hold: it reads the
+     * subject and the owner of the identifier values again inside the block, and a double answering for
+     * `withLock` would run that block whether or not anything was ever locked.
+     */
+    @SpyK
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
+
+    @MockK
+    lateinit var remoteCallMonitor: RemoteCallMonitor
+
+    private val metrics = InMemoryMetrics()
+
+    @SpyK
+    var authenticationMetrics = AuthenticationMetrics(metrics.openTelemetry)
+
+    @SpyK
+    var customSpanTracer = CustomSpanTracer(OpenTelemetry.noop())
+
+    @SpyK
+    @InjectMockKs
+    lateinit var manager: InteractiveFlowSessionOAuth2ProviderManager
+
+    private val redirectUri = URI.create("https://auth.example.com/api/v1/flow/providers/test-provider/callback")
+
+    private val email = "user@example.com"
+
+    private val foldedEmail = "user@example.com"
+    /** The account a refusal names as holding the value, which reaches an operator and never the person refused. */
+    private val ownerId = UUID.randomUUID()
+
+
+    private fun createProvider(): EnabledProvider {
+        return EnabledProvider(
+            id = "test-provider",
+            name = "Test Provider",
+            userInfo = mockk<ProviderUserInfoConfig>(),
+            auth = mockk<ProviderOAuth2Config>()
+        )
+    }
+
+    @Test
+    fun `getOAuth2 - Return config when provider uses OAuth2`() {
+        val oauth2Config = mockk<ProviderOAuth2Config>()
+        val provider = EnabledProvider(
+            id = "test-provider",
+            name = "Test Provider",
+            userInfo = mockk<ProviderUserInfoConfig>(),
+            auth = oauth2Config
+        )
+
+        val result = manager.getOAuth2(provider)
+
+        assertSame(oauth2Config, result)
+    }
+
+    /** What the monitor's judge was handed, which is what the provider's condition and the metric count. */
+    private val judgedFailures = mutableListOf<Throwable>()
+
+    private fun stubTokenEndpointFailing(failure: Exception) {
+        coEvery {
+            remoteCallMonitor.observe<TokenEndpointResponse>(any(), any(), any(), any())
+        } coAnswers {
+            try {
+                arg<suspend () -> TokenEndpointResponse>(3).invoke()
+            } catch (e: Exception) {
+                arg<(Throwable) -> Outcome>(2).invoke(e)
+                judgedFailures += e
+                throw e
+            }
+        }
+        coEvery { tokenEndpointClient.fetchTokens(any()) } throws failure
+    }
+
+    private fun answered(status: Int, body: Map<String, String>? = null) = HttpClientResponseException(
+        "Answered $status",
+        HttpResponse.status<Any>(status, "Answered").apply { if (body != null) body(body) }
+    )
+
+    private suspend fun fetchTokensFailure(): BusinessException {
+        val auth = ProviderOAuth2Config(
+            clientId = "client-id",
+            clientSecret = "client-secret",
+            scopes = null,
+            authorizationUri = URI.create("https://provider.example.com/authorize"),
+            tokenUri = URI.create("https://provider.example.com/token")
+        )
+        return assertThrows<BusinessException> {
+            manager.fetchTokens(createProvider(), auth, "code", redirectUri)
+        }
+    }
+
+    @Test
+    fun `fetchTokens - Refuses the code the provider answers invalid_grant for, failing the session`() = runTest {
+        stubTokenEndpointFailing(answered(400, mapOf("error" to "invalid_grant")))
+
+        val failure = fetchTokensFailure()
+
+        assertEquals("provider.token.code_refused", failure.detailsId)
+        assertFalse(failure.recoverable)
+        assertEquals(HttpStatus.BAD_REQUEST, failure.recommendedStatus)
+        assertEquals("test-provider", failure.values["providerId"])
+    }
+
+    @Test
+    fun `fetchTokens - Names the error the provider refused this server's request with`() = runTest {
+        stubTokenEndpointFailing(answered(401, mapOf("error" to "invalid_client")))
+
+        val failure = fetchTokensFailure()
+
+        assertEquals("provider.token.request_refused", failure.detailsId)
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.recommendedStatus)
+        assertEquals("invalid_client", failure.values["error"])
+    }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider answers a 4xx that names no error`() = runTest {
+        stubTokenEndpointFailing(answered(429))
+
+        val failure = fetchTokensFailure()
+
+        assertEquals("provider.token.failed", failure.detailsId)
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.recommendedStatus)
+    }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider answers with a 5xx, even one naming an error`() =
+        runTest {
+            stubTokenEndpointFailing(answered(502, mapOf("error" to "invalid_grant")))
+
+            val failure = fetchTokensFailure()
+
+            assertEquals("provider.token.failed", failure.detailsId)
+        }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider answers with a status HttpStatus does not name`() =
+        runTest {
+            stubTokenEndpointFailing(answered(520))
+
+            val failure = fetchTokensFailure()
+
+            assertEquals("provider.token.failed", failure.detailsId)
+        }
+
+    @Test
+    fun `fetchTokens - Fails the session where the provider does not answer in time`() = runTest {
+        stubTokenEndpointFailing(ReadTimeoutException.TIMEOUT_EXCEPTION)
+
+        val failure = fetchTokensFailure()
+
+        assertEquals("provider.token.failed", failure.detailsId)
+        assertFalse(failure.recoverable)
+    }
+
+    @Test
+    fun `fetchTokens - Has the provider's failure judged as it was thrown, not as the flow reports it`() = runTest {
+        val thrown = answered(503)
+        stubTokenEndpointFailing(thrown)
+
+        val failure = fetchTokensFailure()
+
+        assertSame(thrown, judgedFailures.single())
+        assertSame(thrown, failure.cause)
+    }
+
+    @Test
+    fun `authorizeWithProvider - Re-authentication rejects a provider not linked to the session user`() = runTest {
+        val userId = UUID.randomUUID()
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+        coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+        coEvery { providerClaimsManager.findByUserIdAndProviderIdOrNull(userId, provider.id) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            manager.authorizeWithProvider(session, provider.id, redirectUri)
+        }
+
+        assertEquals("flow.reauthentication.provider_not_linked", exception.detailsId)
+        assertTrue(exception.recoverable)
+        coVerify(exactly = 0) { providerManager.setProvider(any(), any(), any()) }
+    }
+
+    /**
+     * Stub the provider callback chain (token exchange, claim resolution, stored-subject lookup) up to the
+     * point where the re-authentication branch is evaluated. fetchTokens is final, stubbed on the spy manager.
+     *
+     * [committedSince] is what a second read of the subject answers: the link path reads it again under its
+     * lock, and another writer may have committed one in between. [assertedEmail] is null for a provider
+     * that omits the claim.
+     */
+    private fun stubProviderCallbackChain(
+        session: OnGoingInteractiveFlowSession,
+        provider: EnabledProvider,
+        subject: String,
+        existingUserInfo: ProviderUserInfo?,
+        committedSince: ProviderUserInfo? = existingUserInfo,
+        assertedEmail: String? = email
+    ): RawProviderClaims {
+        val sessionProvider = mockk<InteractiveFlowSessionProvider> { every { providerId } returns provider.id }
+        val tokens = mockk<ProviderOAuth2Tokens>()
+        val rawUserInfo = RawProviderClaims(subject = subject, email = assertedEmail)
+        coEvery { providerManager.fetchProviderOrNull(session) } returns sessionProvider
+        every { providerConfigManager.isDeclared(provider.id) } returns true
+        coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
+        coEvery { manager.fetchTokens(provider, provider.auth, "code", redirectUri) } returns tokens
+        coEvery { providerManager.buildProviderNonceOrNull(sessionProvider) } returns null
+        coEvery { providerClaimsResolver.resolveClaims(provider, tokens, null) } returns rawUserInfo
+        coEvery { providerClaimsManager.findByProviderAndSubject(provider, subject) } returnsMany
+            listOf(existingUserInfo, committedSince)
+        return rawUserInfo
+    }
+
+    /**
+     * The identifier claims this deployment configures, each spelling an asserted value as [foldedEmail],
+     * so that a test turns on what the link does with a stored spelling rather than on how one is reached.
+     */
+    private fun assertedIdentifierClaims(vararg claimIds: String) {
+        every { uncheckedAuthConfig.identifierClaims } returns claimIds.toList()
+        every { claimManager.listIdentifierClaims() } returns claimIds.map { claimId ->
+            mockk<EnabledClaim> { every { id } returns claimId }
+        }
+        every { collectedClaimManager.getFoldedValueOf(any(), email) } returns foldedEmail
+    }
+
+    @Test
+    @Suppress("MaxLineLength")
+    fun `signInOrSignUpUsingProvider - Re-authentication confirms the linked provider account without establishing identity`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> {
+                every { this@mockk.userId } returns userId
+                every { id } returns UUID.randomUUID()
+            }
+            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+            coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
+            coEvery { reauthenticationManager.markPrimaryCredentialProven(session) } returns mockk()
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            coVerify { reauthenticationManager.markPrimaryCredentialProven(session) }
+            coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Re-authentication rejects a provider account linked to a different user`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns UUID.randomUUID() }
+            stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.REAUTHENTICATION
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+            }
+
+            assertEquals("flow.reauthentication.provider_not_linked", exception.detailsId)
+            assertTrue(exception.recoverable)
+            coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
+            coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+            coVerify(exactly = 0) { providerClaimsManager.refreshUserInfo(any(), any()) }
+        }
+
+    @Test
+    @Suppress("MaxLineLength")
+    fun `signInOrSignUpUsingProvider - Does not establish or switch identity when a later purpose is active after re-auth`() =
+        runTest {
+            // Regression for the confirm-never-establish gap: once REAUTHENTICATION has resolved and a later
+            // purpose (e.g. MFA_CHALLENGE) is active, a provider round-trip must NOT fall through to the
+            // establish path and switch the already-fixed session user.
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo>()
+            stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.MFA_CHALLENGE
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            coVerify(exactly = 0) { sessionManager.setAuthenticatedUserId(any(), any(), any()) }
+            coVerify(exactly = 0) { reauthenticationManager.markPrimaryCredentialProven(any()) }
+            coVerify(exactly = 0) { providerClaimsManager.refreshUserInfo(any(), any()) }
+        }
+
+    @Test
+    fun `authorizeWithProvider - Rejects a provider that is not the link target under LINK_PROVIDER`() = runTest {
+        val userId = UUID.randomUUID()
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+        coEvery { providerConfigManager.findByIdAndCheckEnabled(provider.id) } returns provider
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+        coEvery { linkProviderManager.fetchLinkProviderOrNull(session) } returns
+            InteractiveFlowSessionLinkProvider(sessionId = UUID.randomUUID(), providerId = "other-provider")
+
+        val exception = assertThrows<BusinessException> {
+            manager.authorizeWithProvider(session, provider.id, redirectUri)
+        }
+
+        assertEquals("flow.link_provider.wrong_provider", exception.detailsId)
+        assertTrue(exception.recoverable)
+        coVerify(exactly = 0) { providerManager.setProvider(any(), any(), any()) }
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Links the resolved provider to the fixed user`() = runTest {
+        val userId = UUID.randomUUID()
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+        val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+        every { claimManager.listIdentifierClaims() } returns emptyList()
+        coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+
+        val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+        assertSame(session, result)
+        coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
+        assertTrue(metrics.pointsOrEmpty(AUTHENTICATION_ATTEMPTS).isEmpty(), "linking a provider signs nobody in")
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Counts a callback that created the account as a sign-up`() = runTest {
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { userId } returns null }
+        val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+        val createdId = UUID.randomUUID()
+        coEvery { establisher.establishNewProviderUser(session, provider, rawUserInfo) } returns
+            ProviderUserEstablishment(userId = createdId, signedUp = true)
+        val updatedSession = mockk<OnGoingInteractiveFlowSession> { every { id } returns UUID.randomUUID() }
+        coEvery { sessionManager.setAuthenticatedUserId(session, createdId, signedUp = true) } returns updatedSession
+        coJustRun { userSecurityContextManager.markProven(any(), any()) }
+        coJustRun { oauth2Manager.setAuthenticationDate(updatedSession, passwordId = null) }
+
+        manager.signInOrSignUpUsingProvider(
+            session, provider.id, redirectUri, authorizeCode = "code", observedRequest = observedRequestOf()
+        )
+
+        assertEquals(
+            1,
+            metrics.value(
+                AUTHENTICATION_ATTEMPTS,
+                attributes(
+                    "method" to "provider",
+                    "provider_id" to provider.id,
+                    "kind" to "sign_up",
+                    "outcome" to "success"
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link is idempotent when the subject is already linked to this user`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { claimManager.listIdentifierClaims() } returns emptyList()
+            coJustRun { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            coVerify { providerClaimsManager.refreshUserInfo(existingUserInfo, rawUserInfo) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link hard-fails when the subject is linked to another account`() = runTest {
+        val userId = UUID.randomUUID()
+        val provider = createProvider()
+        val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+        val existingUserInfo = mockk<ProviderUserInfo> { every { this@mockk.userId } returns UUID.randomUUID() }
+        stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo)
+        coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+        every { claimManager.listIdentifierClaims() } returns emptyList()
+
+        val exception = assertThrows<BusinessException> {
+            manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+        }
+
+        assertEquals("flow.link_provider.subject_conflict", exception.detailsId)
+        assertFalse(exception.recoverable)
+        coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link hard-fails when an identifier value is owned by another account`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
+            coEvery {
+                userManager.findTakenIdentifierOrNull(
+                    userId,
+                    listOf(OpenIdConnectClaimId.EMAIL),
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
+                )
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                    session, provider.id, redirectUri, authorizeCode = "code",
+                    observedRequest = observedRequestOf()
+                )
+            }
+
+            assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
+            assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
+            assertEquals(ownerId.toString(), exception.values["userId"])
+            assertFalse(exception.recoverable)
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(foldedEmail).stripe) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link compares the spelling the claim cleans the asserted value to`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, assertedEmail = "User@Example.COM"
+            )
+            val emailClaim = mockk<EnabledClaim> { every { id } returns OpenIdConnectClaimId.EMAIL }
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { uncheckedAuthConfig.identifierClaims } returns listOf(OpenIdConnectClaimId.EMAIL)
+            every { claimManager.listIdentifierClaims() } returns listOf(emailClaim)
+            every { collectedClaimManager.getFoldedValueOf(emailClaim, "User@Example.COM") } returns foldedEmail
+            coEvery {
+                userManager.findTakenIdentifierOrNull(
+                    userId,
+                    listOf(OpenIdConnectClaimId.EMAIL),
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
+                )
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                    session, provider.id, redirectUri, authorizeCode = "code",
+                    observedRequest = observedRequestOf()
+                )
+            }
+
+            // An account holding the address in the spelling this server stores owns it whatever case the
+            // provider asserts it in, and the promotion racing this link waits on the same stripe.
+            assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(foldedEmail).stripe) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link asks the conflict against the session's own account`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
+            coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
+            coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            // Naming the session's own account is what exempts an address it already holds — the end-user
+            // linking a provider to the account they opened with that same address. Which of the rows found
+            // count as its own is UserManagerTest's.
+            coVerify {
+                userManager.findTakenIdentifierOrNull(
+                    userId,
+                    listOf(OpenIdConnectClaimId.EMAIL),
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
+                )
+            }
+            coVerify { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link checks the identifier claims the provider does assert`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER)
+            coEvery {
+                userManager.findTakenIdentifierOrNull(userId, any(), any())
+            } returns TakenIdentifier(claimId = OpenIdConnectClaimId.EMAIL, userId = ownerId)
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                    session, provider.id, redirectUri, authorizeCode = "code",
+                    observedRequest = observedRequestOf()
+                )
+            }
+
+            assertEquals("flow.link_provider.identifier_conflict", exception.detailsId)
+            assertEquals(OpenIdConnectClaimId.EMAIL, exception.values["claim"])
+            // The number the provider is silent about is no reason to skip the address it did assert, and
+            // every configured claim is still searched: an account holding that address under either of
+            // them owns it.
+            coVerify {
+                userManager.findTakenIdentifierOrNull(
+                    userId,
+                    listOf(OpenIdConnectClaimId.EMAIL, OpenIdConnectClaimId.PHONE_NUMBER),
+                    mapOf(OpenIdConnectClaimId.EMAIL to foldedEmail)
+                )
+            }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link hard-fails when another account took the subject under the lock`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val takenSince = mockk<ProviderUserInfo> { every { this@mockk.userId } returns UUID.randomUUID() }
+            stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, committedSince = takenSince
+            )
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { claimManager.listIdentifierClaims() } returns emptyList()
+
+            val exception = assertThrows<BusinessException> {
+                manager.signInOrSignUpUsingProvider(
+                    session, provider.id, redirectUri, authorizeCode = "code",
+                    observedRequest = observedRequestOf()
+                )
+            }
+
+            assertEquals("flow.link_provider.subject_conflict", exception.detailsId)
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link refreshes when this account took the subject under the lock`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val linkedSince = mockk<ProviderUserInfo> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, committedSince = linkedSince
+            )
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { claimManager.listIdentifierClaims() } returns emptyList()
+            coJustRun { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            coVerify { providerClaimsManager.refreshUserInfo(linkedSince, rawUserInfo) }
+            coVerify(exactly = 0) { providerClaimsManager.saveUserInfo(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link holds the identifier values its conflict check compares`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(session, provider, "sub-123", existingUserInfo = null)
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            assertedIdentifierClaims(OpenIdConnectClaimId.EMAIL)
+            coEvery { userManager.findTakenIdentifierOrNull(userId, any(), any()) } returns null
+            coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            // The address as well as the subject: the promotion this has to be excluded from commits an
+            // account holding that address, and the key it takes names the address.
+            coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
+            coVerify { objectLockRepository.lock(LockKey.IdentifierValue(foldedEmail).stripe) }
+        }
+
+    @Test
+    fun `signInOrSignUpUsingProvider - Link holds no identifier value when the provider asserts none`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val provider = createProvider()
+            val session = mockk<OnGoingInteractiveFlowSession> { every { this@mockk.userId } returns userId }
+            val rawUserInfo = stubProviderCallbackChain(
+                session, provider, "sub-123", existingUserInfo = null, assertedEmail = null
+            )
+            coEvery { engine.currentPurposeOrNull(session) } returns InteractiveFlowPurpose.LINK_PROVIDER
+            every { claimManager.listIdentifierClaims() } returns listOf(
+                mockk { every { id } returns OpenIdConnectClaimId.EMAIL }
+            )
+            coEvery { providerClaimsManager.saveUserInfo(provider, userId, null, rawUserInfo) } returns mockk()
+
+            val result = manager.signInOrSignUpUsingProvider(
+                session, provider.id, redirectUri, authorizeCode = "code",
+                observedRequest = observedRequestOf()
+            )
+
+            assertSame(session, result)
+            // userManager is left unstubbed: a provider asserting none of the configured identifier claims
+            // offers nothing to compare, so reaching the write is proof it was never asked — and a key over
+            // a check that did not run would make a promotion wait for nothing. One row, and it is the
+            // subject's: naming a stripe that must not be taken would say nothing about a key built from
+            // some other spelling.
+            coVerify(exactly = 1) { objectLockRepository.lock(any()) }
+            coVerify { objectLockRepository.lock(LockKey.ProviderSubject(provider.id, "sub-123").stripe) }
+        }
+}

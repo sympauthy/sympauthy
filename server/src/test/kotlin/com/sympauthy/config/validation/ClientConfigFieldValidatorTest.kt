@@ -1,8 +1,8 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.scope.model.ConsentableUserScope
+import com.sympauthy.business.scope.model.GrantableUserScope
 import com.sympauthy.config.ConfigParsingContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

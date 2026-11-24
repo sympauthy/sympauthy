@@ -1,0 +1,108 @@
+package com.sympauthy.api.operator.admin
+
+import com.sympauthy.api.operator.admin.mapper.AdminCollectionCapabilitiesResourceMapper
+import com.sympauthy.api.operator.admin.mapper.AdminConsentResourceMapper
+import com.sympauthy.api.operator.admin.resource.AdminClientReferenceResource
+import com.sympauthy.api.operator.admin.resource.AdminConsentResource
+import com.sympauthy.api.util.collectionRequest
+import com.sympauthy.api.util.defaultPaginationUtil
+import com.sympauthy.api.util.noCapabilities
+import com.sympauthy.business.client.model.ClientReference
+import com.sympauthy.business.collection.manager.ConsentCollectionManager
+import com.sympauthy.business.collection.manager.ConsentCollectionManager.ConsentWithClient
+import com.sympauthy.business.collection.model.Page
+import com.sympauthy.business.collection.model.PageParams
+import com.sympauthy.business.consent.manager.ConsentManager
+import com.sympauthy.business.consent.model.Consent
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.business.user.model.User
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class AdminConsentControllerTest {
+
+    @MockK
+    lateinit var userManager: UserManager
+
+    @MockK
+    lateinit var consentManager: ConsentManager
+
+    @MockK
+    lateinit var consentCollectionManager: ConsentCollectionManager
+
+    @MockK
+    lateinit var consentMapper: AdminConsentResourceMapper
+
+    @MockK
+    lateinit var capabilitiesMapper: AdminCollectionCapabilitiesResourceMapper
+
+    @Suppress("unused")
+    private val paginationUtil = defaultPaginationUtil()
+
+    @InjectMockKs
+    lateinit var controller: AdminConsentController
+
+    private val userId: UUID = UUID.randomUUID()
+    private val consentedAt: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
+
+    private fun id(last: Int): UUID = UUID.fromString("00000000-0000-0000-0000-00000000000$last")
+
+    private fun consent(id: UUID, consentedAt: LocalDateTime) = Consent(
+        id = id,
+        userId = userId,
+        audienceId = "default",
+        promptedByClientId = "client",
+        scopes = listOf("openid"),
+        consentedAt = consentedAt,
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
+    )
+
+    private fun mockResource(consentId: UUID) = AdminConsentResource(
+        consentId = consentId,
+        userId = userId,
+        audienceId = "default",
+        promptedByClient = AdminClientReferenceResource(id = "client", displayName = null),
+        scopes = listOf("openid"),
+        consentedAt = consentedAt,
+        revokedAt = null,
+        revokedBy = null,
+        revokedById = null
+    )
+
+    @Test
+    fun `listConsents - Map every consent the page holds, and publish the page it came in`() = runTest {
+        val consent = ConsentWithClient(consent(id(1), consentedAt), ClientReference("client", null))
+        val resource = mockResource(consent.consent.id)
+
+        val user = mockk<User>()
+        coEvery { userManager.findByIdOrNull(userId) } returns user
+        coEvery { consentCollectionManager.capabilities() } returns noCapabilities()
+        coEvery { consentCollectionManager.listUserConsents(user, any(), PageParams(0, 20)) } returns Page(
+            items = listOf(consent),
+            page = 3,
+            size = 7,
+            total = 42
+        )
+        every { consentMapper.toResource(consent) } returns resource
+
+        val result = controller.listConsents(collectionRequest(), userId, null, null, null, null)
+
+        assertSame(resource, result.consents.single())
+        assertEquals(3, result.page)
+        assertEquals(7, result.size)
+        assertEquals(42, result.total)
+    }
+}

@@ -1,7 +1,7 @@
 package com.sympauthy.client
 
 import com.sympauthy.exception.LocalizedException
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.platform.monitoring.model.Outcome
 import io.micronaut.http.client.exceptions.HttpClientException
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.http.client.exceptions.ReadTimeoutException

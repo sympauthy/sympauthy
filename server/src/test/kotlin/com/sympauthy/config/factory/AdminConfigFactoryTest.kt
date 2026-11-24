@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.audience.model.Audience
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.model.DisabledAdminConfig
 import com.sympauthy.config.model.EnabledAdminConfig

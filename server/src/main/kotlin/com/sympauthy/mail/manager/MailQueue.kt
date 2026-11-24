@@ -3,7 +3,7 @@ package com.sympauthy.mail.manager
 import com.sympauthy.mail.mapper.QueuedMailMapper
 import com.sympauthy.mail.model.Mail
 import com.sympauthy.mail.model.QueuedMail
-import com.sympauthy.queue.manager.QueueManager
+import com.sympauthy.platform.queue.manager.QueueManager
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.Duration

@@ -1,0 +1,60 @@
+package com.sympauthy.business.token.mapper
+
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.grant.model.Grant
+import com.sympauthy.business.token.model.AuthenticationTokenType
+import com.sympauthy.business.token.model.EncodedAuthenticationToken
+import com.sympauthy.data.model.AuthenticationTokenEntity
+import jakarta.inject.Singleton
+
+/**
+ * Handle the mapping from the [AuthenticationTokenEntity] and the token it was encoded into to the
+ * [EncodedAuthenticationToken] business model.
+ *
+ * If the row holds no identifier, or a type [AuthenticationTokenType] does not name, an internal
+ * [BusinessException] "mapper.encoded_authentication_token.invalid_property" is thrown.
+ */
+@Singleton
+class EncodedAuthenticationTokenMapper {
+
+    /**
+     * The token [entity] describes, encoded as [token] and issued under [grant], whose scopes it carries.
+     */
+    fun toEncodedAuthenticationToken(
+        entity: AuthenticationTokenEntity,
+        grant: Grant,
+        token: String
+    ): EncodedAuthenticationToken {
+        return EncodedAuthenticationToken(
+            id = entity.id ?: throw invalidBusinessException("id"),
+            type = type(entity.type),
+            token = token,
+            scopes = grant.allScopes,
+            issueDate = entity.issueDate,
+            expirationDate = entity.expirationDate
+        )
+    }
+
+    /**
+     * The token type [type] names, refusing the row where it names none.
+     */
+    private fun type(type: String): AuthenticationTokenType {
+        return try {
+            AuthenticationTokenType.valueOf(type)
+        } catch (e: IllegalArgumentException) {
+            throw invalidBusinessException("type", e)
+        }
+    }
+
+    private fun invalidBusinessException(
+        invalidProperty: String,
+        cause: Throwable? = null
+    ): BusinessException {
+        return internalBusinessExceptionOf(
+            detailsId = "mapper.encoded_authentication_token.invalid_property",
+            throwable = cause,
+            values = arrayOf("property" to invalidProperty)
+        )
+    }
+}

@@ -1,6 +1,6 @@
 package com.sympauthy.exception
 
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.platform.monitoring.model.Outcome
 
 /**
  * How an event that ended in this failure is recorded on a metric: [Outcome.Refused] where the caller caused it,

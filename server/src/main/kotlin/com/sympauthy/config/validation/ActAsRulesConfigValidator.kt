@@ -1,11 +1,11 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.rule.ActAsRule
+import com.sympauthy.business.actas.model.ActAsRule
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedActAsRule
-import com.sympauthy.expression.ActAsRuleExpressions
-import com.sympauthy.expression.InvalidRuleExpressionException
+import com.sympauthy.expression.exception.InvalidRuleExpressionException
+import com.sympauthy.expression.manager.ActAsRuleExpressions
 import jakarta.inject.Singleton
 
 @Singleton

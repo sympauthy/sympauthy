@@ -1,13 +1,13 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.user.claim.DisabledClaim
-import com.sympauthy.business.model.user.claim.PersonalClaim
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.DisabledClaim
+import com.sympauthy.business.claim.model.PersonalClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.EnabledClaimsConfig
 import com.sympauthy.config.parsing.ParsedAuthConfig

@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
+import com.sympauthy.business.provider.config.model.ProviderUserInfoConfig
 
 /**
  * Validated provider configuration from YAML, before any runtime resolution (e.g. OpenID Connect discovery).

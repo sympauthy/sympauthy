@@ -1,6 +1,6 @@
 package com.sympauthy.data.h2
 
-import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.loggerForClass
 import io.micronaut.context.annotation.Context
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires

@@ -1,0 +1,80 @@
+package com.sympauthy.api.operator.admin.mapper
+
+import com.sympauthy.api.operator.admin.resource.AdminGrantDetailResource
+import com.sympauthy.api.operator.admin.resource.AdminGrantRequestedClaimsResource
+import com.sympauthy.api.operator.admin.resource.AdminGrantSummaryResource
+import com.sympauthy.business.authorization.model.RequestedClaims
+import com.sympauthy.business.collection.manager.GrantCollectionManager.GrantWithUserAndClient
+import com.sympauthy.business.grant.model.GrantRevokedBy
+import com.sympauthy.platform.util.wireName
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+
+@Singleton
+class AdminGrantResourceMapper(
+    @Inject private val userMapper: AdminUserResourceMapper,
+    @Inject private val clientMapper: AdminClientResourceMapper
+) {
+
+    fun toSummaryResource(grantWithUserAndClient: GrantWithUserAndClient): AdminGrantSummaryResource {
+        val (grantWithStatus, user, client) = grantWithUserAndClient
+        val (grant, status) = grantWithStatus
+        return AdminGrantSummaryResource(
+            grantId = grant.id,
+            user = user?.let(userMapper::toResource),
+            client = clientMapper.toReferenceResource(client),
+            audienceId = grant.audienceId,
+            grantType = grant.grantType.wireName,
+            status = status.wireName,
+            createdAt = grant.creationDate,
+            expiresAt = grant.expirationDate,
+            revokedAt = grant.revokedAt,
+            revokedBy = grant.revokedBy?.wireName,
+            actorGrantId = grant.actorGrantId,
+            grantedScopes = grant.grantedScopes,
+            consentedScopes = grant.consentedScopes,
+            clientScopes = grant.clientScopes
+        )
+    }
+
+    /**
+     * The detail of [grantWithUserAndClient], naming who revoked it only where an administrator did: the
+     * identifier a revocation records beside a consent revoked is whoever revoked that consent, which is the
+     * consent's to say.
+     */
+    fun toDetailResource(grantWithUserAndClient: GrantWithUserAndClient): AdminGrantDetailResource {
+        val (grantWithStatus, user, client) = grantWithUserAndClient
+        val (grant, status) = grantWithStatus
+        return AdminGrantDetailResource(
+            grantId = grant.id,
+            user = user?.let(userMapper::toResource),
+            client = clientMapper.toReferenceResource(client),
+            audienceId = grant.audienceId,
+            grantType = grant.grantType.wireName,
+            status = status.wireName,
+            createdAt = grant.creationDate,
+            expiresAt = grant.expirationDate,
+            revokedAt = grant.revokedAt,
+            revokedBy = grant.revokedBy?.wireName,
+            revokedByUserId = grant.revokedById.takeIf { grant.revokedBy == GrantRevokedBy.ADMIN },
+            actorGrantId = grant.actorGrantId,
+            grantedScopes = grant.grantedScopes,
+            grantedAt = grant.grantedAt,
+            grantedBy = grant.grantedBy?.wireName,
+            consentedScopes = grant.consentedScopes,
+            consentedAt = grant.consentedAt,
+            consentedBy = grant.consentedBy?.wireName,
+            clientScopes = grant.clientScopes,
+            authenticatedAt = grant.authenticationDate,
+            requestedClaims = toRequestedClaimsResource(grant.requestedClaims)
+        )
+    }
+
+    private fun toRequestedClaimsResource(requestedClaims: RequestedClaims): AdminGrantRequestedClaimsResource? {
+        if (requestedClaims == RequestedClaims.NONE) return null
+        return AdminGrantRequestedClaimsResource(
+            idToken = requestedClaims.idTokenClaimIds.toList(),
+            userinfo = requestedClaims.userInfoClaimIds.toList()
+        )
+    }
+}

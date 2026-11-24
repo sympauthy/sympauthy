@@ -1,6 +1,6 @@
 package com.sympauthy.mail.manager
 
-import com.sympauthy.util.renderOrNull
+import com.sympauthy.platform.util.renderOrNull
 import freemarker.template.TemplateMethodModelEx
 import freemarker.template.TemplateModelException
 import freemarker.template.TemplateScalarModel

@@ -3,7 +3,6 @@ description: The published OpenAPI document — how it is produced, the words it
   what each shape of property and each operation says, and what it leaves out.
 paths:
   - "server/src/main/kotlin/com/sympauthy/api/**"
-  - "server/src/main/kotlin/com/sympauthy/OpenAPI.kt"
 ---
 
 # OpenAPI standard

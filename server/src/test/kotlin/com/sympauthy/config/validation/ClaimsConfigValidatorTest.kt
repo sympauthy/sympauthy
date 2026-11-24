@@ -1,12 +1,12 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.user.claim.Claim
-import com.sympauthy.business.model.user.claim.ClaimDataType
-import com.sympauthy.business.model.user.claim.ClaimGroup
-import com.sympauthy.business.model.user.claim.ClaimKind
-import com.sympauthy.business.model.user.claim.ClaimPublicationPlace
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.scope.model.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.parsing.ParsedClaim
 import com.sympauthy.config.parsing.ParsedClaimAcl

@@ -1,16 +1,16 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.oauth2.EnabledScope
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.flow.model.AuthorizationFlow
+import com.sympauthy.business.scope.model.EnabledScope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClient
 import com.sympauthy.config.properties.ClientConfigurationProperties.Companion.CLIENTS_KEY
 import com.sympauthy.config.properties.ClientTemplateConfigurationProperties.Companion.TEMPLATES_CLIENTS_KEY
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 

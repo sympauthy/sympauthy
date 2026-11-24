@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.*
 import com.sympauthy.config.properties.BootstrapInvitationConfigurationProperties

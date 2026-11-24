@@ -1,0 +1,135 @@
+package com.sympauthy.api.operator.admin.mapper
+
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.PersonalClaim
+import com.sympauthy.business.collection.manager.UserCollectionManager.UserWithClaims
+import com.sympauthy.business.user.model.User
+import com.sympauthy.business.user.model.UserStatus
+import com.sympauthy.business.user.model.UserWithIdentifierClaims
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import java.time.LocalDateTime
+import java.util.*
+
+class AdminUserResourceMapperTest {
+
+    private val mapper = AdminUserResourceMapper()
+
+    private val creationDate: LocalDateTime = LocalDateTime.of(2025, 1, 1, 0, 0)
+
+    private val user = User(
+        id = UUID.randomUUID(),
+        status = UserStatus.ENABLED,
+        creationDate = creationDate,
+        sessionId = null
+    )
+
+    private fun claim(id: String) = PersonalClaim(
+        id = id,
+        verifiedId = null,
+        dataType = ClaimDataType.STRING,
+        group = null,
+        required = false,
+        allowedValues = null,
+        publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
+        acl = ClaimAcl(
+            collectedInFlow = null,
+            readableByPerson = null,
+            writableByPerson = null,
+            readableByClient = null,
+            writableByClient = null
+        )
+    )
+
+    private fun collected(claim: EnabledClaim, value: Any?) = CollectedClaim(
+        userId = user.id,
+        claim = claim,
+        value = value,
+        verified = null,
+        collectionDate = creationDate,
+        verificationDate = null
+    )
+
+    private fun userWithClaims(
+        collectedClaims: List<CollectedClaim> = emptyList(),
+        generatedClaimValues: Map<String, Any?> = emptyMap()
+    ) = UserWithClaims(user, collectedClaims, generatedClaimValues)
+
+    @Test
+    fun `toResource - Publish both last dates on a user of the collection`() {
+        val lastAuthenticationDate = creationDate.plusDays(1)
+        val lastRefreshDate = creationDate.plusDays(2)
+        val result = mapper.toResource(
+            UserWithClaims(
+                user = user.copy(lastAuthenticationDate = lastAuthenticationDate, lastRefreshDate = lastRefreshDate),
+                collectedClaims = emptyList(),
+                generatedClaimValues = emptyMap()
+            ),
+            null
+        )
+
+        assertEquals(lastAuthenticationDate, result.lastAuthenticatedAt)
+        assertEquals(lastRefreshDate, result.lastRefreshedAt)
+    }
+
+    @Test
+    fun `toResource - Publish neither last date on an embedded user`() {
+        val result = mapper.toResource(
+            UserWithIdentifierClaims(
+                user = user.copy(
+                    lastAuthenticationDate = creationDate.plusDays(1),
+                    lastRefreshDate = creationDate.plusDays(2)
+                ),
+                identifierClaims = emptyList()
+            )
+        )
+
+        assertNull(result.lastAuthenticatedAt)
+        assertNull(result.lastRefreshedAt)
+    }
+
+    @Test
+    fun `toResource - Publish no claim at all when none was selected`() {
+        val result = mapper.toResource(userWithClaims(), null)
+
+        assertNull(result.claims)
+        assertEquals(user.id, result.userId)
+        assertEquals("enabled", result.status)
+    }
+
+    @Test
+    fun `toResource - Publish the value collected for each selected claim`() {
+        val email = claim("email")
+        val name = claim("name")
+
+        val result = mapper.toResource(
+            userWithClaims(listOf(collected(email, "jane@example.com"), collected(name, "Jane"))),
+            listOf(email)
+        )
+
+        assertEquals(mapOf("email" to "jane@example.com"), result.claims)
+    }
+
+    @Test
+    fun `toResource - Publish a selected claim the user has no value for`() {
+        val result = mapper.toResource(userWithClaims(), listOf(claim("email")))
+
+        assertEquals(mapOf("email" to null), result.claims)
+    }
+
+    @Test
+    fun `toResource - Publish the generated value of a selected claim`() {
+        val result = mapper.toResource(
+            userWithClaims(generatedClaimValues = mapOf("sub" to user.id.toString())),
+            listOf(claim("sub"))
+        )
+
+        assertEquals(mapOf("sub" to user.id.toString()), result.claims)
+    }
+}

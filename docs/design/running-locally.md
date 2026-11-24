@@ -230,7 +230,7 @@ mappers, reflection or resource loading is not finished until this has run.
 
 ```sh
 ./gradlew test                          # unit tests; needs Docker for the repository tests
-./gradlew test --tests 'com.sympauthy.business.manager.ScopeManagerTest'
+./gradlew test --tests 'com.sympauthy.business.scope.manager.ScopeManagerTest'
 ./gradlew compileKotlin                 # compile only
 ./gradlew detekt                        # static analysis; the rule set is detekt.yml
 ./gradlew detektAutoCorrect             # fix what the analysis can, e.g. the import order

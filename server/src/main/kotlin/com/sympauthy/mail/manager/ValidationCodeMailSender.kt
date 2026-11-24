@@ -1,10 +1,10 @@
 package com.sympauthy.mail.manager
 
-import com.sympauthy.business.manager.validationcode.ValidationCodeMediaSender
-import com.sympauthy.business.model.code.ValidationCode
-import com.sympauthy.business.model.code.ValidationCodeMedia.EMAIL
-import com.sympauthy.business.model.user.CollectedClaim
-import com.sympauthy.business.model.user.User
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.user.model.User
+import com.sympauthy.business.validationcode.manager.ValidationCodeMediaSender
+import com.sympauthy.business.validationcode.model.ValidationCode
+import com.sympauthy.business.validationcode.model.ValidationCodeMedia.EMAIL
 import com.sympauthy.config.model.FeaturesConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.mail.model.Mail

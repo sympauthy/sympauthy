@@ -1,7 +1,7 @@
 package com.sympauthy.config.model
 
 import com.sympauthy.config.exception.ConfigurationException
-import com.sympauthy.util.hasLocalHost
+import com.sympauthy.platform.util.hasLocalHost
 import io.micronaut.http.uri.UriBuilder
 import java.net.URI
 

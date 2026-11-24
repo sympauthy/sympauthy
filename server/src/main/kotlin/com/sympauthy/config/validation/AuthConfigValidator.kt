@@ -1,6 +1,6 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
@@ -11,7 +11,7 @@ import com.sympauthy.config.properties.ByPasswordConfigurationProperties.Compani
 import com.sympauthy.config.properties.GrantConfigurationProperties.Companion.GRANT_KEY
 import com.sympauthy.config.properties.InteractiveFlowConfigurationProperties.Companion.INTERACTIVE_FLOW_KEY
 import com.sympauthy.config.properties.TokenConfigurationProperties.Companion.TOKEN_KEY
-import com.sympauthy.util.wireName
+import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 
 @Singleton

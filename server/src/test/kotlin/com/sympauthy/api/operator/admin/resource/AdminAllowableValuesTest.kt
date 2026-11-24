@@ -1,0 +1,139 @@
+package com.sympauthy.api.operator.admin.resource
+
+import com.sympauthy.api.resource.allowableValuesOf
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimOrigin
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.client.model.AuthorizationWebhookOnFailure
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.collection.model.CollectionFieldType
+import com.sympauthy.business.collection.model.CollectionOperator
+import com.sympauthy.business.consent.model.ConsentRevokedBy
+import com.sympauthy.business.consent.model.ConsentedBy
+import com.sympauthy.business.grant.model.GrantRevokedBy
+import com.sympauthy.business.grant.model.GrantStatus
+import com.sympauthy.business.invitation.model.InvitationCreatedBy
+import com.sympauthy.business.invitation.model.InvitationStatus
+import com.sympauthy.business.mfa.model.MfaMethodType
+import com.sympauthy.business.scope.granting.model.GrantedBy
+import com.sympauthy.business.scope.model.ScopeOrigin
+import com.sympauthy.business.scope.model.ScopeType
+import com.sympauthy.business.user.model.UserStatus
+import com.sympauthy.platform.util.wireName
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import kotlin.enums.EnumEntries
+import kotlin.reflect.KClass
+
+/**
+ * Holds the sets the admin resources publish to the enums their mappers publish them from, the way
+ * [AdminInteractiveFlowSessionAllowableValuesTest] does for the interactive flow session resources.
+ */
+class AdminAllowableValuesTest {
+
+    @Test
+    fun `Every claim data type is published where a claim's type is`() {
+        assertPublished(ClaimDataType.entries, AdminClaimResource::class, "type")
+        assertPublished(ClaimDataType.entries, AdminUserClaimResource::class, "type")
+    }
+
+    @Test
+    fun `Every claim origin is published where a claim's origin is`() {
+        assertPublished(ClaimOrigin.entries, AdminClaimResource::class, "origin")
+        assertPublished(ClaimOrigin.entries, AdminUserClaimResource::class, "origin")
+    }
+
+    @Test
+    fun `Every claim kind is published where a claim's kind is`() {
+        assertPublished(ClaimKind.entries, AdminClaimResource::class, "kind")
+        assertPublished(ClaimKind.entries, AdminUserClaimResource::class, "kind")
+    }
+
+    @Test
+    fun `Every claim group is published where a claim's group is`() {
+        assertPublished(ClaimGroup.entries, AdminClaimResource::class, "group")
+        assertPublished(ClaimGroup.entries, AdminUserClaimResource::class, "group")
+    }
+
+    @Test
+    fun `Every place a claim is published in is published on the claim`() {
+        assertPublished(ClaimPublicationPlace.entries, AdminClaimResource::class, "publishedIn")
+    }
+
+    @Test
+    fun `Every scope type and origin is published on the scope`() {
+        assertPublished(ScopeType.entries, AdminScopeResource::class, "type")
+        assertPublished(ScopeOrigin.entries, AdminScopeResource::class, "origin")
+    }
+
+    @Test
+    fun `Every user status is published where a user's status is`() {
+        assertPublished(UserStatus.entries, AdminUserResource::class, "status")
+        assertPublished(UserStatus.entries, AdminUserDetailResource::class, "status")
+    }
+
+    @Test
+    fun `Every revoker of a consent is published on the consent`() {
+        assertPublished(ConsentRevokedBy.entries, AdminConsentResource::class, "revokedBy")
+    }
+
+    @Test
+    fun `Every invitation status and creator is published on the invitation`() {
+        assertPublished(InvitationStatus.entries, AdminInvitationResource::class, "status")
+        assertPublished(InvitationCreatedBy.entries, AdminInvitationResource::class, "createdBy")
+    }
+
+    @Test
+    fun `Every MFA method type is published on a user's MFA method`() {
+        assertPublished(MfaMethodType.entries, AdminUserMfaMethodResource::class, "type")
+    }
+
+    @Test
+    fun `Every grant type is published on the client`() {
+        assertPublished(GrantType.entries, AdminClientResource::class, "allowedGrantTypes")
+    }
+
+    @Test
+    fun `Every status, grant type and revoker of a grant is published on the grant`() {
+        listOf(AdminGrantSummaryResource::class, AdminGrantDetailResource::class).forEach { resource ->
+            assertPublished(GrantStatus.entries, resource, "status")
+            assertPublished(GrantRevokedBy.entries, resource, "revokedBy")
+            assertEquals(
+                GrantType.entries.filterNot { it == GrantType.REFRESH_TOKEN }.map { it.wireName }.toSet(),
+                allowableValuesOf(resource, "grantType").toSet(),
+                "${resource.simpleName}.grantType"
+            )
+        }
+    }
+
+    @Test
+    fun `Every way scopes are granted and consented to is published on the grant`() {
+        assertPublished(GrantedBy.entries, AdminGrantDetailResource::class, "grantedBy")
+        assertPublished(ConsentedBy.entries, AdminGrantDetailResource::class, "consentedBy")
+    }
+
+    @Test
+    fun `Every behaviour on a failed webhook call is published on the webhook`() {
+        assertPublished(
+            AuthorizationWebhookOnFailure.entries,
+            AdminAuthorizationWebhookResource::class,
+            "onFailure"
+        )
+    }
+
+    @Test
+    fun `Every field type and operator is published on a filter of the capabilities`() {
+        assertPublished(CollectionFieldType.entries, AdminCollectionFilterResource::class, "type")
+        assertPublished(CollectionOperator.entries, AdminCollectionFilterResource::class, "operators")
+    }
+
+    private fun assertPublished(entries: EnumEntries<*>, resource: KClass<*>, property: String) {
+        assertEquals(
+            entries.map { it.wireName }.toSet(),
+            allowableValuesOf(resource, property).toSet(),
+            "${resource.simpleName}.$property"
+        )
+    }
+}

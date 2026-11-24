@@ -1,0 +1,377 @@
+package com.sympauthy.business.invitation.manager
+
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.manager.ClaimValueValidator
+import com.sympauthy.business.claim.manager.CollectedClaimManager
+import com.sympauthy.business.claim.model.ClaimAclTokenDoors
+import com.sympauthy.business.claim.model.CollectedClaimUpdate
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.invitation.mapper.InvitationMapper
+import com.sympauthy.business.invitation.model.Invitation
+import com.sympauthy.business.invitation.model.InvitationCreatedBy
+import com.sympauthy.business.invitation.model.InvitationStatus
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.business.user.model.User
+import com.sympauthy.config.model.AdvancedConfig
+import com.sympauthy.config.model.InvitationAdvancedConfig
+import com.sympauthy.config.model.orThrow
+import com.sympauthy.data.model.InvitationEntity
+import com.sympauthy.data.repository.InvitationRepository
+import com.sympauthy.platform.monitoring.loggerForClass
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import kotlinx.coroutines.flow.toList
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
+import java.util.*
+
+/**
+ * Manager for creating, looking up, consuming, and revoking invitations.
+ *
+ * Invitation tokens are stored as scrypt hashes with a SHA-256 lookup hash for O(1) retrieval.
+ * Raw tokens are returned only once at creation time and never stored in plaintext.
+ */
+@Singleton
+class InvitationManager(
+    @Inject private val claimManager: ClaimManager,
+    @Inject private val claimValueValidator: ClaimValueValidator,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val userManager: UserManager,
+    @Inject private val invitationRepository: InvitationRepository,
+    @Inject private val invitationHashGenerator: InvitationHashGenerator,
+    @Inject private val invitationTokenGenerator: InvitationTokenGenerator,
+    @Inject private val invitationMapper: InvitationMapper,
+    @Inject private val uncheckedAdvancedConfig: AdvancedConfig
+) {
+
+    private val logger = loggerForClass()
+
+    private val invitationConfig: InvitationAdvancedConfig
+        get() = uncheckedAdvancedConfig.orThrow().invitationConfig
+
+    /**
+     * Create a new invitation. Returns the [Invitation] model and the raw base64url-encoded token.
+     * The raw token is only available at creation time.
+     *
+     * [doors] are the ones the client's token comes through when the invitation comes from the client API, and
+     * the pre-assigned [claims] are checked against their client write door. The admin API and the bootstrap
+     * pass null, which means no ACL check at all rather than a client holding no scope.
+     *
+     * [audience] is the audience the invitation is for, and the pre-assigned [claims] are held to it whoever
+     * is creating it — see [validateAndCleanClaims]. [expiresAt] is resolved by [resolveExpiresAt], which
+     * refuses one that is not in the future.
+     */
+    suspend fun createInvitation(
+        audience: Audience,
+        claims: Map<String, String>?,
+        note: String?,
+        expiresAt: LocalDateTime?,
+        createdBy: InvitationCreatedBy,
+        createdById: String? = null,
+        doors: ClaimAclTokenDoors? = null
+    ): Pair<Invitation, String> {
+        val validatedClaims = validateAndCleanClaims(claims, audience.id, doors)
+
+        val config = invitationConfig
+        // Truncated to what the column stores, so the invitation this answers is the one a later read answers.
+        val now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
+
+        val resolvedExpiresAt = resolveExpiresAt(now, expiresAt, config)
+
+        val tokenBytes = invitationTokenGenerator.generate(config.tokenLengthInBytes)
+        val encodedToken = invitationTokenGenerator.encode(tokenBytes)
+        val tokenPrefix = invitationTokenGenerator.extractPrefix(encodedToken)
+        val lookupHash = invitationHashGenerator.computeLookupHash(tokenBytes)
+        val salt = invitationTokenGenerator.generate(config.hashConfig.saltLengthInBytes)
+        val hashedToken = invitationHashGenerator.hash(tokenBytes, salt)
+
+        val entity = InvitationEntity(
+            audienceId = audience.id,
+            tokenLookupHash = lookupHash,
+            hashedToken = hashedToken,
+            salt = salt,
+            tokenPrefix = tokenPrefix,
+            claims = validatedClaims,
+            note = note,
+            status = InvitationStatus.PENDING.name,
+            createdBy = createdBy.name,
+            createdById = createdById,
+            createdAt = now,
+            expiresAt = resolvedExpiresAt,
+        )
+        val saved = invitationRepository.save(entity)
+        return invitationMapper.toInvitation(saved) to encodedToken
+    }
+
+    /**
+     * Validate that all claim keys in the map correspond to existing enabled claims, that each is one
+     * [audienceId] has, and that the values are valid for the claim type.
+     *
+     * The audience is asked of every caller, the admin API and the bootstrap included, and it is asked
+     * whatever [doors] say. Why is `docs/design/claims.md`.
+     *
+     * When [doors] are provided (client API), additionally checks that the client's write door of each
+     * claim is open through them. No person consented to anything for an account not yet created, so the
+     * doors are built in a context carrying no consented scope. When null (admin API, bootstrap), no ACL check
+     * is performed.
+     *
+     * Returns a new map with cleaned values.
+     */
+    internal fun validateAndCleanClaims(
+        claims: Map<String, String>?,
+        audienceId: String,
+        doors: ClaimAclTokenDoors?
+    ): Map<String, String>? {
+        if (claims.isNullOrEmpty()) return claims
+        return claims.mapValues { (claimId, value) ->
+            val claim = claimManager.findByIdOrNull(claimId)
+            if (claim == null) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "invitation.unknown_claim",
+                    descriptionId = "description.invitation.unknown_claim",
+                    "claim" to claimId
+                )
+            }
+            if (!claim.belongsToAudience(audienceId)) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "invitation.claim_of_another_audience",
+                    descriptionId = "description.invitation.claim_of_another_audience",
+                    "claim" to claimId,
+                    "audience" to audienceId
+                )
+            }
+            if (doors != null && !doors.canBeWrittenByClient(claim)) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "invitation.claim_not_writable",
+                    descriptionId = "description.invitation.claim_not_writable",
+                    "claim" to claimId
+                )
+            }
+            val cleaned = claimValueValidator.validateAndCleanValueForClaim(claim, value)
+            cleaned.orElse(null)?.toString() ?: value
+        }
+    }
+
+    /**
+     * The date and time an invitation created at [now] expires at: `default-expiration` from [now] where
+     * [requestedExpiresAt] is null, and otherwise [requestedExpiresAt], brought back to `max-expiration` from
+     * [now] where it is later. A requested one is truncated to microseconds, the precision the column stores.
+     *
+     * Throws a recoverable `invitation.expires_at.past` where [requestedExpiresAt] is not after [now]. Such an
+     * invitation would be created already expired, its token refused by every flow it is sent to.
+     */
+    internal fun resolveExpiresAt(
+        now: LocalDateTime,
+        requestedExpiresAt: LocalDateTime?,
+        config: InvitationAdvancedConfig
+    ): LocalDateTime {
+        if (requestedExpiresAt == null) {
+            return now.plus(config.defaultExpiration)
+        }
+        if (!requestedExpiresAt.isAfter(now)) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "invitation.expires_at.past",
+                descriptionId = "description.invitation.expires_at.past",
+                "expiresAt" to requestedExpiresAt.toString()
+            )
+        }
+        val maxExpiresAt = now.plus(config.maxExpiration)
+        return minOf(requestedExpiresAt, maxExpiresAt).truncatedTo(ChronoUnit.MICROS)
+    }
+
+    suspend fun findByIdOrNull(id: UUID): Invitation? {
+        return invitationRepository.findById(id)
+            ?.let(invitationMapper::toInvitation)
+    }
+
+    suspend fun findById(id: UUID): Invitation {
+        return findByIdOrNull(id) ?: throw businessExceptionOf(
+            detailsId = "invitation.not_found",
+            values = arrayOf("id" to id.toString())
+        )
+    }
+
+    suspend fun findAll(): List<Invitation> {
+        return invitationRepository.findAll().toList()
+            .map(invitationMapper::toInvitation)
+    }
+
+    suspend fun findByAudienceId(audienceId: String): List<Invitation> {
+        return invitationRepository.findByAudienceId(audienceId)
+            .map(invitationMapper::toInvitation)
+    }
+
+    suspend fun findByCreatedById(createdById: String): List<Invitation> {
+        return invitationRepository.findByCreatedById(createdById)
+            .map(invitationMapper::toInvitation)
+    }
+
+    /**
+     * Look up an invitation by raw token. Returns null if no matching invitation is found
+     * or if the scrypt verification fails.
+     */
+    suspend fun findByRawTokenOrNull(rawToken: String): Invitation? {
+        val tokenBytes = try {
+            invitationTokenGenerator.decode(rawToken)
+        } catch (_: IllegalArgumentException) {
+            return null
+        }
+        val lookupHash = invitationHashGenerator.computeLookupHash(tokenBytes)
+        val entity = invitationRepository.findByTokenLookupHash(lookupHash) ?: return null
+
+        if (!invitationHashGenerator.verify(tokenBytes, entity.salt, entity.hashedToken)) {
+            return null
+        }
+        return invitationMapper.toInvitation(entity)
+    }
+
+    /**
+     * Validate a raw invitation token for use during the authorize flow.
+     * Checks that the invitation exists, is pending, not expired, and is for the [audience] of the client.
+     */
+    suspend fun validateToken(rawToken: String, audience: Audience): Invitation {
+        val invitation = findByRawTokenOrNull(rawToken)
+            ?: throw recoverableBusinessExceptionOf(
+                detailsId = "invitation.invalid_token",
+                descriptionId = "description.invitation.invalid_token"
+            )
+
+        when (invitation.status) {
+            InvitationStatus.CONSUMED -> throw recoverableBusinessExceptionOf(
+                detailsId = "invitation.already_consumed",
+                descriptionId = "description.invitation.already_consumed"
+            )
+
+            InvitationStatus.REVOKED -> throw recoverableBusinessExceptionOf(
+                detailsId = "invitation.revoked",
+                descriptionId = "description.invitation.revoked"
+            )
+
+            InvitationStatus.EXPIRED -> throw recoverableBusinessExceptionOf(
+                detailsId = "invitation.expired",
+                descriptionId = "description.invitation.expired"
+            )
+
+            InvitationStatus.PENDING -> { /* valid */
+            }
+        }
+
+        if (invitation.audienceId != audience.id) {
+            throw businessExceptionOf(
+                detailsId = "invitation.audience_mismatch",
+                values = arrayOf(
+                    "invitationAudience" to invitation.audienceId,
+                    "clientAudience" to audience.id
+                )
+            )
+        }
+
+        return invitation
+    }
+
+    /**
+     * Apply the pre-assigned claims of the [invitation] bound to the authorize attempt to [user].
+     *
+     * **An identifier claim is applied only to an account the flow created.** [user] is a committed account
+     * whenever the flow resolved one instead — a provider merge landing on an account that already exists —
+     * and the invitation then applies every other claim it carries, and still works: what it cannot do is
+     * change who an existing account is. `docs/design/security.md` is where that rule lives.
+     *
+     * Applying the claims and consuming the invitation are deliberately apart: the claims this writes are as
+     * provisional as the account they land on, and [consumeInvitation] spends the invitation only when the
+     * session completes, for the reason `docs/design/provisional-user.md` gives.
+     *
+     * A claim the invitation's own audience does not have is dropped rather than written. Two things reach
+     * here past [validateAndCleanClaims]: an invitation minted before that check existed, and a restriction
+     * the configuration gained after the token was issued. Neither leaves anybody to refuse — the creator is
+     * long gone, and the invitee is mid-sign-up answering for a value they never chose.
+     */
+    suspend fun applyInvitationClaims(invitation: Invitation, user: User) {
+        val claims = invitation.claims
+        if (claims.isNullOrEmpty()) return
+
+        val refusedClaims = if (user.sessionId == null) claimManager.listIdentifierClaims().toSet() else emptySet()
+        val claimUpdates = claims.mapNotNull { (claimId, value) ->
+            val claim = claimManager.findByIdOrNull(claimId)
+                ?.takeIf { it.belongsToAudience(invitation.audienceId) }
+                ?: return@mapNotNull null
+            if (claim in refusedClaims) {
+                logger.debug {
+                    "Invitation ${invitation.id} pre-assigns the identifier claim ${claim.id}, and the flow " +
+                        "resolved an existing account rather than creating one. The claim is left alone."
+                }
+                return@mapNotNull null
+            }
+            // An invitation holds its claims as text, so the value has lost the type it was cleaned to
+            // when the invitation was written. Reading it back under the claim recovers that — a `number`
+            // claim's `42` is the Long again — and a row written from the text would hold a spelling no
+            // read of that claim could match. A value its claim no longer accepts, because the
+            // configuration moved under the invitation, is left alone rather than written wrong.
+            val cleaned = claimValueValidator.cleanValueForClaimOrNull(claim, value)
+            if (cleaned == null) {
+                logger.debug {
+                    "Invitation ${invitation.id} carries a value for ${claim.id} that the claim no longer " +
+                        "accepts. It is left alone."
+                }
+                return@mapNotNull null
+            }
+            CollectedClaimUpdate(
+                claim = claim,
+                value = Optional.of(cleaned)
+            )
+        }
+        if (claimUpdates.isNotEmpty()) {
+            collectedClaimManager.update(user = user, updates = claimUpdates)
+        }
+    }
+
+    /**
+     * Mark the [invitation] as consumed by the [user] and return it.
+     *
+     * Throws a non-recoverable [BusinessException] `invitation.already_consumed` when the invitation is no
+     * longer pending, which the write checks rather than [invitation]. Two sign-ups may hold one invitation
+     * at the same time — neither blocks the other while both are provisional — so this is where the first
+     * of them to complete wins and the other is refused.
+     * It is non-recoverable because there is no step left for the end-user to retry: every purpose has
+     * resolved, and the session is completing.
+     */
+    suspend fun consumeInvitation(invitation: Invitation, user: User): Invitation {
+        // By id though [user] is in hand: promotion is the record's state, not its identity, so it is read
+        // again here rather than taken from a copy the caller may have read earlier.
+        userManager.checkPromoted(user.id)
+        val consumed = invitationRepository.consumeIfPending(
+            id = invitation.id,
+            consumedByUserId = user.id,
+            consumedAt = LocalDateTime.now()
+        )
+        if (consumed == 0) {
+            throw businessExceptionOf(
+                detailsId = "invitation.already_consumed",
+                descriptionId = "description.invitation.already_consumed"
+            )
+        }
+        return findById(invitation.id)
+    }
+
+    /**
+     * Revoke the [invitation] and return it.
+     *
+     * Throws a non-recoverable [BusinessException] `invitation.cannot_revoke` when the invitation is no longer
+     * pending, expired included. The write checks that, not [invitation]: its caller read it earlier, and a
+     * sign-up may have consumed it since.
+     */
+    suspend fun revokeInvitation(invitation: Invitation): Invitation {
+        val revoked = invitationRepository.revokeIfPending(id = invitation.id, revokedAt = LocalDateTime.now())
+        val current = findById(invitation.id)
+        if (revoked == 0) {
+            throw businessExceptionOf(
+                detailsId = "invitation.cannot_revoke",
+                descriptionId = "description.invitation.cannot_revoke",
+                values = arrayOf("status" to current.status.name)
+            )
+        }
+        return current
+    }
+}

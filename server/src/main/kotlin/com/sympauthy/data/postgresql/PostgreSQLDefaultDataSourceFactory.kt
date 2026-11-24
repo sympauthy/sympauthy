@@ -3,7 +3,7 @@ package com.sympauthy.data.postgresql
 import com.sympauthy.data.driverConnectionFactory
 import com.sympauthy.data.postgresql.util.PostgresqlConnectionConfigurationProxy
 import com.sympauthy.data.postgresql.util.configurationProxy
-import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.loggerForClass
 import io.micronaut.context.annotation.Context
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires

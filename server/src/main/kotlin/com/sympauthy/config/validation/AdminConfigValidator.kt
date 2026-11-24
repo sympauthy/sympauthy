@@ -1,6 +1,6 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.audience.Audience
+import com.sympauthy.business.audience.model.Audience
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAdminConfig

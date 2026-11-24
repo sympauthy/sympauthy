@@ -1,8 +1,8 @@
 package com.sympauthy
 
-import com.sympauthy.cron.CleanAbandonedAccountCron
 import io.micronaut.context.ApplicationContextBuilder
 import io.micronaut.context.ApplicationContextConfigurer
+import io.micronaut.inject.QualifiedBeanType
 
 /**
  * Leaves the server's scheduled jobs out of every context a test starts, for the reason
@@ -12,17 +12,30 @@ import io.micronaut.context.ApplicationContextConfigurer
  * loads one: a context `@MicronautTest` starts shares the `h2` database with the repository tests and
  * would sweep it the same way.
  *
- * The jobs are the `cron` package, named through one of them so that a move of the package moves this
- * with it. That the package holds every one of them is [UnscheduledJobsConfigurerTest]'s to prove.
+ * The jobs are every class named `…Cron`, the suffix `docs/standards/general-code-standard.md` gives
+ * one, wherever it sits: the sweeps are in `cron`, and a job keeping a mechanism of `platform` alive sits
+ * beside that mechanism. That the suffix names every one of them is [UnscheduledJobsConfigurerTest]'s
+ * to prove.
  */
 class UnscheduledJobsConfigurer : ApplicationContextConfigurer {
 
     override fun configure(builder: ApplicationContextBuilder) {
-        builder.beansPredicate { bean -> !bean.name.startsWith(JOBS_PACKAGE) }
+        builder.beansPredicate { bean -> !bean.isJob() }
+    }
+
+    /**
+     * A job wrapped by an advice, such as a transaction, is wired as the subclass generated for it, whose name
+     * is not the job's, so that one is recognised by the class it extends.
+     */
+    private fun QualifiedBeanType<*>.isJob(): Boolean = when {
+        name.endsWith(JOB_SUFFIX) -> true
+        name.endsWith(INTERCEPTED_SUFFIX) -> beanType.superclass.name.endsWith(JOB_SUFFIX)
+        else -> false
     }
 
     private companion object {
 
-        val JOBS_PACKAGE = "${CleanAbandonedAccountCron::class.java.packageName}."
+        const val JOB_SUFFIX = "Cron"
+        const val INTERCEPTED_SUFFIX = "\$Intercepted"
     }
 }

@@ -1,0 +1,1272 @@
+package com.sympauthy.business.flow.auth.manager
+
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.authorization.manager.RequestedClaimsManager
+import com.sympauthy.business.authorization.model.CodeChallengeMethod
+import com.sympauthy.business.authorization.model.RequestedClaims
+import com.sympauthy.business.authorization.model.UncheckedAuthorizationRequest
+import com.sympauthy.business.client.manager.ClientManager
+import com.sympauthy.business.client.manager.ClientRedirectUriManager
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.flow.model.InteractiveFlow
+import com.sympauthy.business.flow.model.InteractiveFlowSessionOAuth2
+import com.sympauthy.business.flow.model.NonInteractiveAuthorizationFlow
+import com.sympauthy.business.flow.oauth2.manager.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.invitation.manager.InvitationManager
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode
+import com.sympauthy.business.scope.manager.ScopeManager
+import com.sympauthy.business.scope.model.EnabledScope
+import com.sympauthy.config.model.ClientTemplate
+import com.sympauthy.config.model.ClientTemplatesConfig
+import com.sympauthy.config.model.EnabledClientTemplatesConfig
+import io.micronaut.http.HttpStatus
+import io.mockk.*
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
+import io.mockk.junit5.MockKExtension
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class InteractiveAuthFlowSessionManagerTest {
+
+    @MockK
+    lateinit var authorizationFlowManager: AuthorizationFlowManager
+
+    @MockK
+    lateinit var oauth2Manager: InteractiveFlowSessionOAuth2Manager
+
+    @MockK
+    lateinit var requestedClaimsManager: RequestedClaimsManager
+
+    @MockK
+    lateinit var clientManager: ClientManager
+
+    @MockK
+    lateinit var invitationManager: InvitationManager
+
+    @MockK
+    lateinit var scopeManager: ScopeManager
+
+    @MockK
+    lateinit var clientRedirectUriManager: ClientRedirectUriManager
+
+    var uncheckedClientTemplatesConfig: Flow<ClientTemplatesConfig> = flowOf(
+        EnabledClientTemplatesConfig(emptyMap())
+    )
+
+    @SpyK
+    @InjectMockKs
+    lateinit var manager: InteractiveAuthFlowSessionManager
+
+    @Test
+    fun `findByIdOrNull - Returns InteractiveFlow when found`() {
+        val flowId = "test-flow-id"
+        val webFlow = mockk<InteractiveFlow>()
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns webFlow
+
+        val result = manager.findByIdOrNull(flowId)
+
+        assertEquals(webFlow, result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Returns null when id is null`() {
+        val result = manager.findByIdOrNull(null)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Returns null when flow is not found`() {
+        val flowId = "non-existent-flow-id"
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns null
+
+        val result = manager.findByIdOrNull(flowId)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Returns null when flow is not a InteractiveFlow`() {
+        val flowId = "non-web-flow-id"
+        val nonWebFlow = mockk<NonInteractiveAuthorizationFlow>()
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns nonWebFlow
+
+        val result = manager.findByIdOrNull(flowId)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findById - Returns InteractiveFlow when found`() {
+        val flowId = "test-flow-id"
+        val webFlow = mockk<InteractiveFlow>()
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns webFlow
+
+        val result = manager.findById(flowId)
+
+        assertEquals(webFlow, result)
+    }
+
+    @Test
+    fun `findById - Throws BusinessException when flow is not found or not a InteractiveFlow`() {
+        val flowId = "non-existent-flow-id"
+
+        every { authorizationFlowManager.findByIdOrNull(flowId) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            manager.findById(flowId)
+        }
+
+        assertEquals("flow.web.invalid_flow", exception.detailsId)
+        assertFalse(exception.recoverable)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Returns challenge and S256 method when both provided`() {
+        val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", "S256")
+
+        assertEquals("test-challenge", challenge)
+        assertEquals(CodeChallengeMethod.S256, method)
+        assertNull(error)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Defaults to S256 when method not provided`() {
+        val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", null)
+
+        assertEquals("test-challenge", challenge)
+        assertEquals(CodeChallengeMethod.S256, method)
+        assertNull(error)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Returns error for unsupported method`() {
+        val (challenge, method, error) = manager.parseCodeChallenge("test-challenge", "plain")
+
+        assertNull(challenge)
+        assertNull(method)
+        assertNotNull(error)
+        assertEquals("authorize.pkce.unsupported_method", error!!.detailsId)
+    }
+
+    @Test
+    fun `parseCodeChallenge - Returns error when code_challenge is missing`() {
+        val (challenge, method, error) = manager.parseCodeChallenge(null, null)
+
+        assertNull(challenge)
+        assertNull(method)
+        assertNotNull(error)
+        assertEquals("authorize.pkce.missing_code_challenge", error!!.detailsId)
+    }
+
+    @Test
+    fun `checkRequestObject - Accept a request carrying no request object`() {
+        assertNull(manager.checkRequestObject(null, null))
+    }
+
+    @Test
+    fun `checkRequestObject - Treat a value sent empty as not sent`() {
+        assertNull(manager.checkRequestObject("", ""))
+    }
+
+    @Test
+    fun `checkRequestObject - Refuse a request object sent in request`() {
+        val error = manager.checkRequestObject("eyJhbGciOiJub25lIn0.e30.", null)
+
+        assertEquals("authorize.request.unsupported", error?.detailsId)
+    }
+
+    @Test
+    fun `checkRequestObject - Refuse a request object referred to by request_uri`() {
+        val error = manager.checkRequestObject(null, "https://client.example.com/request.jwt")
+
+        assertEquals("authorize.request_uri.unsupported", error?.detailsId)
+    }
+
+    @Test
+    fun `checkMaxAge - Accept a non-negative number of seconds`() {
+        assertNull(manager.checkMaxAge("300"))
+    }
+
+    @Test
+    fun `checkMaxAge - Accept zero, which asks for an authentication of this moment`() {
+        assertNull(manager.checkMaxAge("0"))
+    }
+
+    @Test
+    fun `checkMaxAge - Accept the parameter not being sent at all`() {
+        assertNull(manager.checkMaxAge(null))
+    }
+
+    @Test
+    fun `checkMaxAge - Treat a value sent empty as not sent`() {
+        assertNull(manager.checkMaxAge(""))
+    }
+
+    @Test
+    fun `checkMaxAge - Refuse a value that is not a number`() {
+        val error = manager.checkMaxAge("abc")
+
+        assertNotNull(error)
+        assertEquals("authorize.max_age.invalid", error!!.detailsId)
+        assertEquals("abc", error.values["maxAge"])
+    }
+
+    @Test
+    fun `checkMaxAge - Refuse a negative number of seconds`() {
+        val error = manager.checkMaxAge("-1")
+
+        assertNotNull(error)
+        assertEquals("authorize.max_age.invalid", error!!.detailsId)
+    }
+
+    @Test
+    fun `getDefaultInteractiveFlow - Returns template flow when default template has a InteractiveFlow`() =
+        runTest {
+            val templateFlow = mockk<InteractiveFlow>()
+            val template = ClientTemplate(
+                id = "default",
+                audienceId = null,
+                public = null,
+                allowedGrantTypes = null,
+                authorizationFlow = templateFlow,
+                allowedRedirectUris = null,
+                returnUri = null,
+                allowedReturnUris = null,
+                allowedScopes = null,
+                defaultScopes = null,
+                authorizationWebhook = null
+            )
+            val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+            val realManager = InteractiveAuthFlowSessionManager(
+                authorizationFlowManager, oauth2Manager, requestedClaimsManager, clientManager,
+                invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
+            )
+
+            val result = realManager.getDefaultInteractiveFlow()
+
+            assertSame(templateFlow, result)
+        }
+
+    @Test
+    fun `getDefaultInteractiveFlow - Falls back to hardcoded flow when no default template`() = runTest {
+        val hardcodedFlow = mockk<InteractiveFlow>()
+        every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
+        val templatesConfig = EnabledClientTemplatesConfig(emptyMap())
+        val realManager = InteractiveAuthFlowSessionManager(
+            authorizationFlowManager, oauth2Manager, requestedClaimsManager, clientManager,
+            invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
+        )
+
+        val result = realManager.getDefaultInteractiveFlow()
+
+        assertSame(hardcodedFlow, result)
+    }
+
+    @Test
+    fun `getDefaultInteractiveFlow - Falls back to hardcoded flow when template flow is not InteractiveFlow`() =
+        runTest {
+            val nonInteractiveFlow = mockk<NonInteractiveAuthorizationFlow>()
+            val hardcodedFlow = mockk<InteractiveFlow>()
+            every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
+            val template = ClientTemplate(
+                id = "default",
+                audienceId = null,
+                public = null,
+                allowedGrantTypes = null,
+                authorizationFlow = nonInteractiveFlow,
+                allowedRedirectUris = null,
+                returnUri = null,
+                allowedReturnUris = null,
+                allowedScopes = null,
+                defaultScopes = null,
+                authorizationWebhook = null
+            )
+            val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+            val realManager = InteractiveAuthFlowSessionManager(
+                authorizationFlowManager, oauth2Manager, requestedClaimsManager, clientManager,
+                invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
+            )
+
+            val result = realManager.getDefaultInteractiveFlow()
+
+            assertSame(hardcodedFlow, result)
+        }
+
+    @Test
+    fun `getDefaultInteractiveFlow - Falls back to hardcoded flow when template has no authorizationFlow`() =
+        runTest {
+            val hardcodedFlow = mockk<InteractiveFlow>()
+            every { authorizationFlowManager.defaultInteractiveFlow } returns hardcodedFlow
+            val template = ClientTemplate(
+                id = "default",
+                audienceId = null,
+                public = null,
+                allowedGrantTypes = null,
+                authorizationFlow = null,
+                allowedRedirectUris = null,
+                returnUri = null,
+                allowedReturnUris = null,
+                allowedScopes = null,
+                defaultScopes = null,
+                authorizationWebhook = null
+            )
+            val templatesConfig = EnabledClientTemplatesConfig(mapOf("default" to template))
+            val realManager = InteractiveAuthFlowSessionManager(
+                authorizationFlowManager, oauth2Manager, requestedClaimsManager, clientManager,
+                invitationManager, scopeManager, clientRedirectUriManager, flowOf(templatesConfig)
+            )
+
+            val result = realManager.getDefaultInteractiveFlow()
+
+            assertSame(hardcodedFlow, result)
+        }
+
+    private val defaultFlow = mockk<InteractiveFlow>()
+
+    private fun setupDefaultFlow() {
+        coEvery { manager.getDefaultInteractiveFlow() } returns defaultFlow
+        setupNoRequestedClaims()
+    }
+
+    /**
+     * Every `startAuthorizationWith` passes the `claims` parameter through [ClaimManager], so a test that
+     * is not about it still has to answer for one. The two that are re-stub the same matcher.
+     */
+    private fun setupNoRequestedClaims() {
+        every { requestedClaimsManager.parseRequestedClaims(any()) } returns RequestedClaims.NONE
+    }
+
+    private fun setupValidClient(
+        client: Client,
+        scopes: List<EnabledScope> = emptyList(),
+        redirectUri: URI = URI("https://example.com/callback")
+    ) {
+        coEvery { clientManager.parseRequestedClient(any()) } returns client
+        coEvery { scopeManager.parseRequestedScopes(client, any()) } returns scopes
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns redirectUri
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores error when client_id is null`() = runTest {
+        val clientException = businessExceptionOf(detailsId = "client.parse_requested.missing")
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(null) } throws clientException
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = null,
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = null,
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("client.parse_requested.missing", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores error when client_id is unknown`() = runTest {
+        val clientException = businessExceptionOf(detailsId = "client.invalid_client_id")
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient("unknown") } throws clientException
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = null,
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "unknown",
+                redirectUri = null,
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("client.invalid_client_id", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Uses default flow when client has no authorizationFlow`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val flowSlot = slot<InteractiveFlow>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = capture(flowSlot),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertSame(defaultFlow, flowSlot.captured)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores scope error when scope is invalid`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(any()) } returns client
+        coEvery {
+            scopeManager.parseRequestedScopes(
+                client,
+                any()
+            )
+        } throws businessExceptionOf(detailsId = "scope.unsupported")
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns URI(
+            "https://example.com/callback"
+        )
+        val errorSlot = slot<BusinessException?>()
+        val requestErrorSlot = slot<OAuth2ErrorCode?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = captureNullable(requestErrorSlot)
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = "invalid_scope",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("scope.unsupported", errorSlot.captured?.detailsId)
+        assertEquals(OAuth2ErrorCode.INVALID_SCOPE, requestErrorSlot.captured)
+    }
+
+    @Test
+    @Suppress("MaxLineLength")
+    fun `startAuthorizationWith - Keeps the redirect URI of a client not allowed the grant to answer unauthorized_client`() =
+        runTest {
+            val client = mockk<Client> {
+                every { authorizationFlow } returns null
+                every { supportsGrantType(GrantType.AUTHORIZATION_CODE) } returns false
+            }
+            val redirectUri = URI("https://example.com/callback")
+            setupDefaultFlow()
+            coEvery { clientManager.parseRequestedClient(any()) } returns client
+            coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
+            every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns redirectUri
+            val errorSlot = slot<BusinessException?>()
+            val requestErrorSlot = slot<OAuth2ErrorCode?>()
+            coEvery {
+                oauth2Manager.startOAuth2Session(
+                    client = client,
+                    clientState = any(),
+                    clientNonce = any(),
+                    flow = any(),
+                    scopes = any(),
+                    redirectUri = redirectUri,
+                    codeChallenge = any(),
+                    codeChallengeMethod = any(),
+                    invitationId = any(),
+                    error = captureNullable(errorSlot),
+                    requestError = captureNullable(requestErrorSlot)
+                )
+            } returns mockk()
+
+            manager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = "https://example.com/callback",
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = "challenge",
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = null
+                )
+            )
+
+            assertEquals("authorize.unauthorized_grant_type", errorSlot.captured?.detailsId)
+            assertEquals(OAuth2ErrorCode.UNAUTHORIZED_CLIENT, requestErrorSlot.captured)
+        }
+
+    @Test
+    fun `startAuthorizationWith - Skips scope validation when client is null`() = runTest {
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(
+            detailsId = "client.parse_requested.missing"
+        )
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = null,
+                scopes = "openid",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        coVerify(exactly = 0) { scopeManager.parseRequestedScopes(any(), any()) }
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores redirect_uri error when redirect_uri is blank`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(any()) } returns client
+        coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
+            detailsId = "client.redirect_uri.missing"
+        )
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("client.redirect_uri.missing", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores the request object refusal ahead of a redirect_uri it may have carried`() =
+        runTest {
+            val client = mockk<Client> {
+                every { authorizationFlow } returns null
+                every { supportsGrantType(any()) } returns true
+            }
+            setupDefaultFlow()
+            coEvery { clientManager.parseRequestedClient(any()) } returns client
+            coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
+            every {
+                clientRedirectUriManager.parseRequestedRedirectUri(client, any())
+            } throws businessExceptionOf(detailsId = "client.redirect_uri.missing")
+            val errorSlot = slot<BusinessException?>()
+            val requestErrorSlot = slot<OAuth2ErrorCode?>()
+            coEvery {
+                oauth2Manager.startOAuth2Session(
+                    client = any(),
+                    clientState = any(),
+                    clientNonce = any(),
+                    flow = any(),
+                    scopes = any(),
+                    redirectUri = any(),
+                    codeChallenge = any(),
+                    codeChallengeMethod = any(),
+                    invitationId = any(),
+                    error = captureNullable(errorSlot),
+                    requestError = captureNullable(requestErrorSlot)
+                )
+            } returns mockk()
+
+            manager.startAuthorizationWith(
+                UncheckedAuthorizationRequest(
+                    clientId = "client",
+                    redirectUri = null,
+                    scopes = null,
+                    state = null,
+                    nonce = null,
+                    codeChallenge = null,
+                    codeChallengeMethod = null,
+                    invitationToken = null,
+                    maxAge = null,
+                    claims = null,
+                    requestObject = null,
+                    requestObjectUri = "https://client.example.com/request.jwt"
+                )
+            )
+
+            assertEquals("authorize.request_uri.unsupported", errorSlot.captured?.detailsId)
+            assertEquals(OAuth2ErrorCode.REQUEST_URI_NOT_SUPPORTED, requestErrorSlot.captured)
+        }
+
+    @Test
+    fun `startAuthorizationWith - Skips redirect_uri validation when client is null`() = runTest {
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(
+            detailsId = "client.parse_requested.missing"
+        )
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        verify(exactly = 0) { clientRedirectUriManager.parseRequestedRedirectUri(any(), any()) }
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores PKCE error when code_challenge is missing`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(any()) } returns client
+        coEvery { scopeManager.parseRequestedScopes(client, any()) } returns emptyList()
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } returns URI(
+            "https://example.com/callback"
+        )
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("authorize.pkce.missing_code_challenge", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores code_challenge and S256 on valid PKCE request`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val challengeSlot = slot<String?>()
+        val methodSlot = slot<CodeChallengeMethod?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = captureNullable(challengeSlot),
+                codeChallengeMethod = captureNullable(methodSlot),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = "my-challenge",
+                codeChallengeMethod = "S256",
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("my-challenge", challengeSlot.captured)
+        assertEquals(CodeChallengeMethod.S256, methodSlot.captured)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Client error takes priority over other errors`() = runTest {
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(null) } throws businessExceptionOf(
+            detailsId = "client.parse_requested.missing"
+        )
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = null,
+                redirectUri = "",
+                scopes = "invalid",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("client.parse_requested.missing", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Uses first error when multiple validations fail`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        coEvery { clientManager.parseRequestedClient(any()) } returns client
+        coEvery {
+            scopeManager.parseRequestedScopes(
+                client,
+                any()
+            )
+        } throws businessExceptionOf(detailsId = "scope.unsupported")
+        every { clientRedirectUriManager.parseRequestedRedirectUri(client, any()) } throws businessExceptionOf(
+            detailsId = "client.redirect_uri.missing"
+        )
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "",
+                scopes = "invalid",
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        // Scope error comes before redirect_uri error in the listOfNotNull
+        assertEquals("scope.unsupported", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Passes state to startOAuth2Session`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val stateSlot = slot<String?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = captureNullable(stateSlot),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = "my-state-value",
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("my-state-value", stateSlot.captured)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Passes the claims the request asked for to startOAuth2Session`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val claims = """{"id_token":{"loyalty_tier":null}}"""
+        val requested = RequestedClaims(idTokenClaimIds = setOf("loyalty_tier"), userInfoClaimIds = emptySet())
+        every { requestedClaimsManager.parseRequestedClaims(any()) } returns requested
+        val requestedSlot = slot<RequestedClaims>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                requestedClaims = capture(requestedSlot),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = claims,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals(requested, requestedSlot.captured)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Stores the refusal of a claims parameter it cannot read`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        every { requestedClaimsManager.parseRequestedClaims(any()) } throws businessExceptionOf(
+            detailsId = "claim.parse_requested.invalid"
+        )
+        val errorSlot = slot<BusinessException?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = any(),
+                flow = any(),
+                scopes = any(),
+                requestedClaims = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = captureNullable(errorSlot),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = null,
+                codeChallenge = "challenge",
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = "not-json",
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("claim.parse_requested.invalid", errorSlot.captured?.detailsId)
+    }
+
+    @Test
+    fun `startAuthorizationWith - Passes nonce to startOAuth2Session`() = runTest {
+        val client = mockk<Client> {
+            every { authorizationFlow } returns null
+            every { supportsGrantType(any()) } returns true
+        }
+        setupDefaultFlow()
+        setupValidClient(client)
+        val nonceSlot = slot<String?>()
+        coEvery {
+            oauth2Manager.startOAuth2Session(
+                client = any(),
+                clientState = any(),
+                clientNonce = captureNullable(nonceSlot),
+                flow = any(),
+                scopes = any(),
+                redirectUri = any(),
+                codeChallenge = any(),
+                codeChallengeMethod = any(),
+                invitationId = any(),
+                error = any(),
+                requestError = any()
+            )
+        } returns mockk()
+
+        manager.startAuthorizationWith(
+            UncheckedAuthorizationRequest(
+                clientId = "client",
+                redirectUri = "https://example.com/callback",
+                scopes = null,
+                state = null,
+                nonce = "my-nonce-value",
+                codeChallenge = null,
+                codeChallengeMethod = null,
+                invitationToken = null,
+                maxAge = null,
+                claims = null,
+                requestObject = null,
+                requestObjectUri = null
+            )
+        )
+
+        assertEquals("my-nonce-value", nonceSlot.captured)
+    }
+
+    private fun oauth2AndClient(
+        clientId: String = "test-client",
+        invitationId: UUID? = null,
+        signUpEnabled: Boolean = true,
+        invitationEnabled: Boolean = false
+    ): InteractiveFlowSessionOAuth2 {
+        val audience = Audience(
+            id = "test-audience",
+            tokenAudience = "test-audience",
+            signUpEnabled = signUpEnabled,
+            invitationEnabled = invitationEnabled
+        )
+        val client = mockk<Client> {
+            every { this@mockk.audience } returns audience
+        }
+        coEvery { clientManager.findClientById(clientId) } returns client
+        return oauth2With(clientId = clientId, invitationId = invitationId)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Succeeds when sign-up is enabled`() = runTest {
+        val oauth2 = oauth2AndClient(signUpEnabled = true, invitationEnabled = false)
+        manager.checkSignUpAllowed(oauth2, recoverable = true)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Succeeds when both sign-up and invitation enabled without invitation`() = runTest {
+        val oauth2 = oauth2AndClient(invitationId = null, signUpEnabled = true, invitationEnabled = true)
+        manager.checkSignUpAllowed(oauth2, recoverable = true)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Succeeds when invitation required and invitation is bound`() = runTest {
+        val oauth2 = oauth2AndClient(
+            invitationId = UUID.randomUUID(),
+            signUpEnabled = false,
+            invitationEnabled = true
+        )
+        manager.checkSignUpAllowed(oauth2, recoverable = false)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Throws when both sign-up and invitation are disabled`() = runTest {
+        val oauth2 = oauth2AndClient(signUpEnabled = false, invitationEnabled = false)
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(oauth2, recoverable = true)
+        }
+        assertEquals("flow.sign_up.disabled", exception.detailsId)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Throws when invitation required but not bound`() = runTest {
+        val oauth2 = oauth2AndClient(invitationId = null, signUpEnabled = false, invitationEnabled = true)
+
+        val exception = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(oauth2, recoverable = false)
+        }
+        assertEquals("flow.sign_up.invitation_required", exception.detailsId)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Respects recoverable flag`() = runTest {
+        val oauth2 = oauth2AndClient(signUpEnabled = false, invitationEnabled = false)
+
+        val recoverableException = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(oauth2, recoverable = true)
+        }
+        assertTrue(recoverableException.recoverable)
+
+        val nonRecoverableException = assertThrows<BusinessException> {
+            manager.checkSignUpAllowed(oauth2, recoverable = false)
+        }
+        assertFalse(nonRecoverableException.recoverable)
+    }
+
+    @Test
+    fun `checkSignUpAllowed - Refuses with a 400 the session is failed with`() = runTest {
+        val disabled = oauth2AndClient(signUpEnabled = false, invitationEnabled = false)
+        val invitationRequired = oauth2AndClient(invitationId = null, signUpEnabled = false, invitationEnabled = true)
+
+        listOf(disabled, invitationRequired).forEach { oauth2 ->
+            val exception = assertThrows<BusinessException> {
+                manager.checkSignUpAllowed(oauth2, recoverable = false)
+            }
+            assertEquals(HttpStatus.BAD_REQUEST, exception.recommendedStatus)
+        }
+    }
+
+    private fun oauth2With(
+        clientId: String = "test-client",
+        consentedScopes: List<String>? = null,
+        invitationId: UUID? = null
+    ): InteractiveFlowSessionOAuth2 = InteractiveFlowSessionOAuth2(
+        sessionId = UUID.randomUUID(),
+        clientId = clientId,
+        redirectUri = "https://example.com/callback",
+        requestedScopes = emptyList(),
+        consentedScopes = consentedScopes,
+        invitationId = invitationId
+    )
+}

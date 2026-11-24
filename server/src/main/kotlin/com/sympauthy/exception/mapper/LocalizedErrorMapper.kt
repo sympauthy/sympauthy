@@ -7,8 +7,8 @@ import com.sympauthy.config.model.orNull
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.model.LocalizedError
 import com.sympauthy.exception.model.LocalizedPropertyError
-import com.sympauthy.server.ErrorMessages
-import com.sympauthy.util.renderOrNull
+import com.sympauthy.platform.server.ErrorMessages
+import com.sympauthy.platform.util.renderOrNull
 import io.micronaut.context.MessageSource
 import io.micronaut.http.HttpStatus
 import jakarta.inject.Inject

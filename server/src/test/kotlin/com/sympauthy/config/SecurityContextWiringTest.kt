@@ -1,14 +1,14 @@
 package com.sympauthy.config
 
 import com.sympauthy.api.util.SecurityContextUtil
-import com.sympauthy.business.model.security.CALLER_IP
-import com.sympauthy.business.model.security.FORGED_IP
-import com.sympauthy.business.model.security.GeoProvider
-import com.sympauthy.business.model.security.IpProvider
-import com.sympauthy.business.model.security.SOCKET_PEER
-import com.sympauthy.business.model.security.headersOf
-import com.sympauthy.business.model.security.requestFromPeer
-import com.sympauthy.business.model.security.requestOf
+import com.sympauthy.business.securitycontext.edge.model.CALLER_IP
+import com.sympauthy.business.securitycontext.edge.model.FORGED_IP
+import com.sympauthy.business.securitycontext.edge.model.GeoProvider
+import com.sympauthy.business.securitycontext.edge.model.IpProvider
+import com.sympauthy.business.securitycontext.edge.model.SOCKET_PEER
+import com.sympauthy.business.securitycontext.edge.model.headersOf
+import com.sympauthy.business.securitycontext.edge.model.requestFromPeer
+import com.sympauthy.business.securitycontext.edge.model.requestOf
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.ConfiguredImplementation
 import com.sympauthy.config.model.SecurityContextConfig

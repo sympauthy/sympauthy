@@ -7,7 +7,7 @@ import java.net.URI
  *
  * For OAuth2 providers, all endpoints are available directly from config.
  * For OpenID Connect providers, only the issuer is known at config time;
- * the actual endpoints are discovered at runtime by [com.sympauthy.business.manager.provider.ProviderManager].
+ * the actual endpoints are discovered at runtime by [com.sympauthy.business.provider.manager.ProviderManager].
  */
 sealed class ProviderAuthInputConfig
 

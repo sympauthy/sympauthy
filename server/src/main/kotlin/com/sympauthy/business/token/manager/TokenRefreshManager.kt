@@ -1,0 +1,186 @@
+package com.sympauthy.business.token.manager
+
+import com.sympauthy.api.exception.oauth2ExceptionOf
+import com.sympauthy.api.exception.withRefusalAs
+import com.sympauthy.business.claim.manager.ClaimAclManager
+import com.sympauthy.business.claim.model.ClaimAclContext
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.consent.manager.ConsentManager
+import com.sympauthy.business.grant.manager.GrantManager
+import com.sympauthy.business.jwt.manager.JwtManager
+import com.sympauthy.business.jwt.manager.JwtManager.Companion.REFRESH_KEY
+import com.sympauthy.business.jwt.model.DecodedJwt
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_GRANT
+import com.sympauthy.business.token.model.AuthenticationToken
+import com.sympauthy.business.token.model.EncodedAuthenticationToken
+import com.sympauthy.business.token.model.IssuedTokens
+import com.sympauthy.business.token.model.TokenRequest
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import io.micronaut.transaction.annotation.Transactional
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
+
+/**
+ * Issues new tokens under the grant a refresh token was issued under, the `refresh_token` grant. See
+ * `docs/design/grants.md`.
+ */
+@Singleton
+open class TokenRefreshManager(
+    @Inject private val jwtManager: JwtManager,
+    @Inject private val tokenManager: TokenManager,
+    @Inject private val grantManager: GrantManager,
+    @Inject private val consentManager: ConsentManager,
+    @Inject private val dpopManager: DpopManager,
+    @Inject private val lockManager: LockManager,
+    @Inject private val accessTokenGenerator: AccessTokenGenerator,
+    @Inject private val refreshTokenGenerator: RefreshTokenGenerator,
+    @Inject private val idTokenGenerator: IdTokenGenerator,
+    @Inject private val claimAclManager: ClaimAclManager,
+    @Inject private val userManager: UserManager,
+    @Inject private val customSpanTracer: CustomSpanTracer
+) {
+
+    /**
+     * Decode and verify the refresh token [request] carries, and issue a new access token under its grant.
+     *
+     * Additionally, a new refresh token may be issued if the refresh token expires
+     * before the expiration of the new access token, and a new id token is issued when the grant the
+     * refresh token came from carried the `openid` scope.
+     *
+     * Throws an `OAuth2Exception` carrying `invalid_grant` if the refresh token validation fails:
+     * - one of the validation of [JwtManager.decodeAndVerify].
+     * - `token.invalid_token_id`, where the token names no row of ours, or names one whose subject it
+     *   does not match.
+     * - `grant.revoked`, where the grant it was issued under has been revoked.
+     * - `grant.expired`, where the grant it was issued under is past its lifetime.
+     * - the [client] does not match the one we have issued the token too.
+     * - `grant.mismatching_audience`, where the [client] no longer belongs to the audience the grant was opened
+     *   for.
+     * - `grant.invalid_user`, where the account the token names is one no sign-up finished.
+     * - `grant.consent_revoked`, where the consent the grant rests on has been revoked.
+     *
+     * Throws an `OAuth2Exception` carrying `invalid_dpop_proof` where the token is bound to a key and
+     * [dpopJkt] is absent (`dpop.missing_header`) or names a different one (`dpop.mismatching_key`).
+     *
+     * Every check is made, and every token issued, holding the lock over the account the grant belongs to,
+     * which every revocation of that account's grants takes too. A revocation racing this refresh either
+     * commits first, and is read here as the refusal it is, or waits for these tokens to be committed and
+     * finds the grant live through them.
+     *
+     * A refresh that succeeds for a grant held for a person moves their last refresh to the issue date of the
+     * new access token, in the same transaction. A refused one moves nothing.
+     */
+    @Transactional
+    open suspend fun refresh(
+        client: Client,
+        request: TokenRequest.RefreshToken,
+        dpopJkt: String? = null
+    ): IssuedTokens = supervisorScope {
+        val decodedToken = withRefusalAs(INVALID_GRANT) {
+            jwtManager.decodeAndVerify(REFRESH_KEY, request.refreshToken)
+        }
+        val lockKeys = listOfNotNull(tokenManager.getAuthenticationToken(decodedToken).grant.userId?.let(LockKey::User))
+
+        lockManager.withLock(lockKeys) {
+            refreshHeldToken(client, decodedToken, dpopJkt)
+        }
+    }
+
+    /**
+     * The body of [refresh], run once the lock over the account [decodedToken] belongs to is held.
+     *
+     * The token is read again here rather than handed in, as `docs/standards/locking-standard.md` has the
+     * check a lock protects read inside it.
+     *
+     * Once the grant is found to be the [client]'s, the request is marked as acting on the interactive flow session
+     * it came from, where one did.
+     */
+    private suspend fun refreshHeldToken(
+        client: Client,
+        decodedToken: DecodedJwt,
+        dpopJkt: String?
+    ): IssuedTokens {
+        val refreshToken = tokenManager.getAuthenticationToken(decodedToken)
+        val grant = refreshToken.grant
+        grantManager.checkOpenedFor(grant, client)
+        grant.sessionId?.let { customSpanTracer.markFlowSession(it, grant.sessionStartedBy) }
+
+        dpopManager.checkProofMatchesBinding(refreshToken, dpopJkt)
+
+        // For user grants, verify the account is one this server finished creating and the consent has not
+        // been revoked (checked at audience level). A client-credentials grant carries no user.
+        if (grant.userId != null) {
+            grantManager.checkUserPromoted(grant)
+            consentManager.findActiveConsentByAudienceOrNull(grant.userId, client.audience.id)
+                ?: throw oauth2ExceptionOf(INVALID_GRANT, "grant.consent_revoked", "description.grant.consent_revoked")
+        }
+
+        // Use the DPoP jkt from the proof, or carry forward the existing binding
+        val effectiveDpopJkt = dpopJkt ?: refreshToken.dpopJkt
+        val doors = claimAclManager.getTokenDoors(ClaimAclContext.of(grant, client, effectiveDpopJkt))
+
+        val tokens = coroutineScope {
+            val deferredAccessToken = async {
+                accessTokenGenerator.generateAccessToken(
+                    grant = grant,
+                    audience = client.audience,
+                    doors = doors,
+                    grantType = GrantType.REFRESH_TOKEN,
+                    dpopJkt = effectiveDpopJkt
+                )
+            }
+            val deferredRefreshToken = async {
+                if (shouldRefreshToken(refreshToken, deferredAccessToken.await())) {
+                    refreshTokenGenerator.generateRefreshToken(
+                        grant = grant,
+                        audience = client.audience,
+                        grantType = GrantType.REFRESH_TOKEN,
+                        dpopJkt = effectiveDpopJkt
+                    )
+                } else null
+            }
+            // Why a refresh reissues the identity is `docs/design/security.md`'s. Whether this grant is owed an
+            // id token is the generator's to answer, so that the authorization code cannot answer it differently.
+            val deferredIdToken = async {
+                idTokenGenerator.generateIdToken(
+                    grant = grant,
+                    audience = client.audience,
+                    accessToken = deferredAccessToken,
+                    doors = doors,
+                    grantType = GrantType.REFRESH_TOKEN
+                )
+            }
+
+            IssuedTokens(
+                accessToken = deferredAccessToken.await(),
+                refreshToken = deferredRefreshToken.await(),
+                idToken = deferredIdToken.await()
+            )
+        }
+        // Once everything that could refuse this refresh has passed, and in its transaction, so a refused one
+        // moves nothing. A client-credentials grant has no person to date.
+        grant.userId?.let { userManager.markRefreshed(it, tokens.accessToken.issueDate) }
+
+        return tokens
+    }
+
+    internal fun shouldRefreshToken(
+        refreshToken: AuthenticationToken,
+        accessToken: EncodedAuthenticationToken
+    ): Boolean {
+        return when {
+            refreshToken.expirationDate == null -> false
+            accessToken.expirationDate == null || refreshToken.expirationDate.isBefore(
+                accessToken.expirationDate
+            ) -> true
+            else -> false
+        }
+    }
+}

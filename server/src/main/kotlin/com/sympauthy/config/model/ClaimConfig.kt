@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.user.claim.Claim
+import com.sympauthy.business.claim.model.Claim
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ClaimsConfig(

@@ -1,7 +1,7 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.oauth2.Scope
+import com.sympauthy.business.scope.model.EnabledScope
+import com.sympauthy.business.scope.model.Scope
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ScopesConfig(

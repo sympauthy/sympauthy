@@ -1,0 +1,61 @@
+package com.sympauthy.business.invitation.mapper
+
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.invitation.model.Invitation
+import com.sympauthy.business.invitation.model.InvitationCreatedBy
+import com.sympauthy.business.invitation.model.InvitationStatus
+import com.sympauthy.data.model.InvitationEntity
+import jakarta.inject.Singleton
+import java.time.LocalDateTime
+
+/**
+ * Handle the mapping from the [InvitationEntity] to the [Invitation] business model.
+ *
+ * If the row holds a status or a creator the model's enums do not name, or no identifier, an internal
+ * [BusinessException] "mapper.invitation.invalid_property" is thrown.
+ */
+@Singleton
+class InvitationMapper {
+
+    fun toInvitation(entity: InvitationEntity): Invitation {
+        val rawStatus = try {
+            InvitationStatus.valueOf(entity.status)
+        } catch (_: IllegalArgumentException) {
+            throw invalidBusinessException("status")
+        }
+        val status = when {
+            rawStatus == InvitationStatus.PENDING
+                    && entity.expiresAt.isBefore(LocalDateTime.now()) -> InvitationStatus.EXPIRED
+
+            else -> rawStatus
+        }
+        val createdBy = try {
+            InvitationCreatedBy.valueOf(entity.createdBy)
+        } catch (_: IllegalArgumentException) {
+            throw invalidBusinessException("createdBy")
+        }
+        return Invitation(
+            id = entity.id ?: throw invalidBusinessException("id"),
+            audienceId = entity.audienceId,
+            tokenPrefix = entity.tokenPrefix,
+            claims = entity.claims,
+            note = entity.note,
+            status = status,
+            createdBy = createdBy,
+            createdById = entity.createdById,
+            consumedByUserId = entity.consumedByUserId,
+            createdAt = entity.createdAt,
+            expiresAt = entity.expiresAt,
+            consumedAt = entity.consumedAt,
+            revokedAt = entity.revokedAt,
+        )
+    }
+
+    private fun invalidBusinessException(invalidProperty: String): BusinessException {
+        return internalBusinessExceptionOf(
+            detailsId = "mapper.invitation.invalid_property",
+            values = arrayOf("property" to invalidProperty)
+        )
+    }
+}

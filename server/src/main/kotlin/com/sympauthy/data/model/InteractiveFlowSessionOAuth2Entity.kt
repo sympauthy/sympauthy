@@ -38,7 +38,7 @@ class InteractiveFlowSessionOAuth2Entity(
     val invitationId: UUID? = null,
 
     /**
-     * The `error` token of [com.sympauthy.business.model.oauth2.OAuth2ErrorCode] answering the refusal of the
+     * The `error` token of [com.sympauthy.business.oauth2.model.OAuth2ErrorCode] answering the refusal of the
      * authorize request this record holds, or null where the request was accepted.
      */
     val requestError: String? = null,

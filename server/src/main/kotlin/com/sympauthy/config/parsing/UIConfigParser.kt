@@ -1,7 +1,7 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.branding.BrandImage
-import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.business.branding.model.BrandImage
+import com.sympauthy.business.branding.model.DarkMode
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf

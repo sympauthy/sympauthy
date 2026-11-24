@@ -1,10 +1,10 @@
 package com.sympauthy.cron
 
-import com.sympauthy.business.manager.auth.GrantCleaner
-import com.sympauthy.business.manager.lock.JobLeaseManager
-import com.sympauthy.business.manager.lock.LeasedJob.CLEAN_FINISHED_GRANTS
-import com.sympauthy.monitoring.loggerForClass
-import com.sympauthy.server.BackgroundScope
+import com.sympauthy.business.grant.manager.GrantCleaner
+import com.sympauthy.platform.lock.JobLeaseManager
+import com.sympauthy.platform.lock.LeasedJob.CLEAN_FINISHED_GRANTS
+import com.sympauthy.platform.monitoring.loggerForClass
+import com.sympauthy.platform.server.BackgroundScope
 import io.micronaut.scheduling.annotation.Scheduled
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

@@ -1,6 +1,6 @@
 package com.sympauthy.data.migration
 
-import com.sympauthy.monitoring.loggerForClass
+import com.sympauthy.platform.monitoring.loggerForClass
 import io.micronaut.flyway.FlywayConfigurationCustomizer
 import org.flywaydb.core.api.CoreLocationPrefix
 import org.flywaydb.core.api.Location

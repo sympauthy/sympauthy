@@ -1,0 +1,86 @@
+package com.sympauthy.business.flow.manager
+
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowSession
+import com.sympauthy.business.flow.model.InteractiveFlowStep
+import com.sympauthy.business.flow.model.OnGoingInteractiveFlowSession
+import com.sympauthy.business.flow.model.PreparedTerminalEffect
+import com.sympauthy.business.flow.model.PurposeDebugInformation
+
+/**
+ * Owns the step logic and completion behaviour of a single [purpose] of an interactive flow session.
+ *
+ * There is one implementation per [InteractiveFlowPurpose]; the one responsible for a purpose is resolved via
+ * [InteractiveFlowPurposeRegistry]. A session may carry several purposes, sequenced by [InteractiveFlowEngine].
+ *
+ * A handler only ever reads the session and describes what its purpose needs, and the engine acts on the
+ * answers below; why it may only answer is `docs/design/interactive-flow.md`.
+ */
+interface InteractiveFlowPurposeHandler {
+
+    /**
+     * The purpose this handler is responsible for.
+     */
+    val purpose: InteractiveFlowPurpose
+
+    /**
+     * The next step this purpose requires the end-user to go through on the ongoing [session], or null once
+     * every step it requires is satisfied (the purpose is resolved).
+     *
+     * A pure query: the step is abstract, and mapping it to a concrete redirect (web) or another transport
+     * happens at the API boundary.
+     */
+    suspend fun nextStepOrNull(session: OnGoingInteractiveFlowSession): InteractiveFlowStep?
+
+    /**
+     * The follow-up purposes that must run once this purpose is resolved (e.g. the OAuth2 authorize purpose
+     * requiring an MFA purpose before the flow can complete), evaluated against the ongoing [session].
+     *
+     * The engine inserts any of these not already present right after this purpose, in the order returned.
+     * Returning purposes already on the session is harmless; the default is none.
+     */
+    suspend fun followUpPurposes(session: OnGoingInteractiveFlowSession): List<InteractiveFlowPurpose> = emptyList()
+
+    /**
+     * Decide this purpose's own terminal effect on the ongoing [session] — its concern-specific completion work
+     * (e.g. the OAuth2 purpose granting scopes and recording consent) — and return the writes it comes to.
+     *
+     * Asked once every purpose has resolved, for each purpose in order, outside any transaction: this is where
+     * the effect does whatever I/O deciding it takes, and it writes nothing. The engine applies every
+     * [PreparedTerminalEffect.Apply] inside the completion transaction, after the promotion, in the same order.
+     * [PreparedTerminalEffect.Fail] fails the session instead, before that transaction opens. The default is
+     * [PreparedTerminalEffect.None], for a purpose with no terminal effect.
+     */
+    suspend fun prepareTerminalEffect(session: OnGoingInteractiveFlowSession): PreparedTerminalEffect =
+        PreparedTerminalEffect.None
+
+    /**
+     * Whether a session this purpose initiated hands the end-user back only once, to the request that
+     * completed it. Asked of the initiating purpose alone, since it is the one owning that hand-off.
+     *
+     * Where it does, a later request on the completed session — a reload, a second tab, the loser of a double
+     * submit — is answered [InteractiveFlowStep.AlreadyCompleted] rather than handed back again. The default
+     * is false, for a hand-off carrying nothing that may only be given out once.
+     */
+    val handsOffOnce: Boolean
+        get() = false
+
+    /**
+     * What this purpose has to say about where [session] stands, for an operator reading the session on the
+     * admin API. Each entry is a code and the value behind it, in the order the operator reads them; the
+     * interface rendering them owns the label.
+     *
+     * It takes the base [InteractiveFlowSession], unlike every other member, and **must answer for a session
+     * in any shape** — no user, no attached record, a terminal status — emitting the code with no value rather
+     * than throwing: nothing catches around the call. Why it is required, takes the base type and is not
+     * caught is `docs/design/interactive-flow.md`.
+     *
+     * **It emits what an operator can act on, and never a credential.** A TOTP seed, a recovery code and an
+     * authorization code are never among the entries; a value that exists so that only the client and the
+     * browser hold it — `state`, `nonce` — is a [PurposeDebugInformation.Presence] rather than published.
+     *
+     * **A code it emits is a contract.** Renaming or removing one breaks the interface keyed by it, and a code
+     * it adds is listed beside the others where the admin API describes them.
+     */
+    suspend fun debugInformation(session: InteractiveFlowSession): List<PurposeDebugInformation>
+}

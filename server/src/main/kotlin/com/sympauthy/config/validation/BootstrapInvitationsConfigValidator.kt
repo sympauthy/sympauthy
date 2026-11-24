@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.user.claim.EnabledClaim
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.BootstrapInvitation
@@ -71,7 +71,7 @@ class BootstrapInvitationsConfigValidator {
      * `is-sympauthy-admin`), but claim IDs from `@EachProperty("claims")` preserve the raw YAML key.
      * This method matches normalized keys to canonical claim IDs by comparing their normalized forms.
      *
-     * The audience is the restriction [com.sympauthy.business.manager.invitation.InvitationManager] holds
+     * The audience is the restriction [com.sympauthy.business.invitation.manager.InvitationManager] holds
      * every invitation to, asked here so that it is a startup error beside the others: left to the manager it
      * would throw inside the listener creating these at service-ready, once the deployment had already
      * reported itself healthy.

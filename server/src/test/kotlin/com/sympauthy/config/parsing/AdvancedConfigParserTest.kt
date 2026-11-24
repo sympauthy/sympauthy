@@ -1,8 +1,8 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.security.GeoProvider
-import com.sympauthy.business.model.security.IpProvider
+import com.sympauthy.business.key.model.CryptoKeysGenerationStrategy
+import com.sympauthy.business.securitycontext.edge.model.GeoProvider
+import com.sympauthy.business.securitycontext.edge.model.IpProvider
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.PublishedImplementations

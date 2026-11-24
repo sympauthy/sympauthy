@@ -43,6 +43,7 @@ does with its own components is a standard per layer:
 | `config` | factory | `…ConfigFactory` | assembling the validated model |
 | `config` | readiness | *none* | whether the configuration as a whole is usable, and the keys it left unbound |
 | `cron` | job | `…Cron` | when a leased job runs, handing the work to a manager |
+| a subject's root | wiring | its framework role — `…Appender`, `…Customizer`, `…Factory`, `…HealthIndicator` | what the framework calls to put the subject in place |
 
 **A feature is built from the rows above that it needs.** A component fitting none of them is a
 change to this table before it is a class.
@@ -52,43 +53,79 @@ change to this table before it is a class.
 **`business` holds authentication**: the accounts and their claims, the clients and what they were
 granted, the tokens, and the flows a person signs in through.
 
-**A subject the server needs that is not authentication is a top-level package of its own**, named
-for the subject — `mail`, `queue`. It sits beside `business` rather than inside it, so that
+**A subject the server needs that is not authentication, but knows it, is a top-level package of
+its own**, named for the subject — `mail`. It sits beside `business` rather than inside it, so that
 `business` stays the one place a reader looks for what the server is for.
 
-**Such a package is laid out as `business` is**, with a `manager`, a `model`, a `mapper` and an
-`exception` package, each where it has one, and contributes the `business` rows of the table above.
-[The `business` layer standard](business-layer-code-standard.md) holds its components as it holds
-`business`'s.
+**A mechanism the server needs and no audience sees is a package of `platform`** — `lock`, `queue`,
+`monitoring`. A lock held for a transaction, an item delivered after the commit, a condition
+reported to `/health` and a scope cancelled when the server stops are what every subject rests on,
+and none of them is what a deployment chose SympAuthy for.
 
-**`api` and `data` keep their organization.** A subject's routes are controllers in `api` and its
-tables are entities and repositories in `data`, so that every surface is gated in one tree and every
-schema is one set of migrations.
+**What tells a subject from a mechanism is whether the package knows authentication.** One that
+names an account, a client, a token or a flow by import is a subject; one that would work unchanged
+under another product is `platform`.
+
+**`platform` names a product concept as a value, never by import.** `LeasedJob` lists the jobs,
+`LockKey` the rows locked and `Condition` the dependencies watched, each by name or identifier, and
+each stays sealed, so that a `when` over one is checked and a new member is one place to edit.
+
+**A job keeping a mechanism of `platform` running sits in that mechanism's package**, as
+`RenewJobLeaseCron` does. Every other job is in `cron`, where a sweep running a domain's work keeps
+its row in the table above.
+
+**`business` is laid out by concept, and a concept's package holds a `manager`, a `model`, a
+`mapper` and an `exception` package**, each where it has one — `business.scope.manager`,
+`business.scope.model`. A part of a concept is a package under it, laid out the same way:
+`business.scope.granting.manager`.
+
+**What more than one concept shares sits at the root of `business`, in the package of its role** —
+`BusinessException` in `business.exception`, `Expirable` in `business.model`.
+
+**A subject's package, and a package of `platform` with a model of its own, is laid out as one
+concept of `business` is**, and contributes the `business` rows of the table above. [The `business`
+layer standard](business-layer-code-standard.md) holds its components as it holds `business`'s.
+
+**A class the framework calls to put a subject in place sits at the root of the subject's
+package.** A logback appender, an SDK customizer, a bean factory and a health indicator neither
+model the subject nor run one of its use cases, so none of them goes in `manager`.
+
+**A subject's routes are controllers in `api` and its tables are entities and repositories in
+`data`, and so are `platform`'s**, so that every surface is gated in one tree and every schema is
+one set of migrations. `api` is laid out by the audience its surfaces answer, as [the `api` layer
+standard](api-layer-code-standard.md#where-a-class-goes) holds, and `data` by component.
 
 ## Dependency rules
 
 | From | May import | Never |
 | --- | --- | --- |
-| `api` | `business`, `config`, `security`, `monitoring` | `data` — no entity, no repository |
-| `business` | `data`, `config`, `client`, `monitoring` | `api` |
-| `data` | Micronaut Data, `monitoring` and the JDK | `business`, `api` |
-| `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
-| `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
-| `mail` | `business`, `config`, `client`, `monitoring`, `queue`, `server`, the Micronaut framework, the JDK | `api`, `view` |
-| `queue` | `business`, `config`, `data`, `monitoring`, `server`, the Micronaut framework, the JDK | `api`, `view`, `mail` |
-| `monitoring` | logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | every layer |
+| `api` | `business`, `config`, `security`, `platform` | `data` — no entity, no repository |
+| `business` | `data`, `config`, `client`, `platform` | `api` |
+| `data` | Micronaut Data, `platform` and the JDK | `business`, `api` |
+| `config` | the `model` packages of `business`, the JDK | the rest of `business`, `data`, `api` |
+| `expression` | the `model` packages of `business`, the Micronaut framework, the JDK | the rest of `business`, `config`, `data`, `api` |
+| `mail` | `business`, `config`, `client`, `platform`, the Micronaut framework, the JDK | `api` |
+| `platform.lock` | `data`, `exception`, the rest of `platform`, the Micronaut framework, the JDK | what knows authentication |
+| `platform.queue` | `data`, `config`, `exception`, the rest of `platform`, the Micronaut framework, the JDK | what knows authentication |
+| `platform.monitoring` | `config`, `platform.server`, `platform.util`, logback, SLF4J, the R2DBC SPI and r2dbc-proxy, OpenTelemetry, Netty, the Micronaut framework, the JDK | `data`, and what knows authentication |
+| the rest of `platform` | `config`, `exception`, the rest of `platform`, the Micronaut framework, the JDK | what knows authentication |
 
-**`business` may import `api` in exactly one case**: a manager in `business.manager.auth` or
-`business.manager.token` throws the protocol's own error type, which lives in `api` because an
-OAuth2 error code is a wire format. [The exception standard](exception-code-standard.md) argues that
-carve-out, and nothing else uses it.
+**No package of `platform` imports `business`, `api`, `security`, `mail`, `client`, `expression` or
+`cron`, and every other package may import `platform`.** Those are the packages that know
+authentication, and the column every row of `platform` shares.
 
-**`config` may import `business.model`.** A validated configuration is a domain value, and these two
-model packages are one layer with two names.
+**`business` may import `api` in exactly one case**: a manager in `business.grant.manager`,
+`business.authorization.manager` or `business.token.manager` throws the protocol's own error type,
+which lives in `api` because an OAuth2 error code is a wire format. [The exception
+standard](exception-code-standard.md) argues that carve-out, and nothing else uses it.
 
-**An interface a setting selects an implementation from lives in `business.model`.** A setting of
-that shape names the interface it selects from, and `business.model` is the only part of `business`
-a parser may name; the implementations stay in `business.manager`, where the work they do belongs.
+**`config` may import the `model` packages of `business`.** A validated configuration is a domain
+value, and a concept's model and the configuration declaring it are one layer with two names.
+
+**An interface a setting selects an implementation from lives in its concept's `model` package.** A
+setting of that shape names the interface it selects from, and a `model` package is the only part
+of `business` a parser may name; the implementations stay in the concept's `manager` package, where
+the work they do belongs.
 [The `config` standard](config-layer-code-standard.md#a-setting-that-selects-an-implementation) owns
 the mechanism.
 
@@ -99,15 +136,19 @@ manager, no mapper and no business exception reaches `config`.
 declares and `mail` implements, as `ValidationCodeMediaSender` is, so a use case says that a message
 goes out without depending on how it is composed, drawn or delivered.
 
-**`queue` imports `server` for the scope its delivery runs in.** What it attempts in the background
-has to stop when the server does, and `BackgroundScope` is the one scope the server cancels then.
+**`platform.monitoring` imports `config` for one thing: the verdict on the configuration** its
+readiness indicator publishes.
 
-**`queue` never imports the package of a destination it delivers to.** That package implements
-`QueueItemDeliverer`, which the queue is handed by injection, so an item's payload is read only by
-the package that wrote it.
+**`platform.queue` imports `platform.server` for the scope its delivery runs in.** What it attempts
+in the background has to stop when the server does, and `BackgroundScope` is the one scope the
+server cancels then.
 
-**`mail` may import `view` in exactly one case**: the path of a route a mail links to, so that the
-address a mail carries and the route answering it are one constant.
+**`platform.queue` never imports the package of a destination it delivers to.** That package
+implements `QueueItemDeliverer`, which the queue is handed by injection, so an item's payload is
+read only by the package that wrote it.
+
+**`mail` may import `api` in exactly one case**: the path of `/branding`, which a mail links to, so
+that the address a mail carries and the route answering it are one constant.
 
 **An embedded language lives in `expression`, below the layer that checks it and the layer that runs
 it.** It defines the functions, turns a string into a boolean or a failure, and is handed the values

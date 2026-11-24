@@ -1,0 +1,40 @@
+package com.sympauthy.api.operator.admin.mapper
+
+import com.sympauthy.api.operator.admin.resource.AdminClaimResource
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.isEnabled
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.orThrow
+import com.sympauthy.platform.util.wireName
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+
+@Singleton
+class AdminClaimResourceMapper(
+    @Inject private val uncheckedAuthConfig: AuthConfig
+) {
+
+    fun toResource(claim: Claim): AdminClaimResource {
+        val identifierClaimIds = uncheckedAuthConfig.orThrow()
+            .identifierClaims
+            .toSet()
+        return AdminClaimResource(
+            id = claim.id,
+            type = claim.dataType.wireName,
+            origin = claim.origin.wireName,
+            kind = claim.kind?.wireName,
+            enabled = claim.isEnabled,
+            required = claim.required,
+            identifier = claim.id in identifierClaimIds,
+            allowedValues = claim.allowedValues,
+            group = claim.group?.wireName,
+            // Listed in the enum's own order rather than the file's, so the answer is the same however a
+            // deployment happened to write the places.
+            publishedIn = ClaimPublicationPlace.entries.filter(claim::isPublishedIn).map { it.wireName },
+            publishedInWhenRequested = ClaimPublicationPlace.entries
+                .filter(claim::isPublishedInWhenRequested)
+                .map { it.wireName }
+        )
+    }
+}

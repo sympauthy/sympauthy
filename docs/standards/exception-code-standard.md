@@ -3,6 +3,7 @@ description: Which exception each layer throws, what a failure carries instead o
   how an error code names its two messages.
 paths:
   - "server/src/main/kotlin/com/sympauthy/exception/**"
+  - "server/src/main/kotlin/com/sympauthy/platform/exception/**"
   - "server/src/main/resources/error_messages*.properties"
 ---
 
@@ -15,10 +16,10 @@ is [the API standard](api-standard.md#errors).
 ## One root, a type per layer
 
 **Every failure carries a code and the values to interpolate into it, in the type its layer
-throws.** `LocalizedException` is the root the `business` and `api` types extend, adding an optional
-second code for the person's version and whether the caller could recover; it is extended and
-rendered, never thrown. `OAuth2Exception` carries the protocol's code beside the same keys and
-`ConfigurationException` the configuration key it refuses, and neither extends the root.
+throws.** `LocalizedException` is the root the `business`, `api` and `platform` types extend, adding
+an optional second code for the person's version and whether the caller could recover; it is
+extended and rendered, never thrown. `OAuth2Exception` carries the protocol's code beside the same
+keys and `ConfigurationException` the configuration key it refuses, and neither extends the root.
 
 | Layer | Throws | Meaning |
 | --- | --- | --- |
@@ -26,6 +27,12 @@ rendered, never thrown. `OAuth2Exception` carries the protocol's code beside the
 | `api` | `LocalizedHttpException` | the request itself is wrong, or the resource is not there |
 | `api` | `OAuth2Exception` | a protocol error, whose code the specification names |
 | `config` | `ConfigurationException` | a value in the deployment's YAML is wrong |
+| `platform` | `PlatformException` | a mechanism the server rests on failed |
+
+**A failure `platform` raises is the server's own, and `PlatformException` has no other kind.** It
+is built with `platformExceptionOf` and answered as an
+[internal](#the-question-that-tells-the-business-failures-apart) business failure is, since
+`platform` imports no `business` exception to throw one.
 
 **A layer's type is subclassed where a caller has to catch one of its failures and not the others.**
 `InvalidJwtException` is the three ways a token fails to decode, which a token endpoint answers with
@@ -91,14 +98,15 @@ a request.
 
 ## The OAuth2 carve-out
 
-**A manager in `business.manager.auth` or `business.manager.token` throws the protocol's exception
-directly**, so that the code the specification names — `invalid_grant`, `invalid_request`,
-`invalid_target` — reaches the client. This is the one place `business` imports `api`.
+**A manager in `business.grant.manager`, `business.authorization.manager` or
+`business.token.manager` throws the protocol's exception directly**, so that the code the
+specification names — `invalid_grant`, `invalid_request`, `invalid_target` — reaches the client.
+This is the one place `business` imports `api`.
 
-**It applies to the managers of those two packages and the packages under them, and nothing
-else.** The grants the OAuth2 endpoints answer for are checked in the first, and the tokens they
-issue, introspect and revoke are the second's; everywhere else, the factories above are the
-contract.
+**It applies to the managers of those packages and the packages under them, and nothing else.**
+The grants the OAuth2 endpoints answer for are checked in the first, the authorization code they
+exchange is the second's, and the tokens they issue, introspect and revoke are the third's;
+everywhere else, the factories above are the contract.
 
 **A rule shared with a caller outside them throws a business failure, renamed once on the way in.**
 `withRefusalAs` answers the refusal under the protocol's code with its own details code and values,

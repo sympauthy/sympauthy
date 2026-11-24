@@ -1,7 +1,7 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.oauth2.ScopePublicationPlace
-import com.sympauthy.business.model.user.isOpenIdConnectScope
+import com.sympauthy.business.scope.model.ScopePublicationPlace
+import com.sympauthy.business.scope.model.isOpenIdConnectScope
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf

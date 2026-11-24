@@ -1,0 +1,32 @@
+package com.sympauthy.business.provider.model
+
+import com.sympauthy.business.provider.config.model.ProviderAuthConfig
+import com.sympauthy.business.provider.config.model.ProviderUserInfoConfig
+import com.sympauthy.exception.LocalizedException
+
+/**
+ * A third-party authentication provider.
+ */
+sealed class Provider(
+    val id: String,
+    val enable: Boolean
+)
+
+/**
+ * A [Provider] that we can call for authentication as we did not find any evident defect in the configuration.
+ */
+class EnabledProvider(
+    id: String,
+    val name: String,
+    val userInfo: ProviderUserInfoConfig?,
+    val auth: ProviderAuthConfig
+) : Provider(id, true)
+
+/**
+ * A [Provider] that could not be resolved, its discovery document having failed to be fetched.
+ * The [cause] holds the reason why we failed to configure this [Provider].
+ */
+class DisabledProvider(
+    id: String,
+    val cause: LocalizedException
+) : Provider(id, false)

@@ -1,11 +1,11 @@
 package com.sympauthy.security
 
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.BuiltInClientScopeId
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.EnabledScope
-import com.sympauthy.business.model.token.AuthenticationToken
-import com.sympauthy.business.model.user.claim.ClaimAclContext
+import com.sympauthy.business.claim.model.ClaimAclContext
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.scope.model.BuiltInClientScopeId
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.scope.model.EnabledScope
+import com.sympauthy.business.token.model.AuthenticationToken
 import com.sympauthy.security.SecurityRule.IS_CLIENT
 import io.mockk.every
 import io.mockk.junit5.MockKExtension

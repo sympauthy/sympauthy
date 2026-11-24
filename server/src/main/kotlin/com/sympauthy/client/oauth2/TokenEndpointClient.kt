@@ -1,6 +1,6 @@
 package com.sympauthy.client.oauth2
 
-import com.sympauthy.business.model.provider.oauth2.ProviderOAuth2TokenRequest
+import com.sympauthy.business.provider.oauth2.model.ProviderOAuth2TokenRequest
 import com.sympauthy.client.oauth2.model.TokenEndpointResponse
 import com.sympauthy.client.remoteResponseOrNull
 import io.micronaut.http.HttpRequest

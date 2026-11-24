@@ -2,7 +2,7 @@
 description: What the server exports to an OpenTelemetry collector, what an exported attribute may
   carry, and how an instrument is named and registered.
 paths:
-  - "server/src/main/kotlin/com/sympauthy/monitoring/telemetry/**"
+  - "server/src/main/kotlin/com/sympauthy/platform/monitoring/telemetry/**"
   - "server/src/main/resources/application*.yml"
   - "server/src/main/resources/logback.xml"
   - "server/build.gradle.kts"

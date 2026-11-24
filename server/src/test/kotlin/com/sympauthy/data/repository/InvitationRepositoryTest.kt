@@ -1,8 +1,8 @@
 package com.sympauthy.data.repository
 
-import com.sympauthy.business.model.invitation.InvitationStatus.CONSUMED
-import com.sympauthy.business.model.invitation.InvitationStatus.PENDING
-import com.sympauthy.business.model.invitation.InvitationStatus.REVOKED
+import com.sympauthy.business.invitation.model.InvitationStatus.CONSUMED
+import com.sympauthy.business.invitation.model.InvitationStatus.PENDING
+import com.sympauthy.business.invitation.model.InvitationStatus.REVOKED
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture

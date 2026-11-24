@@ -1,0 +1,156 @@
+package com.sympauthy.api.operator.admin.mapper
+
+import com.sympauthy.business.claim.model.ApplicationClaim
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.ClaimPublicationPlace.ID_TOKEN
+import com.sympauthy.business.claim.model.ClaimPublicationPlace.USERINFO
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.GeneratedClaim
+import com.sympauthy.business.claim.model.PersonalClaim
+import com.sympauthy.config.model.EnabledAuthConfig
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
+
+@ExtendWith(MockKExtension::class)
+class AdminClaimResourceMapperTest {
+
+    @MockK
+    lateinit var uncheckedAuthConfig: EnabledAuthConfig
+
+    @InjectMockKs
+    lateinit var mapper: AdminClaimResourceMapper
+
+    @BeforeEach
+    fun setUp() {
+        every { uncheckedAuthConfig.identifierClaims } returns listOf("email")
+    }
+
+    @Test
+    fun `toResource - Report every place a claim is published in`() {
+        val resource = mapper.toResource(claim("loyalty_tier", ClaimPublicationPlace.entries.toSet()))
+
+        assertEquals(
+            listOf("id_token", "userinfo", "access_token", "introspection", "discovery"),
+            resource.publishedIn
+        )
+    }
+
+    @Test
+    fun `toResource - Report the places in the same order whichever the claim names first`() {
+        val resource = mapper.toResource(claim("loyalty_tier", setOf(USERINFO, ID_TOKEN)))
+
+        assertEquals(listOf("id_token", "userinfo"), resource.publishedIn)
+    }
+
+    @Test
+    fun `toResource - Report the one place a claim is published in`() {
+        val resource = mapper.toResource(claim("preferences", setOf(USERINFO)))
+
+        assertEquals(listOf("userinfo"), resource.publishedIn)
+    }
+
+    @Test
+    fun `toResource - Report no place for a claim published in none`() {
+        val resource = mapper.toResource(claim("internal_note", emptySet()))
+
+        assertEquals(emptyList<String>(), resource.publishedIn)
+    }
+
+    @Test
+    fun `toResource - Report every channel a claim opens to a request`() {
+        val resource = mapper.toResource(
+            claim("loyalty_tier", setOf(USERINFO), publishedInWhenRequested = setOf(ID_TOKEN))
+        )
+
+        assertEquals(listOf("userinfo"), resource.publishedIn)
+        assertEquals(listOf("id_token"), resource.publishedInWhenRequested)
+    }
+
+    @Test
+    fun `toResource - Report no channel for a claim that opens none to a request`() {
+        val resource = mapper.toResource(claim("preferences", setOf(USERINFO)))
+
+        assertEquals(emptyList<String>(), resource.publishedInWhenRequested)
+    }
+
+    @Test
+    fun `toResource - Report a claim the deployment signs people in with as an identifier`() {
+        assertEquals(true, mapper.toResource(claim("email", setOf(ID_TOKEN))).identifier)
+        assertEquals(false, mapper.toResource(claim("loyalty_tier", setOf(ID_TOKEN))).identifier)
+    }
+
+    @Test
+    fun `toResource - Report whose a claim is beside where its name comes from`() {
+        val personal = mapper.toResource(claim("name", setOf(ID_TOKEN)))
+        val application = mapper.toResource(
+            claim("loyalty_tier", setOf(ID_TOKEN), kind = ClaimKind.APPLICATION)
+        )
+
+        assertEquals("personal" to "openid", personal.kind to personal.origin)
+        assertEquals("application" to "custom", application.kind to application.origin)
+    }
+
+    @Test
+    fun `toResource - Report no kind for a claim this server answers for itself`() {
+        val resource = mapper.toResource(claim("sub", setOf(ID_TOKEN), kind = null))
+
+        assertEquals(null, resource.kind)
+    }
+
+    private fun claim(
+        id: String,
+        publishedIn: Set<ClaimPublicationPlace>,
+        publishedInWhenRequested: Set<ClaimPublicationPlace> = emptySet(),
+        kind: ClaimKind? = ClaimKind.PERSONAL
+    ): EnabledClaim {
+        val claimAcl = ClaimAcl(
+            collectedInFlow = null,
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
+        )
+        return when {
+            kind == null -> GeneratedClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                publishedIn = publishedIn,
+                acl = claimAcl
+            )
+            kind == ClaimKind.APPLICATION -> ApplicationClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = publishedIn,
+                publishedInWhenRequested = publishedInWhenRequested,
+                acl = claimAcl
+            )
+            else -> PersonalClaim(
+                id = id,
+                verifiedId = null,
+                dataType = ClaimDataType.STRING,
+                group = null,
+                required = false,
+                allowedValues = null,
+                publishedIn = publishedIn,
+                publishedInWhenRequested = publishedInWhenRequested,
+                acl = claimAcl
+            )
+        }
+    }
+}

@@ -1,7 +1,7 @@
 package com.sympauthy.client
 
-import com.sympauthy.business.model.provider.ProviderCredentials
-import com.sympauthy.business.model.provider.config.ProviderUserInfoConfig
+import com.sympauthy.business.provider.config.model.ProviderUserInfoConfig
+import com.sympauthy.business.provider.model.ProviderCredentials
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType
 import io.micronaut.http.client.HttpClient

@@ -1,7 +1,7 @@
 package com.sympauthy.client.authorization.webhook
 
-import com.sympauthy.business.model.client.AuthorizationWebhook
-import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
+import com.sympauthy.business.client.model.AuthorizationWebhook
+import com.sympauthy.business.client.model.AuthorizationWebhookOnFailure
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookRequest
 import com.sympauthy.client.authorization.webhook.model.AuthorizationWebhookResult
 import com.sympauthy.config.model.AdvancedConfig

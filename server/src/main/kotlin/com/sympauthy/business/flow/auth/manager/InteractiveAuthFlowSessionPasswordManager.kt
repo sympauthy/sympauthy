@@ -1,0 +1,318 @@
+package com.sympauthy.business.flow.auth.manager
+
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.manager.ClaimValueValidator
+import com.sympauthy.business.claim.manager.CollectedClaimManager
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.claim.model.CollectedClaimUpdate
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.business.flow.manager.InteractiveFlowEngine
+import com.sympauthy.business.flow.manager.InteractiveFlowSessionManager
+import com.sympauthy.business.flow.manager.recordAttemptOfDeclaredKind
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowSession
+import com.sympauthy.business.flow.model.OnGoingInteractiveFlowSession
+import com.sympauthy.business.flow.oauth2.manager.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.flow.reauth.manager.InteractiveFlowSessionReauthenticationManager
+import com.sympauthy.business.invitation.manager.InvitationManager
+import com.sympauthy.business.password.manager.PasswordManager
+import com.sympauthy.business.securitycontext.manager.UserSecurityContextManager
+import com.sympauthy.business.securitycontext.model.ObservedRequest
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.business.user.model.User
+import com.sympauthy.business.user.model.UserStatus
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.EnabledAuthConfig
+import com.sympauthy.config.model.orThrow
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.PASSWORD
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.SIGN_IN
+import com.sympauthy.platform.monitoring.telemetry.manager.AuthenticationMetrics.Companion.SIGN_UP
+import io.micronaut.transaction.annotation.Transactional
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import java.util.*
+
+/**
+ * Manager in charge of the authentication and registration of an end-user going through an interactive auth flow
+ * using a password.
+ *
+ * This manager uses [CollectedClaimManager] (not consent-aware) because identifier claims
+ * may not be part of the scopes requested by the client.
+ */
+@Singleton
+open class InteractiveAuthFlowSessionPasswordManager(
+    @Inject private val sessionManager: InteractiveFlowSessionManager,
+    @Inject private val oauth2Manager: InteractiveFlowSessionOAuth2Manager,
+    @Inject private val userSecurityContextManager: UserSecurityContextManager,
+    @Inject private val claimManager: ClaimManager,
+    @Inject private val collectedClaimManager: CollectedClaimManager,
+    @Inject private val invitationManager: InvitationManager,
+    @Inject private val passwordManager: PasswordManager,
+    @Inject private val interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager,
+    @Inject private val engine: InteractiveFlowEngine,
+    @Inject private val reauthenticationManager: InteractiveFlowSessionReauthenticationManager,
+    @Inject private val userManager: UserManager,
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val authenticationMetrics: AuthenticationMetrics
+) {
+
+    /**
+     * True if the sign-in by login/password is enabled. False otherwise.
+     */
+    val signInEnabled: Boolean
+        get() = uncheckedAuthConfig.orThrow().let {
+            it.byPassword.enabled && it.identifierClaims.isNotEmpty()
+        }
+
+    /**
+     * True if the sign-up by login/password is enabled. False otherwise.
+     */
+    val signUpEnabled: Boolean
+        get() = uncheckedAuthConfig.orThrow().let {
+            it.byPassword.enabled && it.identifierClaims.isNotEmpty()
+        }
+
+    /**
+     * Find the committed end-user holding [identifierClaimValue] under any one of the claims
+     * [EnabledAuthConfig.identifierClaims] configures. Otherwise, return null.
+     *
+     * The rows are matched on the spelling they are compared in rather than the one they publish, so an
+     * account is reached however the person who owns it capitalised their own value. A claim that could
+     * hold no such value at all is not offered one, and matches nothing — no row of it holds a value that
+     * claim would have refused.
+     */
+    internal suspend fun findByAnyIdentifierClaimValue(identifierClaimValue: String): User? {
+        val folded = collectedClaimManager.getIdentifierFoldedValuesOf(identifierClaimValue)
+        return userManager.findByAnyIdentifierClaimValue(folded)
+    }
+
+    /**
+     * Sign in the end-user using a [login] and a [password] and associate the [InteractiveFlowSession] with the [User]
+     * associated to the [login]. Finally, return the updated session.
+     *
+     * [observedRequest] names the place this request came from, which the controller helper has already
+     * recorded against the session; it is marked as one a credential was proven at only on the two branches
+     * below that establish or confirm **this session's** user. The password is verified against whatever
+     * account matches [login], which is not necessarily the session's, so marking it any earlier would let
+     * anybody holding the session's state write their own address into somebody else's history.
+     *
+     * Recorded as a sign-in attempt, a re-authentication included since it proves a credential, unless it
+     * reached a step where signing in no longer applies: that authenticates nobody, and is not an attempt.
+     */
+    suspend fun signInWithPassword(
+        session: OnGoingInteractiveFlowSession,
+        login: String?,
+        password: String?,
+        observedRequest: ObservedRequest
+    ): InteractiveFlowSession =
+        authenticationMetrics.recordAttemptOfDeclaredKind(PASSWORD, null, SIGN_IN) { declareKind ->
+            if (!signInEnabled) {
+                throw internalBusinessExceptionOf("flow.password.sign_in.disabled")
+            }
+            if (login.isNullOrBlank() || password.isNullOrBlank()) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.password.sign_in.invalid",
+                    descriptionId = "description.flow.password.sign_in.invalid"
+                )
+            }
+
+            val user = findByAnyIdentifierClaimValue(login)
+            // The user does not exist or has been created using a third-party provider.
+            if (user == null || user.status != UserStatus.ENABLED) {
+                throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.password.sign_in.invalid",
+                    descriptionId = "description.flow.password.sign_in.invalid"
+                )
+            }
+
+            val passwordId = passwordManager.findMatchingPasswordIdOrNull(user, password)
+                ?: throw recoverableBusinessExceptionOf(
+                    detailsId = "flow.password.sign_in.invalid",
+                    descriptionId = "description.flow.password.sign_in.invalid"
+                )
+
+            // Bind the authenticated user to the session — but NEVER switch an already-fixed session user:
+            // - no user yet -> normal sign-in ESTABLISHES identity.
+            // - user already fixed under a re-authentication gate -> CONFIRM it (assert it is that same user).
+            // - user already fixed but a later purpose is now active (e.g. an MFA challenge appended after the
+            //   primary credential was proven, or a CONFIRM gate still pending) -> sign-in no longer applies;
+            //   return the session unchanged so the flow redirects to its current step, without switching identity.
+            // Checking `userId == null` first keeps the normal sign-in path off the engine walk.
+            return@recordAttemptOfDeclaredKind when {
+                session.userId == null -> {
+                    // Stamped before the flow advances, because completing it is what folds the observation
+                    // into the person's record — one stamped afterwards would arrive a completion too late.
+                    userSecurityContextManager.markProven(session.id, observedRequest)
+                    val authenticated = sessionManager.setAuthenticatedUserId(session, user.id)
+                    // Stamped once the session's user is this person's, which is the condition the
+                    // authentication date is written under.
+                    oauth2Manager.setAuthenticationDate(authenticated, passwordId)
+                    authenticated
+                }
+
+                engine.currentPurposeOrNull(session) == InteractiveFlowPurpose.REAUTHENTICATION ->
+                    confirmReauthenticatedUser(session, user, observedRequest)
+
+                // A credential that verified for an account this session's user is already fixed as somebody
+                // else, or at a step where signing in no longer applies. Nothing is recorded: it proves who the
+                // poster is, not who this flow belongs to.
+                else -> session.also { declareKind(null) }
+            }
+        }
+
+    /**
+     * Re-authentication path: the [user] just authenticated with a password must be the session's
+     * already-fixed [OnGoingInteractiveFlowSession.userId] — **confirm, never establish**. On a match, record
+     * the primary credential as proven on the re-authentication record **without** touching the session's user
+     * id. A mismatch (someone proving a *different* account) is a recoverable error so the end-user retries on
+     * the same sign-in step; the session user is never switched.
+     */
+    private suspend fun confirmReauthenticatedUser(
+        session: OnGoingInteractiveFlowSession,
+        user: User,
+        observedRequest: ObservedRequest
+    ): InteractiveFlowSession {
+        if (user.id != session.userId) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.reauthentication.wrong_account",
+                descriptionId = "description.flow.reauthentication.wrong_account"
+            )
+        }
+        // After the match above and not before it: until then the credential proves an account, not this one.
+        userSecurityContextManager.markProven(session.id, observedRequest)
+        reauthenticationManager.markPrimaryCredentialProven(session)
+        return session
+    }
+
+    /**
+     * Create a new user with the provided claims([unfilteredUpdates]) and [password].
+     *
+     * Only identifier claims are saved on the created account. Any other claim present in [unfilteredUpdates] is
+     * discarded.
+     *
+     * Recorded as a sign-up attempt, except a post that finds the session already signed up, which creates
+     * nothing.
+     */
+    suspend fun signUpWithClaimsAndPassword(
+        session: OnGoingInteractiveFlowSession,
+        unfilteredUpdates: List<CollectedClaimUpdate>,
+        password: String,
+        observedRequest: ObservedRequest
+    ): InteractiveFlowSession {
+        // Signing up ESTABLISHES identity, so it only runs while the session has none. A second post — a back
+        // button, a retry, a duplicated request — would otherwise create a second account and switch the
+        // session to it, orphaning the first with its password and identifier claims. The provider path
+        // guards the same way in signInOrSignUpUsingProvider.
+        if (session.userId != null) return session
+        return authenticationMetrics.recordAttempt(PASSWORD, null, SIGN_UP, Throwable::toOutcome) {
+            signUp(session, unfilteredUpdates, password, observedRequest)
+        }
+    }
+
+    private suspend fun signUp(
+        session: OnGoingInteractiveFlowSession,
+        unfilteredUpdates: List<CollectedClaimUpdate>,
+        password: String,
+        observedRequest: ObservedRequest
+    ): InteractiveFlowSession {
+        val (updatedSession, passwordId) = createAccountWithClaimsAndPassword(session, unfilteredUpdates, password)
+        userSecurityContextManager.markProven(updatedSession.id, observedRequest)
+        // Creating the account is proving a credential of it: the password written above is the one this
+        // person will sign in with, so the authorization carries this moment rather than none at all.
+        oauth2Manager.setAuthenticationDate(updatedSession, passwordId)
+        return updatedSession
+    }
+
+    /**
+     * Create the account [unfilteredUpdates] and [password] describe, provisional for the [session], and bind
+     * it to the session, then return the session and the identifier of the password written.
+     *
+     * The account, its identifier claims, its password, the claims an invitation brings and the session's binding
+     * to it commit together, so a binding refused because a second post moved the session first leaves behind no
+     * provisional account that the session does not name and only its expiry would collect.
+     */
+    @Transactional
+    internal open suspend fun createAccountWithClaimsAndPassword(
+        session: OnGoingInteractiveFlowSession,
+        unfilteredUpdates: List<CollectedClaimUpdate>,
+        password: String
+    ): Pair<OnGoingInteractiveFlowSession, UUID> {
+        val oauth2 = oauth2Manager.fetchOAuth2(session)
+        interactiveAuthFlowSessionManager.checkSignUpAllowed(oauth2, recoverable = true)
+
+        val claimUpdateMap = claimManager.listIdentifierClaims().associateWith { claim ->
+            unfilteredUpdates.firstOrNull { it.claim == claim }
+        }
+        val claimUpdates = claimUpdateMap.values.filterNotNull()
+
+        checkForMissingClaims(claimUpdateMap)
+        passwordManager.validatePassword(password)
+        checkForConflictingUsers(claimUpdates)
+
+        val user = userManager.createUser(sessionId = session.id)
+        collectedClaimManager.update(
+            user = user,
+            updates = claimUpdates
+        )
+        val passwordId = passwordManager.createPassword(user, password)
+
+        // The invitation's claims land on the provisional account now; the invitation itself is only spent
+        // when the session completes.
+        oauth2.invitationId?.let { invitationManager.applyInvitationClaims(invitationManager.findById(it), user) }
+
+        // Update the session with the id of the user so they can retrieve their access token.
+        return sessionManager.setAuthenticatedUserId(session, user.id, signedUp = true) to passwordId
+    }
+
+    /**
+     * Throws a recoverable business exception with detailsId ```flow.password.sign_up.missing_claim```
+     * naming a claim of [signUpClaimUpdateMap] that arrives with no value — no update submitted for it,
+     * or an update carrying none.
+     *
+     * A claim submitted blank is one being cleared: [ClaimValueValidator] answers an empty value for it,
+     * which is how a person empties a field everywhere else. Cleared here, it writes the account a row
+     * holding `NULL` that no login ever matches, leaving an account nobody can sign in to. An identifier
+     * claim is not optional, whatever [Claim.required] says of it, and `docs/design/identifier-claims.md` is
+     * where that rule lives.
+     */
+    internal fun checkForMissingClaims(signUpClaimUpdateMap: Map<EnabledClaim, CollectedClaimUpdate?>) {
+        val missingClaim = signUpClaimUpdateMap.filterValues { it?.value?.isPresent != true }
+            .keys
+            .firstOrNull()
+        if (missingClaim != null) {
+            throw recoverableBusinessExceptionOf(
+                detailsId = "flow.password.sign_up.missing_claim",
+                descriptionId = "description.flow.password.sign_up.missing_claim",
+                "claim" to missingClaim.id
+            )
+        }
+    }
+
+    /**
+     * Throws a recoverable business exception with detailsId ```flow.password.sign_up.existing```
+     * if any of the [claims] conflict with another user login.
+     *
+     * [UserManager.findTakenIdentifierOrNull] is the rule, including why a value has to be free
+     * across every identifier claim rather than within the one offering it. The account being signed up
+     * does not exist yet, so nothing is exempt and the caller is named as none.
+     *
+     * The values come from [CollectedClaimManager.getIdentifierFoldedValuesIn], the one place that says
+     * which updates carry an identifier value and how it is folded — the spelling the rows compare on and
+     * the key locks under.
+     */
+    internal suspend fun checkForConflictingUsers(claims: List<CollectedClaimUpdate>) {
+        val claimIds = claims.map { it.claim.id }
+        val valuesByClaimId = collectedClaimManager.getIdentifierFoldedValuesIn(claims)
+        val taken = userManager.findTakenIdentifierOrNull(null, claimIds, valuesByClaimId) ?: return
+        throw recoverableBusinessExceptionOf(
+            detailsId = "flow.password.sign_up.existing",
+            descriptionId = "description.flow.password.sign_up.existing",
+            "claim" to taken.claimId,
+            "userId" to "${taken.userId}"
+        )
+    }
+}

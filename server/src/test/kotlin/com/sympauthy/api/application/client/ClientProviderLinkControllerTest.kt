@@ -1,0 +1,220 @@
+package com.sympauthy.api.application.client
+
+import com.sympauthy.api.application.client.resource.ClientProviderLinkInputResource
+import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
+import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
+import com.sympauthy.business.client.manager.ClientRedirectUriManager
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.flow.auth.manager.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.flow.link.manager.InteractiveFlowSessionLinkProviderManager
+import com.sympauthy.business.flow.manager.InteractiveFlowEngine
+import com.sympauthy.business.flow.manager.InteractiveFlowSessionManager
+import com.sympauthy.business.flow.model.InteractiveFlow
+import com.sympauthy.business.flow.model.InteractiveFlowStep
+import com.sympauthy.business.flow.model.InteractiveFlowStepResult
+import com.sympauthy.business.flow.model.OnGoingInteractiveFlowSession
+import com.sympauthy.business.provider.manager.ProviderManager
+import com.sympauthy.business.provider.model.EnabledProvider
+import com.sympauthy.business.securitycontext.edge.model.observedRequestOf
+import com.sympauthy.business.token.manager.TokenManager
+import com.sympauthy.business.token.model.AuthenticationToken
+import com.sympauthy.business.token.model.AuthenticationTokenType.ACCESS
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.business.user.model.User
+import com.sympauthy.security.ClientAuthentication
+import io.micronaut.http.HttpStatus
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.net.URI
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class ClientProviderLinkControllerTest {
+
+    @MockK
+    lateinit var interactiveAuthFlowSessionManager: InteractiveAuthFlowSessionManager
+
+    @MockK
+    lateinit var clientRedirectUriManager: ClientRedirectUriManager
+
+    @MockK
+    lateinit var tokenManager: TokenManager
+
+    @MockK
+    lateinit var userManager: UserManager
+
+    @MockK
+    lateinit var providerManager: ProviderManager
+
+    @MockK
+    lateinit var linkProviderManager: InteractiveFlowSessionLinkProviderManager
+
+    @MockK
+    lateinit var engine: InteractiveFlowEngine
+
+    @MockK
+    lateinit var stepUriMapper: InteractiveFlowStepUriMapper
+
+    @MockK
+    lateinit var sessionManager: InteractiveFlowSessionManager
+
+    @MockK(relaxed = true)
+    lateinit var interactiveAuthFlowSessionControllerUtil: InteractiveAuthFlowSessionControllerUtil
+
+    @InjectMockKs
+    lateinit var controller: ClientProviderLinkController
+
+    private val observed = observedRequestOf()
+
+    private fun clientAuthentication(client: Client): ClientAuthentication =
+        ClientAuthentication(mockk(), client, emptyList())
+
+    @Test
+    fun `startLink - Validates token, provider and return URI, starts the session, returns state and redirect URL`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val user = mockk<User>()
+            val client = mockk<Client> { every { id } returns "client-id" }
+            val authentication = clientAuthentication(client)
+            val userToken = mockk<AuthenticationToken> {
+                every { grant } returns mockk { every { this@mockk.userId } returns userId }
+            }
+            val returnUri = URI.create("https://client.example.com/linked")
+            val flow = mockk<InteractiveFlow>()
+            val session = mockk<OnGoingInteractiveFlowSession>()
+            val steppedSession = mockk<OnGoingInteractiveFlowSession>()
+            val nextUri = URI.create("https://auth.example.com/flow/confirm?state=abc")
+
+            coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+            coEvery { userManager.findByIdOrNull(userId) } returns user
+            coEvery { providerManager.listEnabledProviders() } returns
+                listOf(mockk<EnabledProvider> { every { id } returns "discord" })
+            every {
+                clientRedirectUriManager.parseRequestedReturnUri(client, "https://client.example.com/linked")
+            } returns returnUri
+            every { clientRedirectUriManager.parseRequestedReturnState(null) } returns null
+            coEvery { interactiveAuthFlowSessionManager.getDefaultInteractiveFlow() } returns flow
+            coEvery {
+                linkProviderManager.startLinkProviderSession(
+                    user, "discord", returnUri, null, flow, "client-id"
+                )
+            } returns session
+            coEvery { engine.advance(session) } returns
+                InteractiveFlowStepResult(steppedSession, InteractiveFlowStep.Confirm)
+            coEvery { stepUriMapper.toRedirectUri(steppedSession, flow, InteractiveFlowStep.Confirm) } returns nextUri
+            coEvery { sessionManager.encodeState(steppedSession) } returns "encoded-state"
+
+            val result = controller.startLink(
+                authentication,
+                "discord",
+                observed,
+                ClientProviderLinkInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/linked"
+                )
+            )
+
+            assertEquals("encoded-state", result.state)
+            assertEquals(nextUri.toString(), result.redirectUrl)
+            coVerify { interactiveAuthFlowSessionControllerUtil.observeStartedSession(session, observed) }
+        }
+
+    @Test
+    fun `startLink - Fails with invalid_access_token when the token is not bound to an end-user`() = runTest {
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val clientOnlyToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { userId } returns null }
+        }
+        coEvery { tokenManager.introspectToken(client, "client-token", ACCESS) } returns clientOnlyToken
+
+        val exception = assertThrows<BusinessException> {
+            controller.startLink(
+                authentication,
+                "discord",
+                observed,
+                ClientProviderLinkInputResource(
+                    accessToken = "client-token",
+                    returnUri = "https://client.example.com/linked"
+                )
+            )
+        }
+
+        assertEquals("client.providers.link.invalid_access_token", exception.detailsId)
+        coVerify(exactly = 0) {
+            linkProviderManager.startLinkProviderSession(any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `startLink - Fails with invalid_access_token when the account the token names is gone`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            controller.startLink(
+                authentication,
+                "discord",
+                observed,
+                ClientProviderLinkInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/linked"
+                )
+            )
+        }
+
+        assertEquals("client.providers.link.invalid_access_token", exception.detailsId)
+        coVerify(exactly = 0) {
+            linkProviderManager.startLinkProviderSession(any(), any(), any(), any(), any(), any())
+        }
+    }
+
+    @Test
+    fun `startLink - Returns 404 and starts no session for an unknown provider`() = runTest {
+        val userId = UUID.randomUUID()
+        val client = mockk<Client>()
+        val authentication = clientAuthentication(client)
+        val userToken = mockk<AuthenticationToken> {
+            every { grant } returns mockk { every { this@mockk.userId } returns userId }
+        }
+        coEvery { tokenManager.introspectToken(client, "user-access-token", ACCESS) } returns userToken
+        coEvery { userManager.findByIdOrNull(userId) } returns mockk<User>()
+        // No enabled provider matches the path id -> orNotFound() -> 404, coherent with unknown user/client.
+        coEvery { providerManager.listEnabledProviders() } returns emptyList()
+
+        val exception = assertThrows<LocalizedHttpException> {
+            controller.startLink(
+                authentication,
+                "bad-provider",
+                observed,
+                ClientProviderLinkInputResource(
+                    accessToken = "user-access-token",
+                    returnUri = "https://client.example.com/linked"
+                )
+            )
+        }
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.status)
+        coVerify(exactly = 0) {
+            linkProviderManager.startLinkProviderSession(any(), any(), any(), any(), any(), any())
+        }
+    }
+}

@@ -132,7 +132,7 @@ interface InteractiveFlowSessionRepository : CoroutineCrudRepository<Interactive
      * stale — yet the session must still be failed. Guarding on "not already terminal" instead lets that
      * self-advanced session be failed while still refusing to overwrite a session a concurrent request
      * already drove to a terminal state (a concurrent conflict is diverted before this point; see
-     * [com.sympauthy.api.controller.flow.auth.InteractiveAuthFlowSessionControllerUtil]).
+     * [com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil]).
      *
      * Paired with the derived [updateError] in one transaction so the row lock it takes serialises the
      * two statements. It answers 1 when the session was still ongoing and is now failing, and 0 when it had

@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.oauth2.ScopePublicationPlace
+import com.sympauthy.business.scope.model.ScopePublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledScopeTemplatesConfig

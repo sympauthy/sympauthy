@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.EMAIL
-import com.sympauthy.business.model.provider.ProviderUserInfoPathKey.SUB
+import com.sympauthy.business.provider.model.ProviderUserInfoPathKey.EMAIL
+import com.sympauthy.business.provider.model.ProviderUserInfoPathKey.SUB
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*
@@ -85,7 +85,7 @@ class ProvidersConfigValidator {
                     )
                 }
                 if (subCtx.hasErrors) null
-                else com.sympauthy.business.model.provider.config.ProviderUserInfoConfig(
+                else com.sympauthy.business.provider.config.model.ProviderUserInfoConfig(
                     uri = parsed.userInfoUri,
                     paths = parsed.userInfoPaths
                 )

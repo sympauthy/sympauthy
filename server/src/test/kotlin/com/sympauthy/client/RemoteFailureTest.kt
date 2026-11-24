@@ -1,7 +1,7 @@
 package com.sympauthy.client
 
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.monitoring.telemetry.Outcome
+import com.sympauthy.platform.monitoring.model.Outcome
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
 import io.micronaut.http.client.exceptions.HttpClientException

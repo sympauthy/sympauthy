@@ -1,18 +1,18 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.oauth2.ClientScope
-import com.sympauthy.business.model.oauth2.ConsentableUserScope
-import com.sympauthy.business.model.oauth2.GrantableUserScope
-import com.sympauthy.business.model.oauth2.Scope
-import com.sympauthy.business.model.oauth2.ScopeType
-import com.sympauthy.business.model.user.claim.ClaimAcl
-import com.sympauthy.business.model.user.claim.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.scope.model.ConsentableUserScope
+import com.sympauthy.business.scope.model.GrantableUserScope
+import com.sympauthy.business.scope.model.Scope
+import com.sympauthy.business.scope.model.ScopeType
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedClaimAcl
-import com.sympauthy.expression.ClaimAclExpressionTerms
-import com.sympauthy.expression.ClaimAclExpressions
-import com.sympauthy.expression.InvalidRuleExpressionException
+import com.sympauthy.expression.exception.InvalidRuleExpressionException
+import com.sympauthy.expression.manager.ClaimAclExpressions
+import com.sympauthy.expression.model.ClaimAclExpressionTerms
 import jakarta.inject.Singleton
 
 /**

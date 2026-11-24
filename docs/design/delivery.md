@@ -136,8 +136,9 @@ never takes an item it cannot deliver. [The design
 FAQ](design-faq.md#is-the-queue-one-table-or-a-table-per-destination) holds the tables that lost.
 
 **An item's lease is two columns of its row**, held under the instance's name `JobLeaseManager`
-mints and renewed by the cron that renews the job leases. The poll is not a job run: it runs on
-every instance, takes no job lease, and is not recorded on `sympauthy.job.run.duration`.
+mints and renewed by a cron of the queue's own, on the period a job lease is renewed on. The poll
+is not a job run: it runs on every instance, takes no job lease, and is not recorded on
+`sympauthy.job.run.duration`.
 
 ## What this document does not settle
 

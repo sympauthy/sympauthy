@@ -1,7 +1,7 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.jwt.JwtAlgorithm
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
+import com.sympauthy.business.jwt.model.JwtAlgorithm
+import com.sympauthy.business.key.model.CryptoKeysGenerationStrategy
 import java.time.Duration
 
 /**

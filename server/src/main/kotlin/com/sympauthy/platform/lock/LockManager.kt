@@ -1,0 +1,90 @@
+package com.sympauthy.platform.lock
+
+import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.platform.exception.platformExceptionOf
+import com.sympauthy.platform.monitoring.model.Outcome
+import com.sympauthy.platform.monitoring.telemetry.manager.LockMetrics
+import io.micronaut.transaction.annotation.Transactional
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import kotlinx.coroutines.CancellationException
+
+/**
+ * Takes the lock two transactions have to agree on before either of them may act on what it names.
+ *
+ * It is the mechanism `docs/standards/locking-standard.md` reserves for a rule no constraint can express.
+ *
+ * A lock is a row of `object_locks` held for the length of a transaction. Nothing releases it by hand
+ * and nothing can forget to: the commit or the rollback does it.
+ */
+@Singleton
+open class LockManager(
+    @Inject private val objectLockRepository: ObjectLockRepository,
+    @Inject private val heldStripes: HeldStripes,
+    @Inject private val lockMetrics: LockMetrics
+) {
+
+    /**
+     * Run [block] holding the lock over every one of [keys], and answer what it answered.
+     *
+     * The lock is held until the enclosing transaction ends rather than until [block] returns, so a
+     * caller inside one keeps it until its own commit — which is the point: the check this serialises
+     * and the write it protects have to be inside the same lock, and the caller is what spans them.
+     * `@Transactional` is what makes a caller outside a transaction correct too, by giving the block one
+     * instead of leaving it a lock the autocommit released before the block began.
+     *
+     * The stripes are taken in ascending order, so two callers whose sets of keys overlap take the
+     * shared rows in the same order and cannot deadlock over them.
+     *
+     * **Every object a transaction will touch is named in one call.** A second call in one transaction —
+     * inside the first block or issued after it returned, which is the same lock either way — is the one
+     * ordering this cannot impose, so it is refused unless the first already covers it: `lock.second`,
+     * which is the server's own failure and not the caller's. A call naming no key takes nothing and
+     * refuses nothing after it.
+     *
+     * The keys are a [List] rather than a `vararg`: the proxy KSP generates for a `vararg` parameter
+     * overrides a method taking one key instead of the array, so every call bypassed the transaction.
+     */
+    @Transactional
+    open suspend fun <T> withLock(keys: List<LockKey>, block: suspend () -> T): T {
+        val stripes = keys.map(LockKey::stripe).distinct().sorted()
+        val held = heldStripes.held()
+
+        if (held.isNotEmpty()) {
+            if (!held.containsAll(stripes)) {
+                throw platformExceptionOf(
+                    detailsId = "lock.second",
+                    "held" to held.joinToString(),
+                    "requested" to stripes.joinToString()
+                )
+            }
+            return block()
+        }
+
+        if (stripes.isNotEmpty()) {
+            takeStripes(keys, stripes)
+        }
+        return block()
+    }
+
+    /**
+     * Take [stripes] in ascending order, recording how long the wait for them took and how it ended: every one
+     * taken, or taking one failed. A cancelled wait is not recorded.
+     */
+    private suspend fun takeStripes(keys: List<LockKey>, stripes: List<Int>) {
+        val lock = keys.map(LockKey::kind).distinct().sorted().joinToString("+")
+        val start = System.nanoTime()
+        try {
+            stripes.forEach {
+                objectLockRepository.lock(it)
+                heldStripes.hold(it)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Throwable) {
+            lockMetrics.recordWait(lock, System.nanoTime() - start, LockMetrics.failedWait(failure))
+            throw failure
+        }
+        lockMetrics.recordWait(lock, System.nanoTime() - start, Outcome.Success)
+    }
+}

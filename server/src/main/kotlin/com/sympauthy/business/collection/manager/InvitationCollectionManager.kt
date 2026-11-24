@@ -1,0 +1,125 @@
+package com.sympauthy.business.collection.manager
+
+import com.sympauthy.business.audience.manager.AudienceManager
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.collection.model.CollectionCapabilities
+import com.sympauthy.business.collection.model.CollectionCriteria
+import com.sympauthy.business.collection.model.CollectionFieldType.DATE_TIME
+import com.sympauthy.business.collection.model.CollectionFieldType.ENUM
+import com.sympauthy.business.collection.model.CollectionFieldType.STRING
+import com.sympauthy.business.collection.model.CollectionFieldType.UUID
+import com.sympauthy.business.collection.model.CollectionFields
+import com.sympauthy.business.collection.model.CollectionFieldsBuilder
+import com.sympauthy.business.collection.model.Page
+import com.sympauthy.business.collection.model.PageParams
+import com.sympauthy.business.collection.model.collectionFields
+import com.sympauthy.business.collection.model.fieldValues
+import com.sympauthy.business.invitation.manager.InvitationManager
+import com.sympauthy.business.invitation.model.Invitation
+import com.sympauthy.business.invitation.model.InvitationCreatedBy
+import com.sympauthy.business.invitation.model.InvitationStatus
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+
+/**
+ * Manager responsible for filtering the invitations this authorization server issued.
+ *
+ * The rows are read whole and the criteria are a filter over what came back, as every other admin
+ * collection does — see [UserCollectionManager] for the reason. The status the table stores is not the
+ * status an invitation has, a pending one past its expiry date reading as expired, so it is the
+ * mapped invitation that answers a criterion.
+ *
+ * **The two collections are two field sets over one concept.** An administrator sees who created an
+ * invitation and which audience it is for; a client sees its own invitations, all of them created by
+ * it and all of them for its own audience, so neither field says anything there.
+ */
+@Singleton
+class InvitationCollectionManager(
+    @Inject private val invitationManager: InvitationManager,
+    @Inject private val audienceManager: AudienceManager
+) {
+
+    /**
+     * What the administration collection accepts, which is what it publishes about itself.
+     */
+    suspend fun capabilities(): CollectionCapabilities = adminFields().capabilities
+
+    /**
+     * What the client collection accepts.
+     *
+     * Nothing publishes it: what reads that surface is generated from the published specification, and
+     * the values it would enumerate belong to the one client asking.
+     */
+    suspend fun clientCapabilities(): CollectionCapabilities = clientFields().capabilities
+
+    /**
+     * Read the page [pageParams] names of every [Invitation] [criteria] keep.
+     */
+    suspend fun listInvitations(
+        criteria: CollectionCriteria,
+        pageParams: PageParams
+    ): Page<Invitation> = adminFields().page(invitationManager.findAll(), criteria, pageParams)
+
+    /**
+     * Read the page [pageParams] names of the invitations [client] created that [criteria] keep.
+     *
+     * Who created them is not a criterion: it is the whole of what this caller may read.
+     */
+    suspend fun listInvitationsCreatedBy(
+        client: Client,
+        criteria: CollectionCriteria,
+        pageParams: PageParams
+    ): Page<Invitation> = clientFields()
+        .page(invitationManager.findByCreatedById(client.id), criteria, pageParams)
+
+    private suspend fun adminFields(): CollectionFields<Invitation> = collectionFields(
+        uniqueKey = compareBy(Invitation::id)
+    ) {
+        common()
+        field(
+            name = "audience_id",
+            type = ENUM,
+            key = "fields.audience_id",
+            values = fieldValues("fields.audience_id", audienceManager.listAudiences().map(Audience::id)),
+            sortable = true,
+            read = Invitation::audienceId
+        )
+        enumeration<InvitationCreatedBy>(
+            name = "created_by",
+            key = "fields.invitation_created_by",
+            sortable = true,
+            read = Invitation::createdBy
+        )
+        field("created_by_id", STRING, key = "fields.client_id", nullable = true, read = Invitation::createdById)
+        defaultSort("created_at")
+    }
+
+    private suspend fun clientFields(): CollectionFields<Invitation> = collectionFields(
+        uniqueKey = compareBy(Invitation::id)
+    ) {
+        common()
+        defaultSort("created_at")
+    }
+
+    /**
+     * The fields both collections offer, which is everything an invitation carries that neither the
+     * caller's own identity nor its audience already answers.
+     */
+    private fun CollectionFieldsBuilder<Invitation>.common() {
+        field("id", UUID, key = "fields.invitation_id", read = Invitation::id)
+        field("token_prefix", STRING, searchable = true, read = Invitation::tokenPrefix)
+        enumeration<InvitationStatus>(
+            name = "status",
+            key = "fields.invitation_status",
+            sortable = true,
+            read = Invitation::status
+        )
+        field("note", STRING, nullable = true, searchable = true, read = Invitation::note)
+        field("created_at", DATE_TIME, sortable = true, read = Invitation::createdAt)
+        field("expires_at", DATE_TIME, sortable = true, read = Invitation::expiresAt)
+        field("consumed_at", DATE_TIME, nullable = true, sortable = true, read = Invitation::consumedAt)
+        field("revoked_at", DATE_TIME, nullable = true, sortable = true, read = Invitation::revokedAt)
+        field("consumed_by_user_id", UUID, key = "fields.user_id", nullable = true, read = Invitation::consumedByUserId)
+    }
+}

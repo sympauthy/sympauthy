@@ -3,8 +3,8 @@
 SympAuthy is an OAuth2 and OpenID Connect authorization server. It owns accounts, decides what a
 token may carry, and drives the browser flow a person actually signs in through.
 
-It is organised into three layers, each owning its own model, with two more packages cutting across
-all of them. A request flows down through the three and back:
+It is organised into three layers, each owning its own model, with packages cutting across all of
+them. A request flows down through the three and back:
 
 ```
   OAuth2 clients   discovery     flow pages    client apps    person's apps  admin console
@@ -13,26 +13,32 @@ all of them. A request flows down through the three and back:
    /api/openid         │             │              │               │              │
         ▼              ▼             ▼              ▼               ▼              ▼
   ┌───────────────────────────────────────────────────────────────────────────────────────┐
-  │ api        controller/  resource/  mapper/  filter/  errorhandler/                    │
-  ├───────────────────────────────────────────────────────────────────────────────────────┤   c  s
-  │ business   manager/  model/  mapper/                                                  │   o  e
-  ├───────────────────────────────────────────────────────────────────────────────────────┤   n  c
-  │ data       repository/  model/            postgresql/ + h2/                           │   f  u
-  └───────────────────────────────────────────────────────────────────────────────────────┘   i  r
-                                    │  R2DBC, non-blocking                                     g  e
-                                    ▼
-                          PostgreSQL   or   H2
+  │ api        protocol/  application/  flow/  operator/     + errorhandler/  filter/     │
+  ├───────────────────────────────────────────────────────────────────────────────────────┤   c  s  p
+  │ business   scope/  grant/  token/  flow/  user/  …   each: manager/ model/ mapper/    │   o  e  l
+  ├───────────────────────────────────────────────────────────────────────────────────────┤   n  c  a
+  │ data       repository/  model/            postgresql/ + h2/                           │   f  u  t
+  └───────────────────────────────────────────────────────────────────────────────────────┘   i  r  f
+                                    │  R2DBC, non-blocking                                    g  e  o
+                                    ▼                                                               r
+                          PostgreSQL   or   H2                                                      m
 ```
 
-- **`api`** — the HTTP boundary. `controller/` holds Micronaut controllers with `suspend` handlers,
-  split by surface; `resource/` holds the DTOs that are each surface's public contract; `mapper/`
-  turns a business model into one; `filter/` holds the CORS filters and the one reading where a
-  request came from, and `errorhandler/` the translation of a failure into a status and a body.
-  What a class here looks like is [the `api` layer
+- **`api`** — the HTTP boundary, laid out by the audience each [surface](#surfaces) answers:
+  `protocol/` for the relying parties, `application/` for the applications a deployment serves,
+  `flow/` for the interactive flow and the pages it is served from, and `operator/` for the back
+  office and the console driving it. A surface's package holds its Micronaut controllers, with
+  `suspend` handlers, at its root, and below them the DTOs that are its public contract and the
+  mappers turning a business model into one. What every surface shares stays at the root of `api`:
+  the CORS filters and the one reading where a request came from, the translation of a failure into
+  a status and a body, and a resource or a mapper more than one surface uses. What a class here
+  looks like is [the `api` layer
   standard](../standards/api-layer-code-standard.md); what it serializes to is [the API
   standard](../standards/api-standard.md).
-- **`business`** — the logic. `manager/` holds the use cases, `model/` the domain types managers
-  exchange, `mapper/` the mappers that turn an entity into one. Nothing here is reached
+- **`business`** — the logic, laid out by concept. A concept's package holds `manager/` for the
+  use cases, `model/` for the domain types managers exchange, and `mapper/` for the mappers that
+  turn an entity into one; what more than one concept shares sits at the root, in the package of
+  its role. Nothing here is reached
   from a request rather than called: a manager takes what it needs as a parameter, and a model
   naming an HTTP type does so because the concept it describes is one a protocol defines — the
   credentials a provider is called with, the headers an edge writes about a caller. See [the
@@ -44,10 +50,11 @@ all of them. A request flows down through the three and back:
   standard](../standards/database-standard.md).
 
 **`config`** turns the deployment's YAML into validated, typed models before anything can use it,
-and **`security`** turns a credential into an `Authentication` the controllers can be gated on. Both
-are drawn across the three layers because both are consumed by all of them:
-[the `config` layer standard](../standards/config-layer-code-standard.md) and
-[security](security.md).
+and **`security`** turns a credential into an `Authentication` the controllers can be gated on.
+**`platform`** holds the mechanisms every layer rests on and no audience sees, as [a mechanism no
+audience sees](#a-mechanism-no-audience-sees) describes. All three are drawn across the layers
+because all of them are consumed by every one: [the `config` layer
+standard](../standards/config-layer-code-standard.md) and [security](security.md).
 
 ## Surfaces
 
@@ -73,9 +80,11 @@ claim's ACL deciding what it reads and writes. [Security](security.md) is where 
 **The prefix is a security boundary, not only a routing convention.** It is what the gate of every
 route a controller declares is held to: such a route gated on anything its prefix does not admit
 fails the build, unless `SurfaceGateTest` lists it as a departure. So does a route on no surface
-that the test does not list with its gate, and a listing no controller declares any more. A
-management endpoint such as `/health` is no controller's, and is gated by its own entry under
-`endpoints` instead. What each gate does and does not protect against is [security](security.md).
+that the test does not list with its gate, and a listing no controller declares any more. So does
+a route on a surface declared outside that surface's package, so that the package a reader opens is
+the surface the route answers on. A management endpoint such as `/health` is no controller's, and
+is gated by its own entry under `endpoints` instead. What each gate does and does not protect
+against is [security](security.md).
 
 ### When a surface carries a version
 
@@ -127,26 +136,49 @@ would be a second copy of the domain, and the two copies would drift.
 ### A subject that is not authentication
 
 **`business` is authentication, and every other subject the server needs is a package of its own
-at the top of the tree.** Composing and delivering a mail, or holding a promise until somebody
-outside takes it, is work the server cannot sign anybody in without, and none of it is what the
-server is for. Kept out of `business`, it leaves `business` reading as the domain a deployment
-chose SympAuthy for, and a reader looking for how a mail is retried does not have to know which
-manager first sent one.
+at the top of the tree.** Composing a validation code or a password reset in a deployment's brand
+is work the server cannot sign anybody in without, and none of it is what the server is for. Kept
+out of `business`, it leaves `business` reading as the domain a deployment chose SympAuthy for,
+while a reader looking for what a mail says still finds it beside the use case that sends it.
 
-**A subject's package is laid out as `business` is** — `manager/`, `model/`, `mapper/`,
+**A subject's package is laid out as a concept of `business` is** — `manager/`, `model/`, `mapper/`,
 `exception/` — because it is the same kind of code: use cases over a model of its own, translated
 from the rows it keeps. Its rows are still `data`'s and its routes still `api`'s, so that a schema
 is one set of migrations and a surface is gated in one tree. [The general
-standard](../standards/general-code-standard.md#where-a-package-goes) holds the rules, and which
-way each depends.
+standard](../standards/general-code-standard.md#where-a-package-goes) holds the rules, and which way
+each depends.
 
-- **`mail/`** — the mails a manager sends: drawing one in the brand, and delivering it to the mail
-  server. A manager decides that a message goes out through an interface `business` declares, and
-  `mail` implements it, as [mail](mail.md) describes.
-- **`queue/`** — what the server promised somebody not waiting on the request: writing an item with
-  the change it reports, and delivering it through the deliverer its destination's package
-  implements, as [delivery](delivery.md) describes. It knows no destination: `mail` hands it a
-  payload and reads it back.
+**`mail/`** is the one so far: the mails a manager sends, drawn in the brand and handed to the mail
+server by `mail`'s own deliverer. A manager decides that a message goes out through an interface
+`business` declares, and `mail` implements it, as [mail](mail.md) describes.
+
+### A mechanism no audience sees
+
+**A mechanism every subject rests on, and that no audience sees, is a package of `platform/`.** A
+lock held for a transaction, an item delivered after the commit, a condition reported to `/health`
+and a scope cancelled when the server stops are what the subjects and the layers are built on, and
+none of them is what a deployment chose SympAuthy for. The package tree says which are there; three
+show what the test looks like.
+
+- **`platform/lock/`** — the lock a transaction holds over an object and the lease a scheduled job
+  takes, which [the locking standard](../standards/locking-standard.md) holds.
+- **`platform/queue/`** — what the server promised somebody not waiting on the request: writing an
+  item with the change it reports, and delivering it through the deliverer its destination's
+  package implements, as [delivery](delivery.md) describes. It knows no destination: `mail` hands it
+  a payload and reads it back.
+- **`platform/monitoring/`** — the conditions `/health` reports and what is exported to a
+  collector, as [logging](logging.md) and [telemetry](telemetry.md) describe.
+
+**A package owning no layer's model is a subject when it knows authentication, and `platform` when
+it does not.** The test is read off the package itself, so it settles where a package goes before a
+second caller exists to show which layer would have used it. `platform` imports nothing that knows
+authentication, and every other package may import it.
+
+**`platform` names a product concept as a value, never by import.** The jobs it leases, the rows
+it locks and the dependencies it watches are each listed by name or identifier, in a sealed type a
+`when` is still checked over. Its rows are `data`'s and its routes `api`'s, as a subject's are.
+[The general standard](../standards/general-code-standard.md#where-a-package-goes) holds the rules,
+and which way each package depends.
 
 ### Beside the layers
 
@@ -166,8 +198,9 @@ them.
 
 The same test puts the failure root and its mapper beside the layers — `business` and `api` both
 throw and neither may depend on the other, which [the exception
-standard](../standards/exception-code-standard.md) holds — and it puts the health indicators there
-too, since configuration must not depend on the thing that publishes its verdict.
+standard](../standards/exception-code-standard.md) holds — and it puts the health indicators in
+`platform/monitoring/`, since configuration must not depend on the thing that publishes its
+verdict.
 
 ## One schema, more than one database
 
@@ -191,16 +224,18 @@ sympauthy/
 ├── server/
 │   ├── src/main/kotlin/com/sympauthy/
 │   │   ├── api/
-│   │   │   ├── controller/     admin/ client/ flow/ oauth2/ openid/ openapi/ user/
-│   │   │   ├── resource/       the DTOs, one package per surface
-│   │   │   ├── mapper/         business model → resource
+│   │   │   ├── protocol/       oauth2/ openid/ — the relying parties
+│   │   │   ├── application/    client/ user/ — the applications a deployment serves
+│   │   │   ├── flow/           the interactive flow's routes, and the pages it is served from
+│   │   │   ├── operator/       admin/ console/ — the back office and what drives it
+│   │   │   ├── resource/       the DTOs more than one surface shares
+│   │   │   ├── mapper/         business model → a resource more than one surface shares
 │   │   │   ├── filter/         CORS, and where a request came from
 │   │   │   ├── errorhandler/   exception → status and localized body
 │   │   │   └── exception/      the HTTP and OAuth2 exceptions
 │   │   ├── business/
-│   │   │   ├── manager/        the use cases, split by domain
-│   │   │   ├── model/          the domain model
-│   │   │   ├── mapper/         entity → business model
+│   │   │   ├── <concept>/      manager/ model/ mapper/ exception/ — scope/ flow/ token/ …
+│   │   │   ├── model/          the domain types more than one concept shares
 │   │   │   └── exception/      BusinessException and its factories
 │   │   ├── data/
 │   │   │   ├── model/          R2DBC entities
@@ -211,11 +246,10 @@ sympauthy/
 │   │   ├── security/           the authentications and the token validator
 │   │   ├── client/             outbound HTTP, one package per protocol
 │   │   ├── exception/          LocalizedException and its mapper
-│   │   ├── expression/         the rule language, shared by config and business
-│   │   ├── health/             what the server reports about itself
+│   │   ├── expression/         manager/ model/ exception/ — the rule language
 │   │   ├── mail/               manager/ model/ mapper/ — the mails a manager sends
-│   │   ├── queue/              manager/ model/ mapper/ — what is delivered after the commit
-│   │   ├── cron/ server/ util/ view/
+│   │   ├── platform/           lock/ queue/ monitoring/ server/ … — what no audience sees
+│   │   ├── cron/               the sweeps of a domain's rows
 │   │   └── Application.kt
 │   └── src/main/resources/
 │       ├── databases/          Flyway migrations, postgresql/ and h2/
@@ -242,15 +276,11 @@ the rule that decides them.
 
 ## What this document does not settle
 
-**Where a package goes that owns no layer's model and is not shared.** The test puts it beside the
-layers, which is where everything answering it has gone so far. A package only one layer will ever
-call would pass the same test and be better off inside that layer, and nothing here says how to
-tell the two apart before the second one exists.
-
 **Whether a surface may ever be split across processes.** Every surface is a route prefix in one
 deployable, and the admin console in particular is gated by scope rather than by being unreachable.
-A deployment wanting the back office on its own port or its own binary has no answer here, and what
-that would cost the shared `business` layer is unexamined.
+A deployment wanting the back office on its own port or its own binary has no answer here.
+`api/operator/` is where such a split would start, and what it would cost the shared `business`
+layer is unexamined.
 
 **What a second major version of a versioned surface looks like.** Each carries a version so that
 its contract can be broken independently, and none has been. Whether a new one is a parallel prefix

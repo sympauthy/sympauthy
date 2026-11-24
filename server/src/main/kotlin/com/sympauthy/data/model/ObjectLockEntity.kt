@@ -9,7 +9,7 @@ import io.micronaut.serde.annotation.Serdeable
  * nothing else.
  *
  * The rows are the whole table and the migration creates every one of them, so nothing here is ever
- * saved, updated or deleted. [com.sympauthy.business.manager.lock.LockKey] is what maps an object to
+ * saved, updated or deleted. [com.sympauthy.platform.lock.LockKey] is what maps an object to
  * one of them.
  */
 @Serdeable

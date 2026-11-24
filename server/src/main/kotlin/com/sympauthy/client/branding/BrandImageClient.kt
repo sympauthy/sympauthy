@@ -1,6 +1,6 @@
 package com.sympauthy.client.branding
 
-import com.sympauthy.business.model.branding.BrandImageType
+import com.sympauthy.business.branding.model.BrandImageType
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.MediaType
 import io.micronaut.http.client.HttpClient

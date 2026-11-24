@@ -1,0 +1,130 @@
+package com.sympauthy.business.claim.mapper
+
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimDataType.BOOLEAN
+import com.sympauthy.business.claim.model.ClaimDataType.NUMBER
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.PersonalClaim
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.data.model.CollectedClaimEntity
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
+import io.micronaut.serde.ObjectMapper
+import io.mockk.every
+import io.mockk.impl.annotations.MockK
+import io.mockk.junit5.MockKExtension
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class CollectedClaimMapperTest {
+
+    @MockK
+    lateinit var claimManager: ClaimManager
+
+    private lateinit var mapper: CollectedClaimMapper
+
+    @BeforeEach
+    fun wire() {
+        mapper = CollectedClaimMapper(
+            claimManager = claimManager,
+            claimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+        )
+    }
+
+    @Test
+    fun `toCollectedClaim - Read a value as the type its claim declares`() {
+        stubClaim(claim("age", NUMBER))
+
+        val collected = mapper.toCollectedClaim(entity("age", "42"))
+
+        assertEquals(42L, collected?.value)
+    }
+
+    @Test
+    fun `toCollectedClaim - Map a claim holding no value`() {
+        stubClaim(claim("age", NUMBER))
+
+        val collected = mapper.toCollectedClaim(entity("age", null))
+
+        assertNull(collected?.value)
+    }
+
+    @Test
+    fun `toCollectedClaim - Return null where the configuration no longer declares the claim`() {
+        // An operator disabling a claim meant the rows it collected to stop being read, not to fail.
+        every { claimManager.findByIdOrNull("retired") } returns null
+
+        assertNull(mapper.toCollectedClaim(entity("retired", "\"value\"")))
+    }
+
+    @Test
+    fun `toCollectedClaim - Throw where the value does not read as the type its claim declares`() {
+        stubClaim(claim("age", NUMBER))
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toCollectedClaim(entity("age", "\"forty-two\""))
+        }
+
+        assertEquals("mapper.collected_claim.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+        assertFalse(exception.recoverable)
+        assertEquals("age", exception.values["claim"])
+        assertEquals("number", exception.values["type"])
+    }
+
+    @Test
+    fun `toCollectedClaim - Throw where a boolean claim holds something that is not one`() {
+        stubClaim(claim("optin", BOOLEAN))
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toCollectedClaim(entity("optin", "\"maybe\""))
+        }
+
+        assertEquals("mapper.collected_claim.invalid_property", exception.detailsId)
+    }
+
+    private fun stubClaim(claim: EnabledClaim) {
+        every { claimManager.findByIdOrNull(claim.id) } returns claim
+    }
+
+    private fun entity(claim: String, value: String?) = CollectedClaimEntity(
+        userId = UUID.randomUUID(),
+        claim = claim,
+        value = value,
+        foldedEqualityHash = null,
+        verified = null,
+        collectionDate = LocalDateTime.now(),
+        verificationDate = null,
+        sessionId = null
+    )
+
+    private fun claim(id: String, dataType: ClaimDataType) = PersonalClaim(
+        id = id,
+        verifiedId = null,
+        dataType = dataType,
+        group = null,
+        required = false,
+        allowedValues = null,
+        audienceId = null,
+        publishedIn = ClaimPublicationPlace.entries.toSet(),
+        publishedInWhenRequested = emptySet(),
+        acl = ClaimAcl(
+            collectedInFlow = ClaimAclExpression("true"),
+            readableByPerson = ClaimAclExpression("true"),
+            writableByPerson = null,
+            readableByClient = ClaimAclExpression("true"),
+            writableByClient = null
+        )
+    )
+}

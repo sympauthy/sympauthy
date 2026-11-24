@@ -1,0 +1,301 @@
+package com.sympauthy.business.claim.manager
+
+import com.sympauthy.business.claim.mapper.ClaimValueMapper
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimDataType.*
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.recoverableBusinessExceptionOf
+import com.sympauthy.platform.util.wireName
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import java.math.BigDecimal
+import java.time.DateTimeException
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
+import java.util.*
+import kotlin.jvm.optionals.getOrNull
+
+/**
+ * Component in charge of validating and cleaning claim value received from end-users.
+ *
+ * A value submitted as a string is trimmed by [validateAndCleanStringForClaim] before its type is looked at,
+ * so every check below it is given a value carrying no surrounding whitespace and none of them trims again.
+ *
+ * Beyond the trim, cleaning belongs to the claim's data type and runs beside that type's own validation: a
+ * type with one canonical form answers with it rather than with what was submitted — a boolean folded, a
+ * number read as a [Long]. What this returns is what gets stored and what every reader is answered with,
+ * so **nothing here folds the case of a value a person chose**: how somebody capitalises their own name
+ * or their own address is theirs to decide, and a comparison is made on a fold recovered from it. See
+ * `docs/design/identifier-claims.md`.
+ */
+@Singleton
+class ClaimValueValidator(
+    @Inject private val claimValueMapper: ClaimValueMapper
+) {
+
+    companion object {
+        private val E164_PATTERN = Regex("^\\+[0-9]{1,15}$")
+    }
+
+    /**
+     * Validate the [value] submitted for [claim] and return it as the primitive
+     * [ClaimDataType.typeClass] names, or an empty optional where the value is blank and the claim is
+     * therefore being cleared.
+     *
+     * A boolean and a number claim are the two whose value is not a string, and either may arrive as one
+     * anyway — a form posts every field as text — so both are read out of whatever they arrived as rather
+     * than type-checked, and a value that is not one throws the code its own type is checked with. Every
+     * other claim is submitted as a string, and one submitted as anything else throws
+     * `user.claim_value_validator.invalid_type`. A [JSON] claim is submitted as an object, and one submitted
+     * as a string is refused as not being one — the text of a document included — once a blank one has
+     * cleared it the way it clears every other claim. A value outside [Claim.allowedValues] throws
+     * `user.claim_value_validator.invalid_value`, and one larger than [Claim.maxSize] throws
+     * `user.claim_value_validator.too_large`.
+     *
+     * The allowed values are compared against the cleaned value rather than the submitted one, because the
+     * representations one of those two arrives in are one value and only the cleaned one is comparable to
+     * what the configuration holds. Where cleaning changes a value at all — a string trimmed, a boolean
+     * read out of its text — that comparison also stops it being refused over what was about to be removed.
+     */
+    fun validateAndCleanValueForClaim(claim: EnabledClaim, value: Any?): Optional<Any> {
+        val cleanedValue = when {
+            value == null -> Optional.empty()
+            value is String -> validateAndCleanStringForClaim(claim, value)
+            claim.dataType == JSON -> validateJsonForClaim(value)
+            claim.dataType == BOOLEAN -> validateAndCleanBooleanForClaim(value)
+            claim.dataType == NUMBER -> validateAndCleanNumberForClaim(value)
+            else -> throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_type",
+                "description.user.claim_value_validator.invalid_type",
+                "claim" to claim.id,
+                "type" to claim.dataType.wireName
+            )
+        }
+        val cleaned = cleanedValue.orElse(null)
+        if (claim.allowedValues != null && cleaned != null && !claim.allowedValues.contains(cleaned)) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_value",
+                "description.user.claim_value_validator.invalid_value"
+            )
+        }
+        if (cleaned != null && claim.maxSize != null) {
+            validateSizeForClaim(claim.maxSize, cleaned)
+        }
+        return cleanedValue
+    }
+
+    /**
+     * The [value] as [claim] holds it, or null where [claim] could hold no such value at all — it does not
+     * satisfy the claim's own type, it falls outside [Claim.allowedValues], or it carries nothing but
+     * whitespace and so is no value.
+     *
+     * This is [validateAndCleanValueForClaim] for a caller comparing rather than writing. A stored value
+     * was cleaned on the way in, so a caller looking one up has to clean what it offers the same way or it
+     * asks for a spelling no row was ever written in. What that caller cannot do is fail: a value the claim
+     * would refuse matches no row of it either, since every row of it holds a value this validator accepted,
+     * so being unable to clean it is an answer of none rather than a refusal to raise.
+     *
+     * It answers a business value; the text a comparison is actually made on is
+     * [CollectedClaimManager.getFoldedValueOf], which takes this one the rest of the way.
+     */
+    fun cleanValueForClaimOrNull(claim: EnabledClaim, value: Any?): Any? = try {
+        validateAndCleanValueForClaim(claim, value).getOrNull()
+    } catch (_: BusinessException) {
+        null
+    }
+
+    /**
+     * Validate the [value] submitted for [claim] against the claim's own type and return it cleaned, or an
+     * empty optional where it holds nothing but whitespace and the claim is therefore being cleared.
+     *
+     * The value is trimmed here, once, and every check below is given the trimmed one. Whitespace a person
+     * typed around a value is never part of the value: an email or a date padded with it would otherwise be
+     * stored padded, and a phone number or a time zone refused for a reason that names the wrong thing. It
+     * settles that a `string` claim cannot hold a deliberately padded value, which nothing asks for and which
+     * would want a type saying so rather than this one keeping the padding by omission.
+     */
+    internal fun validateAndCleanStringForClaim(claim: EnabledClaim, value: String): Optional<Any> {
+        val trimmedValue = value.trim()
+        if (trimmedValue.isEmpty()) {
+            return Optional.empty()
+        }
+        return when (claim.dataType) {
+            BOOLEAN -> validateAndCleanBooleanForClaim(trimmedValue)
+            DATE -> validateDateForClaim(trimmedValue)
+            EMAIL -> validateEmailForClaim(trimmedValue)
+            NUMBER -> validateAndCleanNumberForClaim(trimmedValue)
+            PHONE_NUMBER -> validatePhoneNumberForClaim(trimmedValue)
+            STRING -> Optional.of(trimmedValue)
+            TIMEZONE -> validateTimeZoneForClaim(trimmedValue)
+            // A document is an object, never the text of one: a client sending a string is sending a string.
+            JSON -> validateJsonForClaim(trimmedValue)
+        }
+    }
+
+    /**
+     * Validate the [value] is a JSON object, and return it as it was submitted.
+     *
+     * Every other JSON value throws `user.claim_value_validator.invalid_json`, so `[1, 2]` and `"foo"` are
+     * refused, as `docs/design/claims.md` has it. An empty object is a value; only null clears the claim.
+     * Nothing is cleaned inside the document.
+     */
+    private fun validateJsonForClaim(value: Any): Optional<Any> {
+        if (value !is Map<*, *>) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_json",
+                "description.user.claim_value_validator.invalid_json"
+            )
+        }
+        return Optional.of(value)
+    }
+
+    /**
+     * Validate the [value] takes at most [maxSize] bytes once serialized.
+     *
+     * It is measured on the form [ClaimValueMapper.toEntity] stores, which is also the form a response
+     * publishes, so the cap bounds what the column holds and what a reader is handed alike.
+     */
+    private fun validateSizeForClaim(maxSize: Int, value: Any) {
+        val size = claimValueMapper.toEntity(value)?.toByteArray(Charsets.UTF_8)?.size ?: 0
+        if (size > maxSize) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.too_large",
+                "description.user.claim_value_validator.too_large",
+                "maxSize" to maxSize.toString()
+            )
+        }
+    }
+
+    /**
+     * Validate the [value] is a number and return it as a [Long].
+     *
+     * A number claim is a [Long] everywhere else in this server — it is the type its column is read back as
+     * and the type its configured allowed values are parsed into — so a value carrying a fraction or one past
+     * the range of a [Long] throws `user.claim_value_validator.invalid_number` rather than being rounded or
+     * truncated into one.
+     *
+     * What decides that is the number itself and not how it happened to be boxed on the way in. A body
+     * carrying `42.0` and one carrying `42` are the same whole number, and a client that spells it either
+     * way should not be refused by whichever type the JSON parser reached for.
+     */
+    internal fun validateAndCleanNumberForClaim(value: Any): Optional<Any> {
+        val text = value.toString()
+        val number = text.toLongOrNull()
+            ?: text.toBigDecimalOrNull()?.toLongOrNull()
+            ?: throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_number",
+                "description.user.claim_value_validator.invalid_number"
+            )
+        return Optional.of(number)
+    }
+
+    /**
+     * Validate the [value] is a boolean and return it as a [Boolean].
+     *
+     * A boolean claim is a [Boolean] everywhere else in this server — it is what its configured allowed
+     * values are parsed into and the JSON boolean it is published as — so a value that names neither
+     * truth value throws `user.claim_value_validator.invalid_boolean`.
+     *
+     * What decides that is the word the value spells and not how it happened to be boxed on the way in. A
+     * JSON body carrying `true` and a form field carrying `TRUE` mean the same thing, and a claim a person
+     * ticks is submitted as text whatever the claim's type says.
+     */
+    internal fun validateAndCleanBooleanForClaim(value: Any): Optional<Any> {
+        val boolean = value.toString().lowercase().toBooleanStrictOrNull()
+            ?: throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_boolean",
+                "description.user.claim_value_validator.invalid_boolean"
+            )
+        return Optional.of(boolean)
+    }
+
+    /**
+     * Validate the [value] is a date, and return it as the `yyyy-MM-dd` it was submitted as.
+     *
+     * A date claim is exchanged and stored as that string rather than as a date, so a value the parser
+     * accepts is one a client reads back. It is parsed strictly and in full: a lenient parser rolls the
+     * thirty-first of February into March and reads a date off the front of a value carrying anything
+     * after it, and either way what is stored is the value as submitted rather than what was parsed.
+     */
+    internal fun validateDateForClaim(value: String): Optional<Any> {
+        try {
+            LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)
+        } catch (e: DateTimeParseException) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_date",
+                "description.user.claim_value_validator.invalid_date"
+            )
+        }
+        return Optional.of(value)
+    }
+
+    /**
+     * Validate the [value] is an email.
+     *
+     * According to the [OpenID](https://openid.net/specs/openid-connect-core-1_0.html#Claims), the email claim MUST
+     * conform to the
+     * [RFC5322 Addr-Spec Specification](https://www.rfc-editor.org/rfc/rfc5322.html#section-3.4.1).
+     *
+     * However, for simplicity, we will only validate the value:
+     * - contains a single '@' characters.
+     * - it separates 2 non-empty parts.
+     *
+     * The address is returned as it was written. Two spellings of one address are one identity, but that is
+     * settled by the spelling they are compared in rather than by rewriting what somebody typed —
+     * `CollectedClaimEntity.foldedEqualityHash` is where it is settled.
+     */
+    internal fun validateEmailForClaim(value: String): Optional<Any> {
+        val parts = value.split("@")
+        if (parts.size != 2 || parts.getOrNull(0).isNullOrBlank() || parts.getOrNull(1).isNullOrBlank()) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_email",
+                "description.user.claim_value_validator.invalid_email"
+            )
+        }
+        return Optional.of(value)
+    }
+
+    /**
+     * Validate the [value] is a phone number.
+     *
+     * According to the
+     * [OpenID Connect Core specification](https://openid.net/specs/openid-connect-core-1_0.html#Claims),
+     * the phone_number claim MUST conform to [E.164](https://www.itu.int/rec/T-REC-E.164-201011-I/en) format.
+     *
+     * E.164 numbers start with a '+' prefix followed by up to 15 digits.
+     */
+    internal fun validatePhoneNumberForClaim(value: String): Optional<Any> {
+        if (!E164_PATTERN.matches(value)) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_phone_number",
+                "description.user.claim_value_validator.invalid_phone_number"
+            )
+        }
+        return Optional.of(value)
+    }
+
+    internal fun validateTimeZoneForClaim(value: String): Optional<Any> {
+        try {
+            ZoneId.of(value)
+        } catch (_: DateTimeException) {
+            throw recoverableBusinessExceptionOf(
+                "user.claim_value_validator.invalid_time_zone",
+                "description.user.claim_value_validator.invalid_time_zone"
+            )
+        }
+        return Optional.of(value)
+    }
+}
+
+/**
+ * This decimal as a [Long], or null where it carries a fraction or does not fit in one.
+ */
+private fun BigDecimal.toLongOrNull(): Long? = try {
+    toBigIntegerExact().longValueExact()
+} catch (_: ArithmeticException) {
+    null
+}

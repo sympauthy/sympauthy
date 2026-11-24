@@ -1,11 +1,11 @@
 package com.sympauthy.data.repository
 
-import com.sympauthy.business.manager.lock.LeasedJob
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture
 import com.sympauthy.data.model.JobLeaseEntity
 import com.sympauthy.data.withFixture
+import com.sympauthy.platform.lock.LeasedJob
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toSet
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -2,10 +2,9 @@
 description: What a paged collection answers with and what a caller may ask of one — the response,
   the paging, the filter, order and search grammar, and what each collection publishes about itself.
 paths:
-  - "server/src/main/kotlin/com/sympauthy/business/model/collection/**"
-  - "server/src/main/kotlin/com/sympauthy/business/manager/collection/**"
-  - "server/src/main/kotlin/com/sympauthy/api/controller/admin/**"
-  - "server/src/main/kotlin/com/sympauthy/api/controller/client/**"
+  - "server/src/main/kotlin/com/sympauthy/business/collection/**"
+  - "server/src/main/kotlin/com/sympauthy/api/operator/admin/**"
+  - "server/src/main/kotlin/com/sympauthy/api/application/client/**"
 ---
 
 # Collection standard
@@ -274,7 +273,7 @@ filter, search and order every collection that holds its rows in memory.
 fields under the operators it can answer, and turns the criteria it is handed into its query.
 
 **A collection that is a concept of its own is a `…CollectionManager`, and every one of them lives
-in `business.manager.collection`.** What one *is* stays [the business layer
+in `business.collection.manager`.** What one *is* stays [the business layer
 standard's](business-layer-code-standard.md#composition); this is where it goes, so that what
 answers the same question for every collection is in one place and the next one has an obvious
 package to join.
