@@ -1,7 +1,7 @@
 package com.sympauthy.security
 
-import com.sympauthy.business.model.scope.AdminScopeId
-import com.sympauthy.business.model.scope.BuiltInClientScopeId
+import com.sympauthy.business.scope.model.AdminScopeId
+import com.sympauthy.business.scope.model.BuiltInClientScopeId
 
 object SecurityRule {
 

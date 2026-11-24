@@ -1,13 +1,13 @@
 package com.sympauthy.mail.manager
 
-import com.sympauthy.business.manager.branding.BrandManager
-import com.sympauthy.business.manager.branding.BrandTokenResolver
-import com.sympauthy.business.model.branding.Brand
-import com.sympauthy.business.model.branding.BrandAsset
-import com.sympauthy.business.model.branding.BrandImageName.LOGO
-import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
-import com.sympauthy.business.model.branding.DarkMode
-import com.sympauthy.business.model.branding.pngOf
+import com.sympauthy.business.branding.manager.BrandManager
+import com.sympauthy.business.branding.manager.BrandTokenResolver
+import com.sympauthy.business.branding.model.Brand
+import com.sympauthy.business.branding.model.BrandAsset
+import com.sympauthy.business.branding.model.BrandImageName.LOGO
+import com.sympauthy.business.branding.model.BrandImageName.LOGO_DARK
+import com.sympauthy.business.branding.model.DarkMode
+import com.sympauthy.business.branding.model.pngOf
 import com.sympauthy.config.model.DisabledUrlsConfig
 import com.sympauthy.config.model.EnabledUIConfig
 import com.sympauthy.config.model.EnabledUrlsConfig

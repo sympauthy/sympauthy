@@ -1,14 +1,14 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.claim.ClaimAcl
-import com.sympauthy.business.model.claim.ClaimAclExpression
-import com.sympauthy.business.model.claim.ClaimGroup
-import com.sympauthy.business.model.claim.ClaimKind
-import com.sympauthy.business.model.claim.ClaimOrigin
-import com.sympauthy.business.model.claim.EnabledClaim
-import com.sympauthy.business.model.claim.GeneratedClaim
-import com.sympauthy.business.model.claim.GeneratedOpenIdConnectClaim
-import com.sympauthy.business.model.claim.isEnabled
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimOrigin
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.GeneratedClaim
+import com.sympauthy.business.claim.model.GeneratedOpenIdConnectClaim
+import com.sympauthy.business.claim.model.isEnabled
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.WrittenConfigurationKeys
 import com.sympauthy.config.exception.ConfigurationException

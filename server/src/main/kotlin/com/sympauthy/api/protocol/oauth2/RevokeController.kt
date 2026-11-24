@@ -9,7 +9,7 @@ import com.sympauthy.api.protocol.oauth2.util.INVALID_REQUEST_BODY_TOO_LARGE_DES
 import com.sympauthy.api.protocol.oauth2.util.TOKEN_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.protocol.oauth2.util.TOKEN_TYPE_HINT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.protocol.oauth2.util.getRequiredParam
-import com.sympauthy.business.manager.token.TokenManager
+import com.sympauthy.business.token.manager.TokenManager
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.MediaType.APPLICATION_FORM_URLENCODED

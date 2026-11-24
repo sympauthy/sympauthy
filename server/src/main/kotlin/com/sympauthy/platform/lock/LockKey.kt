@@ -36,7 +36,7 @@ sealed class LockKey(
      * would leave a grant whose last token was expiring as lapsed, and the new tokens under it live.
      *
      * A transaction saving a consent, and one revoking it, take it too, for the reasons
-     * [com.sympauthy.business.manager.consent.ConsentManager.lockConsentForUser] gives.
+     * [com.sympauthy.business.consent.manager.ConsentManager.lockConsentForUser] gives.
      *
      * A promotion names it beside the identities it takes, since it writes the account's tables and the
      * consent written later in the completion transaction would otherwise be a second lock.
@@ -64,7 +64,7 @@ sealed class LockKey(
      * because that is the spelling the check compares on and not the one the row publishes. Two spellings
      * of one address are one value by then, so the writers claiming it take one stripe and are ordered
      * against each other rather than passing. A caller holding the business value asks
-     * [com.sympauthy.business.manager.claim.CollectedClaimManager] for that spelling before naming it here.
+     * [com.sympauthy.business.claim.manager.CollectedClaimManager] for that spelling before naming it here.
      */
     class IdentifierValue(value: String) : LockKey("identifier_value", value)
 

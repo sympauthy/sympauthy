@@ -1,6 +1,6 @@
 package com.sympauthy.api.operator.admin.mapper
 
-import com.sympauthy.business.model.mfa.TotpEnrollment
+import com.sympauthy.business.mfa.model.TotpEnrollment
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime

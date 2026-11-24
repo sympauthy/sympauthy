@@ -8,7 +8,7 @@ import com.sympauthy.api.flow.resource.FlowErrorResource
 import com.sympauthy.api.flow.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.platform.util.orDefault
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull

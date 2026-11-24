@@ -1,7 +1,7 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.branding.BrandImage
-import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.business.branding.model.BrandImage
+import com.sympauthy.business.branding.model.DarkMode
 import com.sympauthy.config.exception.ConfigurationException
 import java.net.URI
 

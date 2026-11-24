@@ -2,9 +2,9 @@ package com.sympauthy.api.protocol.oauth2
 
 import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.protocol.oauth2.util.ClientAuthenticationUtil
-import com.sympauthy.business.manager.token.TokenManager
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.token.manager.TokenManager
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery

@@ -22,10 +22,10 @@ import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionPasswordResetManager
-import com.sympauthy.business.manager.flow.reset.InteractiveFlowSessionPasswordResetManager
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.flow.auth.manager.InteractiveAuthFlowSessionPasswordResetManager
+import com.sympauthy.business.flow.reset.manager.InteractiveFlowSessionPasswordResetManager
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.platform.util.orDefault
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull

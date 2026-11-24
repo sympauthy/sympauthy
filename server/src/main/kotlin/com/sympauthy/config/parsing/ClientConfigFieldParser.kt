@@ -1,8 +1,8 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.client.AuthorizationWebhook
-import com.sympauthy.business.model.client.AuthorizationWebhookOnFailure
-import com.sympauthy.business.model.client.GrantType
+import com.sympauthy.business.client.model.AuthorizationWebhook
+import com.sympauthy.business.client.model.AuthorizationWebhookOnFailure
+import com.sympauthy.business.client.model.GrantType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.ConfigTemplateResolver

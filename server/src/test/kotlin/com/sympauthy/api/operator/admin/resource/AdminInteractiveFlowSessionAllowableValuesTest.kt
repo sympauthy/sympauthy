@@ -1,13 +1,13 @@
 package com.sympauthy.api.operator.admin.resource
 
 import com.sympauthy.api.resource.allowableValuesOf
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose.LINK_PROVIDER
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose.MFA_ENROLLMENT
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose.OAUTH2_AUTHORIZE
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
-import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
-import com.sympauthy.business.model.flow.PurposeDebugInformationType
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose.LINK_PROVIDER
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose.MFA_ENROLLMENT
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+import com.sympauthy.business.flow.model.InteractiveFlowPurposeStatus
+import com.sympauthy.business.flow.model.InteractiveFlowSessionStatus
+import com.sympauthy.business.flow.model.PurposeDebugInformationType
 import com.sympauthy.platform.util.wireName
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

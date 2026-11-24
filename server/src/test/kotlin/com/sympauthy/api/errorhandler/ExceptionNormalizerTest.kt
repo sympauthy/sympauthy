@@ -3,8 +3,8 @@ package com.sympauthy.api.errorhandler
 import com.sympauthy.api.CLIENT_SURFACE
 import com.sympauthy.api.exception.AccessTokenChallengeException
 import com.sympauthy.api.exception.UnsupportedMethodException
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InsufficientScope
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InsufficientScope
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.ClientAuthentication
 import com.sympauthy.security.StateAuthentication

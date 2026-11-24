@@ -1,9 +1,9 @@
 package com.sympauthy.api.protocol.oauth2.mapper
 
 import com.sympauthy.api.protocol.oauth2.resource.TokenResource
-import com.sympauthy.business.model.token.EncodedAuthenticationToken
-import com.sympauthy.business.model.token.TokenIssuance
-import com.sympauthy.business.model.token.TokenRequest
+import com.sympauthy.business.token.model.EncodedAuthenticationToken
+import com.sympauthy.business.token.model.TokenIssuance
+import com.sympauthy.business.token.model.TokenRequest
 import com.sympauthy.platform.util.nullIfBlank
 import jakarta.inject.Singleton
 import java.time.Duration

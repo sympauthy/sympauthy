@@ -15,7 +15,7 @@ them. A request flows down through the three and back:
   ┌───────────────────────────────────────────────────────────────────────────────────────┐
   │ api        protocol/  application/  flow/  operator/     + errorhandler/  filter/     │
   ├───────────────────────────────────────────────────────────────────────────────────────┤   c  s  p
-  │ business   manager/  model/  mapper/                                                  │   o  e  l
+  │ business   scope/  grant/  token/  flow/  user/  …   each: manager/ model/ mapper/    │   o  e  l
   ├───────────────────────────────────────────────────────────────────────────────────────┤   n  c  a
   │ data       repository/  model/            postgresql/ + h2/                           │   f  u  t
   └───────────────────────────────────────────────────────────────────────────────────────┘   i  r  f
@@ -35,8 +35,10 @@ them. A request flows down through the three and back:
   looks like is [the `api` layer
   standard](../standards/api-layer-code-standard.md); what it serializes to is [the API
   standard](../standards/api-standard.md).
-- **`business`** — the logic. `manager/` holds the use cases, `model/` the domain types managers
-  exchange, `mapper/` the mappers that turn an entity into one. Nothing here is reached
+- **`business`** — the logic, laid out by concept. A concept's package holds `manager/` for the
+  use cases, `model/` for the domain types managers exchange, and `mapper/` for the mappers that
+  turn an entity into one; what more than one concept shares sits at the root, in the package of
+  its role. Nothing here is reached
   from a request rather than called: a manager takes what it needs as a parameter, and a model
   naming an HTTP type does so because the concept it describes is one a protocol defines — the
   credentials a provider is called with, the headers an edge writes about a caller. See [the
@@ -139,12 +141,12 @@ is work the server cannot sign anybody in without, and none of it is what the se
 out of `business`, it leaves `business` reading as the domain a deployment chose SympAuthy for,
 while a reader looking for what a mail says still finds it beside the use case that sends it.
 
-**A subject's package is laid out as `business` is** — `manager/`, `model/`, `mapper/`,
+**A subject's package is laid out as a concept of `business` is** — `manager/`, `model/`, `mapper/`,
 `exception/` — because it is the same kind of code: use cases over a model of its own, translated
 from the rows it keeps. Its rows are still `data`'s and its routes still `api`'s, so that a schema
 is one set of migrations and a surface is gated in one tree. [The general
-standard](../standards/general-code-standard.md#where-a-package-goes) holds the rules, and which
-way each depends.
+standard](../standards/general-code-standard.md#where-a-package-goes) holds the rules, and which way
+each depends.
 
 **`mail/`** is the one so far: the mails a manager sends, drawn in the brand and handed to the mail
 server by `mail`'s own deliverer. A manager decides that a message goes out through an interface
@@ -232,9 +234,8 @@ sympauthy/
 │   │   │   ├── errorhandler/   exception → status and localized body
 │   │   │   └── exception/      the HTTP and OAuth2 exceptions
 │   │   ├── business/
-│   │   │   ├── manager/        the use cases, split by domain
-│   │   │   ├── model/          the domain model
-│   │   │   ├── mapper/         entity → business model
+│   │   │   ├── <concept>/      manager/ model/ mapper/ exception/ — scope/ flow/ token/ …
+│   │   │   ├── model/          the domain types more than one concept shares
 │   │   │   └── exception/      BusinessException and its factories
 │   │   ├── data/
 │   │   │   ├── model/          R2DBC entities

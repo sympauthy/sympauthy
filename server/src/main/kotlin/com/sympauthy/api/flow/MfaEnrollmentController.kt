@@ -12,10 +12,10 @@ import com.sympauthy.api.flow.util.FLOW_SIGNED_IN_SESSION_BAD_REQUEST_DESCRIPTIO
 import com.sympauthy.api.flow.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionMfaEnrollmentManager
-import com.sympauthy.business.manager.flow.mfa.MfaAutoRedirect
-import com.sympauthy.business.manager.flow.mfa.MfaMethodSelection
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.flow.mfa.manager.InteractiveFlowSessionMfaEnrollmentManager
+import com.sympauthy.business.flow.mfa.manager.MfaAutoRedirect
+import com.sympauthy.business.flow.mfa.manager.MfaMethodSelection
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.platform.util.wireName
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull

@@ -7,11 +7,11 @@ import com.sympauthy.api.operator.admin.resource.AdminAudienceResource
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
-import com.sympauthy.business.manager.collection.AudienceCollectionManager
-import com.sympauthy.business.manager.collection.AudienceCollectionManager.AudienceWithClientCount
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.page.Page
-import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.collection.manager.AudienceCollectionManager
+import com.sympauthy.business.collection.manager.AudienceCollectionManager.AudienceWithClientCount
+import com.sympauthy.business.collection.model.Page
+import com.sympauthy.business.collection.model.PageParams
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every

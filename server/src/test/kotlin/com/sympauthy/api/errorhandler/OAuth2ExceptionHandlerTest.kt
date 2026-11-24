@@ -4,7 +4,7 @@ import com.sympauthy.api.exception.OAuth2Exception
 import com.sympauthy.api.exception.oauth2ExceptionOf
 import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_CLIENT
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpStatus

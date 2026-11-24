@@ -14,8 +14,8 @@ import com.sympauthy.api.util.SIZE_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.user.ClientUserManager
-import com.sympauthy.business.model.scope.BuiltInClientScopeId
+import com.sympauthy.business.scope.model.BuiltInClientScopeId
+import com.sympauthy.business.user.manager.ClientUserManager
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_READ
 import com.sympauthy.security.clientAuthentication
 import io.micronaut.http.HttpRequest

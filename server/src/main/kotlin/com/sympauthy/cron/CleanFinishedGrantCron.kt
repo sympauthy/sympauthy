@@ -1,6 +1,6 @@
 package com.sympauthy.cron
 
-import com.sympauthy.business.manager.grant.GrantCleaner
+import com.sympauthy.business.grant.manager.GrantCleaner
 import com.sympauthy.platform.lock.JobLeaseManager
 import com.sympauthy.platform.lock.LeasedJob.CLEAN_FINISHED_GRANTS
 import com.sympauthy.platform.monitoring.loggerForClass

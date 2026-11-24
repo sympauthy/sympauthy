@@ -1,8 +1,8 @@
 package com.sympauthy.platform.util
 
-import com.sympauthy.business.model.claim.ClaimOrigin
-import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.scope.ScopeType
+import com.sympauthy.business.claim.model.ClaimOrigin
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.scope.model.ScopeType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

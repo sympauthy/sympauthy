@@ -1,7 +1,7 @@
 package com.sympauthy.api.protocol.oauth2.util
 
 import com.sympauthy.api.exception.oauth2ExceptionOf
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_REQUEST
 
 /**
  * [value], the form parameter named [param] of a request to an endpoint of `/api/oauth2`.

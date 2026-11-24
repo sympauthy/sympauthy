@@ -1,6 +1,6 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.flow.AuthorizationFlowType
+import com.sympauthy.business.flow.model.AuthorizationFlowType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.properties.AuthorizationFlowConfigurationProperties

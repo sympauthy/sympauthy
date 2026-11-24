@@ -1,0 +1,733 @@
+package com.sympauthy.business.collection.manager
+
+import com.sympauthy.api.util.criteriaOf
+import com.sympauthy.business.claim.manager.CollectedClaimManager
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.client.manager.ClientManager
+import com.sympauthy.business.client.model.ClientReference
+import com.sympauthy.business.collection.model.CollectionCriteria
+import com.sympauthy.business.collection.model.CollectionFieldValue
+import com.sympauthy.business.collection.model.PageParams
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.flow.manager.InteractiveFlowEngine
+import com.sympauthy.business.flow.manager.InteractiveFlowPurposeHandler
+import com.sympauthy.business.flow.manager.InteractiveFlowPurposeRegistry
+import com.sympauthy.business.flow.mapper.InteractiveFlowSessionMapper
+import com.sympauthy.business.flow.mapper.InteractiveFlowSessionSecurityContextMapper
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowPurposeStatus
+import com.sympauthy.business.flow.model.InteractiveFlowSession
+import com.sympauthy.business.flow.model.InteractiveFlowSessionStatus
+import com.sympauthy.business.flow.model.OnGoingInteractiveFlowSession
+import com.sympauthy.business.flow.model.PurposeDebugInformation
+import com.sympauthy.business.user.model.User
+import com.sympauthy.business.user.model.UserStatus
+import com.sympauthy.business.user.model.UserWithIdentifierClaims
+import com.sympauthy.config.exception.configExceptionOf
+import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import com.sympauthy.data.model.InteractiveFlowSessionSecurityContextEntity
+import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.data.repository.InteractiveFlowSessionSecurityContextRepository
+import com.sympauthy.platform.monitoring.manager.ConditionMonitor
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class InteractiveFlowSessionCollectionManagerTest {
+
+    companion object {
+        private val NOW: LocalDateTime = LocalDateTime.now()
+    }
+
+    @MockK
+    lateinit var sessionRepository: InteractiveFlowSessionRepository
+
+    @MockK
+    lateinit var securityContextRepository: InteractiveFlowSessionSecurityContextRepository
+
+    @MockK
+    lateinit var collectedClaimManager: CollectedClaimManager
+
+    @MockK
+    lateinit var engine: InteractiveFlowEngine
+
+    @MockK
+    lateinit var purposeRegistry: InteractiveFlowPurposeRegistry
+
+    @MockK
+    lateinit var clientManager: ClientManager
+
+    private val sessionMapper: InteractiveFlowSessionMapper =
+        InteractiveFlowSessionMapper()
+
+    private val securityContextMapper: InteractiveFlowSessionSecurityContextMapper =
+        InteractiveFlowSessionSecurityContextMapper()
+
+    @SpyK
+    var conditionMonitor: ConditionMonitor = ConditionMonitor()
+
+    @InjectMockKs
+    lateinit var manager: InteractiveFlowSessionCollectionManager
+
+    private val handedToHandlers = mutableListOf<InteractiveFlowSession>()
+
+    private val knownUsers = mutableMapOf<UUID, UserWithIdentifierClaims>()
+
+    @Test
+    fun `listSessions - Reports a session that completed and has since expired as completed`() = runTest {
+        givenSessions(
+            entity(
+                userId = UUID.randomUUID(),
+                completeDate = NOW.minusMinutes(40),
+                expirationDate = NOW.minusMinutes(10)
+            )
+        )
+        givenNoObservation()
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(InteractiveFlowSessionStatus.COMPLETED, page.items.single().status)
+    }
+
+    @Test
+    fun `listSessions - Reports a session that was ongoing at its expiration as expired`() = runTest {
+        givenSessions(entity(expirationDate = NOW.minusMinutes(10)))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(InteractiveFlowSessionStatus.EXPIRED, page.items.single().status)
+    }
+
+    @Test
+    fun `listSessions - Answers which purpose an expired session stalled on`() = runTest {
+        givenSessions(entity(expirationDate = NOW.minusMinutes(10)))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, page.items.single().currentPurpose)
+    }
+
+    @Test
+    fun `listSessions - Walks no purpose for a terminal session`() = runTest {
+        // engine is left unstubbed: reaching the assertion proves the walk was never run.
+        givenSessions(entity(cancelDate = NOW.minusMinutes(1), redirectType = "PLAIN"))
+        givenNoObservation()
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertNull(page.items.single().currentPurpose)
+    }
+
+    @Test
+    fun `listSessions - Reports no current purpose for a row whose walk refuses to answer`() = runTest {
+        // A session whose client the configuration has since dropped, or whose attached record is gone: the
+        // engine refuses to advance it, and one such row must not take down the page the others are on.
+        assertOneRefusedWalkLeavesThePageStanding(businessExceptionOf("client.invalid_client_id"))
+    }
+
+    @Test
+    fun `listSessions - Reports no current purpose when the walk reaches a configuration that will not parse`() =
+        runTest {
+            // Not a BusinessException, and not sharing a supertype with one: the walk reads the clients and
+            // the claims through the configuration, and enumerating what it can throw is what gets this wrong.
+            assertOneRefusedWalkLeavesThePageStanding(configExceptionOf("clients", "config.clients.invalid"))
+        }
+
+    private suspend fun assertOneRefusedWalkLeavesThePageStanding(failure: Throwable) {
+        val refused = entity(sessionDate = NOW.minusMinutes(5))
+        val walkable = entity(sessionDate = NOW.minusMinutes(1))
+        givenSessions(refused, walkable)
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(match { it.id == refused.id }) } throws failure
+        coEvery { engine.currentPurposeOrNull(match { it.id == walkable.id }) } returns
+            InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(listOf(refused.id, walkable.id), page.items.map { it.id })
+        assertNull(page.items.first().currentPurpose)
+        assertEquals(InteractiveFlowPurpose.OAUTH2_AUTHORIZE, page.items.last().currentPurpose)
+    }
+
+    @Test
+    fun `listSessions - Lets a cancellation travel on rather than reporting no current purpose`() = runTest {
+        givenSessions(entity())
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } throws CancellationException("the caller went away")
+
+        assertThrows<CancellationException> {
+            manager.listSessions(criteriaOf(), PageParams(0, 20))
+        }
+    }
+
+    @Test
+    fun `listSessions - Builds the sealed session for the page and not for everything the criteria kept`() =
+        runTest {
+            // The off-page row carries a purpose the enum does not name, so mapping it would throw. Reaching
+            // the assertion is proof that only the page's row was mapped.
+            val onPage = entity(sessionDate = NOW.minusMinutes(5))
+            val offPage = entity(sessionDate = NOW.minusMinutes(1), purposes = arrayOf("NOT_A_PURPOSE"))
+            givenSessions(onPage, offPage)
+            givenNoObservation()
+            coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+            val page = manager.listSessions(criteriaOf(), PageParams(0, 1))
+
+            assertEquals(listOf(onPage.id), page.items.map { it.id })
+        }
+
+    @Test
+    fun `listSessions - Matches q against the observed address`() = runTest {
+        val matching = entity(sessionDate = NOW.minusMinutes(3))
+        val other = entity(sessionDate = NOW.minusMinutes(2))
+        givenSessions(matching, other)
+        givenObservations(observation(matching.id!!, ip = "203.0.113.9"))
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(query = "113."), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Matches q against the observed user agent, ignoring case`() = runTest {
+        val matching = entity()
+        givenSessions(matching, entity())
+        givenObservations(observation(matching.id!!, userAgent = "Mozilla/5.0 Mobile Safari"))
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(query = "mobile safari"), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Matches q against the initiating client`() = runTest {
+        val matching = entity(initiatingClientId = "web-app")
+        givenSessions(matching, entity(initiatingClientId = "mobile-app"))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(query = "web"), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Names the client of each session, by its display name where it has one`() = runTest {
+        val webApp = entity(initiatingClientId = "web-app", sessionDate = NOW.minusMinutes(3))
+        val mobileApp = entity(initiatingClientId = "mobile-app", sessionDate = NOW.minusMinutes(2))
+        val noClient = entity(initiatingClientId = null, sessionDate = NOW.minusMinutes(1))
+        givenSessions(webApp, mobileApp, noClient)
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(
+            listOf(ClientReference("web-app", "Web app"), ClientReference("mobile-app", null), null),
+            page.items.map { it.initiatingClient }
+        )
+    }
+
+    @Test
+    fun `listSessions - Keeps only the sessions the status names`() = runTest {
+        // engine is left unstubbed: the ongoing session is dropped by the filter, so the walk never runs.
+        val cancelled = entity(cancelDate = NOW.minusMinutes(1), redirectType = "PLAIN")
+        givenSessions(cancelled, entity())
+        givenNoObservation()
+
+        val page = manager.listSessions(criteriaOf("status" to "cancelled"), PageParams(0, 20))
+
+        assertEquals(listOf(cancelled.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Keeps only the sessions the client names`() = runTest {
+        val matching = entity(initiatingClientId = "web-app")
+        givenSessions(matching, entity(initiatingClientId = null))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf("client" to "web-app"), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Keeps the sessions of a client the configuration no longer declares`() = runTest {
+        val matching = entity(initiatingClientId = "legacy")
+        givenSessions(matching, entity(initiatingClientId = "web-app"))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf("client" to "legacy"), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Orders by the date the session started, oldest first`() = runTest {
+        val older = entity(sessionDate = NOW.minusMinutes(5))
+        val newer = entity(sessionDate = NOW.minusMinutes(1))
+        givenSessions(newer, older)
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(), PageParams(0, 20))
+
+        assertEquals(listOf(older.id, newer.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Reverses the date under desc and leaves the tiebreak ascending`() = runTest {
+        val sameDate = NOW.minusMinutes(5)
+        val first = entity(id = UUID.fromString("00000000-0000-0000-0000-000000000001"), sessionDate = sameDate)
+        val second = entity(id = UUID.fromString("00000000-0000-0000-0000-000000000002"), sessionDate = sameDate)
+        val newer = entity(sessionDate = NOW.minusMinutes(1))
+        givenSessions(first, second, newer)
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(sort = "-session_date"), PageParams(0, 20))
+
+        assertEquals(listOf(newer.id, first.id, second.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `listSessions - Reads the users of the published page and not of everything the criteria kept`() =
+        runTest {
+            val onPage = entity(userId = UUID.randomUUID(), sessionDate = NOW.minusMinutes(5))
+            val offPage = entity(userId = UUID.randomUUID(), sessionDate = NOW.minusMinutes(1))
+            givenSessions(onPage, offPage)
+            givenNoObservation()
+            coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+            manager.listSessions(criteriaOf(), PageParams(0, 1))
+
+            coVerify(exactly = 1) { collectedClaimManager.listUsersWithIdentifierClaims(listOf(onPage.userId!!)) }
+        }
+
+    @Test
+    fun `listSessions - Keeps signed up on a session whose account the read does not answer`() = runTest {
+        givenSessions(entity(userId = UUID.randomUUID(), signedUp = true))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val row = manager.listSessions(criteriaOf(), PageParams(0, 20)).items.single()
+
+        assertNull(row.user)
+        assertTrue(row.signedUp)
+    }
+
+    @Test
+    fun `listSessions - Names the account with its identifier claims`() = runTest {
+        val userId = UUID.randomUUID()
+        givenSessions(entity(userId = userId))
+        givenNoObservation()
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+        givenUser(userId, "someone@example.com")
+
+        val row = manager.listSessions(criteriaOf(), PageParams(0, 20)).items.single()
+
+        assertEquals(userId, row.user?.user?.id)
+        assertEquals(listOf("someone@example.com"), row.user?.identifierClaims?.map { it.value })
+    }
+
+    @Test
+    fun `listSessions - Publishes the observed address and user agent`() = runTest {
+        val session = entity()
+        givenSessions(session)
+        givenObservations(observation(session.id!!, ip = "203.0.113.9", userAgent = "Mozilla/5.0"))
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val row = manager.listSessions(criteriaOf(), PageParams(0, 20)).items.single()
+
+        assertEquals("203.0.113.9", row.securityContext?.ip)
+        assertEquals("Mozilla/5.0", row.securityContext?.userAgent)
+    }
+
+    /** A session driven from two places is one row, and the row says where it was last driven from. */
+    @Test
+    fun `listSessions - Publishes the place the session was last driven from`() = runTest {
+        val session = entity()
+        givenSessions(session)
+        givenObservations(
+            observation(session.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
+            observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
+        )
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val row = manager.listSessions(criteriaOf(), PageParams(0, 20)).items.single()
+
+        assertEquals("198.51.100.4", row.securityContext?.ip)
+    }
+
+    /** An operator searching for an address finds the session it appeared in, latest place or not. */
+    @Test
+    fun `listSessions - Matches q against every place the session was driven from`() = runTest {
+        val matching = entity()
+        givenSessions(matching, entity())
+        givenObservations(
+            observation(matching.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
+            observation(matching.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
+        )
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val page = manager.listSessions(criteriaOf(query = "203.0.113.9"), PageParams(0, 20))
+
+        assertEquals(listOf(matching.id), page.items.map { it.id })
+    }
+
+    @Test
+    fun `findSessionOrNull - Returns null when no session holds the identifier`() = runTest {
+        val id = UUID.randomUUID()
+        coEvery { sessionRepository.findById(id) } returns null
+
+        assertNull(manager.findSessionOrNull(id))
+    }
+
+    @Test
+    fun `findSessionOrNull - Names the client the session was started for`() = runTest {
+        val session = entity(initiatingClientId = "web-app")
+        givenDetailReads(session)
+        coEvery { clientManager.getClientReference("web-app") } returns ClientReference("web-app", "Web app")
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(ClientReference("web-app", "Web app"), detail?.initiatingClient)
+    }
+
+    @Test
+    fun `findSessionOrNull - Marks each purpose completed, current or pending`() = runTest {
+        val session = entity(
+            purposes = arrayOf("CONFIRM", "REAUTHENTICATION", "LINK_PROVIDER"),
+            completedPurposes = arrayOf("CONFIRM"),
+            initiatingPurpose = "LINK_PROVIDER"
+        )
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns InteractiveFlowPurpose.REAUTHENTICATION
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(
+            listOf(
+                InteractiveFlowPurposeStatus.COMPLETED,
+                InteractiveFlowPurposeStatus.CURRENT,
+                InteractiveFlowPurposeStatus.PENDING
+            ),
+            detail?.purposes?.map { it.status }
+        )
+    }
+
+    /** What a reader opens a stalled session for is where it is being driven from now. */
+    @Test
+    fun `listSecurityContexts - Answers the places the session holds, the one seen most recently first`() =
+        runTest {
+            val session = entity()
+            coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
+                observation(session.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
+                observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
+            )
+
+            val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(0, 20))
+
+            assertEquals(listOf("198.51.100.4", "203.0.113.9"), page.items?.map { it.ip })
+            assertEquals(2, page.total)
+        }
+
+    /** Two places last seen at once still order the same way twice, so a walk cannot repeat one. */
+    @Test
+    fun `listSecurityContexts - Orders places seen at the same moment by address and user agent`() =
+        runTest {
+            val session = entity()
+            coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
+                observation(session.id!!, ip = "198.51.100.4", userAgent = "b"),
+                observation(session.id!!, ip = "198.51.100.4", userAgent = "a"),
+                observation(session.id!!, ip = "127.0.0.1", userAgent = null)
+            )
+
+            val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(0, 20))
+
+            assertEquals(
+                listOf("127.0.0.1" to null, "198.51.100.4" to "a", "198.51.100.4" to "b"),
+                page.items?.map { it.ip to it.userAgent }
+            )
+        }
+
+    @Test
+    fun `listSecurityContexts - Answers a page of the places the caller asked for`() = runTest {
+        val session = entity()
+        coEvery { securityContextRepository.findBySessionId(session.id!!) } returns listOf(
+            observation(session.id!!, ip = "203.0.113.9", lastSeenDate = NOW.minusMinutes(5)),
+            observation(session.id!!, ip = "198.51.100.4", lastSeenDate = NOW)
+        )
+
+        val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(1, 1))
+
+        assertEquals(listOf("203.0.113.9"), page.items?.map { it.ip })
+        assertEquals(2, page.total)
+    }
+
+    /** A session that was driven from nowhere it could record is not a session that is gone. */
+    @Test
+    fun `listSecurityContexts - Answers an empty page where the session holds no place`() = runTest {
+        val session = entity()
+        coEvery { securityContextRepository.findBySessionId(session.id!!) } returns emptyList()
+
+        val page = manager.listSecurityContexts(modelOf(session), placeCriteria(), PageParams(0, 20))
+
+        assertEquals(emptyList<String>(), page.items?.map { it.ip })
+        assertEquals(0, page.total)
+    }
+
+    /** The model of the session [entity] holds, as the caller that resolved it hands it over. */
+    private fun modelOf(entity: InteractiveFlowSessionEntity): InteractiveFlowSession = mockk {
+        every { id } returns entity.id!!
+    }
+
+    @Test
+    fun `findSessionOrNull - Reads the completed purposes of a failed session from its row`() = runTest {
+        val session = entity(
+            purposes = arrayOf("CONFIRM", "MFA_ENROLLMENT"),
+            completedPurposes = arrayOf("CONFIRM"),
+            initiatingPurpose = "MFA_ENROLLMENT",
+            errorDate = NOW.minusMinutes(1),
+            errorDetailsId = "some.error"
+        )
+        givenDetailReads(session)
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(InteractiveFlowSessionStatus.FAILED, detail?.status)
+        assertEquals(
+            listOf(InteractiveFlowPurposeStatus.COMPLETED, InteractiveFlowPurposeStatus.PENDING),
+            detail?.purposes?.map { it.status }
+        )
+        assertEquals("some.error", detail?.errorDetailsId)
+    }
+
+    @Test
+    fun `findSessionOrNull - Asks each purpose's handler what it has to say`() = runTest {
+        val session = entity(purposes = arrayOf("CONFIRM", "MFA_ENROLLMENT"), initiatingPurpose = "MFA_ENROLLMENT")
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns InteractiveFlowPurpose.CONFIRM
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(
+            listOf(
+                listOf(PurposeDebugInformation.Text("said_by_confirm", "yes")),
+                listOf(PurposeDebugInformation.Text("said_by_mfa_enrollment", "yes"))
+            ),
+            detail?.purposes?.map { it.debugInformation }
+        )
+    }
+
+    @Test
+    fun `findSessionOrNull - Hands an expired session to the handlers as an ongoing one`() = runTest {
+        val session = entity(userId = UUID.randomUUID(), expirationDate = NOW.minusMinutes(10))
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        manager.findSessionOrNull(session.id!!)
+
+        val handed = handedToHandlers.single()
+        assertTrue(handed is OnGoingInteractiveFlowSession, "an expired session is walked as an ongoing one")
+        assertEquals(session.userId, (handed as OnGoingInteractiveFlowSession).userId)
+    }
+
+    @Test
+    fun `findSessionOrNull - Answers an expired session with the failure it was routed on`() = runTest {
+        val session = entity(expirationDate = NOW.minusMinutes(10))
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns null
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        // The projection the flow routes the person with, which is what the page has to agree with
+        // rather than a second spelling of the same three values.
+        val routed = sessionMapper.toExpiredInteractiveFlowSession(session)
+        assertEquals(InteractiveFlowSessionStatus.EXPIRED, detail?.status)
+        assertEquals(routed.errorDetailsId, detail?.errorDetailsId)
+        assertEquals(routed.errorDescriptionId, detail?.errorDescriptionId)
+        assertEquals(routed.errorValues, detail?.errorValues)
+    }
+
+    @Test
+    fun `findSessionOrNull - Keeps the failure of a session that failed before its expiration passed`() = runTest {
+        val session = entity(
+            expirationDate = NOW.minusMinutes(10),
+            errorDate = NOW.minusMinutes(20),
+            errorDetailsId = "some.error"
+        )
+        givenDetailReads(session)
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(InteractiveFlowSessionStatus.FAILED, detail?.status)
+        assertEquals("some.error", detail?.errorDetailsId)
+        assertNull(detail?.errorValues)
+    }
+
+    @Test
+    fun `findSessionOrNull - Carries no failure for a session that is still ongoing`() = runTest {
+        val session = entity()
+        givenDetailReads(session)
+        coEvery { engine.currentPurposeOrNull(any()) } returns InteractiveFlowPurpose.OAUTH2_AUTHORIZE
+
+        val detail = manager.findSessionOrNull(session.id!!)
+
+        assertEquals(InteractiveFlowSessionStatus.ONGOING, detail?.status)
+        assertNull(detail?.errorDetailsId)
+        assertNull(detail?.errorDescriptionId)
+        assertNull(detail?.errorValues)
+    }
+
+    private suspend fun criteriaOf(
+        vararg filters: Pair<String, String>,
+        sort: String? = null,
+        query: String? = null
+    ): CollectionCriteria {
+        coEvery { sessionRepository.findDistinctInitiatingClientIds() } returns listOf("web-app", "legacy")
+        coEvery { clientManager.getClientFieldValues(listOf("web-app", "legacy")) } returns
+            listOf("web-app", "mobile-app", "legacy").map { CollectionFieldValue(it, "fields.client_id.$it") }
+        givenClientsReferenced()
+        return manager.capabilities().criteriaOf(*filters, sort = sort, query = query)
+    }
+
+    private suspend fun placeCriteria(): CollectionCriteria =
+        manager.securityContextCapabilities().criteriaOf()
+
+    /**
+     * Answer the references to clients from the display names the configuration gives: `mobile-app` is declared
+     * without one.
+     */
+    private fun givenClientsReferenced() {
+        val displayNames = mapOf("web-app" to "Web app")
+        coEvery { clientManager.getClientReferences(any()) } answers {
+            firstArg<Collection<String>>().associateWith { ClientReference(it, displayNames[it]) }
+        }
+    }
+
+    private fun givenSessions(vararg entities: InteractiveFlowSessionEntity) {
+        coEvery { sessionRepository.findAll() } returns flowOf(*entities)
+        givenUsersRead()
+    }
+
+    private fun givenNoObservation() {
+        coEvery { securityContextRepository.findAll() } returns flowOf()
+    }
+
+    private fun givenObservations(vararg entities: InteractiveFlowSessionSecurityContextEntity) {
+        coEvery { securityContextRepository.findAll() } returns flowOf(*entities)
+    }
+
+    /**
+     * Answer the read of the users a page names from [knownUsers], which [givenUser] fills.
+     */
+    private fun givenUsersRead() {
+        coEvery { collectedClaimManager.listUsersWithIdentifierClaims(any()) } answers {
+            firstArg<List<UUID>>().mapNotNull { id -> knownUsers[id]?.let { id to it } }.toMap()
+        }
+    }
+
+    private fun givenUser(userId: UUID, email: String) {
+        val user = User(id = userId, status = UserStatus.ENABLED, creationDate = NOW, sessionId = null)
+        val identifierClaim = CollectedClaim(
+            userId = userId,
+            claim = mockk<EnabledClaim>(),
+            value = email,
+            verified = true,
+            collectionDate = NOW,
+            verificationDate = NOW
+        )
+        knownUsers[userId] = UserWithIdentifierClaims(user, listOf(identifierClaim))
+    }
+
+    private fun givenDetailReads(session: InteractiveFlowSessionEntity) {
+        coEvery { sessionRepository.findById(session.id!!) } returns session
+        session.userId?.let { userId ->
+            coEvery { collectedClaimManager.findUserWithIdentifierClaimsOrNull(userId) } answers { knownUsers[userId] }
+        }
+        session.purposes.forEach { purpose ->
+            val handler = mockk<InteractiveFlowPurposeHandler>()
+            coEvery { handler.debugInformation(capture(handedToHandlers)) } returns
+                listOf(PurposeDebugInformation.Text("said_by_${purpose.lowercase()}", "yes"))
+            every { purposeRegistry.getForPurpose(InteractiveFlowPurpose.valueOf(purpose)) } returns handler
+        }
+    }
+
+    private fun observation(
+        sessionId: UUID,
+        ip: String = "127.0.0.1",
+        userAgent: String? = null,
+        firstSeenDate: LocalDateTime = NOW.minusMinutes(1),
+        lastSeenDate: LocalDateTime = NOW,
+        provenDate: LocalDateTime? = null
+    ) = InteractiveFlowSessionSecurityContextEntity(
+        sessionId = sessionId,
+        fingerprint = "fingerprint-$ip-$userAgent",
+        ip = ip,
+        userAgent = userAgent,
+        firstSeenDate = firstSeenDate,
+        lastSeenDate = lastSeenDate,
+        provenDate = provenDate
+    )
+
+    private fun entity(
+        id: UUID = UUID.randomUUID(),
+        purposes: Array<String> = arrayOf("OAUTH2_AUTHORIZE"),
+        completedPurposes: Array<String> = emptyArray(),
+        initiatingPurpose: String = "OAUTH2_AUTHORIZE",
+        initiatingClientId: String? = null,
+        sessionDate: LocalDateTime = NOW.minusMinutes(2),
+        expirationDate: LocalDateTime = NOW.plusMinutes(10),
+        userId: UUID? = null,
+        signedUp: Boolean = false,
+        redirectType: String? = null,
+        completeDate: LocalDateTime? = null,
+        cancelDate: LocalDateTime? = null,
+        errorDate: LocalDateTime? = null,
+        errorDetailsId: String? = null,
+    ) = InteractiveFlowSessionEntity(
+        purposes = purposes,
+        completedPurposes = completedPurposes,
+        initiatingPurpose = initiatingPurpose,
+        initiatingClientId = initiatingClientId,
+        sessionDate = sessionDate,
+        flowId = "flow",
+        expirationDate = expirationDate,
+        userId = userId,
+        signedUp = signedUp,
+        redirectUri = (redirectType ?: completeDate)?.let { "https://client.example.com/callback" },
+        redirectType = redirectType ?: completeDate?.let { "AUTHORIZATION_CODE" },
+        completeDate = completeDate,
+        cancelDate = cancelDate,
+        errorDate = errorDate,
+        errorDetailsId = errorDetailsId,
+    ).apply { this.id = id }
+}

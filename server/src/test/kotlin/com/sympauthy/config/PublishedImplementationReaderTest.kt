@@ -1,8 +1,8 @@
 package com.sympauthy.config
 
-import com.sympauthy.business.model.key.CryptoKeysGenerationStrategy
-import com.sympauthy.business.model.securitycontext.edge.GeoProvider
-import com.sympauthy.business.model.securitycontext.edge.IpProvider
+import com.sympauthy.business.key.model.CryptoKeysGenerationStrategy
+import com.sympauthy.business.securitycontext.edge.model.GeoProvider
+import com.sympauthy.business.securitycontext.edge.model.IpProvider
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.AdvancedConfig
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
@@ -27,7 +27,7 @@ class PublishedImplementationReaderTest {
     lateinit var reader: PublishedImplementationReader
 
     /**
-     * The map [com.sympauthy.business.manager.key.CryptoKeysManager] resolves a strategy out of.
+     * The map [com.sympauthy.business.key.manager.CryptoKeysManager] resolves a strategy out of.
      */
     @Inject
     lateinit var generationStrategies: Map<String, CryptoKeysGenerationStrategy>

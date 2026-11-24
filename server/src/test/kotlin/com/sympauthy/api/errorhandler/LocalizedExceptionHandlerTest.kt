@@ -21,11 +21,11 @@ import com.sympauthy.api.resource.error.ErrorResource
 import com.sympauthy.api.resource.error.OAuth2ErrorResource
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.internalBusinessExceptionOf
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InsufficientUserAuthentication
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_CLIENT
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.SERVER_ERROR
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InsufficientUserAuthentication
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InvalidToken
 import com.sympauthy.config.model.Config
 import com.sympauthy.config.model.invalidConfig
 import com.sympauthy.exception.LocalizedException

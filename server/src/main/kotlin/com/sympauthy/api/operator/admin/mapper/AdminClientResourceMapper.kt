@@ -4,11 +4,11 @@ import com.sympauthy.api.operator.admin.resource.AdminAuthorizationWebhookResour
 import com.sympauthy.api.operator.admin.resource.AdminClientReferenceResource
 import com.sympauthy.api.operator.admin.resource.AdminClientResource
 import com.sympauthy.api.operator.admin.resource.AdminClientSummaryResource
-import com.sympauthy.business.model.client.AuthorizationWebhook
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.client.ClientReference
-import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.client.model.AuthorizationWebhook
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.client.model.ClientReference
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.scope.model.Scope
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

@@ -5,7 +5,7 @@ import com.ezylang.evalex.data.EvaluationValue
 import com.ezylang.evalex.functions.AbstractFunction
 import com.ezylang.evalex.functions.FunctionParameter
 import com.ezylang.evalex.parser.Token
-import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.client.model.Client
 
 /**
  * Custom function returning the value of a client property: `public` as a boolean, every other one as a

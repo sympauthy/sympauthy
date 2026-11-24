@@ -1,11 +1,11 @@
 package com.sympauthy.api.flow.resource
 
 import com.sympauthy.api.resource.allowableValuesOf
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.ClaimGroup
-import com.sympauthy.business.model.flow.ConfirmActionType
-import com.sympauthy.business.model.mfa.MfaMethodType
-import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.flow.model.ConfirmActionType
+import com.sympauthy.business.mfa.model.MfaMethodType
+import com.sympauthy.business.validationcode.model.ValidationCodeMedia
 import com.sympauthy.platform.util.wireName
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

@@ -20,9 +20,9 @@ import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionClaimValidationManager
-import com.sympauthy.business.model.securitycontext.ObservedRequest
-import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.flow.auth.manager.InteractiveAuthFlowSessionClaimValidationManager
+import com.sympauthy.business.securitycontext.model.ObservedRequest
+import com.sympauthy.business.validationcode.model.ValidationCodeMedia
 import com.sympauthy.platform.util.enumValueOfWireNameOrNull
 import com.sympauthy.platform.util.wireName
 import com.sympauthy.security.SecurityRule.HAS_STATE

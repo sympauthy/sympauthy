@@ -1,7 +1,7 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminUserProviderResource
-import com.sympauthy.business.model.provider.ProviderUserInfo
+import com.sympauthy.business.provider.model.ProviderUserInfo
 import jakarta.inject.Singleton
 
 @Singleton

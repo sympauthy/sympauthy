@@ -8,8 +8,8 @@ import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.business.exception.BusinessException
 import com.sympauthy.business.exception.businessExceptionOf
-import com.sympauthy.business.model.flow.InteractiveFlowSession
-import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
+import com.sympauthy.business.flow.model.InteractiveFlowSession
+import com.sympauthy.business.securitycontext.edge.model.observedRequestOf
 import com.sympauthy.security.StateAuthentication
 import io.micronaut.http.HttpRequest
 import io.mockk.coEvery

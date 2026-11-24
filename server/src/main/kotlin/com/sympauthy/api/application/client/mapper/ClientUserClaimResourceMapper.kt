@@ -1,7 +1,7 @@
 package com.sympauthy.api.application.client.mapper
 
 import com.sympauthy.api.application.client.resource.ClientUserClaimResource
-import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.claim.model.CollectedClaim
 import jakarta.inject.Singleton
 import java.util.*
 

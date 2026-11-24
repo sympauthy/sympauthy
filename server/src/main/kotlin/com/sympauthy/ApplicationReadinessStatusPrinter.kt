@@ -3,14 +3,14 @@ package com.sympauthy
 import com.sympauthy.api.operator.console.AdminUiController.Companion.ADMIN_UI_ENDPOINT
 import com.sympauthy.api.operator.console.OpenApiController.Companion.OPENAPI_ENDPOINT
 import com.sympauthy.api.operator.console.SwaggerUiController.Companion.SWAGGER_UI_ENDPOINT
-import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.manager.client.ClientManager
-import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.scope.ScopeManager
-import com.sympauthy.business.manager.scope.granting.ScopeGrantingRuleManager
-import com.sympauthy.business.model.claim.ClaimKind
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
-import com.sympauthy.business.model.scope.isAdmin
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.client.manager.ClientManager
+import com.sympauthy.business.flow.model.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
+import com.sympauthy.business.provider.manager.ProviderManager
+import com.sympauthy.business.scope.granting.manager.ScopeGrantingRuleManager
+import com.sympauthy.business.scope.manager.ScopeManager
+import com.sympauthy.business.scope.model.isAdmin
 import com.sympauthy.config.ConfigReadiness
 import com.sympauthy.config.model.*
 import com.sympauthy.platform.monitoring.loggerForClass
@@ -99,8 +99,8 @@ class ApplicationReadinessStatusPrinter(
         } else {
             val providerDescriptions = enabledProviders.joinToString(", ") { provider ->
                 val type = when (provider.auth) {
-                    is com.sympauthy.business.model.provider.config.ProviderOpenIdConnectConfig -> "OpenID Connect"
-                    is com.sympauthy.business.model.provider.config.ProviderOAuth2Config -> "OAuth2"
+                    is com.sympauthy.business.provider.config.model.ProviderOpenIdConnectConfig -> "OpenID Connect"
+                    is com.sympauthy.business.provider.config.model.ProviderOAuth2Config -> "OAuth2"
                 }
                 "${provider.name} ($type)"
             }
@@ -135,12 +135,12 @@ class ApplicationReadinessStatusPrinter(
         } catch (_: Throwable) {
             emptyList()
         }
-        val consentableScopesCount = scopes.count { it is com.sympauthy.business.model.scope.ConsentableUserScope }
+        val consentableScopesCount = scopes.count { it is com.sympauthy.business.scope.model.ConsentableUserScope }
         val adminScopesCount =
-            scopes.count { it is com.sympauthy.business.model.scope.GrantableUserScope && it.isAdmin }
+            scopes.count { it is com.sympauthy.business.scope.model.GrantableUserScope && it.isAdmin }
         val grantableScopesCount =
-            scopes.count { it is com.sympauthy.business.model.scope.GrantableUserScope && !it.isAdmin }
-        val clientScopesCount = scopes.count { it is com.sympauthy.business.model.scope.ClientScope }
+            scopes.count { it is com.sympauthy.business.scope.model.GrantableUserScope && !it.isAdmin }
+        val clientScopesCount = scopes.count { it is com.sympauthy.business.scope.model.ClientScope }
         logger.info {
             "- ${pluralize(scopes.size, "scope")} " +
                     "(${pluralize(consentableScopesCount, "consentable", "consentable")}, " +

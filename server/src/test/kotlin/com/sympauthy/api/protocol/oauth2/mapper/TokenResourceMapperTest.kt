@@ -1,10 +1,10 @@
 package com.sympauthy.api.protocol.oauth2.mapper
 
-import com.sympauthy.business.model.token.AuthenticationTokenType
-import com.sympauthy.business.model.token.EncodedAuthenticationToken
-import com.sympauthy.business.model.token.IssuedTokens
-import com.sympauthy.business.model.token.TokenIssuance
-import com.sympauthy.business.model.token.TokenRequest
+import com.sympauthy.business.token.model.AuthenticationTokenType
+import com.sympauthy.business.token.model.EncodedAuthenticationToken
+import com.sympauthy.business.token.model.IssuedTokens
+import com.sympauthy.business.token.model.TokenIssuance
+import com.sympauthy.business.token.model.TokenRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

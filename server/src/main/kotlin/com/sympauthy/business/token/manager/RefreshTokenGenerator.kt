@@ -1,0 +1,77 @@
+package com.sympauthy.business.token.manager
+
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.grant.model.Grant
+import com.sympauthy.business.jwt.manager.JwtManager
+import com.sympauthy.business.token.mapper.EncodedAuthenticationTokenMapper
+import com.sympauthy.business.token.model.AuthenticationTokenType.REFRESH
+import com.sympauthy.business.token.model.EncodedAuthenticationToken
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.orThrow
+import com.sympauthy.data.model.AuthenticationTokenEntity
+import com.sympauthy.data.repository.AuthenticationTokenRepository
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.util.wireName
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.*
+
+@Singleton
+class RefreshTokenGenerator(
+    @Inject private val jwtManager: JwtManager,
+    @Inject private val tokenRepository: AuthenticationTokenRepository,
+    @Inject private val tokenMapper: EncodedAuthenticationTokenMapper,
+    @Inject private val authConfig: AuthConfig,
+    @Inject private val customSpanTracer: CustomSpanTracer
+) {
+
+    /**
+     * Generate a new refresh token under the [grant], recorded as issued by [grantType] — the grant type that
+     * opened the [grant], unless a refresh issues it — or return null if the refresh token is disabled by the
+     * [authConfig].
+     *
+     * Nothing about the authorization is claimed in it — nothing reads a refresh token but this server, and
+     * every token the next refresh mints reads the [grant] — beyond the subject and the [audience] it was
+     * issued for.
+     *
+     * Its row expires no later than the [grant] does, and the `exp` it is signed with is its own lifetime
+     * instead, as `docs/design/grants.md` has it.
+     */
+    suspend fun generateRefreshToken(
+        grant: Grant,
+        audience: Audience,
+        grantType: GrantType = grant.grantType,
+        dpopJkt: String? = null
+    ): EncodedAuthenticationToken? {
+        val enabledAuthConfig = authConfig.orThrow()
+        if (!enabledAuthConfig.token.refreshEnabled) {
+            return null
+        }
+
+        return customSpanTracer.issueToken(CustomSpanTracer.REFRESH_TOKEN) {
+            val issueDate = LocalDateTime.now()
+            val ownExpirationDate = enabledAuthConfig.token.refreshExpiration?.let(issueDate::plus)
+            val entity = AuthenticationTokenEntity(
+                type = REFRESH.name,
+                grantId = grant.id,
+                grantType = grantType.wireName,
+                dpopJkt = dpopJkt,
+                issueDate = issueDate,
+                expirationDate = grant.getTokenExpirationDate(ownExpirationDate)
+            ).let { tokenRepository.save(it) }
+
+            val encodedToken = jwtManager.create(JwtManager.REFRESH_KEY) {
+                entity.id?.toString()?.let(this::jwtID)
+                audience(listOf(audience.tokenAudience))
+                subject(grant.userId?.toString() ?: grant.clientId)
+                issueTime(Date.from(issueDate.toInstant(ZoneOffset.UTC)))
+                ownExpirationDate?.toInstant(ZoneOffset.UTC)?.let { expirationTime(Date.from(it)) }
+            }
+
+            tokenMapper.toEncodedAuthenticationToken(entity, grant, encodedToken)
+        }
+    }
+}

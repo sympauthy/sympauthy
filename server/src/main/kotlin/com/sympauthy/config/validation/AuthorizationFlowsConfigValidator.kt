@@ -1,11 +1,11 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
-import com.sympauthy.business.model.flow.AuthorizationFlowType
-import com.sympauthy.business.model.flow.InteractiveFlow
-import com.sympauthy.business.model.flow.ResetPasswordPages
+import com.sympauthy.business.flow.model.AuthorizationFlow
+import com.sympauthy.business.flow.model.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
+import com.sympauthy.business.flow.model.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
+import com.sympauthy.business.flow.model.AuthorizationFlowType
+import com.sympauthy.business.flow.model.InteractiveFlow
+import com.sympauthy.business.flow.model.ResetPasswordPages
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.parsing.ParsedAuthorizationFlow

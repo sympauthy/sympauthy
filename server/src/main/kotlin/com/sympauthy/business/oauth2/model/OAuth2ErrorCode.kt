@@ -1,0 +1,188 @@
+package com.sympauthy.business.oauth2.model
+
+import io.micronaut.http.HttpStatus
+import io.micronaut.http.HttpStatus.*
+
+/**
+ * List of predefined errors codes standardized by the OAuth2 authorization framework.
+ *
+ * @see <a href="https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2.1">Error response</a>
+ */
+enum class OAuth2ErrorCode(
+    val status: HttpStatus,
+    val errorCode: String,
+    val defaultDescriptionId: String
+) {
+
+    /**
+     * The request is missing a required parameter, includes an invalid parameter value, includes a parameter more than
+     * once, or is otherwise malformed.
+     */
+    INVALID_REQUEST(
+        BAD_REQUEST,
+        "invalid_request",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The client is not authorized to request an authorization code using this method.
+     */
+    UNAUTHORIZED_CLIENT(
+        BAD_REQUEST,
+        "unauthorized_client",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The resource owner or authorization server denied the request.
+     */
+    ACCESS_DENIED(
+        UNAUTHORIZED,
+        "access_denied",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authorization server does not support obtaining an authorization code using this method.
+     */
+    UNSUPPORTED_RESPONSE_TYPE(
+        BAD_REQUEST,
+        "unsupported_response_type",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The requested scope is invalid, unknown, or malformed.
+     */
+    INVALID_SCOPE(
+        BAD_REQUEST,
+        "invalid_scope",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authorization request carries a `request` parameter, and this server reads no request object.
+     *
+     * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#AuthError">OpenID Connect Core §3.1.2.6</a>
+     */
+    REQUEST_NOT_SUPPORTED(
+        BAD_REQUEST,
+        "request_not_supported",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authorization request carries a `request_uri` parameter, and this server reads no request object.
+     *
+     * @see <a href="https://openid.net/specs/openid-connect-core-1_0.html#AuthError">OpenID Connect Core §3.1.2.6</a>
+     */
+    REQUEST_URI_NOT_SUPPORTED(
+        BAD_REQUEST,
+        "request_uri_not_supported",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The provided authorization grant (e.g., authorization code, resource owner credentials)
+     * or refresh token is invalid, expired, revoked, does not match the redirection URI used in
+     * the authorization request, or was issued to another client.
+     */
+    INVALID_GRANT(
+        BAD_REQUEST,
+        "invalid_grant",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authorization grant type is not supported by the authorization server.
+     */
+    UNSUPPORTED_GRANT_TYPE(
+        BAD_REQUEST,
+        "unsupported_grant_type",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The DPoP proof is invalid, malformed, or missing when required.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc9449#section-7">RFC 9449 Section 7</a>
+     */
+    INVALID_DPOP_PROOF(
+        BAD_REQUEST,
+        "invalid_dpop_proof",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The access token presented to a protected resource is expired, revoked, malformed, or invalid for other
+     * reasons.
+     *
+     * A resource of this server answers it with the API standard's body and names it in the challenge beside
+     * that body, never in the body RFC 6749 defines.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc6750#section-3.1">RFC 6750 Section 3.1</a>
+     */
+    INVALID_TOKEN(
+        UNAUTHORIZED,
+        "invalid_token",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The request requires higher privileges than the access token presented provides. Named in a challenge
+     * only, as [INVALID_TOKEN] is.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc6750#section-3.1">RFC 6750 Section 3.1</a>
+     */
+    INSUFFICIENT_SCOPE(
+        FORBIDDEN,
+        "insufficient_scope",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authentication behind the access token presented does not meet what the resource requires of it.
+     * Named in a challenge only, as [INVALID_TOKEN] is.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc9470#section-3">RFC 9470 Section 3</a>
+     */
+    INSUFFICIENT_USER_AUTHENTICATION(
+        UNAUTHORIZED,
+        "insufficient_user_authentication",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * The authorization server is unable to issue a token for the target service or resource indicated by the
+     * `resource` or `audience` request parameter of a token exchange request.
+     *
+     * @see <a href="https://datatracker.ietf.org/doc/html/rfc8693#section-2.2.2">RFC 8693 Section 2.2.2</a>
+     */
+    INVALID_TARGET(
+        BAD_REQUEST,
+        "invalid_target",
+        "description.oauth2.invalid"
+    ),
+
+    /**
+     * Client authentication failed (e.g., unknown client, no client authentication included, or unsupported
+     * authentication method).
+     *
+     * It answers `400`, the status RFC 6749 §5.2 answers every error with, unless the exception raising
+     * it carries a challenge, which makes it a `401`.
+     */
+    INVALID_CLIENT(
+        BAD_REQUEST,
+        "invalid_client",
+        "description.oauth2.invalid_client"
+    ),
+
+    /**
+     * The authorization server encountered an unexpected condition that prevented it from fulfilling the request.
+     */
+    SERVER_ERROR(
+        INTERNAL_SERVER_ERROR,
+        "server_error",
+        "description.internal_server_error"
+    )
+}

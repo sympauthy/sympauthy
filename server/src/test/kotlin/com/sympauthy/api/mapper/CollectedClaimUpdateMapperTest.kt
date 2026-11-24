@@ -1,10 +1,10 @@
 package com.sympauthy.api.mapper
 
 import com.sympauthy.api.exception.LocalizedHttpException
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.manager.ClaimValueValidator
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.manager.claim.ClaimValueValidator
-import com.sympauthy.business.model.claim.EnabledClaim
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -38,7 +38,7 @@ class CollectedClaimUpdateMapperTest {
     /**
      * A claim this deployment declares under [id], whose value the validator refuses with [detailsId]
      * and the claim as a value to interpolate — as
-     * [com.sympauthy.business.manager.claim.ClaimValueValidator] throws it.
+     * [com.sympauthy.business.claim.manager.ClaimValueValidator] throws it.
      *
      * Its id is stubbed here rather than in [declare] because the mapper only reads the id of a claim
      * it refuses, and a stub nothing reads fails the run.

@@ -1,6 +1,6 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.*

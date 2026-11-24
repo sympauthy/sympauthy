@@ -12,18 +12,18 @@ import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.util.RETURN_URI_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.RETURN_URL_DESCRIPTION
 import com.sympauthy.api.util.orNotFound
+import com.sympauthy.business.client.manager.ClientRedirectUriManager
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.manager.client.ClientRedirectUriManager
-import com.sympauthy.business.manager.flow.InteractiveFlowEngine
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionManager
-import com.sympauthy.business.manager.flow.auth.InteractiveAuthFlowSessionManager
-import com.sympauthy.business.manager.flow.link.InteractiveFlowSessionLinkProviderManager
-import com.sympauthy.business.manager.provider.ProviderManager
-import com.sympauthy.business.manager.token.TokenManager
-import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.scope.BuiltInClientScopeId
-import com.sympauthy.business.model.securitycontext.ObservedRequest
-import com.sympauthy.business.model.token.AuthenticationTokenType.ACCESS
+import com.sympauthy.business.flow.auth.manager.InteractiveAuthFlowSessionManager
+import com.sympauthy.business.flow.link.manager.InteractiveFlowSessionLinkProviderManager
+import com.sympauthy.business.flow.manager.InteractiveFlowEngine
+import com.sympauthy.business.flow.manager.InteractiveFlowSessionManager
+import com.sympauthy.business.provider.manager.ProviderManager
+import com.sympauthy.business.scope.model.BuiltInClientScopeId
+import com.sympauthy.business.securitycontext.model.ObservedRequest
+import com.sympauthy.business.token.manager.TokenManager
+import com.sympauthy.business.token.model.AuthenticationTokenType.ACCESS
+import com.sympauthy.business.user.manager.UserManager
 import com.sympauthy.security.SecurityRule.CLIENT_USERS_PROVIDERS_WRITE
 import com.sympauthy.security.clientAuthentication
 import io.micronaut.http.annotation.Body
@@ -49,7 +49,7 @@ import jakarta.inject.Inject
  * - the **end-user** is identified by their access token, passed in the request body and validated to have
  *   been issued to the calling client.
  *
- * It starts an [com.sympauthy.business.model.flow.InteractiveFlowPurpose.LINK_PROVIDER] session for that
+ * It starts an [com.sympauthy.business.flow.model.InteractiveFlowPurpose.LINK_PROVIDER] session for that
  * end-user (gated by a confirmation and — because linking a provider mints a durable login credential — a
  * forced re-authentication) and hands the caller the initial signed `state` + the page URL to drive the
  * browser to. However the link ends, the end-user is redirected back to the client's return URI.

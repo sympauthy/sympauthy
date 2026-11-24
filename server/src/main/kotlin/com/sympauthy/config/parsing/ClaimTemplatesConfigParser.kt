@@ -1,8 +1,8 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.claim.ClaimGroup
-import com.sympauthy.business.model.claim.ClaimKind
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.properties.ClaimTemplateConfigurationProperties

@@ -1,6 +1,6 @@
 package com.sympauthy.data.repository
 
-import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.claim.mapper.ClaimValueMapper
 import com.sympauthy.data.BASE_DATE
 import com.sympauthy.data.Database
 import com.sympauthy.data.RepositoryFixture

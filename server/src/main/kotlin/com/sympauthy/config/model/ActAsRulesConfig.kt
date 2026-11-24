@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.actas.ActAsRule
+import com.sympauthy.business.actas.model.ActAsRule
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ActAsRulesConfig(

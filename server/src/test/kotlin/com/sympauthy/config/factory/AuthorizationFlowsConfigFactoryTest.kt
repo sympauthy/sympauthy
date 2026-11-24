@@ -1,7 +1,7 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
-import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.flow.model.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ID
+import com.sympauthy.business.flow.model.InteractiveFlow
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.DisabledAuthorizationFlowsConfig

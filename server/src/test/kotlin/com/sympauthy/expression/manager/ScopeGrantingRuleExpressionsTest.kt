@@ -1,9 +1,9 @@
 package com.sympauthy.expression.manager
 
 import com.ezylang.evalex.Expression
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import io.mockk.every
 import io.mockk.mockk

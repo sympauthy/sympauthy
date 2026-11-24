@@ -23,11 +23,11 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.collection.GrantCollectionManager
-import com.sympauthy.business.manager.grant.GrantManager
-import com.sympauthy.business.model.grant.GrantRevocationCriteria
-import com.sympauthy.business.model.grant.GrantRevokedBy
-import com.sympauthy.business.model.scope.AdminScopeId
+import com.sympauthy.business.collection.manager.GrantCollectionManager
+import com.sympauthy.business.grant.manager.GrantManager
+import com.sympauthy.business.grant.model.GrantRevocationCriteria
+import com.sympauthy.business.grant.model.GrantRevokedBy
+import com.sympauthy.business.scope.model.AdminScopeId
 import com.sympauthy.platform.util.orDefault
 import com.sympauthy.security.SecurityRule.ADMIN_GRANTS_READ
 import com.sympauthy.security.SecurityRule.ADMIN_GRANTS_WRITE

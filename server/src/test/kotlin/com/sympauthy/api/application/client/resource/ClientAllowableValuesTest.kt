@@ -1,7 +1,7 @@
 package com.sympauthy.api.application.client.resource
 
 import com.sympauthy.api.resource.allowableValuesOf
-import com.sympauthy.business.model.invitation.InvitationStatus
+import com.sympauthy.business.invitation.model.InvitationStatus
 import com.sympauthy.platform.util.wireName
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

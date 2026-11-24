@@ -1,6 +1,6 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.business.branding.model.DarkMode
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.LIGHT_ONLY_THEME_ROLES

@@ -1,7 +1,7 @@
 package com.sympauthy.api
 
-import com.sympauthy.business.model.scope.AdminScope
-import com.sympauthy.business.model.scope.BuiltInClientScope
+import com.sympauthy.business.scope.model.AdminScope
+import com.sympauthy.business.scope.model.BuiltInClientScope
 import com.sympauthy.compiledClassesOf
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.SecurityRule.IS_CLIENT

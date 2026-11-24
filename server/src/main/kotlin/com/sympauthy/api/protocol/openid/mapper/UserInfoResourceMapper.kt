@@ -2,12 +2,12 @@ package com.sympauthy.api.protocol.openid.mapper
 
 import com.sympauthy.api.protocol.openid.resource.AddressResource
 import com.sympauthy.api.protocol.openid.resource.UserInfoResource
-import com.sympauthy.business.manager.claim.GeneratedClaimsManager
-import com.sympauthy.business.model.authorization.RequestedClaims
-import com.sympauthy.business.model.claim.ClaimGroup
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.claim.OpenIdConnectClaimId
+import com.sympauthy.business.authorization.model.RequestedClaims
+import com.sympauthy.business.claim.manager.GeneratedClaimsManager
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.OpenIdConnectClaimId
 import jakarta.inject.Singleton
 import java.time.LocalDate
 import java.util.*

@@ -1,6 +1,6 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.scope.ScopePublicationPlace
+import com.sympauthy.business.scope.model.ScopePublicationPlace
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.properties.ScopeTemplateConfigurationProperties

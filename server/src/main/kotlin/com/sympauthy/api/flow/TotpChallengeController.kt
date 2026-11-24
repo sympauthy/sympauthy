@@ -16,8 +16,8 @@ import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.flow.mfa.InteractiveFlowSessionTotpChallengeManager
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.flow.mfa.manager.InteractiveFlowSessionTotpChallengeManager
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Body

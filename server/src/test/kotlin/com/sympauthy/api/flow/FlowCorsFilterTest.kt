@@ -2,7 +2,7 @@ package com.sympauthy.api.flow
 
 import com.sympauthy.api.FLOW_SURFACE
 import com.sympauthy.api.filter.CorsPreflightHeaders
-import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.flow.model.InteractiveFlow
 import com.sympauthy.config.model.EnabledAuthorizationFlowsConfig
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpMethod

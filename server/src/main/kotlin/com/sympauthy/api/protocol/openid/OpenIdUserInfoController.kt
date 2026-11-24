@@ -5,8 +5,8 @@ import com.sympauthy.api.protocol.openid.OpenIdUserInfoController.Companion.OPEN
 import com.sympauthy.api.protocol.openid.mapper.UserInfoResourceMapper
 import com.sympauthy.api.protocol.openid.resource.UserInfoResource
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
-import com.sympauthy.business.manager.claim.ClaimAclManager
-import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.claim.manager.ClaimAclManager
+import com.sympauthy.business.claim.manager.ConsentAwareCollectedClaimManager
 import com.sympauthy.security.SecurityRule.IS_USER
 import com.sympauthy.security.userAuthentication
 import com.sympauthy.security.userId

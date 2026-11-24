@@ -1,8 +1,8 @@
 package com.sympauthy.api.flow.mapper
 
-import com.sympauthy.business.model.validationcode.ValidationCode
-import com.sympauthy.business.model.validationcode.ValidationCodeMedia
-import com.sympauthy.business.model.validationcode.ValidationCodeReason
+import com.sympauthy.business.validationcode.model.ValidationCode
+import com.sympauthy.business.validationcode.model.ValidationCodeMedia
+import com.sympauthy.business.validationcode.model.ValidationCodeReason
 import io.micronaut.serde.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

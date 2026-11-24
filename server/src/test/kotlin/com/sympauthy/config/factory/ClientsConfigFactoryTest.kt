@@ -1,15 +1,15 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.flow.InteractiveFlow
-import com.sympauthy.business.model.scope.ClientScope
-import com.sympauthy.business.model.scope.ConsentableUserScope
-import com.sympauthy.business.model.scope.DisabledScope
-import com.sympauthy.business.model.scope.EnabledScope
-import com.sympauthy.business.model.scope.Scope
-import com.sympauthy.business.model.scope.ScopeType
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.flow.model.AuthorizationFlow
+import com.sympauthy.business.flow.model.InteractiveFlow
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.scope.model.ConsentableUserScope
+import com.sympauthy.business.scope.model.DisabledScope
+import com.sympauthy.business.scope.model.EnabledScope
+import com.sympauthy.business.scope.model.Scope
+import com.sympauthy.business.scope.model.ScopeType
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.config.model.*

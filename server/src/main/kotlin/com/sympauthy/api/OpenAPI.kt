@@ -2,8 +2,8 @@ package com.sympauthy.api
 
 import com.sympauthy.api.protocol.oauth2.AuthorizeController.Companion.OAUTH2_AUTHORIZE_ENDPOINT
 import com.sympauthy.api.protocol.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
-import com.sympauthy.business.model.scope.AdminScopeId
-import com.sympauthy.business.model.scope.BuiltInClientScopeId
+import com.sympauthy.business.scope.model.AdminScopeId
+import com.sympauthy.business.scope.model.BuiltInClientScopeId
 import io.swagger.v3.oas.annotations.ExternalDocumentation
 import io.swagger.v3.oas.annotations.OpenAPIDefinition
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType.OAUTH2

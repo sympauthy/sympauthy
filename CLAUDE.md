@@ -39,7 +39,7 @@ does not cover. If you end a deferral, say there why.
 MICRONAUT_CONFIG_FILES=$(pwd)/config/application.yml \
   MICRONAUT_ENVIRONMENTS=default,admin ./gradlew :server:run
 
-./gradlew test --tests 'com.sympauthy.business.manager.scope.ScopeManagerTest'
+./gradlew test --tests 'com.sympauthy.business.scope.manager.ScopeManagerTest'
 ```
 
 Integration tests never run in `build`/`check`/`test`. They point at an image tag, not at your
@@ -65,7 +65,8 @@ clone.
 ## Architecture — `docs/design/architecture.md`, `docs/standards/general-code-standard.md`
 
 - **`api`** — HTTP boundary, laid out by audience: `protocol`, `application`, `flow`, `operator`.
-- **`business`** — managers (use cases + transaction boundary), models, entity mappers.
+- **`business`** — laid out by concept, each holding its managers (use cases + transaction
+  boundary), models and entity mappers.
 - **`data`** — R2DBC entities and repositories, with a PostgreSQL and an H2 twin for each.
 - **`config`** — properties → parser → validator → factory → model.
 - **`security`** — the authentications and the token validator.

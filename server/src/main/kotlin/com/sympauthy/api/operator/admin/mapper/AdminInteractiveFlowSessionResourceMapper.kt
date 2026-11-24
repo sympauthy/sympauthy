@@ -5,12 +5,12 @@ import com.sympauthy.api.operator.admin.resource.AdminInteractiveFlowSessionDeta
 import com.sympauthy.api.operator.admin.resource.AdminInteractiveFlowSessionPurposeProgressResource
 import com.sympauthy.api.operator.admin.resource.AdminInteractiveFlowSessionSecurityContextResource
 import com.sympauthy.api.operator.admin.resource.AdminInteractiveFlowSessionSummaryResource
+import com.sympauthy.business.collection.manager.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
+import com.sympauthy.business.collection.manager.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
-import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionSummary
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
-import com.sympauthy.business.model.flow.InteractiveFlowSessionSecurityContext
-import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.business.flow.model.InteractiveFlowPurposeProgress
+import com.sympauthy.business.flow.model.InteractiveFlowSessionSecurityContext
+import com.sympauthy.business.flow.model.PurposeDebugInformation
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject

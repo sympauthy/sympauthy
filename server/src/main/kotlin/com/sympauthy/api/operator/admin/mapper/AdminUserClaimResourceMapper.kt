@@ -1,14 +1,14 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminUserClaimResource
-import com.sympauthy.business.manager.collection.UserClaimCollectionManager.CollectedUserClaim
-import com.sympauthy.business.manager.collection.UserClaimCollectionManager.GeneratedUserClaim
-import com.sympauthy.business.manager.collection.UserClaimCollectionManager.UserClaim
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.ClaimGroup
-import com.sympauthy.business.model.claim.ClaimKind
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimGroup
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.collection.manager.UserClaimCollectionManager.CollectedUserClaim
+import com.sympauthy.business.collection.manager.UserClaimCollectionManager.GeneratedUserClaim
+import com.sympauthy.business.collection.manager.UserClaimCollectionManager.UserClaim
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

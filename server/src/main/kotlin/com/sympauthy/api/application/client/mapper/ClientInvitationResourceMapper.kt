@@ -2,7 +2,7 @@ package com.sympauthy.api.application.client.mapper
 
 import com.sympauthy.api.application.client.resource.ClientCreatedInvitationResource
 import com.sympauthy.api.application.client.resource.ClientInvitationResource
-import com.sympauthy.business.model.invitation.Invitation
+import com.sympauthy.business.invitation.model.Invitation
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

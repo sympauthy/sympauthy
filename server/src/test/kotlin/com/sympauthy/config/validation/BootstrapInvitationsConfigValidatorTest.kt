@@ -1,12 +1,12 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.claim.ClaimAcl
-import com.sympauthy.business.model.claim.ClaimAclExpression
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.claim.EnabledClaim
-import com.sympauthy.business.model.claim.PersonalClaim
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.PersonalClaim
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.model.BootstrapInvitation
 import com.sympauthy.config.properties.BootstrapInvitationConfigurationProperties

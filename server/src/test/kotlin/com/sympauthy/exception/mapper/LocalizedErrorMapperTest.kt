@@ -61,7 +61,7 @@ class LocalizedErrorMapperTest {
     private val mapper = mapperOf(printDetailsInError = false)
 
     /**
-     * The failure of a claim, as [com.sympauthy.business.manager.claim.ClaimValueValidator] throws it:
+     * The failure of a claim, as [com.sympauthy.business.claim.manager.ClaimValueValidator] throws it:
      * a code, the end-user's version of it, and the values both of them interpolate.
      */
     private fun invalidType(type: String) = recoverableBusinessExceptionOf(

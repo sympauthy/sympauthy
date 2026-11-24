@@ -153,12 +153,16 @@ the transaction cannot reach a `private` one.
 **Managers are split by domain and compose by injection.** One manager per concept, and a use case
 spanning two injects the other rather than reaching into its repository.
 
-**A manager sits in the package of the one concept it serves, and none sits at the root of
-`business.manager`.** Name the package in the word the design documents use for the concept —
-`grant`, `claim`, `securitycontext` — and split one a sentence can only describe with *and*.
+**A manager sits in the `manager` package of the one concept it serves.** Name the concept's
+package in the word the design documents use for it — `grant`, `claim`, `securitycontext` — and
+split one a sentence can only describe with *and*.
 
-**A subpackage holds a part of its parent's concept**: a purpose of the flow, a way a scope is
-granted, a step several purposes share.
+**A concept's subpackage holds a part of it**: a purpose of the flow, a way a scope is granted, a
+step several purposes share. It holds a `manager` and a `model` package of its own, as
+`business.flow.auth` does.
+
+**A mapper sits in the `mapper` package of the concept whose model it builds**, beside that model
+rather than beside the entity it reads.
 
 **Reading a collection a surface pages is one method.** It takes the criteria a caller asked for
 plus the `PageParams`, and answers a `Page` it ordered itself, so that the criteria, the order and
@@ -168,9 +172,10 @@ the slice can become one query.
 owns the concept or reading the repositories where it is that manager. A manager whose whole subject
 is that one collection reads it itself, the way `ClientUserManager` does.
 
-**Every `…CollectionManager` sits in `business.manager.collection`**, whichever concept it reads,
-the one package organized by role rather than by concept. What one declares, what its criteria
-mean and what it publishes about itself are [the collection standard's](collection-standard.md).
+**Every `…CollectionManager` sits in `business.collection.manager`**, whichever concept it reads,
+beside the criteria, the fields and the `Page` it answers in `business.collection.model`. What one
+declares, what its criteria mean and what it publishes about itself are [the collection
+standard's](collection-standard.md).
 
 **A row a `…CollectionManager` assembles is read one at a time by that same manager.** A surface
 publishing one of those rows on its own calls its `find…OrNull`, rather than fetching the concept

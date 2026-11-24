@@ -1,11 +1,11 @@
 package com.sympauthy.api
 
-import com.sympauthy.business.manager.branding.BrandManager
-import com.sympauthy.business.model.branding.Brand
-import com.sympauthy.business.model.branding.BrandAsset
-import com.sympauthy.business.model.branding.BrandImageName
-import com.sympauthy.business.model.branding.DarkMode
-import com.sympauthy.business.model.branding.pngOf
+import com.sympauthy.business.branding.manager.BrandManager
+import com.sympauthy.business.branding.model.Brand
+import com.sympauthy.business.branding.model.BrandAsset
+import com.sympauthy.business.branding.model.BrandImageName
+import com.sympauthy.business.branding.model.DarkMode
+import com.sympauthy.business.branding.model.pngOf
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus

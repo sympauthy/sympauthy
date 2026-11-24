@@ -1,16 +1,16 @@
 package com.sympauthy.api.operator.admin.mapper
 
-import com.sympauthy.business.model.claim.ApplicationClaim
-import com.sympauthy.business.model.claim.ClaimAcl
-import com.sympauthy.business.model.claim.ClaimAclExpression
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.ClaimKind
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.claim.ClaimPublicationPlace.ID_TOKEN
-import com.sympauthy.business.model.claim.ClaimPublicationPlace.USERINFO
-import com.sympauthy.business.model.claim.EnabledClaim
-import com.sympauthy.business.model.claim.GeneratedClaim
-import com.sympauthy.business.model.claim.PersonalClaim
+import com.sympauthy.business.claim.model.ApplicationClaim
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimKind
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.ClaimPublicationPlace.ID_TOKEN
+import com.sympauthy.business.claim.model.ClaimPublicationPlace.USERINFO
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.GeneratedClaim
+import com.sympauthy.business.claim.model.PersonalClaim
 import com.sympauthy.config.model.EnabledAuthConfig
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs

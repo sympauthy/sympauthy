@@ -1,7 +1,7 @@
 package com.sympauthy.api.flow.mapper
 
 import com.sympauthy.api.flow.resource.TimeZoneResource
-import com.sympauthy.business.model.claim.TimeZone
+import com.sympauthy.business.claim.model.TimeZone
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter

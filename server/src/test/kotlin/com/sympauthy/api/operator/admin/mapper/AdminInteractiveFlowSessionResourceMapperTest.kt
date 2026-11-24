@@ -1,13 +1,13 @@
 package com.sympauthy.api.operator.admin.mapper
 
+import com.sympauthy.business.client.model.ClientReference
+import com.sympauthy.business.collection.manager.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.manager.collection.InteractiveFlowSessionCollectionManager.InteractiveFlowSessionDetail
-import com.sympauthy.business.model.client.ClientReference
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeProgress
-import com.sympauthy.business.model.flow.InteractiveFlowPurposeStatus
-import com.sympauthy.business.model.flow.InteractiveFlowSessionStatus
-import com.sympauthy.business.model.flow.PurposeDebugInformation
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowPurposeProgress
+import com.sympauthy.business.flow.model.InteractiveFlowPurposeStatus
+import com.sympauthy.business.flow.model.InteractiveFlowSessionStatus
+import com.sympauthy.business.flow.model.PurposeDebugInformation
 import com.sympauthy.config.model.EnabledFeaturesConfig
 import com.sympauthy.exception.mapper.LocalizedErrorMapper
 import com.sympauthy.platform.util.DEFAULT_LOCALE

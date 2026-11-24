@@ -1,15 +1,15 @@
 package com.sympauthy.api.util
 
-import com.sympauthy.business.model.securitycontext.IpSource
-import com.sympauthy.business.model.securitycontext.IpSource.NAMED_EDGE
-import com.sympauthy.business.model.securitycontext.IpSource.NAMED_HEADER
-import com.sympauthy.business.model.securitycontext.IpSource.SOCKET_PEER
-import com.sympauthy.business.model.securitycontext.ObservedRequest
-import com.sympauthy.business.model.securitycontext.SecurityContextGeo
-import com.sympauthy.business.model.securitycontext.edge.GeoProvider
-import com.sympauthy.business.model.securitycontext.edge.IpProvider
-import com.sympauthy.business.model.securitycontext.edge.valueOrNull
-import com.sympauthy.business.model.securitycontext.orNullIfEmpty
+import com.sympauthy.business.securitycontext.edge.model.GeoProvider
+import com.sympauthy.business.securitycontext.edge.model.IpProvider
+import com.sympauthy.business.securitycontext.edge.model.valueOrNull
+import com.sympauthy.business.securitycontext.model.IpSource
+import com.sympauthy.business.securitycontext.model.IpSource.NAMED_EDGE
+import com.sympauthy.business.securitycontext.model.IpSource.NAMED_HEADER
+import com.sympauthy.business.securitycontext.model.IpSource.SOCKET_PEER
+import com.sympauthy.business.securitycontext.model.ObservedRequest
+import com.sympauthy.business.securitycontext.model.SecurityContextGeo
+import com.sympauthy.business.securitycontext.model.orNullIfEmpty
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.EnabledAdvancedConfig
 import com.sympauthy.config.model.SecurityContextConfig

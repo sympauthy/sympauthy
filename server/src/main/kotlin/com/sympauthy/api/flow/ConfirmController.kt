@@ -12,9 +12,9 @@ import com.sympauthy.api.flow.util.FLOW_REDIRECT_RESPONSE_DESCRIPTION
 import com.sympauthy.api.flow.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.flow.confirm.InteractiveFlowSessionConfirmManager
-import com.sympauthy.business.model.flow.InteractiveFlowPurpose
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.flow.confirm.manager.InteractiveFlowSessionConfirmManager
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.platform.util.wireName
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
@@ -31,7 +31,7 @@ import jakarta.inject.Inject
 /**
  * Drives the confirmation step of an interactive flow: the signed-in end-user must explicitly approve an
  * action a client (or an administrator) initiated on their behalf (an
- * [com.sympauthy.business.model.flow.InteractiveFlowPurpose.CONFIRM] gate)
+ * [com.sympauthy.business.flow.model.InteractiveFlowPurpose.CONFIRM] gate)
  * before the rest of the flow runs. Denial is the end-user leaving the flow through the step's `cancel_url`.
  */
 @Controller("$FLOW_SURFACE/confirm")

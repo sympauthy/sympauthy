@@ -5,11 +5,11 @@ import com.sympauthy.api.operator.admin.resource.AdminCollectionFilterResource
 import com.sympauthy.api.operator.admin.resource.AdminCollectionFilterValueResource
 import com.sympauthy.api.operator.admin.resource.AdminCollectionSearchResource
 import com.sympauthy.api.operator.admin.resource.AdminCollectionSortResource
-import com.sympauthy.business.model.collection.CollectionCapabilities
-import com.sympauthy.business.model.collection.CollectionField
-import com.sympauthy.business.model.collection.CollectionFieldValue
-import com.sympauthy.business.model.collection.CollectionOperator
-import com.sympauthy.business.model.collection.CollectionSortKey
+import com.sympauthy.business.collection.model.CollectionCapabilities
+import com.sympauthy.business.collection.model.CollectionField
+import com.sympauthy.business.collection.model.CollectionFieldValue
+import com.sympauthy.business.collection.model.CollectionOperator
+import com.sympauthy.business.collection.model.CollectionSortKey
 import com.sympauthy.platform.server.AdminMessages
 import com.sympauthy.platform.server.DisplayMessages
 import com.sympauthy.platform.util.wireName

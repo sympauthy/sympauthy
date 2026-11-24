@@ -1,0 +1,104 @@
+package com.sympauthy.business.flow.model
+
+import com.sympauthy.business.validationcode.model.ValidationCodeMedia
+
+/**
+ * The abstract, transport-agnostic step an interactive flow session must present next.
+ *
+ * A step is produced by the session's [InteractiveFlowPurpose] handler purely from the session state; it never
+ * carries a URI. Mapping a step to a concrete redirect URL — or to another transport later — happens at
+ * the API boundary, so the business engine stays free of any transport concern.
+ */
+sealed interface InteractiveFlowStep {
+    /**
+     * The end-user must authenticate (sign in) to identify itself.
+     */
+    data object SignIn : InteractiveFlowStep
+
+    /**
+     * The end-user must register (sign up) a new account.
+     */
+    data object SignUp : InteractiveFlowStep
+
+    /**
+     * The end-user must explicitly approve (confirm) an action a client initiated on their behalf before the
+     * flow proceeds. The confirmation page describes the action and the initiating party from the session's
+     * attached confirm record.
+     */
+    data object Confirm : InteractiveFlowStep
+
+    /**
+     * The end-user must authorize with the specific third-party identity provider [providerId] — used to link
+     * that provider to the session's fixed user. Unlike [SignIn], which presents a choice of methods, this
+     * drives the browser straight to the target provider's authorization endpoint.
+     */
+    data class AuthorizeProvider(val providerId: String) : InteractiveFlowStep
+
+    /**
+     * The end-user must choose which multi-factor authentication method to enroll (and may skip when the
+     * enrollment is optional). The selection page auto-redirects to the method's enrollment step when there is
+     * a single method to enroll and no skip is offered.
+     */
+    data object MfaSelectionForEnrollment : InteractiveFlowStep
+
+    /**
+     * The end-user must choose which enrolled multi-factor authentication method to challenge. The selection
+     * page auto-redirects to the method's challenge step when a single method is enrolled.
+     */
+    data object MfaSelectionForChallenge : InteractiveFlowStep
+
+    /**
+     * The end-user must enroll a TOTP authenticator.
+     */
+    data object MfaTotpEnroll : InteractiveFlowStep
+
+    /**
+     * The end-user must complete a TOTP challenge.
+     */
+    data object MfaTotpChallenge : InteractiveFlowStep
+
+    /**
+     * The end-user must provide the claims required to continue the flow.
+     */
+    data object CollectClaims : InteractiveFlowStep
+
+    /**
+     * The end-user must validate a claim through the given [media], or through any available media if
+     * [media] is null.
+     */
+    data class ValidateClaims(val media: ValidationCodeMedia?) : InteractiveFlowStep
+
+    /**
+     * The end-user must enter the code sent to reset the password of whichever account holds the identifier
+     * they typed. The step is the same whether or not an account does, and whether or not a code went to it.
+     */
+    data object ResetPasswordValidate : InteractiveFlowStep
+
+    /**
+     * The end-user, whose account a reset code proved, must choose its new password.
+     */
+    data object ResetPasswordChoose : InteractiveFlowStep
+
+    /**
+     * The flow has failed; the end-user must be presented with the error.
+     */
+    data object Error : InteractiveFlowStep
+
+    /**
+     * Terminal step: the flow has completed and the end-user must be handed back to the flow's initiator.
+     */
+    data object Complete : InteractiveFlowStep
+
+    /**
+     * Terminal step: the flow has already completed, its initiator hands the end-user back once, and that
+     * hand-off went to the request that completed it. The end-user must be told the flow is over, which
+     * [interactiveFlowSessionAlreadyCompletedExceptionOf] names.
+     */
+    data object AlreadyCompleted : InteractiveFlowStep
+
+    /**
+     * Terminal step: the end-user cancelled the flow and must be handed back to the flow's initiator on the
+     * cancellation redirect (e.g. the OAuth2 `error=access_denied` response, or a caller-provided cancel URL).
+     */
+    data object Cancel : InteractiveFlowStep
+}

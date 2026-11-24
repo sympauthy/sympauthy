@@ -1,7 +1,7 @@
 package com.sympauthy.api
 
-import com.sympauthy.business.model.scope.AdminScope
-import com.sympauthy.business.model.scope.BuiltInClientScope
+import com.sympauthy.business.scope.model.AdminScope
+import com.sympauthy.business.scope.model.BuiltInClientScope
 import io.swagger.v3.oas.annotations.security.OAuthFlow
 import io.swagger.v3.oas.annotations.security.OAuthFlows
 import io.swagger.v3.oas.annotations.security.SecuritySchemes

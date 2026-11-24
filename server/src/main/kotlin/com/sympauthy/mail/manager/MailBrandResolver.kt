@@ -1,14 +1,14 @@
 package com.sympauthy.mail.manager
 
 import com.sympauthy.api.BrandingController.Companion.BRANDING_ENDPOINT
-import com.sympauthy.business.manager.branding.BrandManager
-import com.sympauthy.business.manager.branding.BrandTokenResolver
-import com.sympauthy.business.model.branding.BrandColorValue
-import com.sympauthy.business.model.branding.BrandImageName
-import com.sympauthy.business.model.branding.BrandImageName.LOGO
-import com.sympauthy.business.model.branding.BrandImageName.LOGO_DARK
-import com.sympauthy.business.model.branding.BrandImageType
-import com.sympauthy.business.model.branding.DarkMode
+import com.sympauthy.business.branding.manager.BrandManager
+import com.sympauthy.business.branding.manager.BrandTokenResolver
+import com.sympauthy.business.branding.model.BrandColorValue
+import com.sympauthy.business.branding.model.BrandImageName
+import com.sympauthy.business.branding.model.BrandImageName.LOGO
+import com.sympauthy.business.branding.model.BrandImageName.LOGO_DARK
+import com.sympauthy.business.branding.model.BrandImageType
+import com.sympauthy.business.branding.model.DarkMode
 import com.sympauthy.config.model.EnabledUrlsConfig
 import com.sympauthy.config.model.UrlsConfig
 import com.sympauthy.config.model.buildUponRoot

@@ -8,10 +8,10 @@ import com.sympauthy.api.mapper.OAuth2ErrorResourceMapper
 import com.sympauthy.api.protocol.oauth2.IntrospectionController.Companion.OAUTH2_INTROSPECTION_ENDPOINT
 import com.sympauthy.api.protocol.oauth2.RevokeController.Companion.OAUTH2_REVOKE_ENDPOINT
 import com.sympauthy.api.protocol.oauth2.TokenController.Companion.OAUTH2_TOKEN_ENDPOINT
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_CLIENT
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.INVALID_REQUEST
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode.SERVER_ERROR
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_CLIENT
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.INVALID_REQUEST
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode.SERVER_ERROR
 import com.sympauthy.config.model.isInvalidConfig
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.LocalizedErrorMapper

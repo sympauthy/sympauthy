@@ -1,0 +1,207 @@
+package com.sympauthy.business.flow.mapper
+
+import com.sympauthy.business.authorization.model.CodeChallengeMethod
+import com.sympauthy.business.consent.model.ConsentedBy
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode
+import com.sympauthy.business.scope.granting.model.GrantedBy
+import com.sympauthy.data.model.InteractiveFlowSessionOAuth2Entity
+import io.micronaut.http.HttpStatus.INTERNAL_SERVER_ERROR
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import java.time.LocalDateTime
+import java.util.*
+
+class InteractiveFlowSessionOAuth2MapperTest {
+
+    private val mapper = InteractiveFlowSessionOAuth2Mapper()
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - maps all fields`() {
+        val sessionId = UUID.randomUUID()
+        val invitationId = UUID.randomUUID()
+        val consentedAt = LocalDateTime.now().minusMinutes(2)
+        val grantedAt = LocalDateTime.now().minusMinutes(1)
+        val entity = InteractiveFlowSessionOAuth2Entity(
+            sessionId = sessionId,
+            clientId = "client",
+            redirectUri = "https://client.test/callback",
+            requestedScopes = arrayOf("openid", "profile"),
+            requestedIdTokenClaims = arrayOf("loyalty_tier"),
+            requestedUserinfoClaims = arrayOf("shoe_size"),
+            state = "state",
+            nonce = "nonce",
+            codeChallenge = "challenge",
+            codeChallengeMethod = CodeChallengeMethod.S256.value,
+            invitationId = invitationId,
+            consentedScopes = arrayOf("openid"),
+            consentedAt = consentedAt,
+            consentedBy = ConsentedBy.USER.name,
+            grantedScopes = arrayOf("profile"),
+            grantedAt = grantedAt,
+            grantedBy = GrantedBy.RULE.name,
+        )
+
+        val oauth2 = mapper.toInteractiveFlowSessionOAuth2(entity)
+
+        assertEquals(sessionId, oauth2.sessionId)
+        assertEquals("client", oauth2.clientId)
+        assertEquals("https://client.test/callback", oauth2.redirectUri)
+        assertEquals(listOf("openid", "profile"), oauth2.requestedScopes)
+        assertEquals(setOf("loyalty_tier"), oauth2.requestedClaims.idTokenClaimIds)
+        assertEquals(setOf("shoe_size"), oauth2.requestedClaims.userInfoClaimIds)
+        assertEquals("state", oauth2.state)
+        assertEquals("nonce", oauth2.nonce)
+        assertEquals("challenge", oauth2.codeChallenge)
+        assertEquals(CodeChallengeMethod.S256, oauth2.codeChallengeMethod)
+        assertEquals(invitationId, oauth2.invitationId)
+        assertEquals(listOf("openid"), oauth2.consentedScopes)
+        assertEquals(consentedAt, oauth2.consentedAt)
+        assertEquals(ConsentedBy.USER, oauth2.consentedBy)
+        assertEquals(listOf("profile"), oauth2.grantedScopes)
+        assertEquals(grantedAt, oauth2.grantedAt)
+        assertEquals(GrantedBy.RULE, oauth2.grantedBy)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - maps when both PKCE fields are null`() {
+        val entity = entity(
+            codeChallenge = null,
+            codeChallengeMethod = null,
+        )
+
+        val oauth2 = mapper.toInteractiveFlowSessionOAuth2(entity)
+
+        assertNull(oauth2.codeChallenge)
+        assertNull(oauth2.codeChallengeMethod)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when code challenge has no method`() {
+        val entity = entity(
+            codeChallenge = "challenge",
+            codeChallengeMethod = null,
+        )
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when method has no code challenge`() {
+        val entity = entity(
+            codeChallenge = null,
+            codeChallengeMethod = CodeChallengeMethod.S256.value,
+        )
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when method is unknown`() {
+        val entity = entity(
+            codeChallenge = "challenge",
+            codeChallengeMethod = "plain",
+        )
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when clientId is null`() {
+        val entity = entity(clientId = null)
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when redirectUri is null`() {
+        val entity = entity(redirectUri = null)
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when consentedBy is unknown`() {
+        val entity = entity(consentedBy = "UNKNOWN")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when grantedBy is unknown`() {
+        val entity = entity(grantedBy = "UNKNOWN")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(INTERNAL_SERVER_ERROR, exception.recommendedStatus)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - maps the error recorded for a refused request`() {
+        val result = mapper.toInteractiveFlowSessionOAuth2(entity(requestError = "invalid_scope"))
+
+        assertEquals(OAuth2ErrorCode.INVALID_SCOPE, result.requestError)
+    }
+
+    @Test
+    fun `toInteractiveFlowSessionOAuth2 - throws when the recorded request error is unknown`() {
+        val entity = entity(requestError = "not_an_error")
+
+        val exception = assertThrows<BusinessException> {
+            mapper.toInteractiveFlowSessionOAuth2(entity)
+        }
+        assertEquals("mapper.interactive_flow_session_oauth2.invalid_property", exception.detailsId)
+        assertEquals(mapOf("property" to "requestError"), exception.values)
+    }
+
+    private fun entity(
+        sessionId: UUID = UUID.randomUUID(),
+        consentedBy: String? = null,
+        grantedBy: String? = null,
+        clientId: String? = "client",
+        redirectUri: String? = "https://client.test/callback",
+        requestedScopes: Array<String> = arrayOf("openid"),
+        codeChallenge: String? = null,
+        codeChallengeMethod: String? = null,
+        requestError: String? = null,
+    ): InteractiveFlowSessionOAuth2Entity {
+        return InteractiveFlowSessionOAuth2Entity(
+            sessionId = sessionId,
+            clientId = clientId,
+            redirectUri = redirectUri,
+            requestedScopes = requestedScopes,
+            codeChallenge = codeChallenge,
+            codeChallengeMethod = codeChallengeMethod,
+            consentedBy = consentedBy,
+            grantedBy = grantedBy,
+            requestError = requestError,
+        )
+    }
+}

@@ -1,0 +1,130 @@
+package com.sympauthy.business.flow.model
+
+import java.net.URI
+
+sealed class AuthorizationFlow(
+    val id: String
+) {
+    companion object {
+        const val DEFAULT_WEB_AUTHORIZATION_FLOW_ID = "default_web"
+
+        /**
+         * Path the pages of the bundled interactive flow are served under.
+         *
+         * Declared here rather than on the controller serving it because the configuration assembling that
+         * flow cannot import one, and a path spelled in both places is a path that will eventually differ.
+         */
+        const val DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT = "/flow"
+    }
+}
+
+/**
+ * Represents a non-interactive authorization flow.
+ *
+ * This class is a specific type of `AuthorizationFlow` designed for scenarios
+ * where no user interaction is required during the authorization process.
+ * It inherits common properties and behavior from the `AuthorizationFlow` base class.
+ */
+class NonInteractiveAuthorizationFlow(id: String) : AuthorizationFlow(id)
+
+/**
+ * Represents an interactive authorization flow where the end-users are redirected to web pages, each handling a
+ * specific step of the authorization flow.
+ *
+ * Contains where the end-user must be redirected to go through the different step of the authorization flow.
+ */
+class InteractiveFlow(
+    id: String,
+    /**
+     * [URI] of the page allowing the user either to:
+     * - authenticate by entering its credentials
+     * - select a third-party provider that will authenticate him.
+     */
+    val signInUri: URI,
+    /**
+     * [URI] of the sign-up page. Null if not configured.
+     * Used when the user arrives via an invitation link and needs to create an account.
+     */
+    val signUpUri: URI? = null,
+    /**
+     * [URI] of the page in charge of collecting claims from the end-user claims.
+     *
+     * This page will be presented during the authentication flow whenever all required claims
+     * are not collected for an end-user.
+     */
+    val collectClaimsUri: URI,
+    /**
+     * [URI] of the page in charge of collecting validation code from the user to validate claims that
+     * requires to be verified (ex. email).
+     * The **media** query param will contain the media with which a validation must be performed (ex. EMAIL).
+     *
+     * The authorization flow may go through this page multiple times with different media.
+     * This page will be skipped if none of the collected claims require validation.
+     */
+    val validateClaimsUri: URI,
+    /**
+     * [URI] of the page displaying an error to the end-user.
+     */
+    val errorUri: URI,
+    /**
+     * [URI] of the page asking the end-user to confirm an action a client initiated on their behalf.
+     * The end-user is redirected here when the session carries a [InteractiveFlowPurpose.CONFIRM] gate. That
+     * page calls GET /api/v1/flow/confirm to describe the action and the initiating party, then confirms or
+     * cancels the flow.
+     * Null if no confirm-gated flow is configured for this flow.
+     */
+    val confirmUri: URI? = null,
+    /**
+     * [URI] of the MFA enrollment method-selection page.
+     * The end-user is redirected here when they must enroll an MFA method. That page calls
+     * GET /api/v1/flow/mfa to choose the method to enroll (and skip when optional).
+     * Null if MFA is not configured for this flow.
+     */
+    val mfaSelectionForEnrollmentUri: URI? = null,
+    /**
+     * [URI] of the MFA challenge method-selection page.
+     * The end-user is redirected here when they must challenge an enrolled MFA method. That page calls
+     * GET /api/v1/flow/mfa/challenge to choose the enrolled method to challenge.
+     * Null if MFA is not configured for this flow.
+     */
+    val mfaSelectionForChallengeUri: URI? = null,
+    /**
+     * [URI] of the page allowing the user to enroll a TOTP authenticator app.
+     * Null if MFA via TOTP is not configured for this flow.
+     */
+    val mfaTotpEnrollUri: URI? = null,
+    /**
+     * [URI] of the page allowing the user to complete the TOTP challenge.
+     * Null if MFA via TOTP is not configured for this flow.
+     */
+    val mfaTotpChallengeUri: URI? = null,
+    /**
+     * The pages a password is reset through, or null where the flow names none of them. A flow names all of
+     * them or none, so the pages are one value.
+     */
+    val resetPassword: ResetPasswordPages? = null,
+) : AuthorizationFlow(
+    id = id
+)
+
+/**
+ * The pages of an [InteractiveFlow] a password is reset through, reached from the sign-in page.
+ */
+class ResetPasswordPages(
+    /**
+     * [URI] of the page where the end-user types the identifier of the account whose password they forgot.
+     */
+    val resetPasswordUri: URI,
+    /**
+     * [URI] of the page where the end-user types the code sent to the account's proven email address.
+     */
+    val validateUri: URI,
+    /**
+     * [URI] of the page where the end-user chooses the new password.
+     */
+    val chooseUri: URI
+)
+
+enum class AuthorizationFlowType {
+    WEB
+}

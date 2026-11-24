@@ -1,16 +1,16 @@
 package com.sympauthy.api.operator.admin.mapper
 
-import com.sympauthy.business.model.claim.ClaimAcl
-import com.sympauthy.business.model.claim.ClaimAclExpression
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.claim.PersonalClaim
-import com.sympauthy.business.model.scope.ClientScope
-import com.sympauthy.business.model.scope.ConsentableUserScope
-import com.sympauthy.business.model.scope.DisabledScope
-import com.sympauthy.business.model.scope.GrantableUserScope
-import com.sympauthy.business.model.scope.ScopePublicationPlace.DISCOVERY
-import com.sympauthy.business.model.scope.ScopeType
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAclExpression
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.PersonalClaim
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.scope.model.ConsentableUserScope
+import com.sympauthy.business.scope.model.DisabledScope
+import com.sympauthy.business.scope.model.GrantableUserScope
+import com.sympauthy.business.scope.model.ScopePublicationPlace.DISCOVERY
+import com.sympauthy.business.scope.model.ScopeType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

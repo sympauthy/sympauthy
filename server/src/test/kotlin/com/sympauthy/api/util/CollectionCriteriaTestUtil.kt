@@ -1,7 +1,7 @@
 package com.sympauthy.api.util
 
-import com.sympauthy.business.model.collection.CollectionCapabilities
-import com.sympauthy.business.model.collection.CollectionCriteria
+import com.sympauthy.business.collection.model.CollectionCapabilities
+import com.sympauthy.business.collection.model.CollectionCriteria
 import io.micronaut.http.HttpRequest
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets.UTF_8

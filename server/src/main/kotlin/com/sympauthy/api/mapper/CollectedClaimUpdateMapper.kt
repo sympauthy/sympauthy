@@ -1,10 +1,10 @@
 package com.sympauthy.api.mapper
 
 import com.sympauthy.api.exception.LocalizedHttpException
-import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.manager.claim.ClaimValueValidator
-import com.sympauthy.business.model.claim.CollectedClaimUpdate
-import com.sympauthy.business.model.claim.EnabledClaim
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.manager.ClaimValueValidator
+import com.sympauthy.business.claim.model.CollectedClaimUpdate
+import com.sympauthy.business.claim.model.EnabledClaim
 import com.sympauthy.exception.LocalizedException
 import io.micronaut.http.HttpStatus.BAD_REQUEST
 import jakarta.inject.Inject

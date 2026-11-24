@@ -1,12 +1,12 @@
 package com.sympauthy.api.exception
 
 import com.sympauthy.business.exception.recoverableBusinessExceptionOf
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InsufficientScope
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InsufficientUserAuthentication
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InvalidDpopProof
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.InvalidToken
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge.UnboundToken
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InsufficientScope
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InsufficientUserAuthentication
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InvalidDpopProof
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.InvalidToken
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge.UnboundToken
 import com.sympauthy.security.AccessTokenScheme
 import com.sympauthy.security.AccessTokenScheme.BEARER
 import com.sympauthy.security.AccessTokenScheme.DPOP

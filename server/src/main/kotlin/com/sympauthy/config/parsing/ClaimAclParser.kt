@@ -1,6 +1,6 @@
 package com.sympauthy.config.parsing
 
-import com.sympauthy.business.model.claim.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimAcl
 import com.sympauthy.config.model.ClaimTemplate
 import com.sympauthy.config.properties.ClaimAclProperties
 import jakarta.inject.Singleton

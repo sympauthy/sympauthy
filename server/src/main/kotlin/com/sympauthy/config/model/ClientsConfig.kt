@@ -1,6 +1,6 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.client.model.Client
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class ClientsConfig(

@@ -2,7 +2,7 @@ package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminCreatedInvitationResource
 import com.sympauthy.api.operator.admin.resource.AdminInvitationResource
-import com.sympauthy.business.model.invitation.Invitation
+import com.sympauthy.business.invitation.model.Invitation
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

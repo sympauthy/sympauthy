@@ -1,6 +1,6 @@
 package com.sympauthy.data
 
-import com.sympauthy.business.mapper.ClaimValueMapper
+import com.sympauthy.business.claim.mapper.ClaimValueMapper
 import com.sympauthy.data.model.AuthenticationTokenEntity
 import com.sympauthy.data.model.AuthorizationCodeEntity
 import com.sympauthy.data.model.CollectedClaimEntity

@@ -17,11 +17,11 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.collection.ConsentCollectionManager
-import com.sympauthy.business.manager.consent.ConsentManager
-import com.sympauthy.business.manager.user.UserManager
-import com.sympauthy.business.model.consent.ConsentRevokedBy
-import com.sympauthy.business.model.scope.AdminScopeId
+import com.sympauthy.business.collection.manager.ConsentCollectionManager
+import com.sympauthy.business.consent.manager.ConsentManager
+import com.sympauthy.business.consent.model.ConsentRevokedBy
+import com.sympauthy.business.scope.model.AdminScopeId
+import com.sympauthy.business.user.manager.UserManager
 import com.sympauthy.platform.util.orDefault
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_READ
 import com.sympauthy.security.SecurityRule.ADMIN_CONSENT_WRITE

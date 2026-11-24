@@ -1,6 +1,6 @@
 package com.sympauthy.config.factory
 
-import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.scope.model.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.WrittenConfigurationKeys
 import com.sympauthy.config.model.*

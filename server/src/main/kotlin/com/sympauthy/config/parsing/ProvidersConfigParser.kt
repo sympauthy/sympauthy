@@ -1,7 +1,7 @@
 package com.sympauthy.config.parsing
 
 import com.jayway.jsonpath.JsonPath
-import com.sympauthy.business.model.provider.ProviderUserInfoPathKey
+import com.sympauthy.business.provider.model.ProviderUserInfoPathKey
 import com.sympauthy.config.ConfigParser
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.ConfigurationException

@@ -1,8 +1,8 @@
 package com.sympauthy.api.exception
 
 import com.sympauthy.business.exception.BusinessException
-import com.sympauthy.business.model.oauth2.OAuth2ErrorCode
-import com.sympauthy.business.model.token.WwwAuthenticateChallenge
+import com.sympauthy.business.oauth2.model.OAuth2ErrorCode
+import com.sympauthy.business.token.model.WwwAuthenticateChallenge
 import com.sympauthy.exception.AnsweredFailure
 import com.sympauthy.exception.LocalizedException
 import com.sympauthy.exception.mapper.answeredHttpStatus

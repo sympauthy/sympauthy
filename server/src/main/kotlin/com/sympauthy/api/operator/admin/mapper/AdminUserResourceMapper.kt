@@ -1,9 +1,9 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminUserResource
-import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
-import com.sympauthy.business.model.claim.EnabledClaim
-import com.sympauthy.business.model.user.UserWithIdentifierClaims
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.collection.manager.UserCollectionManager.UserWithClaims
+import com.sympauthy.business.user.model.UserWithIdentifierClaims
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

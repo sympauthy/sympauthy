@@ -3,9 +3,9 @@ package com.sympauthy.api.operator.admin.mapper
 import com.sympauthy.api.operator.admin.resource.AdminGrantDetailResource
 import com.sympauthy.api.operator.admin.resource.AdminGrantRequestedClaimsResource
 import com.sympauthy.api.operator.admin.resource.AdminGrantSummaryResource
-import com.sympauthy.business.manager.collection.GrantCollectionManager.GrantWithUserAndClient
-import com.sympauthy.business.model.authorization.RequestedClaims
-import com.sympauthy.business.model.grant.GrantRevokedBy
+import com.sympauthy.business.authorization.model.RequestedClaims
+import com.sympauthy.business.collection.manager.GrantCollectionManager.GrantWithUserAndClient
+import com.sympauthy.business.grant.model.GrantRevokedBy
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

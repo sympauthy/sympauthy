@@ -1,7 +1,7 @@
 package com.sympauthy.api.application.client.mapper
 
-import com.sympauthy.business.model.provider.ProviderUserInfo
-import com.sympauthy.business.model.provider.RawProviderClaims
+import com.sympauthy.business.provider.model.ProviderUserInfo
+import com.sympauthy.business.provider.model.RawProviderClaims
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime

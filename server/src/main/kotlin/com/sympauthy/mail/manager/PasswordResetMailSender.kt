@@ -1,7 +1,7 @@
 package com.sympauthy.mail.manager
 
-import com.sympauthy.business.manager.password.PasswordResetMessageSender
-import com.sympauthy.business.model.validationcode.ValidationCode
+import com.sympauthy.business.password.manager.PasswordResetMessageSender
+import com.sympauthy.business.validationcode.model.ValidationCode
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.mail.model.Mail

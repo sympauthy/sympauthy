@@ -2,9 +2,9 @@ package com.sympauthy.api
 
 import com.sympauthy.api.BrandingController.Companion.BRANDING_ENDPOINT
 import com.sympauthy.api.resource.BrandResource
-import com.sympauthy.business.manager.branding.BrandManager
-import com.sympauthy.business.model.branding.BrandAsset
-import com.sympauthy.business.model.branding.BrandImageName
+import com.sympauthy.business.branding.manager.BrandManager
+import com.sympauthy.business.branding.model.BrandAsset
+import com.sympauthy.business.branding.model.BrandImageName
 import com.sympauthy.platform.util.wireName
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpRequest

@@ -1,6 +1,6 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.jwt.JwtAlgorithm
+import com.sympauthy.business.jwt.model.JwtAlgorithm
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.AuthorizationWebhookAdvancedConfig

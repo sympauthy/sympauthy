@@ -17,8 +17,8 @@ import com.sympauthy.api.util.SORT_PARAMETER_DESCRIPTION
 import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.collection.AudienceCollectionManager
-import com.sympauthy.business.model.scope.AdminScopeId
+import com.sympauthy.business.collection.manager.AudienceCollectionManager
+import com.sympauthy.business.scope.model.AdminScopeId
 import com.sympauthy.platform.util.orDefault
 import com.sympauthy.security.SecurityRule.ADMIN_CONFIG_READ
 import io.micronaut.http.HttpRequest

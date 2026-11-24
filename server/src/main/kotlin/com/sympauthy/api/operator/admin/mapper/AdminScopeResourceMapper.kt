@@ -1,11 +1,11 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminScopeResource
-import com.sympauthy.business.model.claim.Claim
-import com.sympauthy.business.model.scope.Scope
-import com.sympauthy.business.model.scope.ScopeType
-import com.sympauthy.business.model.scope.isEnabled
-import com.sympauthy.business.model.scope.origin
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.scope.model.Scope
+import com.sympauthy.business.scope.model.ScopeType
+import com.sympauthy.business.scope.model.isEnabled
+import com.sympauthy.business.scope.model.origin
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

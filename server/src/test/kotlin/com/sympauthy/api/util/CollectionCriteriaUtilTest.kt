@@ -1,14 +1,14 @@
 package com.sympauthy.api.util
 
 import com.sympauthy.api.exception.LocalizedHttpException
-import com.sympauthy.business.model.collection.CollectionCapabilities
-import com.sympauthy.business.model.collection.CollectionField
-import com.sympauthy.business.model.collection.CollectionFieldType.DATE_TIME
-import com.sympauthy.business.model.collection.CollectionFieldType.ENUM
-import com.sympauthy.business.model.collection.CollectionFieldType.STRING
-import com.sympauthy.business.model.collection.CollectionFieldValue
-import com.sympauthy.business.model.collection.CollectionOperator
-import com.sympauthy.business.model.collection.CollectionSortKey
+import com.sympauthy.business.collection.model.CollectionCapabilities
+import com.sympauthy.business.collection.model.CollectionField
+import com.sympauthy.business.collection.model.CollectionFieldType.DATE_TIME
+import com.sympauthy.business.collection.model.CollectionFieldType.ENUM
+import com.sympauthy.business.collection.model.CollectionFieldType.STRING
+import com.sympauthy.business.collection.model.CollectionFieldValue
+import com.sympauthy.business.collection.model.CollectionOperator
+import com.sympauthy.business.collection.model.CollectionSortKey
 import io.micronaut.http.HttpStatus
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

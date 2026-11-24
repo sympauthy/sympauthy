@@ -1,0 +1,504 @@
+package com.sympauthy.business.flow.manager
+
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
+import com.sympauthy.business.flow.mapper.InteractiveFlowSessionMapper
+import com.sympauthy.business.flow.model.AuthorizationFlow
+import com.sympauthy.business.flow.model.CancelledInteractiveFlowSession
+import com.sympauthy.business.flow.model.CompletedInteractiveFlowSession
+import com.sympauthy.business.flow.model.FailedInteractiveFlowSession
+import com.sympauthy.business.flow.model.InteractiveFlowHandBack
+import com.sympauthy.business.flow.model.InteractiveFlowPurpose
+import com.sympauthy.business.flow.model.InteractiveFlowSession
+import com.sympauthy.business.flow.model.OnGoingInteractiveFlowSession
+import com.sympauthy.business.flow.model.interactiveFlowSessionConcurrentModificationExceptionOf
+import com.sympauthy.business.flow.oauth2.manager.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.flow.provider.manager.InteractiveFlowSessionProviderManager
+import com.sympauthy.business.jwt.manager.JwtManager
+import com.sympauthy.business.user.manager.UserManager
+import com.sympauthy.business.user.model.User
+import com.sympauthy.config.model.AuthConfig
+import com.sympauthy.config.model.orThrow
+import com.sympauthy.data.model.InteractiveFlowSessionEntity
+import com.sympauthy.data.repository.InteractiveFlowSessionRepository
+import com.sympauthy.exception.LocalizedException
+import com.sympauthy.exception.toOutcome
+import com.sympauthy.platform.monitoring.model.Outcome
+import com.sympauthy.platform.monitoring.telemetry.manager.CustomSpanTracer
+import com.sympauthy.platform.monitoring.telemetry.manager.FlowMetrics
+import com.sympauthy.platform.monitoring.telemetry.manager.nanosToSeconds
+import io.micronaut.transaction.annotation.Transactional
+import jakarta.inject.Inject
+import jakarta.inject.Singleton
+import java.time.Duration
+import java.time.LocalDateTime
+import java.util.*
+
+/**
+ * Manager in charge of the lifecycle of the flow-generic [InteractiveFlowSession].
+ * It provides methods to:
+ * - create a session.
+ * - encode / verify the signed state that identifies a session.
+ * - modify the session: user id, MFA, error, completion.
+ *
+ * Concern-specific state (the OAuth2 request, the third-party provider authorization) is handled by the
+ * dedicated [InteractiveFlowSessionOAuth2Manager] / [InteractiveFlowSessionProviderManager], which build
+ * on top of this manager.
+ *
+ * Note: For separation of concerns, this manager does not handle any logic of the interactive flow itself.
+ * Managers handling those logics are in the flow package.
+ */
+@Singleton
+open class InteractiveFlowSessionManager(
+    @Inject private val userManager: UserManager,
+    @Inject private val jwtManager: JwtManager,
+    @Inject private val sessionRepository: InteractiveFlowSessionRepository,
+    @Inject private val sessionMapper: InteractiveFlowSessionMapper,
+    @Inject private val uncheckedAuthConfig: AuthConfig,
+    @Inject private val flowMetrics: FlowMetrics,
+    @Inject private val customSpanTracer: CustomSpanTracer
+) {
+
+    /**
+     * Create a new [InteractiveFlowSession] for the end-user and save it in the database.
+     *
+     * The session is saved even if it is created in error (i.e. [error] is non-null), in which case a
+     * [FailedInteractiveFlowSession] is returned.
+     *
+     * [initiatingClientId] names the client this session was started for, and is null where an administrator
+     * started it or where nothing named a client. It takes no default: a session-creating path added later
+     * should not compile until somebody has decided what its client is, and a default of null would make "no
+     * client" the silent answer for every purpose after this one. It is set here and never updated — see
+     * [InteractiveFlowSession.initiatingClientId].
+     *
+     * This method is not transactional on its own so it can participate in the caller's transaction (e.g.
+     * to persist an attached record atomically with the session).
+     *
+     * The session keeps the span of the request starting it, where that request is traced, for every later request
+     * acting on it to link to.
+     */
+    suspend fun newSession(
+        purposes: List<InteractiveFlowPurpose>,
+        initiatingPurpose: InteractiveFlowPurpose,
+        initiatingClientId: String?,
+        flow: AuthorizationFlow? = null,
+        handBack: InteractiveFlowHandBack? = null,
+        error: BusinessException? = null
+    ): InteractiveFlowSession {
+        val now = LocalDateTime.now()
+        val startedBy = customSpanTracer.requestSpanReferenceOrNull()
+        val entity = InteractiveFlowSessionEntity(
+            purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            initiatingPurpose = initiatingPurpose.name,
+            initiatingClientId = initiatingClientId,
+            flowId = flow?.id,
+            sessionDate = now,
+            expirationDate = now.plus(uncheckedAuthConfig.orThrow().interactiveFlow.expiration),
+
+            redirectUri = handBack?.uri?.toString(),
+            redirectType = handBack?.type?.name,
+            returnState = handBack?.returnState,
+
+            errorDate = error?.let { now },
+            errorDetailsId = error?.detailsId,
+            errorDescriptionId = error?.descriptionId,
+            errorValues = error?.values,
+
+            startedByTraceId = startedBy?.traceId,
+            startedBySpanId = startedBy?.spanId,
+        )
+        sessionRepository.save(entity)
+        entity.id?.let { customSpanTracer.markFlowSession(it, startedBy = null) }
+        flowMetrics.recordStarted(
+            initiatingPurpose.metricName, initiatingClientId, error?.toOutcome() ?: Outcome.Success
+        )
+
+        return sessionMapper.toInteractiveFlowSession(entity)
+    }
+
+    suspend fun encodeState(session: InteractiveFlowSession): String {
+        return jwtManager.create(STATE_KEY_NAME) {
+            subject(session.id.toString())
+        }
+    }
+
+    /**
+     * Return a [SuccessVerifyEncodedStateResult] containing the [InteractiveFlowSession] that created the
+     * [state] after verifying the [state] has not been tempered with.
+     * Otherwise, return a [FailedVerifyEncodedStateResult] with the appropriate error details.
+     *
+     * Note: This method does not check the status of the [InteractiveFlowSession] in order to let the
+     * caller decide how to handle a completed or failed session.
+     *
+     * The request is marked as acting on the session it found, and linked to the request that started it.
+     */
+    suspend fun verifyEncodedInternalState(state: String?): VerifyEncodedStateResult {
+        if (state.isNullOrBlank()) {
+            return FailedVerifyEncodedStateResult(
+                detailsId = "auth.interactive_flow_session.validate.missing_state",
+                descriptionId = "description.oauth2.invalid_state"
+            )
+        }
+        val jwt = jwtManager.decodeAndVerifyOrNull(STATE_KEY_NAME, state) ?: return FailedVerifyEncodedStateResult(
+            detailsId = "auth.interactive_flow_session.validate.wrong_signature",
+            descriptionId = "description.oauth2.invalid_state"
+        )
+        val sessionId = try {
+            UUID.fromString(jwt.subject)
+        } catch (_: IllegalArgumentException) {
+            return FailedVerifyEncodedStateResult(
+                detailsId = "auth.interactive_flow_session.validate.invalid_subject",
+                descriptionId = "description.oauth2.invalid_state"
+            )
+        }
+        val session = sessionRepository.findById(sessionId)
+            ?.let(sessionMapper::toInteractiveFlowSession)
+
+        return if (session != null) {
+            customSpanTracer.markFlowSession(session.id, session.startedBy)
+            SuccessVerifyEncodedStateResult(session)
+        } else {
+            FailedVerifyEncodedStateResult(
+                detailsId = "auth.interactive_flow_session.validate.missing_session",
+                descriptionId = "description.oauth2.expired",
+                values = mapOf("sessionId" to sessionId.toString())
+            )
+        }
+    }
+
+    /**
+     * Associate the user that has been authenticated to its [InteractiveFlowSession].
+     *
+     * [signedUp] records whether the user was created (signed up) during this session, so a later step (e.g.
+     * the MFA-purpose selection) can branch on sign-up vs sign-in.
+     */
+    suspend fun setAuthenticatedUserId(
+        session: OnGoingInteractiveFlowSession,
+        userId: UUID,
+        signedUp: Boolean = false
+    ): OnGoingInteractiveFlowSession {
+        val updated = sessionRepository.updateUserId(
+            id = session.id,
+            userId = userId,
+            signedUp = signedUp,
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return session.copy(
+            userId = userId,
+            signedUp = signedUp,
+            version = session.version + 1
+        )
+    }
+
+    /**
+     * Records that the end-user has passed the MFA step for this [session].
+     * Persists the mfaPassedDate and returns the updated session.
+     */
+    suspend fun setMfaPassed(
+        session: OnGoingInteractiveFlowSession
+    ): OnGoingInteractiveFlowSession {
+        val mfaPassedDate = LocalDateTime.now()
+        val updated = sessionRepository.updateMfaPassedDate(
+            id = session.id,
+            mfaPassedDate = mfaPassedDate,
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return session.copy(mfaPassedDate = mfaPassedDate, version = session.version + 1)
+    }
+
+    /**
+     * Insert [purpose] into the ordered purpose list of the [session] immediately after [afterPurpose],
+     * persist it, and return the updated session. Falls back to appending at the end when [afterPurpose] is
+     * not present (which never happens for the engine's use — the resolving purpose is always in the list).
+     */
+    suspend fun insertPurposeAfter(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose,
+        afterPurpose: InteractiveFlowPurpose
+    ): OnGoingInteractiveFlowSession {
+        val afterIndex = session.purposes.indexOf(afterPurpose)
+        val insertAt = if (afterIndex >= 0) afterIndex + 1 else session.purposes.size
+        val purposes = session.purposes.toMutableList().apply { add(insertAt, purpose) }.toList()
+        val updated = sessionRepository.updatePurposes(
+            id = session.id,
+            purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return session.copy(purposes = purposes, version = session.version + 1)
+    }
+
+    /**
+     * Insert [purpose] into the ordered purpose list of the [session] immediately before [beforePurpose],
+     * persist it, and return the updated session. Falls back to prepending it when [beforePurpose] is not
+     * present.
+     *
+     * The case for it is a gate a step adds at the end-user's request, which must run before the purpose it
+     * stands in front of rather than after whatever the session already carries.
+     */
+    suspend fun insertPurposeBefore(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose,
+        beforePurpose: InteractiveFlowPurpose
+    ): OnGoingInteractiveFlowSession {
+        val insertAt = session.purposes.indexOf(beforePurpose).coerceAtLeast(0)
+        val purposes = session.purposes.toMutableList().apply { add(insertAt, purpose) }.toList()
+        val updated = sessionRepository.updatePurposes(
+            id = session.id,
+            purposes = purposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return session.copy(purposes = purposes, version = session.version + 1)
+    }
+
+    /**
+     * Set and save the error if it is non-recoverable to prevent further usage of the [session].
+     * Do nothing if the [error] is recoverable.
+     *
+     * The not-terminal guard and the error write are held together by the row lock the guard takes, so no other
+     * write to the session lands between them: without it, a request reading the version the guard bumped could
+     * complete the session in between, and have the unguarded error written over its completion. They are two
+     * statements because `error_values` is serialized to JSON only through the derived
+     * [InteractiveFlowSessionRepository.updateError], never as a raw query's parameter.
+     */
+    @Transactional
+    open suspend fun markAsFailedIfNotRecoverable(
+        session: OnGoingInteractiveFlowSession,
+        error: LocalizedException
+    ): InteractiveFlowSession {
+        if (error.recoverable) return session
+
+        val errorDate = LocalDateTime.now()
+        // The guard bumps the version only while the session is still ongoing. This request has usually
+        // advanced the version itself before failing, so a version compare-and-swap on the remembered
+        // (now-stale) version would wrongly swallow the write and leave the session ongoing; guarding on
+        // "not already terminal" fails it correctly. A session a concurrent request already
+        // completed/cancelled/failed yields 0 rows here and is left untouched — we must not overwrite that
+        // winner (and a concurrent conflict never reaches this method: it is diverted in the controller).
+        if (sessionRepository.failIfOngoing(session.id) == 1) {
+            sessionRepository.updateError(
+                id = session.id,
+                errorDate = errorDate,
+                errorDetailsId = error.detailsId,
+                errorDescriptionId = error.descriptionId,
+                errorValues = error.values
+            )
+            recordEnded(session, errorDate, FlowMetrics.SessionEnding.FAILED, error.detailsId)
+        }
+        return FailedInteractiveFlowSession(
+            id = session.id,
+            purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
+            initiatingClientId = session.initiatingClientId,
+            flowId = session.flowId,
+            errorDate = errorDate,
+            errorDetailsId = error.detailsId,
+            errorDescriptionId = error.descriptionId,
+            errorValues = error.values,
+            expirationDate = session.expirationDate,
+            startedBy = session.startedBy,
+            handBack = session.handBack
+        )
+    }
+
+    /**
+     * Mark the [session] as cancelled by the end-user, persist the cancellation date, and return the resulting
+     * [CancelledInteractiveFlowSession].
+     *
+     * Throws the internal `auth.interactive_flow_session.cancel.missing_redirect` before writing anything where
+     * [session] has no [InteractiveFlowSession.handBack]: a cancelled session hands the end-user back, and such
+     * a session has nowhere to.
+     */
+    suspend fun markAsCancelled(
+        session: OnGoingInteractiveFlowSession
+    ): CancelledInteractiveFlowSession {
+        val handBack = session.handBack
+            ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.cancel.missing_redirect")
+        val cancelDate = LocalDateTime.now()
+        val updated = sessionRepository.updateCancelDate(
+            id = session.id,
+            cancelDate = cancelDate,
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        recordEnded(session, cancelDate, FlowMetrics.SessionEnding.CANCELLED)
+        return CancelledInteractiveFlowSession(
+            id = session.id,
+            purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
+            initiatingClientId = session.initiatingClientId,
+            flowId = session.flowId,
+            expirationDate = session.expirationDate,
+            startedBy = session.startedBy,
+            handBack = handBack,
+            userId = session.userId,
+            cancelDate = cancelDate,
+        )
+    }
+
+    /**
+     * Record [purpose] as completed on the ongoing [session] as the engine hands off to the next purpose,
+     * persist the updated completed-purpose list, and return the still-[OnGoingInteractiveFlowSession].
+     *
+     * This is pure progress bookkeeping: it never transitions the session to completed — that is
+     * [markAsCompleted], run by the engine once every purpose has resolved, before the terminal effects are
+     * applied.
+     *
+     * Marking an already-completed [purpose] writes nothing and answers [session] as it is. The engine marks
+     * every resolved purpose on every advance, so a write there would be one two requests on the same session
+     * always race for, and the one losing it would fail the session over a list neither of them changed.
+     */
+    suspend fun markPurposeAsCompleted(
+        session: OnGoingInteractiveFlowSession,
+        purpose: InteractiveFlowPurpose
+    ): OnGoingInteractiveFlowSession {
+        if (purpose in session.completedPurposes) return session
+        val completedPurposes = session.completedPurposes + purpose
+        val updated = sessionRepository.updateCompletedPurposes(
+            id = session.id,
+            completedPurposes = completedPurposes.map(InteractiveFlowPurpose::name).toTypedArray(),
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return session.copy(completedPurposes = completedPurposes, version = session.version + 1)
+    }
+
+    /**
+     * Record that the [session] started at its session date ended at [endDate] as [ending], failed with the
+     * error code [errorType] if it failed.
+     */
+    fun recordEnded(
+        session: InteractiveFlowSession,
+        endDate: LocalDateTime,
+        ending: FlowMetrics.SessionEnding,
+        errorType: String? = null
+    ) {
+        val sessionDate = when (session) {
+            is OnGoingInteractiveFlowSession -> session.sessionDate
+            is CompletedInteractiveFlowSession -> session.sessionDate
+            else -> return
+        }
+        flowMetrics.recordEnded(
+            purpose = session.initiatingPurpose.metricName,
+            clientId = session.initiatingClientId,
+            elapsedSeconds = Duration.between(sessionDate, endDate).toNanos().nanosToSeconds(),
+            ending = ending,
+            errorType = errorType
+        )
+    }
+
+    /**
+     * Transition the ongoing [session] to completed: persist the completion date and return the resulting
+     * [CompletedInteractiveFlowSession].
+     *
+     * Call once every purpose the session carries has resolved (and been marked complete via
+     * [markPurposeAsCompleted]), inside the transaction applying the terminal effects. The concern-specific
+     * completion invariants (e.g. consent / grant for an OAuth2 session) are enforced by the matching purpose's
+     * terminal effect, committed with this transition.
+     */
+    suspend fun markAsCompleted(
+        session: OnGoingInteractiveFlowSession
+    ): CompletedInteractiveFlowSession {
+        val userId = session.userId ?: throw businessExceptionOf(
+            "auth.interactive_flow_session.complete.missing_user"
+        )
+        val handBack = session.handBack
+            ?: throw internalBusinessExceptionOf("auth.interactive_flow_session.complete.missing_redirect")
+        val completeDate = LocalDateTime.now()
+        val updated = sessionRepository.updateCompleteDate(
+            id = session.id,
+            completeDate = completeDate,
+            expectedVersion = session.version
+        )
+        if (updated == 0) throw interactiveFlowSessionConcurrentModificationExceptionOf(session)
+        return CompletedInteractiveFlowSession(
+            id = session.id,
+            purposes = session.purposes,
+            initiatingPurpose = session.initiatingPurpose,
+            initiatingClientId = session.initiatingClientId,
+            flowId = session.flowId,
+            expirationDate = session.expirationDate,
+            startedBy = session.startedBy,
+            handBack = handBack,
+            sessionDate = session.sessionDate,
+            userId = userId,
+            signedUp = session.signedUp,
+            completedPurposes = session.completedPurposes,
+            mfaPassedDate = session.mfaPassedDate,
+            completeDate = completeDate,
+        )
+    }
+
+    /**
+     * Return the [User] associated to the [session] or null if:
+     * - there is no user associated to the ongoing [session].
+     * - the [session] has failed.
+     *
+     * It answers the account this very session is signing up while that account is still provisional, which
+     * [UserManager.findByIdOrNull] answers as none. See `docs/design/provisional-user.md`.
+     *
+     * Throws an unrecoverable [BusinessException] if the user id is corrupted and cannot be found in the
+     * database anymore.
+     */
+    suspend fun getUserOrNull(session: InteractiveFlowSession): User? {
+        return when (session) {
+            is OnGoingInteractiveFlowSession -> userManager.findByIdInSessionOrNull(session.userId, session.id)
+            is CompletedInteractiveFlowSession -> userManager.findByIdInSessionOrNull(session.userId, session.id)
+            is CancelledInteractiveFlowSession -> userManager.findByIdInSessionOrNull(session.userId, session.id)
+            is FailedInteractiveFlowSession -> null
+        }
+    }
+
+    /**
+     * Return the [User] associated to the [session] or throw an unrecoverable [BusinessException] if:
+     * - there is no user associated to the ongoing [session].
+     * - the [session] has failed.
+     * - the user id is corrupted and cannot be found in the database anymore.
+     */
+    suspend fun getUser(
+        session: InteractiveFlowSession
+    ): User {
+        return getUserOrNull(session) ?: throw businessExceptionOf(
+            detailsId = "auth.interactive_flow_session.user.missing"
+        )
+    }
+
+    /**
+     * Re-read the [InteractiveFlowSession] with the given [id] from the database, or null if it no longer
+     * exists. Unlike [verifyEncodedInternalState] this needs no signed state, so a caller holding a stale
+     * in-memory session (e.g. after a concurrent-modification conflict) can refresh it to its current
+     * persisted status and route by that.
+     */
+    suspend fun fetchByIdOrNull(id: UUID): InteractiveFlowSession? {
+        return sessionRepository.findById(id)?.let(sessionMapper::toInteractiveFlowSession)
+    }
+
+    companion object {
+        /**
+         * Name of the cryptographic key used to sign the state.
+         */
+        const val STATE_KEY_NAME = "state"
+    }
+}
+
+sealed class VerifyEncodedStateResult
+
+class SuccessVerifyEncodedStateResult(
+    val session: InteractiveFlowSession
+) : VerifyEncodedStateResult()
+
+class FailedVerifyEncodedStateResult(
+    val detailsId: String,
+    val descriptionId: String? = null,
+    val values: Map<String, String> = emptyMap()
+) : VerifyEncodedStateResult()
+
+/**
+ * What a purpose is recorded under on a metric's `purpose`.
+ */
+internal val InteractiveFlowPurpose.metricName: String
+    get() = name.lowercase()

@@ -4,8 +4,8 @@ import com.sympauthy.api.flow.resource.ClaimsValidationFlowResource
 import com.sympauthy.api.flow.resource.ClientReferenceResource
 import com.sympauthy.api.flow.resource.ResendClaimsValidationCodeResultResource
 import com.sympauthy.api.flow.resource.ValidationCodeResource
-import com.sympauthy.business.model.validationcode.ValidationCode
-import com.sympauthy.business.model.validationcode.ValidationCodeMedia
+import com.sympauthy.business.validationcode.model.ValidationCode
+import com.sympauthy.business.validationcode.model.ValidationCodeMedia
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 import java.net.URI

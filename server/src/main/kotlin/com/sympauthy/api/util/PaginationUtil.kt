@@ -1,7 +1,7 @@
 package com.sympauthy.api.util
 
 import com.sympauthy.api.exception.recoverableHttpExceptionOf
-import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.collection.model.PageParams
 import com.sympauthy.config.model.AdvancedConfig
 import com.sympauthy.config.model.orThrow
 import io.micronaut.http.HttpStatus.BAD_REQUEST

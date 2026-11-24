@@ -1,0 +1,440 @@
+package com.sympauthy.business.user.manager
+
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.mapper.ClaimValueMapper
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.OpenIdConnectClaimId
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.user.mapper.UserMapper
+import com.sympauthy.business.user.model.User
+import com.sympauthy.business.user.model.UserStatus
+import com.sympauthy.data.model.CollectedClaimEntity
+import com.sympauthy.data.model.UserEntity
+import com.sympauthy.data.repository.CollectedClaimRepository
+import com.sympauthy.data.repository.ObjectLockRepository
+import com.sympauthy.data.repository.UserRepository
+import com.sympauthy.platform.lock.HeldStripes
+import com.sympauthy.platform.lock.LockKey
+import com.sympauthy.platform.lock.LockManager
+import com.sympauthy.platform.monitoring.telemetry.manager.LockMetrics
+import io.micronaut.data.repository.jpa.criteria.PredicateSpecification
+import io.micronaut.serde.ObjectMapper
+import io.mockk.coEvery
+import io.mockk.coVerifyOrder
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import io.mockk.slot
+import io.opentelemetry.api.OpenTelemetry
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
+import java.util.*
+
+@ExtendWith(MockKExtension::class)
+class UserManagerTest {
+
+    private val emailClaim = OpenIdConnectClaimId.EMAIL
+    private val phoneClaim = OpenIdConnectClaimId.PHONE_NUMBER
+
+    /** The two values folded, which is the spelling every caller of the rule offers. */
+    private val storedAddress = "user@example.com"
+    private val storedNumber = "+33612345678"
+
+    /**
+     * The real mapper, because what the rule turns on is that a row's folded value is recovered from what
+     * it publishes and re-checked against what was offered — a double answering that would prove neither.
+     */
+    @SpyK
+    var claimValueMapper: ClaimValueMapper = ClaimValueMapper(ObjectMapper.getDefault())
+
+    @MockK
+    lateinit var claimManager: ClaimManager
+
+    @MockK
+    lateinit var collectedClaimRepository: CollectedClaimRepository
+
+    @MockK
+    lateinit var userRepository: UserRepository
+
+    @MockK
+    lateinit var userMapper: UserMapper
+
+    private val objectLockRepository = mockk<ObjectLockRepository>(relaxed = true)
+
+    /**
+     * The real manager over the stripe table, so a test can say the account's row was taken. A double answering
+     * for `withLock` would run the block whether or not anything was ever locked.
+     */
+    var lockManager: LockManager = LockManager(objectLockRepository, HeldStripes(), LockMetrics(OpenTelemetry.noop()))
+
+    @SpyK
+    @InjectMockKs
+    lateinit var manager: UserManager
+
+    @Test
+    fun `findByIdOrNull - Return user when found`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+        val user = mockk<User>()
+
+        coEvery { userRepository.findByIdAndSessionIdIsNull(userId) } returns entity
+        every { userMapper.toUser(entity) } returns user
+
+        val result = manager.findByIdOrNull(userId)
+
+        assertSame(user, result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Return null when user not found`() = runTest {
+        val userId = UUID.randomUUID()
+
+        coEvery { userRepository.findByIdAndSessionIdIsNull(userId) } returns null
+
+        val result = manager.findByIdOrNull(userId)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findByIdOrNull - Return null when id is null`() = runTest {
+        val result = manager.findByIdOrNull(null)
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `findById - Return user when found`() = runTest {
+        val userId = UUID.randomUUID()
+        val user = mockk<User>()
+
+        coEvery { manager.findByIdOrNull(userId) } returns user
+
+        val result = manager.findById(userId)
+
+        assertSame(user, result)
+    }
+
+    @Test
+    fun `findById - Throw exception when user not found`() = runTest {
+        val userId = UUID.randomUUID()
+
+        coEvery { manager.findByIdOrNull(userId) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            manager.findById(userId)
+        }
+
+        assertEquals("user.not_found", exception.detailsId)
+        assertEquals(userId.toString(), exception.values["userId"])
+    }
+
+    @Test
+    fun `findById - Throw exception when id is null`() = runTest {
+        coEvery { manager.findByIdOrNull(null) } returns null
+
+        val exception = assertThrows<BusinessException> {
+            manager.findById(null)
+        }
+
+        assertEquals("user.not_found", exception.detailsId)
+        assertEquals("null", exception.values["userId"])
+    }
+
+    @Test
+    fun `createUser - Create and return new user with ENABLED status`() = runTest {
+        val entitySlot = slot<UserEntity>()
+        val savedEntity = mockk<UserEntity>()
+        val user = mockk<User>()
+
+        coEvery { userRepository.save(capture(entitySlot)) } answers {
+            savedEntity
+        }
+        every { userMapper.toUser(savedEntity) } returns user
+
+        val result = manager.createUser(sessionId = null)
+
+        assertSame(user, result)
+        assertEquals(UserStatus.ENABLED.name, entitySlot.captured.status)
+        assertNotNull(entitySlot.captured.creationDate)
+    }
+
+    @Test
+    fun `checkPromoted - Passes for a committed account`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+
+        coEvery { userRepository.findById(userId) } returns entity
+        every { userMapper.toUser(entity) } returns committedUser(userId)
+
+        manager.checkPromoted(userId)
+    }
+
+    @Test
+    fun `checkPromoted - Refuses an account a session is still signing up`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+
+        coEvery { userRepository.findById(userId) } returns entity
+        every { userMapper.toUser(entity) } returns provisionalUser(userId)
+
+        val exception = assertThrows<BusinessException> { manager.checkPromoted(userId) }
+
+        assertEquals("user.not_promoted", exception.detailsId)
+        assertFalse(exception.recoverable)
+        assertEquals(userId.toString(), exception.values["userId"])
+    }
+
+    @Test
+    fun `checkPromoted - Refuses an id naming no account at all`() = runTest {
+        val userId = UUID.randomUUID()
+
+        coEvery { userRepository.findById(userId) } returns null
+
+        val exception = assertThrows<BusinessException> { manager.checkPromoted(userId) }
+
+        assertEquals("user.not_found", exception.detailsId)
+    }
+
+    @Test
+    fun `checkPromoted - Refuses a row the mapper cannot read back`() = runTest {
+        val userId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+        val refusal = mockk<BusinessException>()
+
+        coEvery { userRepository.findById(userId) } returns entity
+        every { userMapper.toUser(entity) } throws refusal
+
+        assertSame(refusal, assertThrows<BusinessException> { manager.checkPromoted(userId) })
+    }
+
+    @Test
+    fun `checkPromoted - Reads the account the caller already holds without a query`() {
+        val userId = UUID.randomUUID()
+
+        manager.checkPromoted(committedUser(userId))
+
+        val exception = assertThrows<BusinessException> { manager.checkPromoted(provisionalUser(userId)) }
+        assertEquals("user.not_promoted", exception.detailsId)
+    }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Asks nothing when no claim or no value is offered`() = runTest {
+        val userId = UUID.randomUUID()
+
+        assertNull(manager.findTakenIdentifierOrNull(userId, emptyList(), mapOf(emailClaim to storedAddress)))
+        assertNull(manager.findTakenIdentifierOrNull(userId, listOf(emailClaim), emptyMap()))
+    }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Answers the offered claim, not the conflicting row's`() = runTest {
+        val userId = UUID.randomUUID()
+        val ownerId = UUID.randomUUID()
+        committedRows(claimRow(ownerId, phoneClaim, storedAddress))
+
+        val taken = manager.findTakenIdentifierOrNull(
+            userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+        )
+
+        // The claim is the caller's own; the account is the one holding the row.
+        assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
+    }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Names the one taken value though the others are free`() = runTest {
+        val userId = UUID.randomUUID()
+        val ownerId = UUID.randomUUID()
+        committedRows(claimRow(ownerId, emailClaim, storedAddress))
+
+        val taken = manager.findTakenIdentifierOrNull(
+            userId,
+            listOf(emailClaim, phoneClaim),
+            mapOf(emailClaim to storedAddress, phoneClaim to storedNumber)
+        )
+
+        assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
+    }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Passes over a row the account holds under that same claim`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            committedRows(claimRow(userId, emailClaim, storedAddress))
+
+            val taken = manager.findTakenIdentifierOrNull(
+                userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+            )
+
+            assertNull(taken)
+        }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Passes over a row the account holds under another claim`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            committedRows(claimRow(userId, phoneClaim, storedAddress))
+
+            // Its own under a second claim, and not a conflict: both rows name the one account, so a login
+            // over that value resolves to it either way and there is no pair to exclude.
+            val taken = manager.findTakenIdentifierOrNull(
+                userId, listOf(emailClaim, phoneClaim), mapOf(emailClaim to storedAddress)
+            )
+
+            assertNull(taken)
+        }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Refuses the crossed pair that would sign one owner in as another`() =
+        runTest {
+            val userId = UUID.randomUUID()
+            val ownerId = UUID.randomUUID()
+            // Another account already holds, under its username, the address this one offers as its email.
+            committedRows(claimRow(ownerId, phoneClaim, storedAddress))
+
+            val taken = manager.findTakenIdentifierOrNull(
+                userId,
+                listOf(emailClaim, phoneClaim),
+                mapOf(emailClaim to storedAddress, phoneClaim to storedNumber)
+            )
+
+            assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
+        }
+
+    @Test
+    fun `findTakenIdentifierOrNull - Exempts nothing for a caller holding no account yet`() = runTest {
+        val ownerId = UUID.randomUUID()
+        committedRows(claimRow(ownerId, emailClaim, storedAddress))
+
+        val taken = manager.findTakenIdentifierOrNull(
+            null, listOf(emailClaim), mapOf(emailClaim to storedAddress)
+        )
+
+        assertEquals(TakenIdentifier(claimId = emailClaim, userId = ownerId), taken)
+    }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Answers the account a row of any of the claims holds it under`() =
+        runTest {
+            val ownerId = UUID.randomUUID()
+            val entity = mockk<UserEntity>()
+            val user = mockk<User>()
+            committedRows(claimRow(ownerId, phoneClaim, storedAddress))
+            coEvery { userRepository.findByIdAndSessionIdIsNull(ownerId) } returns entity
+            every { userMapper.toUser(entity) } returns user
+
+            // Offered under both, as a login is: a row of either answers, and it is the phone claim that
+            // happens to hold it.
+            val found = manager.findByAnyIdentifierClaimValue(
+                mapOf(emailClaim to storedAddress, phoneClaim to storedAddress)
+            )
+
+            assertSame(user, found)
+        }
+
+    @Test
+    fun `findByAnyIdentifierClaimValue - Drops a row whose folded value is not the one offered`() = runTest {
+        // The hash selected this row: it is the collision the re-check refuses.
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, "somebody.else@example.com"))
+
+        assertNull(manager.findByAnyIdentifierClaimValue(mapOf(emailClaim to storedAddress)))
+    }
+
+    @Test
+    fun `findByIdentifierClaims - Answers the account holding every one of the values`() = runTest {
+        val ownerId = UUID.randomUUID()
+        val entity = mockk<UserEntity>()
+        val user = mockk<User>()
+        committedRows(
+            claimRow(ownerId, emailClaim, storedAddress),
+            claimRow(ownerId, phoneClaim, storedNumber)
+        )
+        coEvery { userRepository.findByIdInListAndSessionIdIsNull(listOf(ownerId)) } returns listOf(entity)
+        every { userMapper.toUser(entity) } returns user
+
+        val found = manager.findByIdentifierClaims(mapOf(emailClaim to storedAddress, phoneClaim to storedNumber))
+
+        assertSame(user, found)
+    }
+
+    @Test
+    fun `findByIdentifierClaims - Answers none where an account holds only some of the values`() = runTest {
+        committedRows(claimRow(UUID.randomUUID(), emailClaim, storedAddress))
+        coEvery { userRepository.findByIdInListAndSessionIdIsNull(emptyList()) } returns emptyList()
+
+        val found = manager.findByIdentifierClaims(mapOf(emailClaim to storedAddress, phoneClaim to storedNumber))
+
+        assertNull(found)
+    }
+
+    private fun committedRows(vararg rows: CollectedClaimEntity) {
+        every { claimManager.findByIdOrNull(any()) } returns mockk<EnabledClaim> {
+            every { dataType } returns ClaimDataType.STRING
+        }
+        every {
+            collectedClaimRepository.findAll(any<PredicateSpecification<CollectedClaimEntity>>())
+        } returns rows.asList().asFlow()
+    }
+
+    /** A row as a write leaves it: the value encoded, and the key the folded value hashes to. */
+    private fun claimRow(userId: UUID, claim: String, value: String) = CollectedClaimEntity(
+        userId = userId,
+        claim = claim,
+        value = claimValueMapper.toEntity(value),
+        foldedEqualityHash = claimValueMapper.toFoldedEqualityHash(value),
+        verified = null,
+        collectionDate = LocalDateTime.now(),
+        verificationDate = null,
+        sessionId = null
+    )
+
+    @Test
+    fun `markAuthenticated - Advances the last authentication of that account under its lock`() = runTest {
+        val id = UUID.randomUUID()
+        val date = LocalDateTime.of(2026, 11, 5, 10, 0)
+        coEvery { userRepository.advanceLastAuthenticationDate(id, date) } returns 1
+
+        manager.markAuthenticated(id, date)
+
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(id).stripe)
+            userRepository.advanceLastAuthenticationDate(id, date)
+        }
+    }
+
+    @Test
+    fun `markRefreshed - Advances the last refresh of that account under its lock`() = runTest {
+        val id = UUID.randomUUID()
+        val date = LocalDateTime.of(2026, 11, 5, 10, 0)
+        coEvery { userRepository.advanceLastRefreshDate(id, date) } returns 1
+
+        manager.markRefreshed(id, date)
+
+        coVerifyOrder {
+            objectLockRepository.lock(LockKey.User(id).stripe)
+            userRepository.advanceLastRefreshDate(id, date)
+        }
+    }
+
+    private fun committedUser(id: UUID) = User(
+        id = id,
+        status = UserStatus.ENABLED,
+        creationDate = LocalDateTime.now(),
+        sessionId = null
+    )
+
+    private fun provisionalUser(id: UUID) = User(
+        id = id,
+        status = UserStatus.ENABLED,
+        creationDate = LocalDateTime.now(),
+        sessionId = UUID.randomUUID()
+    )
+}

@@ -101,9 +101,10 @@ names beside either: what an operator writes is resolved against what the contai
 the interface the setting selects from, so the set exists once, where the code implementing it does,
 and adding an implementation is adding an implementation.
 
-**The interface the setting selects from lives in `business.model`**, because that is
+**The interface the setting selects from lives in its concept's `model` package**, because that is
 [the only part of `business` this layer may name](general-code-standard.md#dependency-rules). Its
-implementations stay in `business.manager`, each published under the word an operator writes.
+implementations stay in the concept's `manager` package, each published under the word an operator
+writes.
 
 **A qualifier matches `[a-z0-9]+(-[a-z0-9]+)*`** — lowercase letters and digits, words separated by
 a single dash, as `auto-increment` is. The container passes the name through verbatim, so this is

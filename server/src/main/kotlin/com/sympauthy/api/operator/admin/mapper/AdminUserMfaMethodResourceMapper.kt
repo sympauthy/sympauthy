@@ -1,8 +1,8 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminUserMfaMethodResource
-import com.sympauthy.business.model.mfa.MfaMethodType
-import com.sympauthy.business.model.mfa.TotpEnrollment
+import com.sympauthy.business.mfa.model.MfaMethodType
+import com.sympauthy.business.mfa.model.TotpEnrollment
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Singleton
 

@@ -1,7 +1,7 @@
 package com.sympauthy.api.protocol.openid.discovery
 
 import com.sympauthy.api.protocol.openid.discovery.PublicKeySetController.Companion.OPENID_JWKS_ENDPOINT
-import com.sympauthy.business.manager.jwt.JwtManager
+import com.sympauthy.business.jwt.manager.JwtManager
 import io.micronaut.http.MediaType.APPLICATION_JSON
 import io.micronaut.http.annotation.Controller
 import io.micronaut.http.annotation.Get

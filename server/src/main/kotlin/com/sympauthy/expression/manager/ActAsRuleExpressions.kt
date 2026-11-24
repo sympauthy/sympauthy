@@ -1,8 +1,8 @@
 package com.sympauthy.expression.manager
 
 import com.ezylang.evalex.config.ExpressionConfiguration
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.client.Client
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.client.model.Client
 import com.sympauthy.expression.exception.InvalidRuleExpressionException
 import java.util.Map.entry
 

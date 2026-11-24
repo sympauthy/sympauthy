@@ -1,7 +1,7 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.flow.InteractiveFlow
+import com.sympauthy.business.flow.model.AuthorizationFlow
+import com.sympauthy.business.flow.model.InteractiveFlow
 import com.sympauthy.config.exception.ConfigurationException
 
 sealed class AuthorizationFlowsConfig(

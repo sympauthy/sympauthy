@@ -17,11 +17,11 @@ import com.sympauthy.api.mapper.InteractiveFlowStepUriMapper
 import com.sympauthy.api.util.BODY_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.BODY_TOO_LARGE_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.manager.claim.ConsentAwareClaimManager
-import com.sympauthy.business.manager.claim.ConsentAwareCollectedClaimManager
-import com.sympauthy.business.manager.flow.oauth2.InteractiveFlowSessionOAuth2Manager
-import com.sympauthy.business.manager.provider.ProviderClaimsManager
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.claim.manager.ConsentAwareClaimManager
+import com.sympauthy.business.claim.manager.ConsentAwareCollectedClaimManager
+import com.sympauthy.business.flow.oauth2.manager.InteractiveFlowSessionOAuth2Manager
+import com.sympauthy.business.provider.manager.ProviderClaimsManager
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.platform.util.orDefault
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull

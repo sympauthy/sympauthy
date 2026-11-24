@@ -1,7 +1,7 @@
 package com.sympauthy.api.flow
 
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.model.flow.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
+import com.sympauthy.business.flow.model.AuthorizationFlow.Companion.DEFAULT_WEB_AUTHORIZATION_FLOW_ENDPOINT
 import io.micronaut.core.io.ResourceResolver
 import io.micronaut.http.MediaType.TEXT_HTML
 import io.micronaut.http.annotation.Controller

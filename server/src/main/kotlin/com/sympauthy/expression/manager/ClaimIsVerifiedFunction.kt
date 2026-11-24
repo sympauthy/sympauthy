@@ -5,7 +5,7 @@ import com.ezylang.evalex.data.EvaluationValue
 import com.ezylang.evalex.functions.AbstractFunction
 import com.ezylang.evalex.functions.FunctionParameter
 import com.ezylang.evalex.parser.Token
-import com.sympauthy.business.model.claim.CollectedClaim
+import com.sympauthy.business.claim.model.CollectedClaim
 
 /**
  * Custom function checking if the claim is verified for the authenticating end-user.

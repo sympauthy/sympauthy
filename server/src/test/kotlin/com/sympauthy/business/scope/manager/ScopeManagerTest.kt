@@ -1,0 +1,281 @@
+package com.sympauthy.business.scope.manager
+
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.exception.BusinessException
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.scope.model.ConsentableUserScope
+import com.sympauthy.business.scope.model.DisabledScope
+import com.sympauthy.business.scope.model.EnabledScope
+import com.sympauthy.business.scope.model.GrantableUserScope
+import com.sympauthy.business.scope.model.Scope
+import com.sympauthy.business.scope.model.ScopePublicationPlace.DISCOVERY
+import com.sympauthy.business.scope.model.ScopeType
+import com.sympauthy.config.model.*
+import io.mockk.coEvery
+import io.mockk.every
+import io.mockk.impl.annotations.InjectMockKs
+import io.mockk.impl.annotations.MockK
+import io.mockk.impl.annotations.SpyK
+import io.mockk.junit5.MockKExtension
+import io.mockk.mockk
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.extension.ExtendWith
+
+@ExtendWith(MockKExtension::class)
+class ScopeManagerTest {
+
+    @MockK
+    lateinit var scopesConfig: EnabledScopesConfig
+
+    @MockK
+    lateinit var claimManager: ClaimManager
+
+    @SpyK
+    @InjectMockKs
+    lateinit var scopeManager: ScopeManager
+
+    private val enabledScope = ConsentableUserScope(scope = "profile")
+    private val disabledScope = DisabledScope(scope = "email", type = ScopeType.CONSENTABLE)
+
+
+    @Test
+    fun `findOrThrow - Find scope`() = runTest {
+        val scope = "scope"
+        val foundScope = mockk<EnabledScope>()
+        coEvery { scopeManager.find(scope) } returns foundScope
+        val result = scopeManager.findOrThrow(scope)
+        assertSame(foundScope, result)
+    }
+
+    @Test
+    fun `findOrThrow - Throw if scope cannot be found`() = runTest {
+        val scope = "scope"
+        coEvery { scopeManager.find(scope) } throws mockk<BusinessException>()
+        assertThrows<BusinessException> {
+            scopeManager.findOrThrow(scope)
+        }
+    }
+
+    @Test
+    fun `findForClientOrThrow - Return scope when found and client has no allowedScopes`() = runTest {
+        val scope = "openid"
+        val foundScope = mockk<EnabledScope> { every { audienceId } returns null }
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { allowedScopes } returns null
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        val result = scopeManager.findForClientOrThrow(client, scope)
+
+        assertSame(foundScope, result)
+    }
+
+
+    @Test
+    fun `findForClientOrThrow - Return scope when found and client allows it`() = runTest {
+        val scope = "openid"
+        val foundScope = mockk<EnabledScope> { every { audienceId } returns null }
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { allowedScopes } returns setOf(foundScope)
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        val result = scopeManager.findForClientOrThrow(client, scope)
+
+        assertSame(foundScope, result)
+    }
+
+    @Test
+    fun `findForClientOrThrow - Throw when scope not found`() = runTest {
+        val scope = "invalid"
+        val client = mockk<com.sympauthy.business.client.model.Client>()
+
+        coEvery { scopeManager.find(scope) } returns null
+
+        assertThrows<BusinessException> {
+            scopeManager.findForClientOrThrow(client, scope)
+        }
+    }
+
+    @Test
+    fun `findForClientOrThrow - Throw when scope not allowed by client`() = runTest {
+        val scope = "openid"
+        val foundScope = mockk<EnabledScope> { every { audienceId } returns null }
+        val otherScope = mockk<EnabledScope>()
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { allowedScopes } returns setOf(otherScope)
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        assertThrows<BusinessException> {
+            scopeManager.findForClientOrThrow(client, scope)
+        }
+    }
+
+    @Test
+    fun `findForClientOrThrow - Throw when scope audience does not match client audience`() = runTest {
+        val scope = "admin:users:read"
+        val foundScope = GrantableUserScope(scope, publishedIn = emptySet(), audienceId = "admin")
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { audience } returns mockk { every { id } returns "default" }
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        assertThrows<BusinessException> {
+            scopeManager.findForClientOrThrow(client, scope)
+        }
+    }
+
+    @Test
+    fun `parseRequestedScopes - Parse and return scopes allowed by client`() = runTest {
+        val scopeOne = "openid"
+        val scopeTwo = "profile"
+        val foundScopeOne = GrantableUserScope(scopeOne, publishedIn = setOf(DISCOVERY))
+        val foundScopeTwo = ConsentableUserScope(scopeTwo)
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
+        }
+
+        coEvery { scopeManager.find(scopeOne) } returns foundScopeOne
+        coEvery { scopeManager.find(scopeTwo) } returns foundScopeTwo
+
+        val result = scopeManager.parseRequestedScopes(client, "$scopeOne $scopeTwo")
+
+        assertEquals(2, result.size)
+        assertSame(foundScopeOne, result[0])
+        assertSame(foundScopeTwo, result[1])
+    }
+
+    @Test
+    fun `parseRequestedScopes - Parse scopes with whitespace`() = runTest {
+        val scopeOne = "openid"
+        val scopeTwo = "profile"
+        val foundScopeOne = GrantableUserScope(scopeOne, publishedIn = setOf(DISCOVERY))
+        val foundScopeTwo = ConsentableUserScope(scopeTwo)
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { allowedScopes } returns setOf(foundScopeOne, foundScopeTwo)
+        }
+
+        coEvery { scopeManager.find(scopeOne) } returns foundScopeOne
+        coEvery { scopeManager.find(scopeTwo) } returns foundScopeTwo
+
+        val result = scopeManager.parseRequestedScopes(client, " $scopeOne  $scopeTwo ")
+
+        assertEquals(2, result.size)
+        assertSame(foundScopeOne, result[0])
+        assertSame(foundScopeTwo, result[1])
+    }
+
+    @Test
+    fun `parseRequestedScopes - Throw when scope audience does not match client audience`() = runTest {
+        val scope = "admin:users:read"
+        val foundScope = GrantableUserScope(scope, publishedIn = emptySet(), audienceId = "admin")
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { audience } returns mockk { every { id } returns "default" }
+        }
+
+        coEvery { scopeManager.find(scope) } returns foundScope
+
+        val exception = assertThrows<BusinessException> {
+            scopeManager.parseRequestedScopes(client, scope)
+        }
+
+        assertEquals("scope.audience_mismatch", exception.detailsId)
+    }
+
+    @Test
+    fun `parseRequestedScopes - Throw when a client scope is requested, even one the client is allowed`() = runTest {
+        val clientScope = ClientScope(scope = "users:claims:read")
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { allowedScopes } returns setOf(enabledScope, clientScope)
+        }
+
+        val exception = assertThrows<BusinessException> {
+            managerConfiguredWith(enabledScope, clientScope)
+                .parseRequestedScopes(client, "profile users:claims:read")
+        }
+
+        assertEquals("scope.parse_requested.not_user_scope", exception.detailsId)
+        assertEquals("users:claims:read", exception.values["scope"])
+    }
+
+    @Test
+    fun `parseRequestedScopes - Return default scopes uncheckedScopes is blank`() = runTest {
+        val defaultScope = mockk<EnabledScope>()
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { defaultScopes } returns listOf(defaultScope)
+        }
+
+        val result = scopeManager.parseRequestedScopes(client, "   ")
+
+        assertEquals(listOf(defaultScope), result)
+    }
+
+    @Test
+    fun `parseRequestedScopes - Return default scopes uncheckedScopes is null`() = runTest {
+        val defaultScope = mockk<EnabledScope>()
+        val client = mockk<com.sympauthy.business.client.model.Client> {
+            every { defaultScopes } returns listOf(defaultScope)
+        }
+
+        val result = scopeManager.parseRequestedScopes(client, null)
+
+        assertEquals(listOf(defaultScope), result)
+    }
+
+    @Test
+    fun `listEnabledScopes - Leave out the scopes the deployment turned off`() = runTest {
+        val result = managerConfiguredWith(enabledScope, disabledScope).listEnabledScopes()
+
+        assertEquals(listOf(enabledScope), result)
+    }
+
+    @Test
+    fun `listAllScopes - Return the scopes the deployment turned off as well`() = runTest {
+        val result = managerConfiguredWith(enabledScope, disabledScope).listAllScopes()
+
+        assertEquals(listOf(enabledScope, disabledScope), result)
+    }
+
+    @Test
+    fun `find - Return null for a scope the deployment turned off`() = runTest {
+        val manager = managerConfiguredWith(enabledScope, disabledScope)
+
+        assertNull(manager.find(disabledScope.scope))
+    }
+
+    @Test
+    fun `listClaimsProtectedByScope - Report the claims a scope the deployment turned off would protect`() =
+        runTest {
+            val gatedClaim = mockk<EnabledClaim> { every { belongsToScope(disabledScope.scope) } returns true }
+            every { claimManager.listAllClaims() } returns listOf(gatedClaim)
+
+            val result = scopeManager.listClaimsProtectedByScope(disabledScope)
+
+            assertEquals(listOf(gatedClaim), result)
+        }
+
+    @Test
+    fun `listClaimsProtectedByScope - Return no claim for a scope that is not consentable`() = runTest {
+        val scope = GrantableUserScope("openid", publishedIn = setOf(DISCOVERY))
+
+        val result = scopeManager.listClaimsProtectedByScope(scope)
+
+        assertTrue(result.isEmpty())
+    }
+
+    /**
+     * A manager reading a real configuration, so that which half of it a collection reads is what the
+     * assertion turns on rather than what a double was told to return.
+     */
+    private fun managerConfiguredWith(vararg scopes: Scope) =
+        ScopeManager(EnabledScopesConfig(scopes.toList()), claimManager)
+}

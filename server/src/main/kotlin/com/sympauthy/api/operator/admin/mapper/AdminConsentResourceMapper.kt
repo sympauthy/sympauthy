@@ -1,8 +1,8 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminConsentResource
-import com.sympauthy.business.manager.collection.ConsentCollectionManager.ConsentWithClient
-import com.sympauthy.business.model.consent.ConsentRevokedBy
+import com.sympauthy.business.collection.manager.ConsentCollectionManager.ConsentWithClient
+import com.sympauthy.business.consent.model.ConsentRevokedBy
 import com.sympauthy.platform.util.wireName
 import jakarta.inject.Inject
 import jakarta.inject.Singleton

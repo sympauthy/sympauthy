@@ -8,20 +8,20 @@ import com.sympauthy.api.exception.LocalizedHttpException
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
-import com.sympauthy.business.manager.claim.ClaimAclManager
-import com.sympauthy.business.manager.collection.InvitationCollectionManager
-import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.model.audience.Audience
-import com.sympauthy.business.model.claim.ClaimAclContext
-import com.sympauthy.business.model.claim.ClaimAclTokenDoors
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.invitation.Invitation
-import com.sympauthy.business.model.invitation.InvitationCreatedBy
-import com.sympauthy.business.model.invitation.InvitationStatus
-import com.sympauthy.business.model.page.Page
-import com.sympauthy.business.model.page.PageParams
-import com.sympauthy.business.model.scope.ClientScope
-import com.sympauthy.business.model.token.AuthenticationToken
+import com.sympauthy.business.audience.model.Audience
+import com.sympauthy.business.claim.manager.ClaimAclManager
+import com.sympauthy.business.claim.model.ClaimAclContext
+import com.sympauthy.business.claim.model.ClaimAclTokenDoors
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.collection.manager.InvitationCollectionManager
+import com.sympauthy.business.collection.model.Page
+import com.sympauthy.business.collection.model.PageParams
+import com.sympauthy.business.invitation.manager.InvitationManager
+import com.sympauthy.business.invitation.model.Invitation
+import com.sympauthy.business.invitation.model.InvitationCreatedBy
+import com.sympauthy.business.invitation.model.InvitationStatus
+import com.sympauthy.business.scope.model.ClientScope
+import com.sympauthy.business.token.model.AuthenticationToken
 import com.sympauthy.security.ClientAuthentication
 import io.mockk.coEvery
 import io.mockk.every
@@ -109,7 +109,7 @@ class ClientInvitationControllerTest {
     /**
      * Nothing in the request names an audience, so the stub matching the client's own is the assertion: a
      * controller taking it from anywhere else reaches no stub at all. Refusing a claim that names another
-     * audience is [com.sympauthy.business.manager.invitation.InvitationManager]'s, and is proved there.
+     * audience is [com.sympauthy.business.invitation.manager.InvitationManager]'s, and is proved there.
      */
     @Test
     fun `createInvitation - Hold the pre-assigned claims to the authenticated client's own audience`() = runTest {

@@ -10,11 +10,11 @@ import com.sympauthy.api.util.TEST_DEFAULT_PAGE_SIZE
 import com.sympauthy.api.util.collectionRequest
 import com.sympauthy.api.util.defaultPaginationUtil
 import com.sympauthy.api.util.noCapabilities
-import com.sympauthy.business.manager.client.ClientManager
-import com.sympauthy.business.manager.collection.ClientCollectionManager
-import com.sympauthy.business.model.client.Client
-import com.sympauthy.business.model.page.Page
-import com.sympauthy.business.model.page.PageParams
+import com.sympauthy.business.client.manager.ClientManager
+import com.sympauthy.business.client.model.Client
+import com.sympauthy.business.collection.manager.ClientCollectionManager
+import com.sympauthy.business.collection.model.Page
+import com.sympauthy.business.collection.model.PageParams
 import io.micronaut.http.HttpStatus
 import io.mockk.coEvery
 import io.mockk.every

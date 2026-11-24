@@ -1,9 +1,9 @@
 package com.sympauthy.api.operator.admin.mapper
 
 import com.sympauthy.api.operator.admin.resource.AdminClaimResource
-import com.sympauthy.business.model.claim.Claim
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.claim.isEnabled
+import com.sympauthy.business.claim.model.Claim
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.isEnabled
 import com.sympauthy.config.model.AuthConfig
 import com.sympauthy.config.model.orThrow
 import com.sympauthy.platform.util.wireName

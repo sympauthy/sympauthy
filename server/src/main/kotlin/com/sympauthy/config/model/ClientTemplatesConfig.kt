@@ -1,9 +1,9 @@
 package com.sympauthy.config.model
 
-import com.sympauthy.business.model.client.AuthorizationWebhook
-import com.sympauthy.business.model.client.GrantType
-import com.sympauthy.business.model.flow.AuthorizationFlow
-import com.sympauthy.business.model.scope.EnabledScope
+import com.sympauthy.business.client.model.AuthorizationWebhook
+import com.sympauthy.business.client.model.GrantType
+import com.sympauthy.business.flow.model.AuthorizationFlow
+import com.sympauthy.business.scope.model.EnabledScope
 import com.sympauthy.config.exception.ConfigurationException
 import com.sympauthy.exception.localizedExceptionOf
 import kotlinx.coroutines.flow.Flow

@@ -2707,12 +2707,14 @@ its value and named there.
 ### Is the code sliced by feature, or by layer and then by concept?
 
 **Decision:** By layer, then by concept inside each layer: `api` by the audience each surface
-answers, `business` by the concept each manager serves, `data` by component.
+answers, `business` by concept and then by role — `business.scope.manager`, `business.scope.model`
+— and `data` by component.
 
 **Options considered:**
 
 - **A package per feature**, holding its controllers, managers and entities together.
 - **Grouping `business` by the audience that calls it**, as `api` is.
+- **`business` by role, then by concept** — `business.manager.scope`, `business.model.scope`.
 - **By layer, then by concept.**
 
 **Rationale:**
@@ -2723,6 +2725,12 @@ packages today. Grouping `business` by audience fails on its first manager: `Con
 called from the admin surface, the client surface, the token refresh and the authorization flow,
 and [the split stops at `api`](architecture.md#the-split-stops-at-api) because a second copy of the
 domain would drift.
+
+Inside `business`, the concept comes before the role because a change to a concept touches its
+manager, its model and its mapper together, and so does a reader following one: the role first
+scattered them over three trees, with every mapper flat in one package. It is also how a subject
+and a package of `platform` were already laid out, so `business.scope` reads as `platform.queue`
+and `mail` do.
 
 ### Do the audiences of `api` sit under `api`, or at the top of the tree?
 

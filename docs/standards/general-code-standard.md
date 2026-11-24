@@ -74,10 +74,17 @@ each stays sealed, so that a `when` over one is checked and a new member is one 
 `RenewJobLeaseCron` does. Every other job is in `cron`, where a sweep running a domain's work keeps
 its row in the table above.
 
-**A subject's package, and a package of `platform` with a model of its own, is laid out as
-`business` is**, with a `manager`, a `model`, a `mapper` and an `exception` package, each where it
-has one, and contributes the `business` rows of the table above. [The `business` layer
-standard](business-layer-code-standard.md) holds its components as it holds `business`'s.
+**`business` is laid out by concept, and a concept's package holds a `manager`, a `model`, a
+`mapper` and an `exception` package**, each where it has one — `business.scope.manager`,
+`business.scope.model`. A part of a concept is a package under it, laid out the same way:
+`business.scope.granting.manager`.
+
+**What more than one concept shares sits at the root of `business`, in the package of its role** —
+`BusinessException` in `business.exception`, `Expirable` in `business.model`.
+
+**A subject's package, and a package of `platform` with a model of its own, is laid out as one
+concept of `business` is**, and contributes the `business` rows of the table above. [The `business`
+layer standard](business-layer-code-standard.md) holds its components as it holds `business`'s.
 
 **A class the framework calls to put a subject in place sits at the root of the subject's
 package.** A logback appender, an SDK customizer, a bean factory and a health indicator neither
@@ -95,8 +102,8 @@ standard](api-layer-code-standard.md#where-a-class-goes) holds, and `data` by co
 | `api` | `business`, `config`, `security`, `platform` | `data` — no entity, no repository |
 | `business` | `data`, `config`, `client`, `platform` | `api` |
 | `data` | Micronaut Data, `platform` and the JDK | `business`, `api` |
-| `config` | `business.model`, the JDK | the rest of `business`, `data`, `api` |
-| `expression` | `business.model`, the Micronaut framework, the JDK | `business`, `config`, `data`, `api` |
+| `config` | the `model` packages of `business`, the JDK | the rest of `business`, `data`, `api` |
+| `expression` | the `model` packages of `business`, the Micronaut framework, the JDK | the rest of `business`, `config`, `data`, `api` |
 | `mail` | `business`, `config`, `client`, `platform`, the Micronaut framework, the JDK | `api` |
 | `platform.lock` | `data`, `exception`, the rest of `platform`, the Micronaut framework, the JDK | what knows authentication |
 | `platform.queue` | `data`, `config`, `exception`, the rest of `platform`, the Micronaut framework, the JDK | what knows authentication |
@@ -107,17 +114,18 @@ standard](api-layer-code-standard.md#where-a-class-goes) holds, and `data` by co
 `cron`, and every other package may import `platform`.** Those are the packages that know
 authentication, and the column every row of `platform` shares.
 
-**`business` may import `api` in exactly one case**: a manager in `business.manager.grant`,
-`business.manager.authorization` or `business.manager.token` throws the protocol's own error type,
+**`business` may import `api` in exactly one case**: a manager in `business.grant.manager`,
+`business.authorization.manager` or `business.token.manager` throws the protocol's own error type,
 which lives in `api` because an OAuth2 error code is a wire format. [The exception
 standard](exception-code-standard.md) argues that carve-out, and nothing else uses it.
 
-**`config` may import `business.model`.** A validated configuration is a domain value, and these two
-model packages are one layer with two names.
+**`config` may import the `model` packages of `business`.** A validated configuration is a domain
+value, and a concept's model and the configuration declaring it are one layer with two names.
 
-**An interface a setting selects an implementation from lives in `business.model`.** A setting of
-that shape names the interface it selects from, and `business.model` is the only part of `business`
-a parser may name; the implementations stay in `business.manager`, where the work they do belongs.
+**An interface a setting selects an implementation from lives in its concept's `model` package.** A
+setting of that shape names the interface it selects from, and a `model` package is the only part
+of `business` a parser may name; the implementations stay in the concept's `manager` package, where
+the work they do belongs.
 [The `config` standard](config-layer-code-standard.md#a-setting-that-selects-an-implementation) owns
 the mechanism.
 

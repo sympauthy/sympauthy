@@ -2,9 +2,9 @@ package com.sympauthy.api.application.client.mapper
 
 import com.sympauthy.api.application.client.resource.ClientProviderResource
 import com.sympauthy.api.application.client.resource.ClientUserResource
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.provider.ProviderUserInfo
-import com.sympauthy.business.model.user.ClientUser
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.provider.model.ProviderUserInfo
+import com.sympauthy.business.user.model.ClientUser
 import jakarta.inject.Singleton
 
 @Singleton

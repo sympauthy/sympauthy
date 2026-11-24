@@ -1,7 +1,7 @@
 package com.sympauthy.api.flow
 
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
-import com.sympauthy.business.model.securitycontext.edge.observedRequestOf
+import com.sympauthy.business.securitycontext.edge.model.observedRequestOf
 import com.sympauthy.security.StateAuthentication
 import io.micronaut.http.HttpHeaders
 import io.micronaut.http.HttpStatus

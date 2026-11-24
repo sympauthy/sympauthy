@@ -1,6 +1,6 @@
 package com.sympauthy.cron
 
-import com.sympauthy.business.manager.user.ProvisionalAccountManager
+import com.sympauthy.business.user.manager.ProvisionalAccountManager
 import com.sympauthy.platform.lock.JobLeaseManager
 import com.sympauthy.platform.lock.LeasedJob.CLEAN_ABANDONED_ACCOUNTS
 import com.sympauthy.platform.monitoring.loggerForClass

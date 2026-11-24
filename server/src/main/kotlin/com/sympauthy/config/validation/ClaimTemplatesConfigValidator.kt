@@ -1,7 +1,7 @@
 package com.sympauthy.config.validation
 
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.scope.Scope
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.scope.model.Scope
 import com.sympauthy.config.ConfigParsingContext
 import com.sympauthy.config.exception.configExceptionOf
 import com.sympauthy.config.model.ClaimTemplate

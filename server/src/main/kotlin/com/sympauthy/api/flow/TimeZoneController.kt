@@ -9,10 +9,10 @@ import com.sympauthy.api.flow.util.FLOW_QUERY_STATE_UNAUTHORIZED_DESCRIPTION
 import com.sympauthy.api.flow.util.FLOW_STATE_BAD_REQUEST_DESCRIPTION
 import com.sympauthy.api.util.InteractiveAuthFlowSessionControllerUtil
 import com.sympauthy.api.util.orNotFound
-import com.sympauthy.business.manager.claim.ClaimManager
-import com.sympauthy.business.manager.claim.TimeZoneClaimValueProvider
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.securitycontext.ObservedRequest
+import com.sympauthy.business.claim.manager.ClaimManager
+import com.sympauthy.business.claim.manager.TimeZoneClaimValueProvider
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.securitycontext.model.ObservedRequest
 import com.sympauthy.security.SecurityRule.HAS_STATE
 import com.sympauthy.security.stateOrNull
 import io.micronaut.http.annotation.Controller

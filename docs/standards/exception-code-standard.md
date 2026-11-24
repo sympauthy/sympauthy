@@ -98,8 +98,8 @@ a request.
 
 ## The OAuth2 carve-out
 
-**A manager in `business.manager.grant`, `business.manager.authorization` or
-`business.manager.token` throws the protocol's exception directly**, so that the code the
+**A manager in `business.grant.manager`, `business.authorization.manager` or
+`business.token.manager` throws the protocol's exception directly**, so that the code the
 specification names — `invalid_grant`, `invalid_request`, `invalid_target` — reaches the client.
 This is the one place `business` imports `api`.
 

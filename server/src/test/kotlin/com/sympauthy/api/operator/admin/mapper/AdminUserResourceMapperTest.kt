@@ -1,15 +1,15 @@
 package com.sympauthy.api.operator.admin.mapper
 
-import com.sympauthy.business.manager.collection.UserCollectionManager.UserWithClaims
-import com.sympauthy.business.model.claim.ClaimAcl
-import com.sympauthy.business.model.claim.ClaimDataType
-import com.sympauthy.business.model.claim.ClaimPublicationPlace
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.claim.EnabledClaim
-import com.sympauthy.business.model.claim.PersonalClaim
-import com.sympauthy.business.model.user.User
-import com.sympauthy.business.model.user.UserStatus
-import com.sympauthy.business.model.user.UserWithIdentifierClaims
+import com.sympauthy.business.claim.model.ClaimAcl
+import com.sympauthy.business.claim.model.ClaimDataType
+import com.sympauthy.business.claim.model.ClaimPublicationPlace
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.claim.model.PersonalClaim
+import com.sympauthy.business.collection.manager.UserCollectionManager.UserWithClaims
+import com.sympauthy.business.user.model.User
+import com.sympauthy.business.user.model.UserStatus
+import com.sympauthy.business.user.model.UserWithIdentifierClaims
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

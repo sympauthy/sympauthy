@@ -1,6 +1,6 @@
 package com.sympauthy.cron
 
-import com.sympauthy.business.manager.flow.InteractiveFlowSessionCleaner
+import com.sympauthy.business.flow.manager.InteractiveFlowSessionCleaner
 import com.sympauthy.platform.lock.JobLeaseManager
 import com.sympauthy.platform.lock.LeasedJob.CLEAN_EXPIRED_INTERACTIVE_FLOW_SESSIONS
 import com.sympauthy.platform.monitoring.loggerForClass

@@ -23,11 +23,11 @@ import com.sympauthy.api.util.UNAUTHORIZED_RESPONSE_DESCRIPTION
 import com.sympauthy.api.util.collectionCriteriaOf
 import com.sympauthy.api.util.orNotFound
 import com.sympauthy.api.util.parseInvitationExpiresAt
-import com.sympauthy.business.manager.claim.ClaimAclManager
-import com.sympauthy.business.manager.collection.InvitationCollectionManager
-import com.sympauthy.business.manager.invitation.InvitationManager
-import com.sympauthy.business.model.invitation.InvitationCreatedBy
-import com.sympauthy.business.model.scope.BuiltInClientScopeId
+import com.sympauthy.business.claim.manager.ClaimAclManager
+import com.sympauthy.business.collection.manager.InvitationCollectionManager
+import com.sympauthy.business.invitation.manager.InvitationManager
+import com.sympauthy.business.invitation.model.InvitationCreatedBy
+import com.sympauthy.business.scope.model.BuiltInClientScopeId
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_READ
 import com.sympauthy.security.SecurityRule.CLIENT_INVITATIONS_WRITE
 import com.sympauthy.security.clientAuthentication

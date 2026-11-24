@@ -3,9 +3,9 @@ package com.sympauthy.api.flow.mapper
 import com.sympauthy.api.flow.resource.ClaimValueResource
 import com.sympauthy.api.flow.resource.ClaimsFlowResource
 import com.sympauthy.api.flow.resource.ClientReferenceResource
-import com.sympauthy.business.model.claim.CollectedClaim
-import com.sympauthy.business.model.claim.EnabledClaim
-import com.sympauthy.business.model.provider.ProviderUserInfo
+import com.sympauthy.business.claim.model.CollectedClaim
+import com.sympauthy.business.claim.model.EnabledClaim
+import com.sympauthy.business.provider.model.ProviderUserInfo
 import com.sympauthy.platform.server.DisplayMessages
 import com.sympauthy.platform.util.wireName
 import io.micronaut.context.MessageSource
