@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
+import java.util.Locale
 import java.util.UUID
 
 @ExtendWith(MockKExtension::class)
@@ -119,6 +120,20 @@ class ValidationCodeGeneratorTest {
         every { generator.validationCodeLength } returns 6
         every { randomGenerator.generateInt(any(), any()) } returns 345
         val code = generator.generateCode()
+        assertEquals("000345", code)
+    }
+
+    @Test
+    fun `generateCode - Generate ASCII digits whatever the default locale`() {
+        every { generator.validationCodeLength } returns 6
+        every { randomGenerator.generateInt(any(), any()) } returns 345
+        val defaultLocale = Locale.getDefault(Locale.Category.FORMAT)
+        Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag("fa-IR"))
+        val code = try {
+            generator.generateCode()
+        } finally {
+            Locale.setDefault(Locale.Category.FORMAT, defaultLocale)
+        }
         assertEquals("000345", code)
     }
 }

@@ -17,6 +17,7 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
 import java.time.LocalDateTime.now
+import java.util.Locale
 import kotlin.math.pow
 
 /**
@@ -94,7 +95,7 @@ class ValidationCodeGenerator(
             origin = 0,
             bound = validationCodeBound
         )
-        return String.format(validationCodeFormat, code)
+        return String.format(Locale.ROOT, validationCodeFormat, code)
     }
 
     /**
