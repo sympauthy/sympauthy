@@ -17,7 +17,6 @@ import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import java.time.LocalDateTime
 import java.time.LocalDateTime.now
-import java.util.Locale
 import kotlin.math.pow
 
 /**
@@ -40,9 +39,6 @@ class ValidationCodeGenerator(
 
     internal val validationCodeBound: Int
         get() = 10.0.pow(validationCodeLength - 1).toInt()
-
-    internal val validationCodeFormat: String
-        get() = "%0${validationCodeLength}d"
 
     /**
      * Draw a code the [session] does not hold yet, store it for the [user] to receive through [media] for the
@@ -95,7 +91,7 @@ class ValidationCodeGenerator(
             origin = 0,
             bound = validationCodeBound
         )
-        return String.format(Locale.ROOT, validationCodeFormat, code)
+        return code.toString().padStart(validationCodeLength, '0')
     }
 
     /**
