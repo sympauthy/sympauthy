@@ -41,6 +41,8 @@ class ProviderClaimsResolver(
      * [expectedNonce] is matched against the ID token's `nonce` claim, so it is read on the first of those two
      * paths only — a provider that answered without an ID token has nothing to match it against.
      *
+     * Throws `provider.openid_connect.invalid_id_token` where the ID token cannot be read: one failing its
+     * validation for an OpenID Connect provider, or one that is not a JWS for any other.
      * Throws `provider.user_info.failed` where the userinfo endpoint cannot be reached, does not answer in time
      * or answers with an error status or with something that is not a JSON object.
      */
@@ -72,7 +74,7 @@ class ProviderClaimsResolver(
         } else {
             // For OAuth2 providers that unexpectedly return an ID token,
             // we still extract claims but skip signature validation.
-            providerIdTokenClaimsExtractor.decodeClaimsWithoutValidation(idTokenRaw)
+            providerIdTokenClaimsExtractor.decodeClaimsWithoutValidation(provider.id, idTokenRaw)
         }
 
         return providerIdTokenClaimsExtractor.extractClaims(provider.id, idTokenClaims)
