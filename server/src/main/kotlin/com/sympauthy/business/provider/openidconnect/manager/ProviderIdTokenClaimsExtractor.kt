@@ -27,8 +27,11 @@ import com.sympauthy.business.claim.model.OpenIdConnectClaimId.UPDATED_AT
 import com.sympauthy.business.claim.model.OpenIdConnectClaimId.WEBSITE
 import com.sympauthy.business.claim.model.OpenIdConnectClaimId.ZONEINFO
 import com.sympauthy.business.exception.businessExceptionOf
+import com.sympauthy.business.exception.internalBusinessExceptionOf
 import com.sympauthy.business.provider.model.RawProviderClaims
 import jakarta.inject.Singleton
+import java.text.ParseException
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -42,10 +45,21 @@ class ProviderIdTokenClaimsExtractor {
     /**
      * Decode the payload of an ID token JWT without verifying its signature.
      * Used when an OAuth2 provider unexpectedly returns an ID token but we have no JWKS to validate against.
+     *
+     * Throws `provider.openid_connect.invalid_id_token` naming [providerId] where [idTokenRaw] is not a JWS
+     * carrying a JSON object, as an opaque, an encrypted or an unsecured token is not.
      */
-    fun decodeClaimsWithoutValidation(idTokenRaw: String): Map<String, Any> {
-        val jwt = SignedJWT.parse(idTokenRaw)
-        return jwt.jwtClaimsSet.claims
+    fun decodeClaimsWithoutValidation(providerId: String, idTokenRaw: String): Map<String, Any> {
+        val claims = try {
+            SignedJWT.parse(idTokenRaw).jwtClaimsSet.claims
+        } catch (e: ParseException) {
+            throw internalBusinessExceptionOf(
+                "provider.openid_connect.invalid_id_token", e,
+                "providerId" to providerId,
+                "reason" to (e.message ?: "unknown")
+            )
+        }
+        return claims
             .filterValues { it != null }
             .mapValues { it.value!! }
     }
@@ -84,9 +98,7 @@ class ProviderIdTokenClaimsExtractor {
             region = addressClaims?.get(REGION)?.toString(),
             postalCode = addressClaims?.get(POSTAL_CODE)?.toString(),
             country = addressClaims?.get(COUNTRY)?.toString(),
-            updatedAt = (idTokenClaims[UPDATED_AT] as? Number)?.toLong()?.let { epochSeconds ->
-                LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), ZoneId.of("UTC"))
-            }
+            updatedAt = (idTokenClaims[UPDATED_AT] as? Number)?.toLong()?.let { parseDateTimeOrNull(it) }
         )
     }
 
@@ -94,6 +106,14 @@ class ProviderIdTokenClaimsExtractor {
         return try {
             LocalDate.parse(value, DateTimeFormatter.ISO_DATE)
         } catch (e: DateTimeParseException) {
+            null
+        }
+    }
+
+    private fun parseDateTimeOrNull(epochSeconds: Long): LocalDateTime? {
+        return try {
+            LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), ZoneId.of("UTC"))
+        } catch (_: DateTimeException) {
             null
         }
     }
