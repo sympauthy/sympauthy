@@ -20,10 +20,12 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
 import java.time.LocalDateTime
+import java.util.Locale
 import java.util.UUID
 
 @ExtendWith(MockKExtension::class)
@@ -44,12 +46,6 @@ class ValidationCodeGeneratorTest {
     @SpyK
     @InjectMockKs
     lateinit var generator: ValidationCodeGenerator
-
-    @Test
-    fun `validationCodeFormat - Generate X digits padded with 0 format`() {
-        every { generator.validationCodeLength } returns 6
-        assertEquals("%06d", generator.validationCodeFormat)
-    }
 
     @Test
     fun `validationCodeBound - Generate upper bound according to code length`() {
@@ -119,6 +115,27 @@ class ValidationCodeGeneratorTest {
         every { generator.validationCodeLength } returns 6
         every { randomGenerator.generateInt(any(), any()) } returns 345
         val code = generator.generateCode()
+        assertEquals("000345", code)
+    }
+
+    @Test
+    fun `generateCode - Generate ASCII digits whatever the default locale`() {
+        val persian = Locale.forLanguageTag("fa-IR")
+        // Without the JDK's locale data, fa-IR formats in ASCII digits and this test would prove nothing.
+        assumeTrue(String.format(persian, "%d", 0) != "0")
+        every { generator.validationCodeLength } returns 6
+        every { randomGenerator.generateInt(any(), any()) } returns 345
+        val defaultLocale = Locale.getDefault()
+        val displayLocale = Locale.getDefault(Locale.Category.DISPLAY)
+        val formatLocale = Locale.getDefault(Locale.Category.FORMAT)
+        Locale.setDefault(persian)
+        val code = try {
+            generator.generateCode()
+        } finally {
+            Locale.setDefault(defaultLocale)
+            Locale.setDefault(Locale.Category.DISPLAY, displayLocale)
+            Locale.setDefault(Locale.Category.FORMAT, formatLocale)
+        }
         assertEquals("000345", code)
     }
 }
