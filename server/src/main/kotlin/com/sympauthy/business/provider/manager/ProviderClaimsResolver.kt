@@ -10,9 +10,12 @@ import com.sympauthy.business.provider.oauth2.model.ProviderOAuth2Tokens
 import com.sympauthy.business.provider.openidconnect.manager.ProviderIdTokenClaimsExtractor
 import com.sympauthy.business.provider.openidconnect.manager.ProviderIdTokenManager
 import com.sympauthy.client.UserInfoEndpointClient
+import com.sympauthy.client.remoteErrorType
 import com.sympauthy.client.remoteOutcome
+import com.sympauthy.client.remoteResponseOrNull
 import com.sympauthy.platform.monitoring.manager.RemoteCallMonitor
 import com.sympauthy.platform.monitoring.model.Condition
+import com.sympauthy.platform.monitoring.model.Outcome
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import kotlinx.coroutines.CancellationException
@@ -33,7 +36,7 @@ class ProviderClaimsResolver(
 ) {
 
     /**
-     * Resolve [RawProviderClaims] from the [tokens] obtained from the [provider].
+     * Resolve [RawProviderClaims] from the [tokens] the [provider] has just issued.
      *
      * If the token response contains an ID token, claims are extracted from it and the userinfo endpoint
      * is not called. Otherwise, the userinfo endpoint is used as a fallback.
@@ -87,11 +90,9 @@ class ProviderClaimsResolver(
         val userInfo = provider.userInfo
             ?: throw businessExceptionOf("provider.user_info.not_configured", "providerId" to provider.id)
 
-        // Whatever the provider answers, the access token it just issued is all this call sends, so a refusal is
-        // the provider failing as much as an outage is.
         val rawUserInfoMap = try {
             remoteCallMonitor.observe(
-                Condition.Provider(provider.id), "user_info", Throwable::remoteOutcome
+                Condition.Provider(provider.id), "user_info", Throwable::userInfoOutcome
             ) {
                 userInfoEndpointClient.fetchUserInfo(
                     userInfoConfig = userInfo,
@@ -110,5 +111,17 @@ class ProviderClaimsResolver(
                 builder.withUserInfo(document, pathKey, path)
             }
             .build(provider)
+    }
+}
+
+/**
+ * How a call to the userinfo endpoint that ended in this failure is recorded. Unlike [remoteOutcome], it holds a
+ * `4xx` as an outage: the access token the provider has just issued is all the call sends, so a refusal is the
+ * provider failing as much as an outage is.
+ */
+private fun Throwable.userInfoOutcome(): Outcome {
+    return when (remoteResponseOrNull()?.code()) {
+        in 400..499 -> Outcome.Error(remoteErrorType())
+        else -> remoteOutcome()
     }
 }

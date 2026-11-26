@@ -58,6 +58,9 @@ class ProviderClaimsResolverTest {
     /** What the monitor's judge was handed, which is what the provider's condition and the metric count. */
     private val judgedFailures = mutableListOf<Throwable>()
 
+    /** What the monitor's judge answered for each of [judgedFailures]. */
+    private val judgedOutcomes = mutableListOf<Outcome>()
+
     private fun stubUserInfoEndpointFailing(failure: Exception) {
         coEvery {
             remoteCallMonitor.observe<Map<*, *>>(any(), any(), any(), any())
@@ -65,7 +68,7 @@ class ProviderClaimsResolverTest {
             try {
                 arg<suspend () -> Map<*, *>>(3).invoke()
             } catch (e: Exception) {
-                arg<(Throwable) -> Outcome>(2).invoke(e)
+                judgedOutcomes += arg<(Throwable) -> Outcome>(2).invoke(e)
                 judgedFailures += e
                 throw e
             }
@@ -74,7 +77,7 @@ class ProviderClaimsResolverTest {
     }
 
     @Test
-    fun `resolveClaims - Fails the session where the userinfo endpoint refuses the access token`() = runTest {
+    fun `resolveClaims - Fails the session and degrades the provider where it refuses the access token`() = runTest {
         stubUserInfoEndpointFailing(
             HttpClientResponseException("Unauthorized", HttpResponse.status<Any>(HttpStatus.UNAUTHORIZED))
         )
@@ -85,6 +88,16 @@ class ProviderClaimsResolverTest {
         assertFalse(failure.recoverable)
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.recommendedStatus)
         assertEquals("test-provider", failure.values["providerId"])
+        assertEquals(Outcome.Error("401"), judgedOutcomes.single())
+    }
+
+    @Test
+    fun `resolveClaims - Reports an answer it cannot use to the provider's condition as an answer`() = runTest {
+        stubUserInfoEndpointFailing(HttpClientResponseException("Empty body", HttpResponse.ok<Any>()))
+
+        assertThrows<BusinessException> { resolver.resolveClaims(provider, tokens) }
+
+        assertEquals(Outcome.Refused("200"), judgedOutcomes.single())
     }
 
     @Test
