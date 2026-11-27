@@ -22,7 +22,8 @@ class CollectedClaimUpdateMapper(
     fun toEntity(
         userId: UUID,
         sessionId: UUID?,
-        update: CollectedClaimUpdate
+        update: CollectedClaimUpdate,
+        collectionDate: LocalDateTime
     ): CollectedClaimEntity {
         return CollectedClaimEntity(
             userId = userId,
@@ -30,25 +31,27 @@ class CollectedClaimUpdateMapper(
             value = toValue(update.value),
             foldedEqualityHash = toFoldedEqualityHash(update.value),
             verified = null,
-            collectionDate = LocalDateTime.now(),
+            collectionDate = collectionDate,
             verificationDate = null,
             sessionId = sessionId,
         )
     }
 
     /**
-     * Write [update] onto the row [entity] and return it, keeping the row's identifier, user and session.
+     * Write [update], collected at [collectionDate], onto the row [entity] and return it, keeping the row's
+     * identifier, user and session.
      */
     fun updateEntity(
         entity: CollectedClaimEntity,
-        update: CollectedClaimUpdate
+        update: CollectedClaimUpdate,
+        collectionDate: LocalDateTime
     ): CollectedClaimEntity {
         entity.claim = toClaim(update.claim)
         entity.value = toValue(update.value)
         entity.foldedEqualityHash = toFoldedEqualityHash(update.value)
         entity.verified = null
         entity.verificationDate = null
-        entity.collectionDate = LocalDateTime.now()
+        entity.collectionDate = collectionDate
         return entity
     }
 

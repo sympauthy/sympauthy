@@ -19,7 +19,7 @@ class IndexedCryptoKeysMapper : StoredPublicKeyMapper() {
         )
     }
 
-    fun toEntity(keys: CryptoKeys): IndexedCryptoKeysEntity {
+    fun toEntity(keys: CryptoKeys, creationDate: LocalDateTime): IndexedCryptoKeysEntity {
         return IndexedCryptoKeysEntity(
             name = keys.name,
             algorithm = keys.algorithm,
@@ -27,7 +27,7 @@ class IndexedCryptoKeysMapper : StoredPublicKeyMapper() {
             publicKeyFormat = keys.publicKeyFormat,
             privateKey = keys.privateKey.copyOf(),
             privateKeyFormat = keys.privateKeyFormat,
-            creationDate = LocalDateTime.now(),
+            creationDate = creationDate,
         )
     }
 }

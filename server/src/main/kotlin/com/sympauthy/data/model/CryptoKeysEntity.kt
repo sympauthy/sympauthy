@@ -4,7 +4,6 @@ import io.micronaut.data.annotation.Id
 import io.micronaut.data.annotation.MappedEntity
 import io.micronaut.serde.annotation.Serdeable
 import java.time.LocalDateTime
-import java.time.LocalDateTime.now
 
 @Serdeable
 @MappedEntity("crypto_keys")
@@ -22,7 +21,7 @@ data class CryptoKeysEntity(
     val privateKey: ByteArray,
     val privateKeyFormat: String,
 
-    val creationDate: LocalDateTime = now(),
+    val creationDate: LocalDateTime,
 ) {
     @Id
     var name: String? = null

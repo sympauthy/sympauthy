@@ -19,7 +19,7 @@ data class IndexedCryptoKeysEntity(
     val privateKey: ByteArray,
     val privateKeyFormat: String,
 
-    val creationDate: LocalDateTime = LocalDateTime.now(),
+    val creationDate: LocalDateTime,
 ) {
     @Id
     @GeneratedValue

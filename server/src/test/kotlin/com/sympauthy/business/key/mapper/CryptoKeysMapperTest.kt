@@ -41,7 +41,7 @@ class CryptoKeysMapperTest {
     fun `toEntity - maps all fields`() {
         val keys = keys(publicKey = byteArrayOf(1, 2, 3))
 
-        val entity = mapper.toEntity(keys)
+        val entity = mapper.toEntity(keys, creationDate)
 
         assertEquals("crypto-keys-mapper-test", entity.name)
         assertEquals("RSA", entity.algorithm)
@@ -49,18 +49,21 @@ class CryptoKeysMapperTest {
         assertEquals("X.509", entity.publicKeyFormat)
         assertArrayEquals(byteArrayOf(4, 5, 6, 7), entity.privateKey)
         assertEquals("PKCS#8", entity.privateKeyFormat)
+        assertEquals(creationDate, entity.creationDate)
     }
 
     @Test
     fun `toEntity - stores an absent public half as the empty array`() {
         val keys = keys(publicKey = null, publicKeyFormat = null)
 
-        val entity = mapper.toEntity(keys)
+        val entity = mapper.toEntity(keys, creationDate)
 
         assertArrayEquals(ByteArray(0), entity.publicKey)
         assertNull(entity.publicKeyFormat)
         assertArrayEquals(byteArrayOf(4, 5, 6, 7), entity.privateKey)
     }
+
+    private val creationDate = LocalDateTime.of(2026, 2, 3, 4, 5)
 
     private fun entity(
         publicKey: ByteArray,

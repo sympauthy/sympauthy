@@ -24,6 +24,7 @@ import jakarta.inject.Singleton
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.toList
+import java.time.LocalDateTime
 import java.util.*
 
 /**
@@ -287,6 +288,7 @@ open class CollectedClaimManager(
         user: User,
         applicableUpdates: List<CollectedClaimUpdate>
     ): List<CollectedClaim> = coroutineScope {
+        val collectionDate = LocalDateTime.now()
         val existingEntityByClaimMap = collectedClaimRepository.findByUserId(user.id)
             .associateBy { it.claim }
             .toMutableMap()
@@ -295,9 +297,9 @@ open class CollectedClaimManager(
             deleteExistingClaimsUpdatedToNull(existingEntityByClaimMap, applicableUpdates)
         }
         val deferredCreatedEntities = async {
-            createMissingClaims(user, existingEntityByClaimMap, applicableUpdates)
+            createMissingClaims(user, existingEntityByClaimMap, applicableUpdates, collectionDate)
         }
-        val updatedEntities = updateExistingClaims(existingEntityByClaimMap, applicableUpdates)
+        val updatedEntities = updateExistingClaims(existingEntityByClaimMap, applicableUpdates, collectionDate)
 
         val updatedAndDeletedClaims = (updatedEntities + deferredDeletedEntities.await())
             .map(CollectedClaimEntity::claim)
@@ -322,7 +324,8 @@ open class CollectedClaimManager(
 
     internal suspend fun updateExistingClaims(
         existingEntityByClaimMap: Map<String, CollectedClaimEntity>,
-        applicableUpdates: List<CollectedClaimUpdate>
+        applicableUpdates: List<CollectedClaimUpdate>,
+        collectionDate: LocalDateTime
     ): List<CollectedClaimEntity> {
         val entitiesToUpdate = applicableUpdates
             .filter { it.value != null }
@@ -333,7 +336,7 @@ open class CollectedClaimManager(
             .mapNotNull { (update, entity) ->
                 val newValue = collectedClaimUpdateMapper.toValue(update.value)
                 if (newValue != entity.value) {
-                    collectedClaimUpdateMapper.updateEntity(entity, update)
+                    collectedClaimUpdateMapper.updateEntity(entity, update, collectionDate)
                 } else null
             }
         return collectedClaimRepository.updateAll(entitiesToUpdate).toList()
@@ -342,13 +345,14 @@ open class CollectedClaimManager(
     internal suspend fun createMissingClaims(
         user: User,
         existingEntityByClaimMap: Map<String, CollectedClaimEntity>,
-        applicableUpdates: List<CollectedClaimUpdate>
+        applicableUpdates: List<CollectedClaimUpdate>,
+        collectionDate: LocalDateTime
     ): List<CollectedClaimEntity> {
         val entitiesToCreate = applicableUpdates
             .filter { it.value != null }
             .filter { existingEntityByClaimMap[it.claim.id] == null }
             .map {
-                collectedClaimUpdateMapper.toEntity(user.id, user.sessionId, it)
+                collectedClaimUpdateMapper.toEntity(user.id, user.sessionId, it, collectionDate)
             }
         return collectedClaimRepository.saveAll(entitiesToCreate).toList()
     }
@@ -360,10 +364,12 @@ open class CollectedClaimManager(
         user: User,
         claims: List<EnabledClaim>
     ) {
+        val verificationDate = LocalDateTime.now()
         claims.map(Claim::id).forEach {
             collectedClaimRepository.updateClaimsToVerified(
                 userId = user.id,
-                claim = it
+                claim = it,
+                verificationDate = verificationDate
             )
         }
     }

@@ -12,7 +12,7 @@ import java.util.*
 class TotpEnrollmentEntity(
     val userId: UUID,
     val secret: ByteArray,
-    val creationDate: LocalDateTime = LocalDateTime.now(),
+    val creationDate: LocalDateTime,
     val confirmedDate: LocalDateTime?,
     override val sessionId: UUID?
 ) : SessionScoped {

@@ -9,7 +9,6 @@ import io.micronaut.data.runtime.criteria.get
 import io.micronaut.data.runtime.criteria.where
 import kotlinx.coroutines.flow.toList
 import java.time.LocalDateTime
-import java.time.LocalDateTime.now
 import java.util.*
 
 interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntity, UUID>,
@@ -27,8 +26,9 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
     suspend fun findMaxCollectionDateByUserId(userId: UUID): LocalDateTime?
 
     /**
-     * Set verified on a collected [claim] for a given user (identified by [userId]) and update the verification date to
-     * now. If the verified is already at true, the verification date will not be updated to keep the original date.
+     * Set verified on a collected [claim] for a given user (identified by [userId]) and date the verification
+     * [verificationDate]. If the verified is already at true, the verification date will not be updated to keep
+     * the original date.
      */
     @Query(
         """
@@ -41,7 +41,7 @@ interface CollectedClaimRepository : CoroutineCrudRepository<CollectedClaimEntit
     suspend fun updateClaimsToVerified(
         userId: UUID,
         claim: String,
-        verificationDate: LocalDateTime = now()
+        verificationDate: LocalDateTime
     )
 
     /**

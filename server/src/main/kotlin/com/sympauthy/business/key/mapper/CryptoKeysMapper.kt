@@ -30,14 +30,14 @@ class CryptoKeysMapper : StoredPublicKeyMapper() {
         )
     }
 
-    fun toEntity(key: CryptoKeys): CryptoKeysEntity {
+    fun toEntity(key: CryptoKeys, creationDate: LocalDateTime): CryptoKeysEntity {
         return CryptoKeysEntity(
             algorithm = key.algorithm,
             publicKey = toStoredPublicKey(key.publicKey),
             publicKeyFormat = key.publicKeyFormat,
             privateKey = key.privateKey.copyOf(),
             privateKeyFormat = key.privateKeyFormat,
-            creationDate = LocalDateTime.now(),
+            creationDate = creationDate,
         ).apply {
             name = key.name
         }

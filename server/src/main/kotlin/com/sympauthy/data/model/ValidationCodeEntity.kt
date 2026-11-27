@@ -16,7 +16,7 @@ class ValidationCodeEntity(
     val reasons: Array<String>,
     val sessionId: UUID,
 
-    val creationDate: LocalDateTime = LocalDateTime.now(),
+    val creationDate: LocalDateTime,
     val resendDate: LocalDateTime?,
     val validationDate: LocalDateTime? = null,
     val expirationDate: LocalDateTime

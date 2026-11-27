@@ -11,6 +11,7 @@ import com.sympauthy.data.repository.IndexedCryptoKeysRepository
 import jakarta.inject.Inject
 import jakarta.inject.Named
 import jakarta.inject.Singleton
+import java.time.LocalDateTime
 
 /**
  * A negotiation protocol using the database to determine which keys to use.
@@ -48,14 +49,15 @@ class AutoIncrementCryptoKeysGenerationStrategy(
 
         // Otherwise we create our own key and persist it inside the database.
         val key = algorithm.impl.generate(name)
-        val indexedKeyEntity = indexedKeysRepository.save(indexedKeysMapper.toEntity(key))
+        val creationDate = LocalDateTime.now()
+        val indexedKeyEntity = indexedKeysRepository.save(indexedKeysMapper.toEntity(key, creationDate))
 
         // Finally we check if we were the first to persist our key.
         existingKeys = indexedKeysRepository.findByNameAndAlgorithm(name, algorithm.name)
         val firstKey = existingKeys.sortedBy(IndexedCryptoKeysEntity::index).first()
         return if (firstKey.index == indexedKeyEntity.index) {
             // If we are the instance that created the key, we persist it inside the crypto_keys table
-            keysRepository.save(keysMapper.toEntity(key))
+            keysRepository.save(keysMapper.toEntity(key, creationDate))
             key
         } else {
             // If we are not the instance that created the key first,
