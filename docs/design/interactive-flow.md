@@ -215,7 +215,8 @@ completion transaction opens, so nothing is promoted for a flow that was going t
 
 **There is no registration list to edit.** The registry injects every handler bean and indexes them
 by purpose, so a new handler is wired up by existing. A purpose with no handler fails at runtime,
-the first time a session carrying it is advanced.
+and a test asserts that every enum value resolves — so the gap is a build failure, not a production
+one.
 
 ### A handler describes its own purpose
 
