@@ -74,6 +74,11 @@ netty:
       max-order: 3
 
 endpoints:
+  # Off because the framework turns on /beans, /info, /routes, /refresh and /threaddump, which no
+  # audience of this server is meant to reach: an anonymous caller is refused them, and any token this
+  # server issues reaches the framework's refusal to decide who may read them, answering 500.
+  all:
+    enabled: false
   health:
     enabled: true
     sensitive: false
