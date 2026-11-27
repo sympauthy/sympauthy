@@ -24,7 +24,9 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.slot
 import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.flow.flowOf
@@ -369,6 +371,22 @@ class CollectedClaimManagerTest {
     }
 
     @Test
+    fun `validateClaims - Date every claim it verifies with one instant`() = runTest {
+        val user = committedUser()
+        val emailDate = slot<LocalDateTime>()
+        val phoneDate = slot<LocalDateTime>()
+
+        coEvery { collectedClaimRepository.updateClaimsToVerified(user.id, EMAIL_CLAIM, capture(emailDate)) } just runs
+        coEvery {
+            collectedClaimRepository.updateClaimsToVerified(user.id, PHONE_NUMBER_CLAIM, capture(phoneDate))
+        } just runs
+
+        manager.validateClaims(user, listOf(mockEmailClaim(), mockk { every { id } returns PHONE_NUMBER_CLAIM }))
+
+        assertEquals(emailDate.captured, phoneDate.captured)
+    }
+
+    @Test
     fun `applyUpdates - Refuse an identifier value another committed account holds`() = runTest {
         val user = committedUser()
         val emailClaim = mockEmailClaim()
@@ -624,6 +642,7 @@ class CollectedClaimManagerTest {
 
     private companion object {
         const val EMAIL_CLAIM = "email"
+        const val PHONE_NUMBER_CLAIM = "phone_number"
         const val PHONE_CLAIM = "phone_number"
         /** The address as somebody wrote it, and the spelling every comparison on it is made in. */
         const val EMAIL = "Someone@Example.com"

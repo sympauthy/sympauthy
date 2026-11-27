@@ -43,7 +43,8 @@ class QueueManager(
             kind = kind,
             payload = payload,
             creationDate = now,
-            expirationDate = now.plus(maxAge)
+            expirationDate = now.plus(maxAge),
+            nextAttemptDate = now
         )
         val item = queueItemMapper.toQueueItem(queueItemRepository.save(entity))
         val connection = currentConnectionOrNull()
