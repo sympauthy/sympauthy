@@ -216,10 +216,10 @@ class ResetPasswordController(
         )
 
     @Operation(
-        description = "Ask for a new code to reset a password, replacing the one sent earlier in this interactive " +
-            "flow session. Nothing is asked for, and `resent` is `false`, before `resend_date`, once the code " +
-            "has been entered, or when no reset was asked for. The answer is the same whether or not a user " +
-            "holds the login.",
+        description = "Ask for a new code to reset a password. A code sent earlier in this interactive flow " +
+            "session is still accepted until it expires. Nothing is asked for, and `resent` is `false`, before " +
+            "`resend_date`, once the code has been entered, or when no reset was asked for. The answer is the " +
+            "same whether or not a user holds the login.",
         responses = [
             ApiResponse(
                 responseCode = "200",

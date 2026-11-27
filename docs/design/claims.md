@@ -454,6 +454,13 @@ a value.** `email_verified` beside `email` is the specification's own case, and 
 declares one the same way. The flow proves a value by sending a code to it, and a place claiming the
 companion true beside no value would be this server asserting it verified something it did not send.
 
+**A code asked for again is sent beside the earlier one, and each proves the value until it
+expires.** A mail is not promised to arrive before the one sent after it — one the mail server asks
+to wait is tried again while the next goes through — so the person types whichever reached them
+first, and refusing it would send them back to wait for another. [The design
+FAQ](design-faq.md#does-a-resent-code-replace-the-earlier-one) holds what replacing it would have
+bought.
+
 **A verification is the value's, and a write that changes a value drops it.** The flow proved the
 value a code reached and nothing about the next one, so a row keeping the companion true across an
 edit would have this server asserting it verified an address it never wrote to — which is the same

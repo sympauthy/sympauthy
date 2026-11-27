@@ -302,7 +302,8 @@ that lost.
 unproven address may be a typo, and a code sent there hands the account to whoever owns it. A code
 rather than a link keeps the proof in the browser holding the flow's signed state. It is a
 validation code, so `advanced.validation-code` sets its length, its lifetime and how soon another
-may be asked for.
+may be asked for, and one asked for again leaves the earlier one good, [as a claim's
+does](claims.md#a-value-and-what-is-known-about-it).
 
 **A reset replaces a password, and gives none to an account that has none.** An account created
 through a provider is told it signs in there: a password minted for it would be a durable

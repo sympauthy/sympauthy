@@ -1727,6 +1727,31 @@ the person's consent or a recent authentication of theirs refuses an act-as toke
 neither stands behind one. Refusing the token at the surface would have been a second answer to the
 same question, overriding a door a deployment opened on purpose.
 
+### Does a resent code replace the earlier one?
+
+**Decision:** No. A resend draws a new code beside the earlier one, and every code a session was
+sent for a value proves it until that code expires. A password reset's codes are held to the same
+rule.
+
+**Options considered:**
+
+- **The resend replaces the earlier code**, so only the last one sent is accepted.
+- **The resend adds a code**, and each one sent stays good until its own expiry.
+
+**Rationale:**
+
+A person asks again because the first code has not arrived, and it may still be on its way: a mail
+the mail server asked to wait is [tried
+again](mail.md#what-the-mail-server-answers-decides-whether-a-mail-is-tried-again), and can reach
+the inbox before the one sent after it. Replacing would refuse the code the person is holding and
+send them back to wait for the other, which may be the one held up.
+
+What adding costs is breadth: a session asking again at every resend date holds as many codes at
+once as the lifetime spans resend delays, and each is one more value a guess can hit. The lifetime
+bounds it, and what makes a guess cheap is that attempts are [not
+limited](security.md#what-this-document-does-not-settle). A limit on those answers one code and
+several alike, and refuses nobody the code they are holding.
+
 ---
 
 ## Where a request came from

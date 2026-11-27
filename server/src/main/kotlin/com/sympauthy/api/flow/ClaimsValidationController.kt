@@ -151,10 +151,10 @@ class ClaimsValidationController(
         )
 
     @Operation(
-        description = "Send a new validation code through a media, replacing the one sent through it earlier " +
-            "in this interactive flow session. Nothing is sent, and `resent` is `false`, when no code was " +
-            "sent through it yet, when the earlier code has neither expired nor reached its `resend_date`, or " +
-            "when no claim is left to validate through it.",
+        description = "Send a new validation code through a media. A code sent through it earlier in this " +
+            "interactive flow session is still accepted until it expires. Nothing is sent, and `resent` is " +
+            "`false`, when no code was sent through it yet, when the earlier code has neither expired nor " +
+            "reached its `resend_date`, or when no claim is left to validate through it.",
         responses = [
             ApiResponse(
                 responseCode = "200",
