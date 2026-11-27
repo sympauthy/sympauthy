@@ -24,7 +24,10 @@ import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.SpyK
 import io.mockk.junit5.MockKExtension
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.slot
 import io.opentelemetry.api.OpenTelemetry
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -32,6 +35,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.extension.ExtendWith
+import java.time.LocalDateTime
 import java.util.*
 
 @ExtendWith(MockKExtension::class)
@@ -70,6 +74,8 @@ class CollectedClaimManagerTest {
     @SpyK
     @InjectMockKs
     lateinit var manager: CollectedClaimManager
+
+    private val collectionDate = LocalDateTime.of(2026, 2, 3, 4, 5)
 
     @Test
     fun `findByUserId - Return collected claims for user`() = runTest {
@@ -173,8 +179,12 @@ class CollectedClaimManagerTest {
 
         coEvery { collectedClaimRepository.findByUserId(userId) } returns
                 listOf(updatedEntity, deletedEntity, keptEntity)
-        coEvery { manager.createMissingClaims(user, any(), updates) } returns listOf(createdEntity)
-        coEvery { manager.updateExistingClaims(any(), updates) } returns listOf(updatedEntity)
+        val createdDate = slot<LocalDateTime>()
+        val updatedDate = slot<LocalDateTime>()
+        coEvery {
+            manager.createMissingClaims(user, any(), updates, capture(createdDate))
+        } returns listOf(createdEntity)
+        coEvery { manager.updateExistingClaims(any(), updates, capture(updatedDate)) } returns listOf(updatedEntity)
         coEvery { manager.deleteExistingClaimsUpdatedToNull(any(), updates) } returns listOf(deletedEntity)
         every { collectedClaimMapper.toCollectedClaim(createdEntity) } returns created
         every { collectedClaimMapper.toCollectedClaim(updatedEntity) } returns updated
@@ -189,6 +199,7 @@ class CollectedClaimManagerTest {
         assertTrue(result.contains(created))
         assertTrue(result.contains(updated))
         assertTrue(result.contains(kept))
+        assertEquals(createdDate.captured, updatedDate.captured)
     }
 
     @Test
@@ -257,14 +268,15 @@ class CollectedClaimManagerTest {
         val update = mockUpdate(updatedClaim, newValueOptional)
 
         every { collectedClaimUpdateMapper.toValue(Optional.of(newValue)) } answers { newValue }
-        every { collectedClaimUpdateMapper.updateEntity(toUpdateEntity, update) } returns toUpdateEntity
+        every { collectedClaimUpdateMapper.updateEntity(toUpdateEntity, update, collectionDate) } returns toUpdateEntity
         every { collectedClaimRepository.updateAll(listOf(toUpdateEntity)) } returns flowOf(toUpdateEntity)
 
         val result = manager.updateExistingClaims(
             existingEntityByClaimMap = mapOf(
                 updatedClaim to toUpdateEntity
             ),
-            applicableUpdates = listOf(update)
+            applicableUpdates = listOf(update),
+            collectionDate = collectionDate
         )
 
         assertEquals(1, result.count())
@@ -288,7 +300,8 @@ class CollectedClaimManagerTest {
             existingEntityByClaimMap = mapOf(
                 updatedClaim to toUpdateEntity
             ),
-            applicableUpdates = listOf(update)
+            applicableUpdates = listOf(update),
+            collectionDate = collectionDate
         )
 
         assertEquals(0, result.count())
@@ -306,7 +319,8 @@ class CollectedClaimManagerTest {
             existingEntityByClaimMap = mapOf(
                 nonUpdatedClaim to nonUpdatedEntity
             ),
-            applicableUpdates = listOf(update)
+            applicableUpdates = listOf(update),
+            collectionDate = collectionDate
         )
 
         assertEquals(0, result.count())
@@ -319,7 +333,7 @@ class CollectedClaimManagerTest {
         val createdEntity = mockk<CollectedClaimEntity>()
         val update = mockUpdate(createdClaim, mockk())
 
-        every { collectedClaimUpdateMapper.toEntity(userId, null, update) } returns createdEntity
+        every { collectedClaimUpdateMapper.toEntity(userId, null, update, collectionDate) } returns createdEntity
         every { collectedClaimRepository.saveAll(listOf(createdEntity)) } returns flowOf(createdEntity)
 
         val result = manager.createMissingClaims(
@@ -328,7 +342,8 @@ class CollectedClaimManagerTest {
                 every { sessionId } returns null
             },
             existingEntityByClaimMap = emptyMap(),
-            applicableUpdates = listOf(update)
+            applicableUpdates = listOf(update),
+            collectionDate = collectionDate
         )
 
         assertEquals(1, result.count())
@@ -348,10 +363,27 @@ class CollectedClaimManagerTest {
             existingEntityByClaimMap = mapOf(
                 updatedClaim to updatedEntity
             ),
-            applicableUpdates = listOf(update)
+            applicableUpdates = listOf(update),
+            collectionDate = collectionDate
         )
 
         assertEquals(0, result.count())
+    }
+
+    @Test
+    fun `validateClaims - Date every claim it verifies with one instant`() = runTest {
+        val user = committedUser()
+        val emailDate = slot<LocalDateTime>()
+        val phoneDate = slot<LocalDateTime>()
+
+        coEvery { collectedClaimRepository.updateClaimsToVerified(user.id, EMAIL_CLAIM, capture(emailDate)) } just runs
+        coEvery {
+            collectedClaimRepository.updateClaimsToVerified(user.id, PHONE_NUMBER_CLAIM, capture(phoneDate))
+        } just runs
+
+        manager.validateClaims(user, listOf(mockEmailClaim(), mockk { every { id } returns PHONE_NUMBER_CLAIM }))
+
+        assertEquals(emailDate.captured, phoneDate.captured)
     }
 
     @Test
@@ -610,6 +642,7 @@ class CollectedClaimManagerTest {
 
     private companion object {
         const val EMAIL_CLAIM = "email"
+        const val PHONE_NUMBER_CLAIM = "phone_number"
         const val PHONE_CLAIM = "phone_number"
         /** The address as somebody wrote it, and the spelling every comparison on it is made in. */
         const val EMAIL = "Someone@Example.com"

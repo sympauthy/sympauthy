@@ -73,6 +73,7 @@ class ValidationCodeMapperTest {
             media = media,
             reasons = reasons,
             sessionId = sessionId,
+            creationDate = LocalDateTime.now(),
             resendDate = null,
             expirationDate = LocalDateTime.now().plusMinutes(10),
         ).apply { this.id = id }

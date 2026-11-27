@@ -15,7 +15,7 @@ class PasswordEntity(
     val salt: ByteArray,
     val hashedPassword: ByteArray,
 
-    val creationDate: LocalDateTime = LocalDateTime.now(),
+    val creationDate: LocalDateTime,
     val expirationDate: LocalDateTime?,
 
     override val sessionId: UUID?

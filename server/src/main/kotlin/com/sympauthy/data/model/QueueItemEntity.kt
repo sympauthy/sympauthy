@@ -30,7 +30,7 @@ class QueueItemEntity(
     val creationDate: LocalDateTime,
     val expirationDate: LocalDateTime,
     val attemptCount: Int = 0,
-    val nextAttemptDate: LocalDateTime = creationDate,
+    val nextAttemptDate: LocalDateTime,
     val holder: String? = null,
     val leaseExpirationDate: LocalDateTime? = null
 ) {

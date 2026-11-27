@@ -22,9 +22,10 @@ class CollectedClaimUpdateMapperTest {
 
     @Test
     fun `toEntity - Collect a value this server has verified nothing about`() {
-        val entity = mapper.toEntity(UUID.randomUUID(), null, update("first@example.com"))
+        val entity = mapper.toEntity(UUID.randomUUID(), null, update("first@example.com"), collectionDate)
 
         assertEquals("\"first@example.com\"", entity.value)
+        assertEquals(collectionDate, entity.collectionDate)
         assertNull(entity.verified)
         assertNull(entity.verificationDate)
     }
@@ -33,12 +34,15 @@ class CollectedClaimUpdateMapperTest {
     fun `updateEntity - Drop the verification of the value it replaces`() {
         val entity = verifiedEntity("proven@example.com")
 
-        mapper.updateEntity(entity, update("other@example.com"))
+        mapper.updateEntity(entity, update("other@example.com"), collectionDate)
 
         assertEquals("\"other@example.com\"", entity.value)
+        assertEquals(collectionDate, entity.collectionDate)
         assertNull(entity.verified)
         assertNull(entity.verificationDate)
     }
+
+    private val collectionDate = LocalDateTime.of(2026, 2, 3, 4, 5)
 
     private fun update(value: Any?) = CollectedClaimUpdate(
         claim = emailClaim,

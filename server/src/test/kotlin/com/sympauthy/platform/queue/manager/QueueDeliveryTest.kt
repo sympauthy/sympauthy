@@ -364,7 +364,8 @@ class QueueDeliveryTest {
         kind = KIND,
         payload = "{}",
         creationDate = now,
-        expirationDate = expirationDate
+        expirationDate = expirationDate,
+        nextAttemptDate = now
     ).apply { id = UUID.randomUUID() }
 
     /**

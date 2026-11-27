@@ -48,6 +48,7 @@ class QueueItemMapperTest {
         payload = "{}",
         creationDate = now,
         expirationDate = now.plusMinutes(10),
-        attemptCount = attemptCount
+        attemptCount = attemptCount,
+        nextAttemptDate = now
     )
 }
