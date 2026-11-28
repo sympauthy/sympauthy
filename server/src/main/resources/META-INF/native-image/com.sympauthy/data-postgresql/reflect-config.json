@@ -1,17 +1,5 @@
 [
   {
-    "name": "io.r2dbc.postgresql.PostgresqlConnectionFactory",
-    "fields": [
-      {
-        "name": "configuration"
-      }
-    ]
-  },
-  {
-    "name": "io.r2dbc.postgresql.PostgresqlConnectionConfiguration",
-    "allDeclaredFields": true
-  },
-  {
     "name": "org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension",
     "allPublicMethods": true
   }
