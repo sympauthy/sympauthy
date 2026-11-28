@@ -19,6 +19,10 @@ on:
         description: "Platform identifier (linux-x64 or linux-arm64)"
         type: string
         required: true
+      labels:
+        description: Labels to stamp on the image beside the ones generated from the repository, one key=value per line.
+        type: string
+        default: ''
 
 jobs:
   publish:
@@ -45,6 +49,7 @@ jobs:
         with:
           images: ${{ inputs.image }}
           tags: type=raw,value=${{ inputs.tag }}
+          labels: ${{ inputs.labels }}
 
       - name: Map platform to Docker architecture
         id: arch

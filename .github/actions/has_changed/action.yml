@@ -1,5 +1,5 @@
 name: has_changed
-description: Check if repository has changed in the last 24 hours.
+description: Check if the checked out commit of a repository differs from the one the published image was built from.
 inputs:
   name:
     description: Name of the repository
@@ -7,10 +7,19 @@ inputs:
   path:
     description: Path to the directory where the repository has been checkout.
     default: '.'
+  image:
+    description: Published image, including registry and tag, whose label records the commit it was built from.
+    required: true
+  label:
+    description: Label of the image holding the commit of this repository it was built from.
+    required: true
 outputs:
   result:
-    description: '1 if the repository has changed in the last 24 hours, 0 otherwise.'
+    description: '1 if the checked out commit is not the one the published image was built from, 0 otherwise.'
     value: ${{ steps.has_changed.outputs.result }}
+  revision:
+    description: The checked out commit, to stamp on the image under the label once it is built.
+    value: ${{ steps.has_changed.outputs.revision }}
 runs:
   using: "composite"
   steps:
@@ -18,13 +27,15 @@ runs:
       shell: bash
       working-directory: ${{ inputs.path }}
       run: |
-        LAST_COMMIT_TS=$(git log -1 --format="%ct")
-        NOW_TS=$(date +%s)
-        DIFF=$(( NOW_TS - LAST_COMMIT_TS ))
-        if [ "$DIFF" -le 86400 ]; then
-          echo "${{ inputs.name }} has changed in the last 24 hours."
+        REVISION=$(git rev-parse HEAD)
+        echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+        # An image that cannot be read, or that predates the label, counts as built from another commit.
+        PUBLISHED=$(docker buildx imagetools inspect "${{ inputs.image }}" \
+          --format '{{ index (index .Image "linux/amd64").Config.Labels "${{ inputs.label }}" }}' 2>/dev/null || true)
+        if [ "$REVISION" != "$PUBLISHED" ]; then
+          echo "${{ inputs.name }} is at $REVISION, the published image was built from '${PUBLISHED}'."
           echo "result=1" >> "$GITHUB_OUTPUT"
         else
-          echo "${{ inputs.name }} has not changed in the last 24 hours. Last commit $(( DIFF / 3600 ))h ago."
+          echo "${{ inputs.name }} is at $REVISION, which the published image was built from."
           echo "result=0" >> "$GITHUB_OUTPUT"
         fi
