@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   has_changed:
-    name: Check if sympauthy has changed recently.
+    name: Check if sympauthy has changed since the published image.
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
@@ -28,12 +28,15 @@ jobs:
         uses: ./.github/actions/has_changed
         with:
           name: sympauthy
+          image: ghcr.io/sympauthy/sympauthy-nightly:latest
+          label: org.opencontainers.image.revision
 
   has_flow_changed:
-    name: Check if sympauthy-flow has changed recently.
+    name: Check if sympauthy-flow has changed since the published image.
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
+      revision: ${{ steps.has_changed.outputs.revision }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -48,12 +51,15 @@ jobs:
         with:
           name: sympauthy-flow
           path: sympauthy-flow
+          image: ghcr.io/sympauthy/sympauthy-nightly:latest
+          label: com.sympauthy.flow.revision
 
   has_admin_changed:
-    name: Check if sympauthy-admin has changed recently.
+    name: Check if sympauthy-admin has changed since the published image.
     runs-on: ubuntu-latest
     outputs:
       result: ${{ steps.has_changed.outputs.result }}
+      revision: ${{ steps.has_changed.outputs.revision }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -68,6 +74,8 @@ jobs:
         with:
           name: sympauthy-admin
           path: sympauthy-admin
+          image: ghcr.io/sympauthy/sympauthy-nightly:latest
+          label: com.sympauthy.admin.revision
 
   should_build:
     name: Determine if build is needed
@@ -163,7 +171,7 @@ jobs:
       small_runner: ${{ matrix.small_runner }}
 
   publish_docker:
-    needs: [ should_build, build_linux_binary, integration_test ]
+    needs: [ should_build, has_flow_changed, has_admin_changed, build_linux_binary, integration_test ]
     if: needs.should_build.outputs.result == '1'
     strategy:
       fail-fast: false
@@ -177,6 +185,11 @@ jobs:
       image: ghcr.io/sympauthy/sympauthy-nightly
       tag: latest-${{ matrix.platform }}
       platform: ${{ matrix.platform }}
+      # The commits the checks above saw, which the builds check out after them: a commit landing in
+      # between is stamped as not built, and rebuilt the next night rather than never.
+      labels: |
+        com.sympauthy.flow.revision=${{ needs.has_flow_changed.outputs.revision }}
+        com.sympauthy.admin.revision=${{ needs.has_admin_changed.outputs.revision }}
 
   publish_docker_manifest:
     name: Create multi-arch Docker manifest
